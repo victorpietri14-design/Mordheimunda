@@ -1,0 +1,21 @@
+{
+  "name": "mordheimunda-26",
+  "private": true,
+  "version": "88.1.0",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node api/_lib/server.js",
+    "start": "node api/_lib/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "express-rate-limit": "^8.1.0",
+    "pg": "^8.16.3",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "nodemailer": "^7.0.6"
+  }
+}
