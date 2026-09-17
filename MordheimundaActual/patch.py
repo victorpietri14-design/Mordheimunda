@@ -1,0 +1,24 @@
+from pathlib import Path
+p=Path('/mnt/data/v92fix/assets/app.js')
+s=p.read_text()
+old='''<div class="postbattle-controls"><div class="postbattle-hero-validation"><span class="postbattle-field-title">Heroes ayant survécu</span>${heroes.length?heroes.map(x=>{const checked=p.survivingHeroIds.includes(x.instance);return `<label class="postbattle-hero-check"><input type="checkbox" ${checked?'checked':''} onchange="togglePostBattleHero('${x.instance}',this.checked)"><span><b>${esc(x.name)}</b><small>${esc(x.type||'Hero')}</small></span><em>✓</em></label>`}).join(''):'<div class="empty compact">Aucun Hero éligible dans la bande.</div>'}<small class="postbattle-help">${p.heroCount} Hero${p.heroCount!==1?'s':''} validé${p.heroCount!==1?'s':''} → ${p.heroCount} dé${p.heroCount!==1?'s':''}.</small></div><label class="postbattle-check"><input type="checkbox" ${p.winner?'checked':''} onchange="setPostBattleWinner(this.checked)"><span>Victoire de la dernière bataille <b>+1 dé</b></span></label><label><span>Dés supplémentaires</span><input type="number" min="0" max="20" value="${p.extraDice}" onchange="setPostBattleNumber('extraDice',this.value)"><small>Compétences, équipement ou autre bonus autorisé</small></label></div><div class="postbattle-dice-head"><span>Chaque dé peut être lancé ou saisi manuellement.</span>${dice.length?'<button type="button" class="button secondary small" onclick="rollAllPostBattleDice()">🎲 Lancer tous les dés non renseignés</button>':''}</div><div class="postbattle-dice-list">'''
+new='''<div class="postbattle-income-layout"><div class="postbattle-heroes-column"><div class="postbattle-hero-validation"><span class="postbattle-field-title">Heroes ayant survécu</span>${heroes.length?heroes.map(x=>{const checked=p.survivingHeroIds.includes(x.instance);return `<label class="postbattle-hero-check"><input type="checkbox" ${checked?'checked':''} onchange="togglePostBattleHero('${x.instance}',this.checked)"><span><b>${esc(x.name)}</b><small>${esc(x.type||'Hero')}</small></span><em>✓</em></label>`}).join(''):'<div class="empty compact">Aucun Hero éligible dans la bande.</div>'}<small class="postbattle-help">${p.heroCount} Hero${p.heroCount!==1?'s':''} validé${p.heroCount!==1?'s':''} → ${p.heroCount} dé${p.heroCount!==1?'s':''}.</small></div></div><div class="postbattle-roll-column"><div class="postbattle-bonus-controls"><label class="postbattle-check"><input type="checkbox" ${p.winner?'checked':''} onchange="setPostBattleWinner(this.checked)"><span>Victoire de la dernière bataille <b>+1 dé</b></span></label><label><span>Dés supplémentaires</span><input type="number" min="0" max="20" value="${p.extraDice}" onchange="setPostBattleNumber('extraDice',this.value)"><small>Compétences, équipement ou autre bonus autorisé</small></label></div><div class="postbattle-dice-head"><span>Chaque dé peut être lancé ou saisi manuellement.</span>${dice.length?'<button type="button" class="button secondary small" onclick="rollAllPostBattleDice()">🎲 Lancer tous les dés non renseignés</button>':''}</div><div class="postbattle-dice-list">'''
+if old not in s:
+    raise SystemExit('old block not found')
+s=s.replace(old,new,1)
+old2='''</div><div class="postbattle-summary"><div><span>Dés générés</span>'''
+new2='''</div></div></div><div class="postbattle-summary"><div><span>Dés générés</span>'''
+if old2 not in s:
+    raise SystemExit('old2 not found')
+s=s.replace(old2,new2,1)
+p.write_text(s)
+
+css=Path('/mnt/data/v92fix/assets/styles.css')
+c=css.read_text()
+insert='''.postbattle-income-layout{display:grid;grid-template-columns:minmax(240px,.72fr) minmax(0,1.28fr);gap:12px;align-items:start}.postbattle-heroes-column{min-width:0}.postbattle-roll-column{min-width:0}.postbattle-bonus-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,.8fr);gap:8px;margin-bottom:10px}.postbattle-income-layout .postbattle-hero-validation{height:100%}.postbattle-income-layout .postbattle-dice-list{gap:5px}.postbattle-income-layout .postbattle-die{grid-template-columns:28px minmax(0,1fr) 58px auto;padding:6px}.postbattle-income-layout .postbattle-die-input{width:58px;padding:6px}.postbattle-income-layout .postbattle-summary{grid-column:1/-1;margin-top:0}.postbattle-income-layout .postbattle-dice-head{margin-bottom:7px}'''
+needle='.postbattle-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}'
+if needle not in c: raise SystemExit('css needle missing')
+c=c.replace(needle,needle+insert,1)
+# responsive additions to both relevant media rules
+c=c.replace('@media(max-width:900px){.postbattle-grid{grid-template-columns:1fr}.postbattle-controls,.income-controls{grid-template-columns:1fr}', '@media(max-width:900px){.postbattle-grid{grid-template-columns:1fr}.postbattle-income-layout{grid-template-columns:1fr}.postbattle-bonus-controls{grid-template-columns:1fr}.postbattle-controls,.income-controls{grid-template-columns:1fr}',1)
+css.write_text(c)
