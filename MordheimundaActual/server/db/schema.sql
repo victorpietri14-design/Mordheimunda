@@ -79,14 +79,23 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ip TEXT;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
 
--- V153: grandfather every existing account so the new "verify your email"
--- flow does not lock any pre-feature user out of password recovery. Only
--- rows with an actual email address are backfilled (an account with no
--- email cannot be verified anyway), and COALESCE means a row that was
--- already verified by some other path (a future manual admin flow) keeps
--- its earlier timestamp. Runs on every deploy but only does work the
--- first time — subsequent runs match zero rows.
-UPDATE users SET email_verified_at=COALESCE(email_verified_at,NOW()) WHERE email IS NOT NULL AND email_verified_at IS NULL;
+-- V153: grandfather every account that existed BEFORE the "verify your
+-- email" feature shipped, so no pre-feature user is locked out of password
+-- recovery. V156 fix: this must run exactly once — the previous
+-- unconditional UPDATE re-ran on every cold boot and silently marked every
+-- fresh signup / freshly-changed address as verified. A row in
+-- schema_migrations records that the backfill happened; the data-modifying
+-- CTE only updates when the INSERT actually inserted (first run).
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  name TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+WITH m AS (
+  INSERT INTO schema_migrations(name) VALUES ('v153_grandfather_email_verified')
+  ON CONFLICT (name) DO NOTHING RETURNING name
+)
+UPDATE users SET email_verified_at=COALESCE(email_verified_at,NOW())
+WHERE email IS NOT NULL AND email_verified_at IS NULL AND EXISTS (SELECT 1 FROM m);
 
 -- Warbands an admin has "officialized" from a custom warband: made visible to
 -- every account as a normal, selectable faction (same shape the client uses
