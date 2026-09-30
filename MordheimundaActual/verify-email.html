@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0908">
+<title>Verify your email // Mordheimunda</title>
+<link rel="icon" href="/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+ :root{--ink:#e8d9b5;--dim:#c9b990;--muted:#7a6a4a;--brass:#c98a5a;--panel:#141210;--panel-2:#0b0908;--line:#3a2a1a;--good:#8fbf5a;--bad:#e8b09a}
+ *,*::before,*::after{box-sizing:border-box}
+ html,body{margin:0;padding:0;background:var(--panel-2);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;min-height:100%}
+ body{background:radial-gradient(ellipse at top,#1a120c 0%,#0b0908 60%) fixed;padding:32px 16px;display:flex;align-items:center;justify-content:center}
+ main{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:36px 32px;box-shadow:0 24px 48px rgba(0,0,0,.55),inset 0 0 0 1px #1e150e;position:relative;text-align:center}
+ main::before{content:"";position:absolute;top:-1px;left:-1px;right:-1px;height:3px;background:linear-gradient(90deg,transparent,var(--brass),transparent)}
+ .brand{font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:22px;letter-spacing:.16em;color:var(--brass);text-transform:uppercase;margin:0}
+ .sub{font-size:10px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;margin:6px 0 30px 0}
+ h1{font-family:'Cinzel',Georgia,serif;font-size:22px;letter-spacing:.09em;color:var(--ink);margin:0 0 14px 0;font-weight:700}
+ p{color:var(--dim);line-height:1.55;font-size:14px;margin:0 0 18px 0}
+ .icon{font-size:44px;margin-bottom:16px;color:var(--brass);letter-spacing:0}
+ .icon.ok{color:var(--good)}
+ .icon.err{color:var(--bad)}
+ .cta{display:inline-block;margin-top:6px;padding:13px 26px;background:linear-gradient(180deg,#4a2717,#2f1809);border:1px solid var(--brass);color:#f2e4c3;font-family:'Cinzel',Georgia,serif;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;text-decoration:none;border-radius:2px;transition:background .18s,box-shadow .18s}
+ .cta:hover{background:linear-gradient(180deg,#5a2f1c,#3a1f10);box-shadow:0 0 0 1px var(--brass),0 6px 14px rgba(0,0,0,.35)}
+ .back{display:block;margin-top:22px;color:var(--muted);text-decoration:none;font-size:12px;letter-spacing:.12em;text-transform:uppercase;transition:color .18s}
+ .back:hover{color:var(--brass)}
+ .spinner{display:inline-block;width:26px;height:26px;border:2px solid var(--line);border-top-color:var(--brass);border-radius:50%;animation:spin 1s linear infinite}
+ @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<main data-testid="verify-email-card">
+ <p class="brand">Mordheimunda</p>
+ <p class="sub">M17 Roster Manager</p>
+ <div id="state">
+  <div class="spinner" aria-label="Verifying"></div>
+  <p style="margin-top:18px" data-testid="verify-status">Verifying your email…</p>
+ </div>
+ <a class="back" href="/" data-testid="back-to-app-link">← Back to the app</a>
+</main>
+<script>
+(function(){
+ const params=new URLSearchParams(location.search);
+ const token=params.get('token')||'';
+ const state=document.getElementById('state');
+ function render(html){state.innerHTML=html;}
+ if(!token||token.length<20){
+  render('<div class="icon err">✕</div><h1>Link is invalid</h1><p>This confirmation link is missing or malformed. Sign in and use the "Resend verification email" button on the banner.</p><a class="cta" href="/" data-testid="cta-signin">Go to sign in</a>');
+  return;
+ }
+ fetch('/api/auth/verify-email',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})
+  .then(async r=>{
+   if(r.ok){
+    render('<div class="icon ok">✓</div><h1>Email verified</h1><p>Your email address is now confirmed. You will be redirected to the app in a moment.</p><a class="cta" href="/" data-testid="cta-open-app">Open the app</a>');
+    setTimeout(()=>{location.href='/';},1800);
+   }else{
+    const b=await r.json().catch(()=>({}));
+    if(b.error==='INVALID_TOKEN'){
+     render('<div class="icon err">✕</div><h1>Link expired</h1><p>This confirmation link has expired or was already used. Sign in and click "Resend verification email" from the banner to get a new one.</p><a class="cta" href="/" data-testid="cta-signin">Go to sign in</a>');
+    }else{
+     render('<div class="icon err">✕</div><h1>Something went wrong</h1><p>We could not verify your email. Please try again in a moment.</p><a class="cta" href="/" data-testid="cta-back">Back to the app</a>');
+    }
+   }
+  })
+  .catch(()=>{
+   render('<div class="icon err">✕</div><h1>Network error</h1><p>We could not reach the server. Please try again in a moment.</p><a class="cta" href="/" data-testid="cta-back">Back to the app</a>');
+  });
+})();
+</script>
+</body>
+</html>

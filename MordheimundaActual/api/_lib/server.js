@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
+import rateLimit,{ipKeyGenerator} from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { Pool } from 'pg';
@@ -87,7 +87,22 @@ async function sendMail({to,subject,text,html}){
 function passwordResetEmail({username,link}){
   const safe=String(username||'').replace(/[<>&"']/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[c]));
   const text=`Hail ${username},\n\nA password reset was requested for your Mordheimunda account.\n\nOpen the link below to choose a new password:\n${link}\n\nThis link expires in 15 minutes and can only be used once.\nIf you did not request this, you can safely ignore this email — your password will not change.\n\n— Mordheimunda`;
-  const html=`<!doctype html><html lang="en"><body style="margin:0;padding:0;background:#0b0908;font-family:Georgia,'Times New Roman',serif;color:#d9c9a3">
+  return {text,html:brandedEmail({title:'Reset your password',safeUsername:safe,intro:'A password reset was requested for your Mordheimunda account. Click the button below to choose a new password.',cta:'Reset password',link,note:'This link <strong style="color:#c98a5a">expires in 15 minutes</strong> and can only be used once. If you did not request this reset, you can safely ignore this email — your password will not change.'})};
+}
+
+// V153: HTML+text body for the "confirm your email" mail sent right after
+// signup. Same template as password reset (shared brandedEmail() below);
+// only the copy and CTA change.
+function verifyEmailEmail({username,link}){
+  const safe=String(username||'').replace(/[<>&"']/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[c]));
+  const text=`Hail ${username},\n\nWelcome to Mordheimunda. Confirm your email address so we can send you password-recovery links and important account notices.\n\nOpen the link below to verify your email:\n${link}\n\nThis link expires in 24 hours.\nIf you did not create an account, you can safely ignore this email.\n\n— Mordheimunda`;
+  return {text,html:brandedEmail({title:'Confirm your email',safeUsername:safe,intro:'Welcome to Mordheimunda. Confirm your email address so we can send you password-recovery links and important account notices.',cta:'Verify email',link,note:'This link <strong style="color:#c98a5a">expires in 24 hours</strong>. If you did not create an account, you can safely ignore this email.'})};
+}
+
+// Shared branded envelope for every transactional email so both flows share
+// the same dark-Warhammer look; only the title/intro/cta/note vary.
+function brandedEmail({title,safeUsername,intro,cta,link,note}){
+  return `<!doctype html><html lang="en"><body style="margin:0;padding:0;background:#0b0908;font-family:Georgia,'Times New Roman',serif;color:#d9c9a3">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0908;padding:32px 12px">
  <tr><td align="center">
   <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#141210;border:1px solid #3a2a1a;border-radius:2px">
@@ -96,19 +111,19 @@ function passwordResetEmail({username,link}){
     <div style="font-size:11px;letter-spacing:.18em;color:#7a6a4a;text-transform:uppercase;margin-top:4px">M17 Roster Manager</div>
    </td></tr>
    <tr><td style="padding:28px 32px 8px 32px">
-    <h1 style="font-family:'Cinzel',Georgia,serif;font-size:20px;letter-spacing:.08em;color:#e8d9b5;margin:0 0 14px 0">Reset your password</h1>
-    <p style="line-height:1.55;color:#c9b990;margin:0 0 14px 0">Hail <strong style="color:#e8d9b5">${safe}</strong>,</p>
-    <p style="line-height:1.55;color:#c9b990;margin:0 0 14px 0">A password reset was requested for your Mordheimunda account. Click the button below to choose a new password.</p>
+    <h1 style="font-family:'Cinzel',Georgia,serif;font-size:20px;letter-spacing:.08em;color:#e8d9b5;margin:0 0 14px 0">${title}</h1>
+    <p style="line-height:1.55;color:#c9b990;margin:0 0 14px 0">Hail <strong style="color:#e8d9b5">${safeUsername}</strong>,</p>
+    <p style="line-height:1.55;color:#c9b990;margin:0 0 14px 0">${intro}</p>
    </td></tr>
    <tr><td align="center" style="padding:8px 32px 20px 32px">
-    <a href="${link}" style="display:inline-block;padding:13px 26px;background:#3a1f10;border:1px solid #c98a5a;color:#f2e4c3;text-decoration:none;font-family:'Cinzel',Georgia,serif;font-size:13px;letter-spacing:.18em;text-transform:uppercase;border-radius:2px">Reset password</a>
+    <a href="${link}" style="display:inline-block;padding:13px 26px;background:#3a1f10;border:1px solid #c98a5a;color:#f2e4c3;text-decoration:none;font-family:'Cinzel',Georgia,serif;font-size:13px;letter-spacing:.18em;text-transform:uppercase;border-radius:2px">${cta}</a>
    </td></tr>
    <tr><td style="padding:0 32px 24px 32px">
     <p style="line-height:1.55;color:#8a7a5a;font-size:13px;margin:0 0 10px 0">Or paste this link into your browser:</p>
     <p style="word-break:break-all;font-family:'Courier New',monospace;font-size:12px;color:#c98a5a;background:#0b0908;border:1px solid #2a1e14;padding:10px 12px;margin:0">${link}</p>
    </td></tr>
    <tr><td style="padding:0 32px 28px 32px;border-top:1px solid #2a1e14">
-    <p style="line-height:1.55;color:#7a6a4a;font-size:12px;margin:16px 0 0 0">This link <strong style="color:#c98a5a">expires in 15 minutes</strong> and can only be used once. If you did not request this reset, you can safely ignore this email — your password will not change.</p>
+    <p style="line-height:1.55;color:#7a6a4a;font-size:12px;margin:16px 0 0 0">${note}</p>
    </td></tr>
    <tr><td style="padding:14px 32px;background:#0b0908;border-top:1px solid #2a1e14">
     <div style="font-size:10px;letter-spacing:.18em;color:#5a4a2f;text-transform:uppercase">Mordheimunda 26 · M17 Edition</div>
@@ -116,7 +131,26 @@ function passwordResetEmail({username,link}){
   </table>
  </td></tr>
 </table></body></html>`;
-  return {text,html};
+}
+
+// V153: fire off an email-verification token+mail for a freshly-created or
+// email-changed account. Best-effort: an SMTP failure here must never
+// prevent registration itself, so the caller passes {silent:true} and any
+// throw is swallowed and logged (the user still lands on the site logged
+// in, and can hit "Resend verification email" from the in-app banner).
+async function issueVerificationEmail(user,{silent=false}={}){
+  try{
+    if(!user?.email)return;
+    await pool.query("UPDATE recovery_tokens SET used_at=NOW() WHERE user_id=$1 AND kind='verify_email' AND used_at IS NULL",[user.id]);
+    const t=token();
+    await pool.query("INSERT INTO recovery_tokens(id,user_id,token_hash,kind,expires_at) VALUES($1,$2,$3,'verify_email',NOW()+INTERVAL '24 hours')",[crypto.randomUUID(),user.id,hash(t)]);
+    const link=`${config.frontendUrl}/verify-email.html?token=${encodeURIComponent(t)}`;
+    const {text,html}=verifyEmailEmail({username:user.username,link});
+    await sendMail({to:user.email,subject:'Confirm your Mordheimunda email',text,html});
+  }catch(e){
+    if(!silent)throw e;
+    console.error('issueVerificationEmail failed (continuing):',e.message);
+  }
 }
 
 async function auth(req,res,next){
@@ -177,6 +211,11 @@ app.post('/api/auth/register',requireDb,requireSameOrigin,async(req,res,next)=>{
     const t=token();
     await client.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),id,hash(t),config.sessionDays,q.rows[0].token_version||0]);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
+    // V153: fire-and-forget the verification email; a failure here (bad
+    // SMTP, transient network) must never block the signup itself — the
+    // user is already logged in, and the in-app banner will offer "Resend
+    // verification email" to try again.
+    issueVerificationEmail({id,username:q.rows[0].username,email:q.rows[0].email},{silent:true}).catch(()=>{});
     res.status(201).json({user:pub(q.rows[0])});
   }catch(e){try{await client.query('ROLLBACK')}catch{};next(e)}finally{client.release()}
 });
@@ -230,7 +269,7 @@ app.post('/api/auth/dev-admin',requireDb,requireSameOrigin,async(req,res,next)=>
 // `trust proxy` (set from TRUST_PROXY on Vercel), which express-rate-limit
 // handles safely for both IPv4 and IPv6 via its default keyGenerator.
 const forgotPasswordIpLimiter=rateLimit({windowMs:60*60*1000,max:3,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
-const forgotPasswordEmailLimiter=rateLimit({windowMs:60*60*1000,max:3,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'},keyGenerator:req=>String(req.body?.email||'').trim().toLowerCase()||'anonymous'});
+const forgotPasswordEmailLimiter=rateLimit({windowMs:60*60*1000,max:3,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'},keyGenerator:req=>String(req.body?.email||'').trim().toLowerCase()||ipKeyGenerator(req.ip)});
 
 app.post('/api/auth/forgot-password',requireDb,requireSameOrigin,forgotPasswordIpLimiter,forgotPasswordEmailLimiter,async(req,res,next)=>{
   const email=String(req.body?.email||'').trim().toLowerCase();
@@ -240,8 +279,13 @@ app.post('/api/auth/forgot-password',requireDb,requireSameOrigin,forgotPasswordI
     // after the same-ish latency). Only the email actually gets sent to a
     // real address on our end.
     if(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-      const q=await pool.query('SELECT id,username,email FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);
-      if(q.rows[0]){
+      const q=await pool.query('SELECT id,username,email,email_verified_at FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);
+      // V153: skip the send silently for accounts whose email was never
+      // confirmed. The response stays {ok:true} (anti-enumeration), so an
+      // attacker can't tell an unverified account from a non-existent one;
+      // a legitimate owner of an unverified account has to click "Resend
+      // verification email" from the in-app banner first.
+      if(q.rows[0]&&q.rows[0].email_verified_at){
         // Invalidate every previously-issued unused password token for this
         // user before minting the new one, so an attacker who intercepted an
         // older link (or the user retrying a lost email) can't race two live
@@ -286,6 +330,43 @@ app.post('/api/auth/reset-password',requireDb,requireSameOrigin,async(req,res,ne
 });
 
 app.post('/api/auth/forgot-username',requireDb,requireSameOrigin,async(req,res,next)=>{const email=String(req.body?.email||'').trim().toLowerCase();try{const q=await pool.query('SELECT username,email FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);if(q.rows[0])await sendMail({to:q.rows[0].email,subject:'Mordheimunda — Nom d’utilisateur',text:`Votre nom d’utilisateur Mordheimunda est : ${q.rows[0].username}`});res.json({ok:true})}catch(e){next(e)}});
+
+// V153: confirm an email address from the link sent in verifyEmailEmail().
+// Public (token-based, no session required): the click could come from a
+// mail client on a device where the user isn't logged in. Marks the token
+// used and stamps users.email_verified_at only if not already stamped, so
+// re-clicking an already-valid link is a no-op rather than an error.
+app.post('/api/auth/verify-email',requireDb,requireSameOrigin,async(req,res,next)=>{
+  const t=String(req.body?.token||'');
+  if(t.length<20)return res.status(400).json({error:'INVALID_TOKEN'});
+  try{
+    const q=await pool.query("SELECT id,user_id FROM recovery_tokens WHERE token_hash=$1 AND kind='verify_email' AND used_at IS NULL AND expires_at>NOW() LIMIT 1",[hash(t)]);
+    if(!q.rows[0])return res.status(400).json({error:'INVALID_TOKEN'});
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      await client.query('UPDATE users SET email_verified_at=COALESCE(email_verified_at,NOW()),updated_at=NOW() WHERE id=$1',[q.rows[0].user_id]);
+      await client.query('UPDATE recovery_tokens SET used_at=NOW() WHERE id=$1',[q.rows[0].id]);
+      await client.query('COMMIT');
+    }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+    res.json({ok:true});
+  }catch(e){next(e)}
+});
+
+// V153: resend the verification email for the currently signed-in user.
+// Auth-only (the in-app banner calls it), rate-limited to 3/h per user id
+// so a stuck banner cannot become an email bomb. If the account is
+// already verified we return {ok:true,alreadyVerified:true} rather than
+// generating another token — the banner should just hide itself.
+const resendVerificationLimiter=rateLimit({windowMs:60*60*1000,max:3,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'},keyGenerator:req=>req.user?.user_id||ipKeyGenerator(req.ip)});
+app.post('/api/auth/resend-verification',requireDb,requireSameOrigin,auth,resendVerificationLimiter,async(req,res,next)=>{
+  try{
+    if(!req.user.email)return res.status(400).json({error:'NO_EMAIL'});
+    if(req.user.email_verified_at)return res.json({ok:true,alreadyVerified:true});
+    await issueVerificationEmail({id:req.user.user_id,username:req.user.username,email:req.user.email});
+    res.json({ok:true});
+  }catch(e){next(e)}
+});
 
 app.get('/api/account/me',requireDb,auth,(req,res)=>res.json({user:pub(req.user)}));
 app.post('/api/account/change-password',requireDb,requireSameOrigin,auth,async(req,res,next)=>{const cur=String(req.body?.currentPassword||''),nextPassword=String(req.body?.newPassword||'');if(nextPassword.length<10||nextPassword.length>128)return res.status(400).json({error:'INVALID_PASSWORD'});try{const q=await pool.query('SELECT password_hash FROM users WHERE id=$1',[req.user.user_id]);if(!q.rows[0]||!(await safeCompare(cur,q.rows[0].password_hash)))return res.status(401).json({error:'INVALID_CREDENTIALS'});await pool.query('UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2',[await bcrypt.hash(nextPassword,12),req.user.user_id]);await pool.query('DELETE FROM sessions WHERE user_id=$1 AND id<>$2',[req.user.user_id,req.user.session_id]);res.json({ok:true})}catch(e){next(e)}});
@@ -989,6 +1070,7 @@ app.post('/api/admin/migrate',requireDb,async(req,res,next)=>{
 const sendResetPage=name=>(_req,res)=>res.sendFile(path.join(publicDir,name),{headers:{'Cache-Control':'no-store'}});
 app.get('/forgot-password.html',sendResetPage('forgot-password.html'));
 app.get('/reset-password.html',sendResetPage('reset-password.html'));
+app.get('/verify-email.html',sendResetPage('verify-email.html'));
 
 // Only the actual client assets are servable as static files — never the whole
 // project root (which would otherwise also expose server source, the DB schema,

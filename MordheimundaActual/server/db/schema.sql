@@ -34,12 +34,21 @@ CREATE TABLE IF NOT EXISTS recovery_tokens (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
-  kind TEXT NOT NULL CHECK (kind IN ('password','username')),
+  kind TEXT NOT NULL CHECK (kind IN ('password','username','verify_email')),
   expires_at TIMESTAMPTZ NOT NULL,
   used_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS recovery_tokens_user_id_idx ON recovery_tokens(user_id);
 CREATE INDEX IF NOT EXISTS recovery_tokens_expires_at_idx ON recovery_tokens(expires_at);
+
+-- V153: extend the recovery_tokens.kind CHECK to accept 'verify_email' on
+-- databases created before the new kind was added. `CREATE TABLE IF NOT
+-- EXISTS` above never re-runs on an existing table, so the old two-value
+-- constraint keeps rejecting the new kind unless we drop-and-recreate it
+-- here. Constraint name matches the one Postgres auto-assigns from the
+-- column-level CHECK (recovery_tokens_kind_check).
+ALTER TABLE recovery_tokens DROP CONSTRAINT IF EXISTS recovery_tokens_kind_check;
+ALTER TABLE recovery_tokens ADD CONSTRAINT recovery_tokens_kind_check CHECK (kind IN ('password','username','verify_email'));
 
 -- Safe upgrades for databases created by V85.
 ALTER TABLE user_data ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
@@ -62,6 +71,15 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT fal
 -- a cached row), it can never be used to act as the pre-reset user again.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+-- V153: grandfather every existing account so the new "verify your email"
+-- flow does not lock any pre-feature user out of password recovery. Only
+-- rows with an actual email address are backfilled (an account with no
+-- email cannot be verified anyway), and COALESCE means a row that was
+-- already verified by some other path (a future manual admin flow) keeps
+-- its earlier timestamp. Runs on every deploy but only does work the
+-- first time — subsequent runs match zero rows.
+UPDATE users SET email_verified_at=COALESCE(email_verified_at,NOW()) WHERE email IS NOT NULL AND email_verified_at IS NULL;
 
 -- Warbands an admin has "officialized" from a custom warband: made visible to
 -- every account as a normal, selectable faction (same shape the client uses
