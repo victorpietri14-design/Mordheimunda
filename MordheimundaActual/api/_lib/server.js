@@ -86,15 +86,24 @@ const requireSameOrigin=(req,res,next)=>{
   next();
 };
 
+async function buildTransport(){
+  const {default:nodemailer}=await import('nodemailer');
+  return nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,auth:config.smtpUser?{user:config.smtpUser,pass:config.smtpPassword}:undefined,connectionTimeout:10000,greetingTimeout:10000,socketTimeout:15000});
+}
 async function sendMail({to,subject,text,html}){
   if(!config.smtpHost){
-    if(isProd)throw Error('SMTP_NOT_CONFIGURED');
+    if(isProd){console.error(`[MAIL] SMTP_HOST is not set — cannot send "${subject}" to ${to}`);throw Error('SMTP_NOT_CONFIGURED');}
     console.log(`[DEV EMAIL]\nTo: ${to}\nSubject: ${subject}\n${text}`);return;
   }
-  const {default:nodemailer}=await import('nodemailer');
-  const transporter=nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,auth:config.smtpUser?{user:config.smtpUser,pass:config.smtpPassword}:undefined});
-  await transporter.sendMail({from:config.smtpFrom,to,subject,text,...(html?{html}:{})});
+  const transporter=await buildTransport();
+  try{await transporter.sendMail({from:config.smtpFrom,to,subject,text,...(html?{html}:{})});}
+  catch(e){console.error(`[MAIL] send failed to=${to} subject="${subject}" host=${config.smtpHost}:${config.smtpPort} secure=${config.smtpSecure} from=${config.smtpFrom} :: ${e.code||''} ${e.responseCode||''} ${e.message}`);throw e}
 }
+// Public recovery endpoints must answer {ok:true} whether or not the mail
+// went out: a 500 here would both show "Server error" to a legitimate user
+// and tell an attacker the address exists (the send only happens for real
+// accounts). Failures are logged loudly above for the operator instead.
+const sendMailQuietly=opts=>sendMail(opts).then(()=>true,()=>false);
 
 // V152: HTML+text branded body for a password-reset email. Dark Warhammer
 // aesthetic to match the rest of the app, plain-text fallback for clients
@@ -313,7 +322,7 @@ app.post('/api/auth/forgot-password',requireDb,requireSameOrigin,forgotPasswordI
         await pool.query("INSERT INTO recovery_tokens(id,user_id,token_hash,kind,expires_at) VALUES($1,$2,$3,'password',NOW()+INTERVAL '15 minutes')",[crypto.randomUUID(),q.rows[0].id,hash(t)]);
         const link=`${config.frontendUrl}/reset-password.html?token=${encodeURIComponent(t)}`;
         const {text,html}=passwordResetEmail({username:q.rows[0].username,link});
-        await sendMail({to:q.rows[0].email,subject:'Reset your Mordheimunda password',text,html});
+        await sendMailQuietly({to:q.rows[0].email,subject:'Reset your Mordheimunda password',text,html});
       }
     }
     res.json({ok:true});
@@ -347,7 +356,7 @@ app.post('/api/auth/reset-password',requireDb,requireSameOrigin,async(req,res,ne
   }catch(e){next(e)}
 });
 
-app.post('/api/auth/forgot-username',requireDb,requireSameOrigin,async(req,res,next)=>{const email=String(req.body?.email||'').trim().toLowerCase();try{const q=await pool.query('SELECT username,email FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);if(q.rows[0])await sendMail({to:q.rows[0].email,subject:'Mordheimunda — Nom d’utilisateur',text:`Votre nom d’utilisateur Mordheimunda est : ${q.rows[0].username}`});res.json({ok:true})}catch(e){next(e)}});
+app.post('/api/auth/forgot-username',requireDb,requireSameOrigin,async(req,res,next)=>{const email=String(req.body?.email||'').trim().toLowerCase();try{const q=await pool.query('SELECT username,email FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);if(q.rows[0])await sendMailQuietly({to:q.rows[0].email,subject:'Mordheimunda — Nom d’utilisateur',text:`Votre nom d’utilisateur Mordheimunda est : ${q.rows[0].username}`});res.json({ok:true})}catch(e){next(e)}});
 
 // V153: confirm an email address from the link sent in verifyEmailEmail().
 // Public (token-based, no session required): the click could come from a
@@ -1138,6 +1147,26 @@ app.post('/api/admin/migrate',requireDb,async(req,res,next)=>{
     await pool.query(sql);
     res.json({ok:true,applied:true});
   }catch(e){next(e)}
+});
+
+// V155: operator-only SMTP diagnostic, same MIGRATE_TOKEN guard. Verifies
+// the connection/login against the configured relay and, if ?to= is given,
+// sends a real test mail there — returning the transport's exact error
+// (code + server response) instead of the generic 500 the public recovery
+// endpoints deliberately hide. Never reveals the SMTP password.
+app.get('/api/admin/smtp-check',async(req,res)=>{
+  const supplied=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'')||String(req.query.token||'');
+  if(!config.migrateToken||supplied!==config.migrateToken)return res.status(403).json({error:'FORBIDDEN'});
+  const cfg={host:config.smtpHost||null,port:config.smtpPort,secure:config.smtpSecure,user:config.smtpUser||null,from:config.smtpFrom,passwordSet:!!config.smtpPassword};
+  if(!config.smtpHost)return res.status(200).json({ok:false,step:'config',error:'SMTP_HOST is not set in this environment',config:cfg});
+  const to=String(req.query.to||'').trim();
+  try{
+    const transporter=await buildTransport();
+    await transporter.verify();
+    if(!to)return res.json({ok:true,step:'verify',config:cfg,hint:'Connection + login OK. Add ?to=you@example.com to send a real test mail.'});
+    const info=await transporter.sendMail({from:config.smtpFrom,to,subject:'Mordheimunda SMTP test',text:`SMTP test from Mordheimunda at ${new Date().toISOString()}. If you read this, password-recovery emails will go out.`});
+    res.json({ok:true,step:'send',config:cfg,to,messageId:info.messageId,response:info.response});
+  }catch(e){res.status(200).json({ok:false,step:to?'send':'verify',config:cfg,error:e.message,code:e.code||null,responseCode:e.responseCode||null,response:e.response||null})}
 });
 
 // V152: dedicated static HTML pages for the password-reset flow. Served
