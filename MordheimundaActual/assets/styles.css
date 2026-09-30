@@ -2542,7 +2542,7 @@ a[data-app-route]{cursor:pointer;text-decoration:none}
 .notes-counter{font-family:'IBM Plex Mono',monospace}
 
 /* Friends & admin-support (V89) */
-.account-friends,.account-admin-support,.account-access-log,.account-sessions{padding:22px;margin-top:14px}
+.account-friends,.account-admin-support,.account-access-log{padding:22px;margin-top:14px}
 .new-badge{display:inline-block;font:700 8px 'IBM Plex Sans';letter-spacing:.6px;text-transform:uppercase;color:var(--accent);border:1px solid var(--chip-border);background:var(--chip-bg);border-radius:5px;padding:2px 7px;margin-left:6px;vertical-align:middle}
 .new-badge.admin{color:var(--accent)}
 .friend-search{display:flex;gap:8px;margin:14px 0}
@@ -2943,7 +2943,7 @@ tr.ref-eq-edit-row td{white-space:normal;background:var(--bg)}
 .acct-pref-row>span:first-child{font:700 12.5px 'IBM Plex Sans';color:var(--text);display:flex;flex-direction:column;gap:2px}
 .acct-pref-sub{font:400 10px 'IBM Plex Sans';color:var(--muted2);text-transform:none;letter-spacing:0}
 .acct-pref-row select{background:transparent;border:1px solid var(--line2);color:var(--text);padding:6px 9px;border-radius:6px;font-size:11.5px}
-html[data-theme="light"] .account-card,html[data-theme="light"] .account-prefs,html[data-theme="light"] .account-friends,html[data-theme="light"] .account-admin-support,html[data-theme="light"] .account-sessions{background:var(--panel)}
+html[data-theme="light"] .account-card,html[data-theme="light"] .account-prefs,html[data-theme="light"] .account-friends,html[data-theme="light"] .account-admin-support{background:var(--panel)}
 /* These "surface" cards used a near-opaque rgba(black) background so they'd
    read as a dark card floating over the dark decorative photo backdrop.
    That never adapted to light mode, so they showed up as solid black boxes
@@ -2966,8 +2966,8 @@ html[data-theme="light"] .admin-live-editor-text{background:rgba(0,0,0,.05)}
 .account-password summary,.account-diag summary{padding:10px 13px;font:700 10px 'IBM Plex Sans';color:var(--muted2);letter-spacing:0;text-transform:none}
 .account-password form,.account-diag>*:not(summary){padding:0 13px 13px}
 .account-diag hr{margin:10px 13px}
-.account-friends,.account-admin-support,.account-access-log,.account-sessions{border:1px solid var(--panel);background:rgba(21,21,21,.94);border-radius:14px;padding:20px;margin-top:14px}
-.account-friends h3,.account-admin-support h3,.account-access-log h3,.account-sessions h3{margin:0 0 4px;font-family:'Cinzel',serif;font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px}
+.account-friends,.account-admin-support,.account-access-log{border:1px solid var(--panel);background:rgba(21,21,21,.94);border-radius:14px;padding:20px;margin-top:14px}
+.account-friends h3,.account-admin-support h3,.account-access-log h3{margin:0 0 4px;font-family:'Cinzel',serif;font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px}
 .account-admin-support h3{color:var(--wip)}
 .new-badge{color:var(--wip);font-size:8px;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--wip-border);background:var(--wip-bg);border-radius:5px;padding:2px 6px}
 .new-badge.admin{color:var(--wip)}
@@ -3449,10 +3449,3 @@ html[data-theme="light"] .card,html[data-theme="light"] .fcard,html[data-theme="
 .email-badge{display:inline-block;font:700 8px 'IBM Plex Sans';letter-spacing:.6px;text-transform:uppercase;border-radius:5px;padding:2px 7px;vertical-align:middle;margin-left:6px}
 .email-badge.ok{color:#7fc78a;border:1px solid rgba(127,199,138,.35);background:rgba(127,199,138,.1)}
 .email-badge.warn{color:#e0a45c;border:1px solid rgba(224,164,92,.4);background:rgba(224,164,92,.1)}
-.session-row{display:flex;align-items:center;gap:12px;border:1px solid var(--panel);border-radius:9px;background:var(--bg);padding:10px 13px;margin-bottom:7px;transition:border-color .15s}
-.session-row.current{border-color:rgba(127,199,138,.35)}
-.session-row:hover{border-color:var(--line)}
-.session-icon{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted2)}
-.session-meta{flex-grow:1;display:grid;gap:2px;min-width:0}
-.session-meta strong{font-size:12px}
-.session-meta .muted{font-size:11px;word-break:break-word}
