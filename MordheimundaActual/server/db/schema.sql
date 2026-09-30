@@ -72,6 +72,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT fal
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 
+-- V154: per-device session manager (Account → Connected devices). Each
+-- session snapshots the User-Agent and IP it was opened from, and tracks
+-- last activity so the user can recognise and revoke a device.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ip TEXT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+
 -- V153: grandfather every existing account so the new "verify your email"
 -- flow does not lock any pre-feature user out of password recovery. Only
 -- rows with an actual email address are backfilled (an account with no

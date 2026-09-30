@@ -49,6 +49,21 @@ const hash=t=>crypto.createHash('sha256').update(t).digest('hex');
 const token=()=>crypto.randomBytes(32).toString('base64url');
 const pub=u=>({id:u.id,username:u.username,email:u.email||null,emailVerified:!!u.email_verified_at,isAdmin:localDevAdmin||!!u.is_admin});
 const safeCompare=async(password,hashValue)=>bcrypt.compare(password,hashValue);
+const clientIp=req=>String(req.ip||'').replace(/^::ffff:/,'').slice(0,64);
+// V154: every login path mints its session here so the device metadata
+// (User-Agent, IP, last activity) shown in Account → Connected devices is
+// always recorded. Returns the raw token to set as the cookie.
+async function createSession(db,user,req){
+  const t=token();
+  await db.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version,user_agent,ip,last_seen_at) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5,$6,$7,NOW())",[crypto.randomUUID(),user.id,hash(t),config.sessionDays,user.token_version||0,String(req.get('user-agent')||'').slice(0,512)||null,clientIp(req)||null]);
+  return t;
+}
+function describeUserAgent(ua){
+  ua=String(ua||'');
+  const os=/iPhone|iPad|iPod/.test(ua)?'iOS':/Android/.test(ua)?'Android':/Windows/.test(ua)?'Windows':/Mac OS X/.test(ua)?'macOS':/CrOS/.test(ua)?'ChromeOS':/Linux/.test(ua)?'Linux':null;
+  const browser=/Edg\//.test(ua)?'Edge':/OPR\/|Opera/.test(ua)?'Opera':/Firefox\//.test(ua)?'Firefox':/SamsungBrowser/.test(ua)?'Samsung Internet':/Chrome\/|CriOS/.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':null;
+  return {browser,os,mobile:/Mobi|iPhone|iPod|Android/.test(ua)};
+}
 const isBootstrapAdminEmail=email=>!!email&&config.adminEmails.includes(String(email).toLowerCase());
 const slugify=s=>String(s||'').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
 
@@ -140,16 +155,18 @@ function brandedEmail({title,safeUsername,intro,cta,link,note}){
 // in, and can hit "Resend verification email" from the in-app banner).
 async function issueVerificationEmail(user,{silent=false}={}){
   try{
-    if(!user?.email)return;
+    if(!user?.email)return false;
     await pool.query("UPDATE recovery_tokens SET used_at=NOW() WHERE user_id=$1 AND kind='verify_email' AND used_at IS NULL",[user.id]);
     const t=token();
     await pool.query("INSERT INTO recovery_tokens(id,user_id,token_hash,kind,expires_at) VALUES($1,$2,$3,'verify_email',NOW()+INTERVAL '24 hours')",[crypto.randomUUID(),user.id,hash(t)]);
     const link=`${config.frontendUrl}/verify-email.html?token=${encodeURIComponent(t)}`;
     const {text,html}=verifyEmailEmail({username:user.username,link});
     await sendMail({to:user.email,subject:'Confirm your Mordheimunda email',text,html});
+    return true;
   }catch(e){
     if(!silent)throw e;
     console.error('issueVerificationEmail failed (continuing):',e.message);
+    return false;
   }
 }
 
@@ -157,7 +174,7 @@ async function auth(req,res,next){
   try{
     const raw=req.cookies.mordheimunda_session;
     if(!raw)return res.status(401).json({error:'NOT_AUTHENTICATED'});
-    const q=await pool.query(`SELECT s.id AS session_id,s.user_id,s.token_version AS session_token_version,u.username,u.email,u.email_verified_at,u.is_admin,u.token_version AS user_token_version
+    const q=await pool.query(`SELECT s.id AS session_id,s.user_id,s.token_version AS session_token_version,s.last_seen_at,u.username,u.email,u.email_verified_at,u.is_admin,u.token_version AS user_token_version
       FROM sessions s JOIN users u ON u.id=s.user_id
       WHERE s.token_hash=$1 AND s.expires_at>NOW()`,[hash(raw)]);
     if(!q.rows[0]){res.clearCookie('mordheimunda_session',cookie);return res.status(401).json({error:'NOT_AUTHENTICATED'});}
@@ -170,6 +187,10 @@ async function auth(req,res,next){
       return res.status(401).json({error:'NOT_AUTHENTICATED'});
     }
     req.user=q.rows[0];
+    // V154: refresh last_seen_at at most every 5 minutes (fire-and-forget)
+    // so the device list stays meaningful without a write on every request.
+    const seen=q.rows[0].last_seen_at?new Date(q.rows[0].last_seen_at).getTime():0;
+    if(Date.now()-seen>5*60*1000)pool.query('UPDATE sessions SET last_seen_at=NOW(),ip=COALESCE($2,ip) WHERE id=$1',[req.user.session_id,clientIp(req)||null]).catch(()=>{});
     // Bootstrap admin(s) from ADMIN_EMAILS stay admin even if the DB flag was
     // ever reset by hand; this keeps the env var authoritative for them.
     if(!req.user.is_admin && isBootstrapAdminEmail(req.user.email)){
@@ -208,8 +229,7 @@ app.post('/api/auth/register',requireDb,requireSameOrigin,async(req,res,next)=>{
     const q=await client.query('INSERT INTO users(id,username,email,password_hash,is_admin) VALUES($1,$2,$3,$4,$5) RETURNING id,username,email,email_verified_at,is_admin,token_version',[id,username,email,ph,isAdmin]);
     await client.query('INSERT INTO user_data(user_id,schema_version,payload,revision) VALUES($1,4,$2,1)',[id,JSON.stringify({rosters:[],active:null})]);
     await client.query('COMMIT');
-    const t=token();
-    await client.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),id,hash(t),config.sessionDays,q.rows[0].token_version||0]);
+    const t=await createSession(client,{id,token_version:q.rows[0].token_version},req);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
     // V153: fire-and-forget the verification email; a failure here (bad
     // SMTP, transient network) must never block the signup itself — the
@@ -227,8 +247,7 @@ app.post('/api/auth/login',requireDb,requireSameOrigin,async(req,res,next)=>{
     if(!q.rows[0]||!(await safeCompare(password,q.rows[0].password_hash)))return res.status(401).json({error:'INVALID_CREDENTIALS'});
     const u=q.rows[0];
     if(!u.is_admin && isBootstrapAdminEmail(u.email)){await pool.query('UPDATE users SET is_admin=true WHERE id=$1',[u.id]);u.is_admin=true;}
-    const t=token();
-    await pool.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),u.id,hash(t),config.sessionDays,u.token_version||0]);
+    const t=await createSession(pool,u,req);
     await pool.query('DELETE FROM sessions WHERE user_id=$1 AND expires_at<=NOW()',[u.id]);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
     res.json({user:pub(u)});
@@ -252,8 +271,7 @@ app.post('/api/auth/dev-admin',requireDb,requireSameOrigin,async(req,res,next)=>
       u=(await pool.query('INSERT INTO users(id,username,email,password_hash,is_admin) VALUES($1,$2,$3,$4,true) RETURNING id,username,email,email_verified_at,is_admin,token_version',[id,username,email,ph])).rows[0];
       await pool.query('INSERT INTO user_data(user_id,schema_version,payload,revision) VALUES($1,4,$2,1)',[id,JSON.stringify({rosters:[],active:null})]);
     }
-    const t=token();
-    await pool.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),u.id,hash(t),config.sessionDays,u.token_version||0]);
+    const t=await createSession(pool,u,req);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
     res.json({user:pub(u)});
   }catch(e){next(e)}
@@ -370,6 +388,65 @@ app.post('/api/auth/resend-verification',requireDb,requireSameOrigin,auth,resend
 
 app.get('/api/account/me',requireDb,auth,(req,res)=>res.json({user:pub(req.user)}));
 app.post('/api/account/change-password',requireDb,requireSameOrigin,auth,async(req,res,next)=>{const cur=String(req.body?.currentPassword||''),nextPassword=String(req.body?.newPassword||'');if(nextPassword.length<10||nextPassword.length>128)return res.status(400).json({error:'INVALID_PASSWORD'});try{const q=await pool.query('SELECT password_hash FROM users WHERE id=$1',[req.user.user_id]);if(!q.rows[0]||!(await safeCompare(cur,q.rows[0].password_hash)))return res.status(401).json({error:'INVALID_CREDENTIALS'});await pool.query('UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2',[await bcrypt.hash(nextPassword,12),req.user.user_id]);await pool.query('DELETE FROM sessions WHERE user_id=$1 AND id<>$2',[req.user.user_id,req.user.session_id]);res.json({ok:true})}catch(e){next(e)}});
+
+// V154: change the signed-in user's email address. Requires the current
+// password (so a hijacked-but-unlocked browser can't silently redirect
+// recovery mails), un-verifies the account and sends a fresh confirmation
+// link to the NEW address; the OLD address gets a plain heads-up so the
+// real owner can react if it wasn't them. 5/h per user (every attempt,
+// including a wrong password, counts) on top of the generic limiter.
+const changeEmailLimiter=rateLimit({windowMs:60*60*1000,max:5,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'},keyGenerator:req=>req.user?.user_id||ipKeyGenerator(req.ip)});
+app.post('/api/account/change-email',requireDb,requireSameOrigin,auth,changeEmailLimiter,async(req,res,next)=>{
+  const email=String(req.body?.newEmail||'').trim().toLowerCase(),cur=String(req.body?.currentPassword||'');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)return res.status(400).json({error:'INVALID_EMAIL'});
+  if(email===String(req.user.email||'').toLowerCase())return res.status(400).json({error:'SAME_EMAIL'});
+  try{
+    const q=await pool.query('SELECT password_hash FROM users WHERE id=$1',[req.user.user_id]);
+    if(!q.rows[0]||!(await safeCompare(cur,q.rows[0].password_hash)))return res.status(401).json({error:'INVALID_CREDENTIALS'});
+    const ex=await pool.query('SELECT 1 FROM users WHERE lower(email)=lower($1) AND id<>$2 LIMIT 1',[email,req.user.user_id]);
+    if(ex.rowCount)return res.status(409).json({error:'ACCOUNT_EXISTS'});
+    const u=(await pool.query('UPDATE users SET email=$1,email_verified_at=NULL,updated_at=NOW() WHERE id=$2 RETURNING id,username,email,email_verified_at,is_admin,token_version',[email,req.user.user_id])).rows[0];
+    const verificationSent=await issueVerificationEmail({id:u.id,username:u.username,email:u.email},{silent:true});
+    const oldEmail=req.user.email;
+    if(oldEmail)sendMail({to:oldEmail,subject:'Your Mordheimunda email was changed',text:`Hail ${u.username},\n\nThe email address on your Mordheimunda account was just changed to: ${email}\n\nIf you made this change, no action is needed.\nIf you did NOT make this change, sign in and change your password immediately, then sign out all other devices from Account → Connected devices.\n\n— Mordheimunda`}).catch(e=>console.error('change-email notice failed:',e.message));
+    res.json({ok:true,verificationSent,user:pub(u)});
+  }catch(e){next(e)}
+});
+
+// V154: per-device session manager. Lists every live session of the
+// signed-in user (current one first), lets them revoke a single device, or
+// sign out everything else at once. "Revoke others" bumps users.token_version
+// — the same lever the password reset uses — and re-stamps only the current
+// session with the new version, so any other session anywhere is rejected by
+// auth() on its very next request even before the DELETE has propagated.
+const isUuid=s=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s||''));
+app.get('/api/account/sessions',requireDb,auth,async(req,res,next)=>{
+  try{
+    const q=await pool.query('SELECT id,created_at,last_seen_at,expires_at,user_agent,ip FROM sessions WHERE user_id=$1 AND expires_at>NOW() ORDER BY (id=$2) DESC,COALESCE(last_seen_at,created_at) DESC',[req.user.user_id,req.user.session_id]);
+    res.json({sessions:q.rows.map(s=>({id:s.id,current:s.id===req.user.session_id,createdAt:s.created_at,lastSeenAt:s.last_seen_at||s.created_at,expiresAt:s.expires_at,ip:s.ip||null,...describeUserAgent(s.user_agent)}))});
+  }catch(e){next(e)}
+});
+app.delete('/api/account/sessions/:id',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  const id=String(req.params.id||'');
+  if(!isUuid(id))return res.status(404).json({error:'SESSION_NOT_FOUND'});
+  if(id===req.user.session_id)return res.status(400).json({error:'CURRENT_SESSION'});
+  try{
+    const r=await pool.query('DELETE FROM sessions WHERE id=$1 AND user_id=$2',[id,req.user.user_id]);
+    if(!r.rowCount)return res.status(404).json({error:'SESSION_NOT_FOUND'});
+    res.json({ok:true});
+  }catch(e){next(e)}
+});
+app.post('/api/account/sessions/revoke-others',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const v=await client.query('UPDATE users SET token_version=token_version+1,updated_at=NOW() WHERE id=$1 RETURNING token_version',[req.user.user_id]);
+    await client.query('UPDATE sessions SET token_version=$1 WHERE id=$2',[v.rows[0].token_version,req.user.session_id]);
+    const r=await client.query('DELETE FROM sessions WHERE user_id=$1 AND id<>$2',[req.user.user_id,req.user.session_id]);
+    await client.query('COMMIT');
+    res.json({ok:true,revoked:r.rowCount});
+  }catch(e){try{await client.query('ROLLBACK')}catch{};next(e)}finally{client.release()}
+});
 
 // `revision` is BIGINT in Postgres, and node-postgres returns int8/BIGINT
 // columns as JS *strings* by default (to avoid silent precision loss above
