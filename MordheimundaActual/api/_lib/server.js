@@ -71,24 +71,70 @@ const requireSameOrigin=(req,res,next)=>{
   next();
 };
 
-async function sendMail({to,subject,text}){
+async function sendMail({to,subject,text,html}){
   if(!config.smtpHost){
     if(isProd)throw Error('SMTP_NOT_CONFIGURED');
     console.log(`[DEV EMAIL]\nTo: ${to}\nSubject: ${subject}\n${text}`);return;
   }
   const {default:nodemailer}=await import('nodemailer');
   const transporter=nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,auth:config.smtpUser?{user:config.smtpUser,pass:config.smtpPassword}:undefined});
-  await transporter.sendMail({from:config.smtpFrom,to,subject,text});
+  await transporter.sendMail({from:config.smtpFrom,to,subject,text,...(html?{html}:{})});
+}
+
+// V152: HTML+text branded body for a password-reset email. Dark Warhammer
+// aesthetic to match the rest of the app, plain-text fallback for clients
+// that block HTML. English copy per plan; the reset link expires in 15 min.
+function passwordResetEmail({username,link}){
+  const safe=String(username||'').replace(/[<>&"']/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[c]));
+  const text=`Hail ${username},\n\nA password reset was requested for your Mordheimunda account.\n\nOpen the link below to choose a new password:\n${link}\n\nThis link expires in 15 minutes and can only be used once.\nIf you did not request this, you can safely ignore this email — your password will not change.\n\n— Mordheimunda`;
+  const html=`<!doctype html><html lang="en"><body style="margin:0;padding:0;background:#0b0908;font-family:Georgia,'Times New Roman',serif;color:#d9c9a3">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0908;padding:32px 12px">
+ <tr><td align="center">
+  <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#141210;border:1px solid #3a2a1a;border-radius:2px">
+   <tr><td style="padding:28px 32px 8px 32px;border-bottom:1px solid #3a2a1a">
+    <div style="font-family:'Cinzel',Georgia,serif;font-weight:700;font-size:22px;letter-spacing:.14em;color:#c98a5a;text-transform:uppercase">Mordheimunda</div>
+    <div style="font-size:11px;letter-spacing:.18em;color:#7a6a4a;text-transform:uppercase;margin-top:4px">M17 Roster Manager</div>
+   </td></tr>
+   <tr><td style="padding:28px 32px 8px 32px">
+    <h1 style="font-family:'Cinzel',Georgia,serif;font-size:20px;letter-spacing:.08em;color:#e8d9b5;margin:0 0 14px 0">Reset your password</h1>
+    <p style="line-height:1.55;color:#c9b990;margin:0 0 14px 0">Hail <strong style="color:#e8d9b5">${safe}</strong>,</p>
+    <p style="line-height:1.55;color:#c9b990;margin:0 0 14px 0">A password reset was requested for your Mordheimunda account. Click the button below to choose a new password.</p>
+   </td></tr>
+   <tr><td align="center" style="padding:8px 32px 20px 32px">
+    <a href="${link}" style="display:inline-block;padding:13px 26px;background:#3a1f10;border:1px solid #c98a5a;color:#f2e4c3;text-decoration:none;font-family:'Cinzel',Georgia,serif;font-size:13px;letter-spacing:.18em;text-transform:uppercase;border-radius:2px">Reset password</a>
+   </td></tr>
+   <tr><td style="padding:0 32px 24px 32px">
+    <p style="line-height:1.55;color:#8a7a5a;font-size:13px;margin:0 0 10px 0">Or paste this link into your browser:</p>
+    <p style="word-break:break-all;font-family:'Courier New',monospace;font-size:12px;color:#c98a5a;background:#0b0908;border:1px solid #2a1e14;padding:10px 12px;margin:0">${link}</p>
+   </td></tr>
+   <tr><td style="padding:0 32px 28px 32px;border-top:1px solid #2a1e14">
+    <p style="line-height:1.55;color:#7a6a4a;font-size:12px;margin:16px 0 0 0">This link <strong style="color:#c98a5a">expires in 15 minutes</strong> and can only be used once. If you did not request this reset, you can safely ignore this email — your password will not change.</p>
+   </td></tr>
+   <tr><td style="padding:14px 32px;background:#0b0908;border-top:1px solid #2a1e14">
+    <div style="font-size:10px;letter-spacing:.18em;color:#5a4a2f;text-transform:uppercase">Mordheimunda 26 · M17 Edition</div>
+   </td></tr>
+  </table>
+ </td></tr>
+</table></body></html>`;
+  return {text,html};
 }
 
 async function auth(req,res,next){
   try{
     const raw=req.cookies.mordheimunda_session;
     if(!raw)return res.status(401).json({error:'NOT_AUTHENTICATED'});
-    const q=await pool.query(`SELECT s.id AS session_id,s.user_id,u.username,u.email,u.email_verified_at,u.is_admin
+    const q=await pool.query(`SELECT s.id AS session_id,s.user_id,s.token_version AS session_token_version,u.username,u.email,u.email_verified_at,u.is_admin,u.token_version AS user_token_version
       FROM sessions s JOIN users u ON u.id=s.user_id
       WHERE s.token_hash=$1 AND s.expires_at>NOW()`,[hash(raw)]);
     if(!q.rows[0]){res.clearCookie('mordheimunda_session',cookie);return res.status(401).json({error:'NOT_AUTHENTICATED'});}
+    // V152: a password reset bumps users.token_version. Any pre-reset session
+    // whose snapshotted version no longer matches is treated as expired, on
+    // top of the existing DELETE FROM sessions the reset also runs.
+    if(q.rows[0].session_token_version!==q.rows[0].user_token_version){
+      await pool.query('DELETE FROM sessions WHERE id=$1',[q.rows[0].session_id]).catch(()=>{});
+      res.clearCookie('mordheimunda_session',cookie);
+      return res.status(401).json({error:'NOT_AUTHENTICATED'});
+    }
     req.user=q.rows[0];
     // Bootstrap admin(s) from ADMIN_EMAILS stay admin even if the DB flag was
     // ever reset by hand; this keeps the env var authoritative for them.
@@ -125,11 +171,11 @@ app.post('/api/auth/register',requireDb,requireSameOrigin,async(req,res,next)=>{
     const ex=await client.query('SELECT 1 FROM users WHERE lower(username)=lower($1) OR ($2::text IS NOT NULL AND lower(email)=lower($2)) LIMIT 1',[username,email]);
     if(ex.rowCount){await client.query('ROLLBACK');return res.status(409).json({error:'ACCOUNT_EXISTS'});}
     const id=crypto.randomUUID(),ph=await bcrypt.hash(password,12),isAdmin=isBootstrapAdminEmail(email);
-    const q=await client.query('INSERT INTO users(id,username,email,password_hash,is_admin) VALUES($1,$2,$3,$4,$5) RETURNING id,username,email,email_verified_at,is_admin',[id,username,email,ph,isAdmin]);
+    const q=await client.query('INSERT INTO users(id,username,email,password_hash,is_admin) VALUES($1,$2,$3,$4,$5) RETURNING id,username,email,email_verified_at,is_admin,token_version',[id,username,email,ph,isAdmin]);
     await client.query('INSERT INTO user_data(user_id,schema_version,payload,revision) VALUES($1,4,$2,1)',[id,JSON.stringify({rosters:[],active:null})]);
     await client.query('COMMIT');
     const t=token();
-    await client.query("INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'))",[crypto.randomUUID(),id,hash(t),config.sessionDays]);
+    await client.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),id,hash(t),config.sessionDays,q.rows[0].token_version||0]);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
     res.status(201).json({user:pub(q.rows[0])});
   }catch(e){try{await client.query('ROLLBACK')}catch{};next(e)}finally{client.release()}
@@ -138,12 +184,12 @@ app.post('/api/auth/register',requireDb,requireSameOrigin,async(req,res,next)=>{
 app.post('/api/auth/login',requireDb,requireSameOrigin,async(req,res,next)=>{
   try{
     const login=String(req.body?.login||'').trim(),password=String(req.body?.password||'');
-    const q=await pool.query("SELECT id,username,email,password_hash,email_verified_at,is_admin FROM users WHERE lower(username)=lower($1) OR lower(coalesce(email,''))=lower($1) LIMIT 1",[login]);
+    const q=await pool.query("SELECT id,username,email,password_hash,email_verified_at,is_admin,token_version FROM users WHERE lower(username)=lower($1) OR lower(coalesce(email,''))=lower($1) LIMIT 1",[login]);
     if(!q.rows[0]||!(await safeCompare(password,q.rows[0].password_hash)))return res.status(401).json({error:'INVALID_CREDENTIALS'});
     const u=q.rows[0];
     if(!u.is_admin && isBootstrapAdminEmail(u.email)){await pool.query('UPDATE users SET is_admin=true WHERE id=$1',[u.id]);u.is_admin=true;}
     const t=token();
-    await pool.query("INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'))",[crypto.randomUUID(),u.id,hash(t),config.sessionDays]);
+    await pool.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),u.id,hash(t),config.sessionDays,u.token_version||0]);
     await pool.query('DELETE FROM sessions WHERE user_id=$1 AND expires_at<=NOW()',[u.id]);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
     res.json({user:pub(u)});
@@ -161,28 +207,52 @@ app.post('/api/auth/dev-admin',requireDb,requireSameOrigin,async(req,res,next)=>
   if(!localDevAdmin)return res.status(403).json({error:'ADMIN_REQUIRED'});
   try{
     const username='local-admin',email='local-admin@mordheimunda.local';
-    let u=(await pool.query('SELECT id,username,email,email_verified_at,is_admin FROM users WHERE lower(username)=lower($1)',[username])).rows[0];
+    let u=(await pool.query('SELECT id,username,email,email_verified_at,is_admin,token_version FROM users WHERE lower(username)=lower($1)',[username])).rows[0];
     if(!u){
       const id=crypto.randomUUID(),ph=await bcrypt.hash(crypto.randomBytes(24).toString('hex'),12);
-      u=(await pool.query('INSERT INTO users(id,username,email,password_hash,is_admin) VALUES($1,$2,$3,$4,true) RETURNING id,username,email,email_verified_at,is_admin',[id,username,email,ph])).rows[0];
+      u=(await pool.query('INSERT INTO users(id,username,email,password_hash,is_admin) VALUES($1,$2,$3,$4,true) RETURNING id,username,email,email_verified_at,is_admin,token_version',[id,username,email,ph])).rows[0];
       await pool.query('INSERT INTO user_data(user_id,schema_version,payload,revision) VALUES($1,4,$2,1)',[id,JSON.stringify({rosters:[],active:null})]);
     }
     const t=token();
-    await pool.query("INSERT INTO sessions(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'))",[crypto.randomUUID(),u.id,hash(t),config.sessionDays]);
+    await pool.query("INSERT INTO sessions(id,user_id,token_hash,expires_at,token_version) VALUES($1,$2,$3,NOW()+($4::int*INTERVAL '1 day'),$5)",[crypto.randomUUID(),u.id,hash(t),config.sessionDays,u.token_version||0]);
     res.cookie('mordheimunda_session',t,{...cookie,maxAge:config.sessionDays*86400000});
     res.json({user:pub(u)});
   }catch(e){next(e)}
 });
 
-app.post('/api/auth/forgot-password',requireDb,requireSameOrigin,async(req,res,next)=>{
+// V152: Dedicated rate limits for the password-reset request flow — 3/h per
+// IP AND 3/h per email, on top of the generic /api/auth/ 30/15min limiter
+// above. Two chained limiters (rather than one keyed by "ip|email") because
+// the plan is strict: "3 req/h par IP et par email" — either quota alone
+// tripping counts. The email limiter's key is lowercased+trimmed to match
+// how the route itself normalizes the address, so casing tricks can't be
+// used to bypass it. The `ip` here is whatever `req.ip` resolves to after
+// `trust proxy` (set from TRUST_PROXY on Vercel), which express-rate-limit
+// handles safely for both IPv4 and IPv6 via its default keyGenerator.
+const forgotPasswordIpLimiter=rateLimit({windowMs:60*60*1000,max:3,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+const forgotPasswordEmailLimiter=rateLimit({windowMs:60*60*1000,max:3,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'},keyGenerator:req=>String(req.body?.email||'').trim().toLowerCase()||'anonymous'});
+
+app.post('/api/auth/forgot-password',requireDb,requireSameOrigin,forgotPasswordIpLimiter,forgotPasswordEmailLimiter,async(req,res,next)=>{
   const email=String(req.body?.email||'').trim().toLowerCase();
   try{
-    const q=await pool.query('SELECT id,username,email FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);
-    if(q.rows[0]){
-      await pool.query("UPDATE recovery_tokens SET used_at=NOW() WHERE user_id=$1 AND kind='password' AND used_at IS NULL",[q.rows[0].id]);
-      const t=token();
-      await pool.query("INSERT INTO recovery_tokens(id,user_id,token_hash,kind,expires_at) VALUES($1,$2,$3,'password',NOW()+INTERVAL '1 hour')",[crypto.randomUUID(),q.rows[0].id,hash(t)]);
-      await sendMail({to:q.rows[0].email,subject:'Mordheimunda — Réinitialisation du mot de passe',text:`Bonjour ${q.rows[0].username},\n\nRéinitialisez votre mot de passe : ${config.clientOrigin.replace(/\/$/,'')}/?reset=${encodeURIComponent(t)}\n\nLe lien expire dans 1 heure.`});
+    // Anti-enumeration: the response is identical whether the email matches
+    // an account or not (both success and "no such account" return {ok:true}
+    // after the same-ish latency). Only the email actually gets sent to a
+    // real address on our end.
+    if(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      const q=await pool.query('SELECT id,username,email FROM users WHERE lower(email)=lower($1) LIMIT 1',[email]);
+      if(q.rows[0]){
+        // Invalidate every previously-issued unused password token for this
+        // user before minting the new one, so an attacker who intercepted an
+        // older link (or the user retrying a lost email) can't race two live
+        // tokens against each other.
+        await pool.query("UPDATE recovery_tokens SET used_at=NOW() WHERE user_id=$1 AND kind='password' AND used_at IS NULL",[q.rows[0].id]);
+        const t=token();
+        await pool.query("INSERT INTO recovery_tokens(id,user_id,token_hash,kind,expires_at) VALUES($1,$2,$3,'password',NOW()+INTERVAL '15 minutes')",[crypto.randomUUID(),q.rows[0].id,hash(t)]);
+        const link=`${config.frontendUrl}/reset-password.html?token=${encodeURIComponent(t)}`;
+        const {text,html}=passwordResetEmail({username:q.rows[0].username,link});
+        await sendMail({to:q.rows[0].email,subject:'Reset your Mordheimunda password',text,html});
+      }
     }
     res.json({ok:true});
   }catch(e){next(e)}
@@ -190,12 +260,27 @@ app.post('/api/auth/forgot-password',requireDb,requireSameOrigin,async(req,res,n
 
 app.post('/api/auth/reset-password',requireDb,requireSameOrigin,async(req,res,next)=>{
   const t=String(req.body?.token||''),password=String(req.body?.password||'');
-  if(t.length<20||password.length<10||password.length>128)return res.status(400).json({error:'INVALID_RESET'});
+  // V152 policy: 8+ chars, at least one letter AND at least one digit.
+  // Kept intentionally loose ("raisonnable, pas frustrant" per plan) on top
+  // of the length bound the existing account-side change-password uses.
+  const passwordOk=password.length>=8&&password.length<=128&&/[A-Za-z]/.test(password)&&/[0-9]/.test(password);
+  if(t.length<20||!passwordOk)return res.status(400).json({error:'INVALID_RESET'});
   try{
     const q=await pool.query("SELECT id,user_id FROM recovery_tokens WHERE token_hash=$1 AND kind='password' AND used_at IS NULL AND expires_at>NOW() LIMIT 1",[hash(t)]);
     if(!q.rows[0])return res.status(400).json({error:'INVALID_RESET'});
     const client=await pool.connect();
-    try{await client.query('BEGIN');await client.query('UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2',[await bcrypt.hash(password,12),q.rows[0].user_id]);await client.query('UPDATE recovery_tokens SET used_at=NOW() WHERE id=$1',[q.rows[0].id]);await client.query('DELETE FROM sessions WHERE user_id=$1',[q.rows[0].user_id]);await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+    try{
+      await client.query('BEGIN');
+      // Bump the user's token_version alongside updating the password — the
+      // auth middleware compares this to the version snapshotted on each
+      // session at issue time, so any pre-reset session that somehow
+      // survives the DELETE below (replica lag, cached row on another pod)
+      // still stops working immediately.
+      await client.query('UPDATE users SET password_hash=$1,token_version=token_version+1,updated_at=NOW() WHERE id=$2',[await bcrypt.hash(password,12),q.rows[0].user_id]);
+      await client.query('UPDATE recovery_tokens SET used_at=NOW() WHERE id=$1',[q.rows[0].id]);
+      await client.query('DELETE FROM sessions WHERE user_id=$1',[q.rows[0].user_id]);
+      await client.query('COMMIT');
+    }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
     res.json({ok:true});
   }catch(e){next(e)}
 });
@@ -876,6 +961,34 @@ app.get('/api/account/access-log',requireDb,auth,async(req,res,next)=>{
 
 // Periodic housekeeping keeps expired credentials from accumulating forever.
 if(pool)setInterval(()=>pool.query("DELETE FROM sessions WHERE expires_at<=NOW(); DELETE FROM recovery_tokens WHERE expires_at<=NOW() OR used_at IS NOT NULL").catch(e=>console.error('housekeeping',e)),60*60*1000).unref();
+
+// V152: One-shot manual migration endpoint. schema.sql is already re-run on
+// every cold boot (see ensureSchema above), so this is only here to give the
+// operator a way to force-apply it on demand — e.g. when a deploy is
+// suspected of having missed the boot step, or to sanity-check a fresh
+// column landed on the live database. Guarded by a shared secret in
+// MIGRATE_TOKEN (Authorization: Bearer <token> OR ?token=<token>); when
+// MIGRATE_TOKEN is unset in the environment the endpoint refuses every
+// request, so a route that outlives its usefulness can never be triggered
+// by a stranger.
+app.post('/api/admin/migrate',requireDb,async(req,res,next)=>{
+  const supplied=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'')||String(req.query.token||'');
+  if(!config.migrateToken||supplied!==config.migrateToken)return res.status(403).json({error:'FORBIDDEN'});
+  try{
+    const schemaPath=path.join(publicDir,'server','db','schema.sql');
+    const sql=fs.readFileSync(schemaPath,'utf8');
+    await pool.query(sql);
+    res.json({ok:true,applied:true});
+  }catch(e){next(e)}
+});
+
+// V152: dedicated static HTML pages for the password-reset flow. Served
+// explicitly (rather than through the /assets or /data static mounts) so
+// the request hits Express directly on Vercel; vercel.json's catch-all
+// rewrite is updated in the same commit to leave these two paths alone.
+const sendResetPage=name=>(_req,res)=>res.sendFile(path.join(publicDir,name),{headers:{'Cache-Control':'no-store'}});
+app.get('/forgot-password.html',sendResetPage('forgot-password.html'));
+app.get('/reset-password.html',sendResetPage('reset-password.html'));
 
 // Only the actual client assets are servable as static files — never the whole
 // project root (which would otherwise also expose server source, the DB schema,

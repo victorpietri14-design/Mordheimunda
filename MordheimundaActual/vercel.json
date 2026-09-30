@@ -31,7 +31,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/((?!api/|assets/|data/|icons/|manifest.webmanifest|sw.js).*)",
+      "source": "/((?!api/|assets/|data/|icons/|manifest.webmanifest|sw.js|forgot-password.html|reset-password.html).*)",
       "destination": "/"
     }
   ]

@@ -52,6 +52,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_ci_idx ON users (lower(email)) WHE
 -- email) and persist here.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
 
+-- Password-reset session invalidation (V152). Bumped every time a user's
+-- password is reset via the /api/auth/reset-password flow. The auth
+-- middleware compares this to the version snapshotted on the session at
+-- issue time; any pre-reset session whose token_version no longer matches
+-- is treated as expired. Belt-and-braces alongside the existing
+-- DELETE FROM sessions WHERE user_id=$1 in reset-password: even if a stray
+-- session ever survives the delete (replicated reads, another pod holding
+-- a cached row), it can never be used to act as the pre-reset user again.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
 -- Warbands an admin has "officialized" from a custom warband: made visible to
 -- every account as a normal, selectable faction (same shape the client uses
 -- for official book factions), with the custom-defined restrictions kept but

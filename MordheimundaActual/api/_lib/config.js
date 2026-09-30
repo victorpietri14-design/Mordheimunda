@@ -1,6 +1,12 @@
 export const config={
   port:Number(process.env.PORT||3000),
   clientOrigin:process.env.CLIENT_ORIGIN||'http://localhost:3000',
+  // Public base URL used to build the password-reset links inside the email
+  // (V152). Falls back to CLIENT_ORIGIN so a single-domain deploy (which is
+  // by far the common case here) keeps working with no extra env var; a
+  // split-frontend deploy can point FRONTEND_URL at the public app URL
+  // separately from the API's CORS origin.
+  frontendUrl:(process.env.FRONTEND_URL||process.env.CLIENT_ORIGIN||'http://localhost:3000').replace(/\/$/,''),
   databaseUrl:process.env.DATABASE_URL||'',
   databaseSsl:process.env.DATABASE_SSL==='true',
   sessionDays:Math.max(1,Math.min(90,Number(process.env.SESSION_DAYS||30))),
@@ -17,5 +23,9 @@ export const config={
   // (re)promoted to admin on every login/session check, so this env var is
   // the durable source of truth for the initial admin(s); further admins can
   // then be promoted from the in-app Admin tab (stored in users.is_admin).
-  adminEmails:String(process.env.ADMIN_EMAILS||'').split(',').map(e=>e.trim().toLowerCase()).filter(Boolean)
+  adminEmails:String(process.env.ADMIN_EMAILS||'').split(',').map(e=>e.trim().toLowerCase()).filter(Boolean),
+  // One-shot secret for the /api/admin/migrate endpoint (V152). Deliberately
+  // empty by default: when unset, the endpoint refuses every request, so a
+  // forgotten-to-remove migrate route can never be triggered by a stranger.
+  migrateToken:process.env.MIGRATE_TOKEN||''
 };
