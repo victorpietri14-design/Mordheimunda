@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#000000"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Mordheimunda 26"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<title>Mordheimunda 26 // M17</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/styles.css?v=110.0430.0">
+</head>
+<body>
+<img class="app-bg" src="/assets/img/dashboard-bg.jpg" alt="">
+<div class="app-bg-scrim"></div>
+<div id="app">
+<aside class="sidebar">
+ <a class="brand brand-link" href="/" data-app-route="1"><div class="brand-mark"><img src="/assets/img/logo.png" alt="Mordheimunda" style="width:100%;height:100%;object-fit:contain"></div><div><strong>MORDHEIMUNDA 26</strong><span>M17 ROSTER MANAGER</span></div></a>
+ <nav>
+  <div class="nav-group" data-group="warband">
+   <div class="nav-group-head"><i class="grp-ic">⚑</i><span>Warband Manager</span><i class="grp-chev">▾</i></div>
+   <div class="nav-items">
+    <a class="nav" data-view="rosters" data-app-route="1" href="/warbands"><i>⚔</i><span>Mes bandes</span></a>
+    <a class="nav" data-view="create" data-app-route="1" href="/warbands/new"><i>＋</i><span>Créer une bande</span></a>
+    <a class="nav" data-view="playMode" data-app-route="1" href="/warbands/play"><i>▶</i><span>Mode de jeu</span></a>
+   </div>
+  </div>
+  <div class="nav-group" data-group="rules">
+   <div class="nav-group-head"><i class="grp-ic">▤</i><span>Règles</span><i class="grp-chev">▾</i></div>
+   <div class="nav-items">
+    <a class="nav" data-view="rules" data-app-route="1" href="/rules"><i>♞</i><span>Règles : Le Jeu</span></a>
+    <a class="nav" data-view="rulesWarbands" data-app-route="1" href="/rules/warbands"><i><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.2l7 2.6v6.1c0 5-3.2 8.3-7 9.4-3.8-1.1-7-4.4-7-9.4V5.8l7-2.6z"/></svg></i><span>Règles : Warbands</span></a>
+    <a class="nav" data-view="rulesCampaign" data-app-route="1" href="/rules/campaign"><i><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg></i><span>Règles : Campagne</span><span class="tag-new">WIP</span></a>
+    <a class="nav" data-view="scenarios" data-app-route="1" href="/rules/scenarios"><i><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 20l7-16 7 16M7.5 12h7"/></svg></i><span>Scénarios</span></a>
+    <a class="nav" data-view="references" data-app-route="1" href="/reference"><i><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5.5" y="3.2" width="13" height="3.2" rx="1.6"/><rect x="5.5" y="17.6" width="13" height="3.2" rx="1.6"/><path d="M7 6.4v11.2M17 6.4v11.2M8.5 10h7M8.5 13.3h7"/></svg></i><span>Référentiel</span></a>
+   </div>
+  </div>
+  <div class="nav-group" data-group="personal">
+   <div class="nav-group-head"><i class="grp-ic">✦</i><span>Contenu personnel</span><i class="grp-chev">▾</i></div>
+   <div class="nav-items">
+    <a class="nav" data-view="custom" data-app-route="1" href="/custom"><i>✦</i><span>Custom</span></a>
+    <a class="nav" data-view="account" data-app-route="1" href="/account"><i><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 20.2c0-4.6 3.6-7.4 8-7.4s8 2.8 8 7.4v.6H4v-.6z"/></svg></i><span>Compte</span></a>
+   </div>
+  </div>
+  <div class="nav-group nav-admin-only" id="navAdminGroup">
+   <div class="nav-group-head admin-group-head"><i class="grp-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9.5 12l2 2 3.5-4"/></svg></i><span>Admin</span><i class="grp-chev">▾</i></div>
+   <div class="nav-items">
+    <a class="nav nav-admin" id="navAdmin" data-view="admin" data-app-route="1" href="/admin" style="justify-content:space-between"><span style="display:flex;align-items:center;gap:11px"><i style="display:inline-flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9.5 12l2 2 3.5-4"/></svg></i><span>Panneau admin</span></span><span class="nav-admin-tag" style="font-size:6.5px;letter-spacing:.06em;text-transform:uppercase;color:#c98a5a;border:1px solid #4a2f1a;background:#201209;border-radius:5px;padding:2px 5px">Admin</span></a>
+    <label class="theme-toggle-row admin-view-toggle-row" title="Bascule l’affichage des boutons ✎ d’édition sans changer tes droits admin"><span>Vue Joueur</span><span class="theme-switch"><input type="checkbox" class="admin-view-toggle-input"><i>🎭</i></span></label>
+   </div>
+  </div>
+ </nav>
+ <div class="side-bottom"><div class="version">M17 EDITION · ROSTER & CAMPAIGN</div><label class="theme-toggle-row"><span>Mode jour</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input"><i>☾</i></span></label><label class="language-control"><span>Language</span><select id="languageSelect" aria-label="Site language"><option value="en">English</option><option value="fr">Français</option></select></label><button id="resetBtn" class="ghost">↻ Réinitialiser les données</button></div>
+</aside>
+<main class="main">
+ <section id="content"></section>
+</main></div>
+<div id="modal" class="modal hidden"><div class="modal-card"><button class="modal-close" id="modalClose">×</button><div id="modalContent"></div></div></div>
+<script src="/data/catalog.js?v=110.0430.0"></script><script src="/data/rules.js?v=110.0430.0"></script><script src="/data/packs/loader.js?v=110.0430.0"></script><script src="/data/packs/blood_dragons.js?v=110.0430.0"></script><script src="/assets/core/config.js?v=110.0430.0"></script><script src="/assets/core/migrations.js?v=110.0430.0"></script><script src="/assets/core/storage.js?v=110.0430.0"></script><script src="/assets/core/content.js?v=110.0430.0"></script><script src="/assets/core/api.js?v=110.0430.0"></script><script src="/assets/app.js?v=110.0430.0"></script>
+<script>if('serviceWorker' in navigator){
+  let swRefreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    // A newly deployed service worker just took control: reload once so the
+    // page (and every asset it references) reflects the new version, with no
+    // manual hard-refresh needed — including on mobile.
+    if(swRefreshing)return; swRefreshing=true; location.reload();
+  });
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js').then(reg=>{
+      // Also poll for updates while the app stays open in a tab/background.
+      setInterval(()=>reg.update().catch(()=>{}),60*1000);
+    }).catch(()=>{});
+  });
+}</script>
+<script>
+// V153: unverified-email banner. Renders itself only when GET /api/account/me
+// returns a user whose emailVerified is false; a signed-out visitor never
+// sees it. Fully self-contained (own DOM node, inline styles) so it works
+// no matter which route app.js's SPA is currently rendering and doesn't
+// depend on styles.css that might not have loaded yet.
+(function(){
+ async function init(){
+  try{
+   const r=await fetch('/api/account/me',{credentials:'include'});
+   if(!r.ok)return;
+   const b=await r.json();
+   if(!b?.user||!b.user.email||b.user.emailVerified)return;
+   const bar=document.createElement('div');
+   bar.setAttribute('data-testid','email-verify-banner');
+   bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(180deg,#4a2717,#2f1809);border-bottom:1px solid #c98a5a;color:#f2e4c3;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;padding:10px 16px;display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;box-shadow:0 6px 14px rgba(0,0,0,.35)';
+   bar.innerHTML='<span style="letter-spacing:.06em">Confirm your email <strong style="color:#e8d9b5">'+String(b.user.email).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))+'</strong> so password recovery stays available.</span><button type="button" data-testid="email-verify-resend-btn" style="cursor:pointer;background:#3a1f10;border:1px solid #c98a5a;color:#f2e4c3;font-family:\'Cinzel\',Georgia,serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:6px 12px;border-radius:2px">Resend email</button><button type="button" aria-label="Dismiss" data-testid="email-verify-dismiss-btn" style="cursor:pointer;background:transparent;border:0;color:#c98a5a;font-size:18px;line-height:1;padding:0 4px">×</button>';
+   document.body.appendChild(bar);
+   document.body.style.paddingTop=(bar.offsetHeight)+'px';
+   const [btnResend,btnClose]=bar.querySelectorAll('button');
+   btnClose.addEventListener('click',()=>{bar.remove();document.body.style.paddingTop='';sessionStorage.setItem('verifyBannerDismissed','1');});
+   if(sessionStorage.getItem('verifyBannerDismissed')==='1'){bar.remove();document.body.style.paddingTop='';return;}
+   btnResend.addEventListener('click',async()=>{
+    btnResend.disabled=true;const prev=btnResend.textContent;btnResend.textContent='Sending…';
+    try{
+     const rr=await fetch('/api/auth/resend-verification',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}});
+     if(rr.ok){btnResend.textContent='Email sent';}
+     else if(rr.status===429){btnResend.textContent='Try later';}
+     else{btnResend.textContent='Failed'; setTimeout(()=>{btnResend.disabled=false;btnResend.textContent=prev;},2500);}
+    }catch(e){btnResend.textContent='Network err'; setTimeout(()=>{btnResend.disabled=false;btnResend.textContent=prev;},2500);}
+   });
+  }catch(e){}
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
+ else init();
+})();
+</script>
+</body></html>
