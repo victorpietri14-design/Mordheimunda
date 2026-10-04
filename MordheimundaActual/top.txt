@@ -1,0 +1,230 @@
+const D=window.NECROHEIM_CATALOG;
+const KEY='necroheim_roster_v4';
+let state=window.MordheimundaStorage.load();
+if(!Array.isArray(state.customEquipment))state.customEquipment=[];if(!Array.isArray(state.customWarbands))state.customWarbands=[];
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const P=D.profileNames;
+const P_FULL=['Mouvement','Capacité de combat','Capacité de tir','Force','Endurance','Blessures','Initiative','Attaques','Commandement','Calme','Volonté','Intelligence'];
+let gangTab='roster';
+let postBattleSubtab='income';
+let editingIndex=null;
+
+/* Stable browser routes: refreshes stay on the current page and normal links
+   support right-click / Ctrl-click / Cmd-click to open additional tabs. */
+const APP_ROUTES={dashboard:'/',rosters:'/warbands',create:'/warbands/new',rules:'/rules',references:'/reference',custom:'/custom',account:'/account',armory:'/armory',codex:'/rules/book'};
+function appPath(path){const raw=String(path||'/').split('#')[0].split('?')[0]||'/';return raw.length>1?raw.replace(/\/+$/,''):raw}
+function warbandPath(id){return '/warbands/'+encodeURIComponent(String(id))}
+function fighterPath(rosterId,instance){return warbandPath(rosterId)+'/fighter/'+encodeURIComponent(String(instance))}
+function routeForView(view){
+  if(view==='builder'){const r=Array.isArray(state?.rosters)?state.rosters.find(x=>String(x?.id)===String(state?.active)):null;return r?warbandPath(r.id):APP_ROUTES.rosters}
+  if(view==='fighter'){const r=Array.isArray(state?.rosters)?state.rosters.find(x=>String(x?.id)===String(state?.active)):null;const x=r?.fighters?.[editingIndex];return r&&x?fighterPath(r.id,x.instance||x.wid||editingIndex):routeForView('builder')}
+  return APP_ROUTES[view]||'/'
+}
+function parseAppRoute(path=location.pathname){
+  const p=appPath(path);
+  if(p==='/')return {view:'dashboard'};
+  if(p==='/warbands')return {view:'rosters'};
+  if(p==='/warbands/new')return {view:'create'};
+  if(p==='/rules')return {view:'rules'};
+  if(p==='/reference')return {view:'references'};
+  if(p==='/custom')return {view:'custom'};
+  if(p==='/account')return {view:'account'};
+  if(p==='/armory')return {view:'armory'};
+  if(p==='/rules/book')return {view:'codex'};
+  const fm=p.match(/^\/warbands\/([^/]+)\/fighter\/([^/]+)$/);
+  if(fm)return {view:'fighter',rosterId:decodeURIComponent(fm[1]),fighterInstance:decodeURIComponent(fm[2])};
+  const wm=p.match(/^\/warbands\/([^/]+)$/);
+  if(wm)return {view:'builder',rosterId:decodeURIComponent(wm[1])};
+  return {view:'dashboard',invalid:true};
+}
+function applyRouteState(route){
+  if(route?.rosterId){
+    const r=Array.isArray(state?.rosters)?state.rosters.find(x=>String(x?.id)===String(route.rosterId)):null;
+    if(!r)return {view:'rosters',fallback:true};
+    state.active=r.id;
+    if(route.view==='fighter'){
+      const idx=Array.isArray(r.fighters)?r.fighters.findIndex(x=>String(x?.instance||x?.wid||'')===String(route.fighterInstance)):-1;
+      if(idx<0)return {view:'builder',fallback:true};
+      editingIndex=idx;
+    }else if(route.view==='builder'){
+      editingIndex=null;
+    }
+  }
+  return route;
+}
+function renderCurrentRoute(){const route=applyRouteState(parseAppRoute());renderOriginal(route.view);applySiteLanguage();return route}
+function navigateApp(path,{replace=false}={}){const next=appPath(path);if(next!==appPath(location.pathname)){history[replace?'replaceState':'pushState']({mordheimunda:true},'',next)}return renderCurrentRoute()}
+window.addEventListener('popstate',()=>renderCurrentRoute());
+let equipmentTab='band';
+let loadoutView='loadout';
+let injuryPickerOpen=false;
+let lastInjuryRoll=null;
+let equipmentCategoryFilter='all';
+let equipmentSearch='';
+let equipmentOpen=false;
+let skillCategory='all';
+let fighterTab='skills';
+let statsOpen=false;
+let progressionOpen=false;
+let progressionSubtab='stats';
+let magicDomain='all';
+let dragFighterIndex=null;
+const MAGIC_DOMAINS={
+  'Chaos Rituals':['Vision of Torment','Eye of God','Dark Blood','Lure of Chaos','Wings of Darkness','Word of Pain'],
+  'Prayers of Sigmar':["Sigmar’s Fiery Hammer",'Beacon of Righteous Virtue','Soulfire','Shield of Faith','Healing Hand','Armour of Righteousness'],
+  'Necromancy':['Soul Stealer','Invocation of Nehek','Hellish Vigour','Gaze of Nagash',"Vanhel’s Danse Macabre",'Spell of Awakening'],
+  'Lesser Magic':["Fires of U’Zhul",'Flight of Zimmeran','Dread of Aramar','Silver Arrows of Arha','Luck of Shemtek','Flaming Sword of Rhuin'],
+  'Magic of the Horned Rat':['Warp Lightning','Skitterleap','Vermintide','Black Fury','Eye of the Warp',"Sorcerer’s Curse"],
+  'Prayers of Ulric':["Winter’s Chill",'Ice Blast','Battle Fury',"Ulric’s Gift",'Heart of the Wolf','Call of Ulric'],
+  'Prayers of Taal':["Stags Leap",'Blessed Ale','Bears Paw','Earth shudder','Tanglefoot','Summon Squirels'],
+  'Power of da Waaagh!':["‘Ere we go!",'The Hand of Gork','Brain Bursta','Fooled Ya!','Fists of Gork','Gaze of Mork']
+};
+const MAGIC_ACCESS={
+  possessed:{'Magister':['Chaos Rituals']},
+  witchhunters:{'Witch Hunters':['Prayers of Sigmar'],'Priest of Sigmar':['Prayers of Sigmar']},
+  sisters:{'*':['Prayers of Sigmar']},
+  undead:{'Necromancer':['Necromancy']},
+  skaven:{'Apprentice Greyseer':['Magic of the Horned Rat']},
+  orcs:{'Shaman':['Power of da Waaagh!']},
+  'blood-dragons':{'Necromancer':['Necromancy']},
+  middenheim:{'Priest of Ulric':['Prayers of Ulric']},
+  ostland:{'Priest of Taal':['Prayers of Taal']}
+};
+const factionSigils={reikland:'♜',middenheim:'☽',averland:'⚜',ostland:'♞',possessed:'☿',witchhunters:'†',sisters:'✠',undead:'☠',skaven:'☣',orcs:'☄',dwarfs:'⚒','blood-dragons':'🩸'};
+const PROJECT_NAME='Mordheimunda 26';
+const RULES=window.MORDHEIMUNDA_RULES||{categories:{skills:[],traits:[],special:[],spells:[],equipment:[]}};
+const REFERENCE_CATEGORIES={skills:'Compétences',traits:'Traits d’armes',special:'Règles spéciales',spells:'Sorts & prières',equipment:'Équipement'};
+let referenceCategory='skills';
+let referenceSearch='';
+let customEquipmentEditId=null;
+let customEquipmentSearch='';
+let rulesSearch='';
+let rulesOpen='prebattle';
+let customEquipmentTraitDraft=[];
+let activeRulePeek=null;
+let rulePeekTimer=null;
+function refNorm(v){return String(v||'').toLowerCase().replace(/[’‘`]/g,"'").replace(/[^a-z0-9]+/g,'');}
+function referenceFind(category,name){const list=referenceEntries(category);const raw=String(name||'').trim();const n=refNorm(raw);let exact=list.find(e=>refNorm(e.name)===n);if(exact)return exact;if(/^Race\s*\(/i.test(raw)){const race=list.find(e=>/^Race\s*\(X\)$/i.test(String(e.name||'')));if(race)return race;}const base=n.replace(/\([^)]*\)/g,'');exact=list.find(e=>refNorm(e.name).replace(/\([^)]*\)/g,'')===base);if(exact)return exact;return list.find(e=>refNorm(e.name).replace(/\([^)]*\)/g,'').startsWith(base)||base.startsWith(refNorm(e.name).replace(/\([^)]*\)/g,'')))||null;}
+function referenceCategoryForEquipment(name){return referenceFind('equipment',name)?'equipment':null;}
+function refLink(category,name,display=name){const e=referenceFind(category,name);if(!e)return esc(display);const safeCat=esc(category),safeId=esc(e.id);return `<span class="rule-ref" tabindex="0" data-ref-category="${safeCat}" data-ref-id="${safeId}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showRulePeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(display)}</span>`;}
+function refLinkByName(name,preferred){if(preferred)return refLink(preferred,name);for(const c of Object.keys(REFERENCE_CATEGORIES)){const e=referenceFind(c,name);if(e)return refLink(c,name)}return esc(name);}
+function refInfo(category,name){const e=referenceFind(category,name);if(!e)return '';return `<button type="button" class="rule-ref-info" aria-label="Voir la règle ${esc(e.name)}" data-ref-category="${esc(category)}" data-ref-id="${esc(e.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showRulePeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">ⓘ</button>`;}
+function rulePeekSummary(e){const lines=String(e.text||'').split(/\n+/).map(x=>x.trim()).filter(Boolean);let text=lines.slice(0,5).join(' ');if(text.length>430)text=text.slice(0,427).replace(/\s+\S*$/,'')+'…';return text||'Aucun texte de règle enregistré.';}
+function rulePeekTitle(cat){return REFERENCE_CATEGORIES[cat]||'Référence';}
+function positionRulePeek(el){const pop=$('#rulePeek');if(!pop)return;const r=el.getBoundingClientRect(),pw=Math.min(420,window.innerWidth-24),ph=pop.offsetHeight;let left=Math.min(Math.max(12,r.left),window.innerWidth-pw-12),top=r.bottom+10;if(top+ph>window.innerHeight-12)top=r.top-ph-10;if(top<12)top=12;pop.style.left=left+'px';pop.style.top=top+'px';pop.style.width=pw+'px';}
+function showRulePeek(el){clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=referenceEntries(cat).find(x=>x.id===id);if(!e)return;let pop=$('#rulePeek');if(!pop){pop=document.createElement('div');pop.id='rulePeek';pop.className='rule-peek';pop.onmouseenter=cancelHideRulePeek;pop.onmouseleave=scheduleHideRulePeek;document.body.appendChild(pop)}pop.innerHTML=`<div class="rule-peek-kicker">${esc(rulePeekTitle(cat))}</div><strong>${esc(e.name)}</strong><p>${esc(rulePeekSummary(e))}</p><button type="button" class="rule-peek-open" onclick="openReferenceFromPeek(event)">${e.lines>5?'Voir la règle complète →':'Ouvrir dans le référentiel →'}</button>`;pop.classList.add('visible');requestAnimationFrame(()=>positionRulePeek(el));}
+function toggleRulePeek(el,event){event?.stopPropagation();if(activeRulePeek===el&&$('#rulePeek')?.classList.contains('visible')){const pop=$('#rulePeek');pop.classList.remove('visible');activeRulePeek=null;return}showRulePeek(el);}
+function cancelHideRulePeek(){clearTimeout(rulePeekTimer)}
+function scheduleHideRulePeek(){clearTimeout(rulePeekTimer);rulePeekTimer=setTimeout(()=>{const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');activeRulePeek=null},180)}
+function openReferenceFromPeek(event){event?.stopPropagation();const el=activeRulePeek;if(!el)return;openReference(el.dataset.refCategory,el.dataset.refId);}
+function openReference(category='skills',id=''){referenceCategory=category;referenceSearch='';const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
+function referenceTextMarkup(text){return esc(text).replace(/\n/g,'<br>');}
+function referenceEntryMarkup(e,cat){const short=e.lines<=5;return `<article class="reference-entry" id="ref-entry-${esc(e.id)}"><div class="reference-entry-head"><div><span class="reference-type">${esc(REFERENCE_CATEGORIES[cat])}</span><h3>${esc(e.name)}</h3></div><button type="button" class="reference-peek-button" onclick="openReference('${cat}','${e.id}');event.stopPropagation()">ⓘ</button></div><div class="reference-entry-text">${referenceTextMarkup(e.text)}</div>${!short?`<div class="reference-entry-meta">Règle complète · ${e.lines} lignes dans la source</div>`:''}</article>`;}
+function references(){const cats=Object.keys(REFERENCE_CATEGORIES),list=referenceEntries(referenceCategory);const q=referenceSearch.trim().toLowerCase();const filtered=q?list.filter(e=>(e.name+' '+e.text).toLowerCase().includes(q)):list;$('#content').innerHTML=`<div class="reference-page"><div class="page-intro"><div><div class="eyebrow">CODEX / RÉFÉRENTIEL M17</div><h2>Référentiel des règles</h2><p>Compétences, traits, règles spéciales, sorts et équipement. Chaque entrée est classée alphabétiquement et reliée aux noms affichés dans la bande.</p></div><button class="button secondary" onclick="render('codex')">Ouvrir le livre complet</button></div><div class="reference-tabs">${cats.map(c=>`<button type="button" class="reference-tab ${referenceCategory===c?'active':''}" onclick="setReferenceCategory('${c}')">${esc(REFERENCE_CATEGORIES[c])}<span>${referenceEntries(c).length}</span></button>`).join('')}</div><div class="reference-toolbar"><input class="search" value="${esc(referenceSearch)}" placeholder="Rechercher dans ${esc(REFERENCE_CATEGORIES[referenceCategory].toLowerCase())}…" oninput="setReferenceSearch(this.value)"><span>${filtered.length} entrée${filtered.length!==1?'s':''}</span></div><section class="reference-list">${filtered.length?filtered.map(e=>referenceEntryMarkup(e,referenceCategory)).join(''):`<div class="empty large"><strong>Aucune entrée.</strong><span>Essaie un autre terme de recherche.</span></div>`}</section></div>`}
+function setReferenceCategory(c){referenceCategory=c;referenceSearch='';render('references')}
+function setReferenceSearch(v){referenceSearch=v;const q=v.trim().toLowerCase(),list=RULES.categories?.[referenceCategory]||[],filtered=q?list.filter(e=>(e.name+' '+e.text).toLowerCase().includes(q)):list;const sec=$('.reference-list');if(sec)sec.innerHTML=filtered.length?filtered.map(e=>referenceEntryMarkup(e,referenceCategory)).join(''):`<div class="empty large"><strong>Aucune entrée.</strong><span>Essaie un autre terme de recherche.</span></div>`;const count=$('.reference-toolbar span');if(count)count.textContent=`${filtered.length} entrée${filtered.length!==1?'s':''}`}
+function refTraitList(traits){if(!traits||traits==='—')return esc(traits||'—');return String(traits).split(/,\s*/).map(t=>refLinkByName(t,'traits')).join(', ');}
+function save(silent=false){
+  if(!Array.isArray(state.customEquipment))state.customEquipment=[];
+  state=window.MordheimundaStorage.save(state);
+  queueCloudSave();
+  if(!silent)toast(siteLanguage==='en'?'Data saved':'Données sauvegardées');
+}
+let cloudSaveTimer=null,cloudSaveBusy=false,cloudSaveAgain=false;
+let cloudPollTimer=null,cloudPollBusy=false,pendingRemoteRerender=false;
+function cloudIsSignedIn(){return !!accountSession();}
+function queueCloudSave(){if(!cloudIsSignedIn())return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(flushCloudSave,500);}
+async function flushCloudSave(){if(!cloudIsSignedIn())return;if(cloudSaveBusy){cloudSaveAgain=true;return}cloudSaveBusy=true;try{const expectedRevision=Number.isInteger(state?.meta?.cloudRevision)?state.meta.cloudRevision:null;const result=await window.MordheimundaAPI.saveData(state,expectedRevision);state.meta=state.meta||{};state.meta.cloudRevision=result.revision;state.meta.cloudUpdatedAt=new Date().toISOString();window.MordheimundaStorage.save(state);cloudSaveAgain=false;}catch(e){console.warn('Cloud save failed',e);if(e.status===409){await resolveCloudConflictAndRetry();}if(e.status===401){localStorage.removeItem(ACCOUNT_SESSION_KEY);stopCloudPolling();render('account');}}finally{cloudSaveBusy=false;if(cloudSaveAgain)queueCloudSave();}}
+async function resolveCloudConflictAndRetry(){
+  try{
+    const remote=await window.MordheimundaAPI.loadData();
+    const remoteData=remote?.payload||{};
+    const remoteRevision=Number.isInteger(remote?.revision)?remote.revision:1;
+    // The other device's data is the new baseline; the mutation we were mid-way
+    // through sending is layered back on top so it is not silently lost.
+    state=mergeAccountData(remoteData,state);
+    state.meta=state.meta||{};state.meta.cloudRevision=remoteRevision;
+    state=window.MordheimundaStorage.save(state);
+    scheduleRemoteRerender();
+    const saved=await window.MordheimundaAPI.saveData(state,remoteRevision);
+    state.meta.cloudRevision=saved.revision;
+    window.MordheimundaStorage.save(state);
+  }catch(e){
+    console.warn('Cloud conflict resolution failed',e);
+    toast(siteLanguage==='en'?'Cloud data changed on another device. Open Account and sync.':'Les données cloud ont changé sur un autre appareil. Ouvre Compte et synchronise.');
+  }
+}
+function mergeAccountData(local,remote){
+  const out=structuredClone(local||{});const r=remote||{};
+  const merge=(a,b)=>{const m=new Map();[...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])].forEach(x=>{if(x&&x.id)m.set(String(x.id),x);});return [...m.values()];};
+  ['rosters','customFighters','customEquipment','customSkills','customSpells','customWarbands','customContent'].forEach(k=>out[k]=merge(local?.[k],r?.[k]));
+  if(!out.active&&r.active)out.active=r.active;
+  out.meta={...(local?.meta||{}),...(r?.meta||{}),updatedAt:new Date().toISOString()};
+  return out;
+}
+function currentViewName(){return parseAppRoute().view||'dashboard';}
+function isEditingField(){const el=document.activeElement;return !!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&document.getElementById('content')?.contains(el);}
+function scheduleRemoteRerender(){
+  if(isEditingField()){pendingRemoteRerender=true;return}
+  pendingRemoteRerender=false;
+  render(currentViewName());
+}
+/* Applies a payload fetched from the server as the new local baseline (the
+   server is always the source of truth once signed in), then repaints the
+   screen so a change made on another device shows up without a manual reload. */
+function applyRemoteData(remoteData,remoteRevision,{announce=false}={}){
+  const keepMeta=state?.meta||{};
+  const next=structuredClone(remoteData||{rosters:[],active:null});
+  next.meta={...keepMeta,cloudRevision:Number.isInteger(remoteRevision)?remoteRevision:keepMeta.cloudRevision,cloudUpdatedAt:new Date().toISOString()};
+  state=window.MordheimundaStorage.save(next);
+  scheduleRemoteRerender();
+  if(announce)toast(siteLanguage==='en'?'Synced from your other device':'Synchronisé depuis votre autre appareil');
+}
+async function pollCloudRevision(){
+  if(!cloudIsSignedIn()||document.hidden||cloudPollBusy)return;
+  cloudPollBusy=true;
+  try{
+    const r=await window.MordheimundaAPI.dataRevision();
+    const remoteRevision=Number.isInteger(r?.revision)?r.revision:null;
+    const localRevision=Number.isInteger(state?.meta?.cloudRevision)?state.meta.cloudRevision:null;
+    if(remoteRevision!==null&&(localRevision===null||remoteRevision>localRevision)){
+      const full=await window.MordheimundaAPI.loadData();
+      applyRemoteData(full?.payload,full?.revision,{announce:true});
+    }else if(pendingRemoteRerender&&!isEditingField()){
+      pendingRemoteRerender=false;render(currentViewName());
+    }
+  }catch(e){
+    if(e.status===401){localStorage.removeItem(ACCOUNT_SESSION_KEY);stopCloudPolling();}
+    else console.warn('Cloud poll failed',e);
+  }finally{cloudPollBusy=false;}
+}
+function startCloudPolling(){
+  stopCloudPolling();
+  pollCloudRevision();
+  cloudPollTimer=setInterval(pollCloudRevision,3000);
+}
+function stopCloudPolling(){if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollCloudRevision()});
+window.addEventListener('online',()=>{pollCloudRevision();flushCloudSave();});
+window.addEventListener('focus',()=>{pollCloudRevision();if(cloudIsSignedIn())queueCloudSave();});
+window.addEventListener('pagehide',()=>{if(cloudIsSignedIn())flushCloudSave();});
+async function syncAccountAfterLogin(user){
+  localStorage.setItem(ACCOUNT_SESSION_KEY,JSON.stringify(user));
+  try{
+    const remote=await window.MordheimundaAPI.loadData();
+    const remoteData=remote?.payload||{};
+    const remoteRevision=Number.isInteger(remote?.revision)?remote.revision:1;
+    const hasLocal=Array.isArray(state.rosters)&&state.rosters.length>0;
+    const hasRemote=Array.isArray(remoteData.rosters)&&remoteData.rosters.length>0;
+    if(hasLocal&&hasRemote){
+      // Both sides have content the first time this device links to the
+      // account: combine them once instead of picking a winner.
+      state=mergeAccountData(state,remoteData);
+      state.meta=state.meta||{};state.meta.accountUserId=user.id;
+      state.meta.cloudRevision=remoteRevision;
+      state=window.MordheimundaStorage.save(state);
+      const saved=await window.MordheimundaAPI.saveData(state,remoteRevision);
+      state.meta.cloudRevision=saved.revision;
+      window.MordheimundaStorage.save(state);
+    }else if(hasRemote){
+      applyRemoteData(remoteData,remoteRevision);
