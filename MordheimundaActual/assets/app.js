@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0461.0';
+const APP_BUILD='110.0463.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6477,7 +6477,7 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
   // so reordering here is enough; nothing else needs to read a separate
   // "position" field.
   const reorderBtns=reorder?`<div class="dash-wcard-reorder"><button type="button" class="dash-wcard-move" title="${en?'Move up':'Monter'}" aria-label="${en?'Move up':'Monter'}" ${reorder.index<=0?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',-1)">▲</button><button type="button" class="dash-wcard-move" title="${en?'Move down':'Descendre'}" aria-label="${en?'Move down':'Descendre'}" ${reorder.index>=reorder.total-1?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',1)">▼</button></div>`:'';
-  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div>${reorder?'<span class="card-drag-handle" aria-hidden="true">⠿</span>':''}</a>`}
+  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
 function moveRosterOrder(id,dir){
   const idx=state.rosters.findIndex(r=>r.id===id);if(idx<0)return;
   const to=idx+dir;if(to<0||to>=state.rosters.length)return;
@@ -6489,6 +6489,28 @@ function moveRosterOrder(id,dir){
 // (beginFighterPointerDrag et al.) — the ▲▼ move buttons above stay in
 // place as the text-based way to reorder, this is just an added gesture,
 // not a replacement.
+// V-LONGPRESS: on touch screens a card is picked up only after the finger
+// stays still on it for TOUCH_REORDER_HOLD_MS (Munda Manager style); moving
+// more than TOUCH_REORDER_SLOP_PX before that is a scroll and never drags.
+const TOUCH_REORDER_HOLD_MS=1000;
+const TOUCH_REORDER_SLOP_PX=10;
+// While a card is being dragged, holding the finger/cursor near the top or
+// bottom edge scrolls the page so far-away slots (tall fighter cards) can
+// be reached; the drop target is re-evaluated as the page moves.
+let reorderAutoScroll={raf:0,x:0,y:0,update:null};
+function reorderAutoScrollTrack(e,update){
+  reorderAutoScroll.x=e.clientX;reorderAutoScroll.y=e.clientY;reorderAutoScroll.update=update;
+  if(reorderAutoScroll.raf)return;
+  const step=()=>{
+    const a=reorderAutoScroll;if(!a.update){a.raf=0;return;}
+    const edge=Math.min(90,window.innerHeight*0.15),h=window.innerHeight;
+    const v=a.y<edge?-(edge-a.y)/edge*18:a.y>h-edge?(a.y-(h-edge))/edge*18:0;
+    if(v){window.scrollBy(0,v);a.update({clientX:a.x,clientY:a.y});}
+    a.raf=requestAnimationFrame(step);
+  };
+  reorderAutoScroll.raf=requestAnimationFrame(step);
+}
+function reorderAutoScrollStop(){cancelAnimationFrame(reorderAutoScroll.raf);reorderAutoScroll={raf:0,x:0,y:0,update:null};}
 let rosterPointerStart=null;
 let rosterPointerActive=false;
 let rosterPointerMoved=false;
@@ -6504,19 +6526,14 @@ function beginRosterPointerDrag(e){
   if(!card)return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   if(e.target.closest('button,input,textarea,select'))return;
-  if(e.pointerType==='touch'&&!e.target.closest('.card-drag-handle'))return;
   clearTimeout(rosterPointerTimer);
   rosterPointerStart={card,pointerId:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType};
   rosterPointerActive=false;
   rosterPointerMoved=false;
   rosterPointerDropTarget=null;
   rosterPointerDropAfter=false;
-  // V-DRAGHANDLE: on touch screens only the ⠿ handle reorders — a finger
-  // anywhere else on the card always scrolls the page (a slow scroll used
-  // to trip the old 220 ms press-and-hold and drag the card instead).
   if(e.pointerType==='touch'){
-    e.preventDefault();
-    activateRosterPointerDrag(e.pointerId);
+    rosterPointerTimer=setTimeout(()=>activateRosterPointerDrag(e.pointerId),TOUCH_REORDER_HOLD_MS);
   }
 }
 function activateRosterPointerDrag(pointerId){
@@ -6524,6 +6541,7 @@ function activateRosterPointerDrag(pointerId){
   if(!st)return;
   rosterPointerActive=true;
   st.card.classList.add('dragging');
+  if(st.type==='touch'){rosterSuppressClickUntil=Date.now()+60000;try{navigator.vibrate?.(30)}catch(_){}}
   try{st.card.setPointerCapture(pointerId)}catch(_){}
 }
 function updateRosterDropTarget(e){
@@ -6547,7 +6565,12 @@ function moveRosterPointerDrag(e){
   if(!st||e.pointerId!==st.pointerId)return;
   const dx=e.clientX-st.x,dy=e.clientY-st.y;
   if(!rosterPointerActive){
-    if(st.type==='touch')return;
+    // Touch: any real movement before the hold delay means the finger is
+    // scrolling — drop the pending reorder and let the page scroll.
+    if(st.type==='touch'){
+      if(Math.hypot(dx,dy)>TOUCH_REORDER_SLOP_PX){clearTimeout(rosterPointerTimer);rosterPointerStart=null;}
+      return;
+    }
     if(Math.hypot(dx,dy)<6)return;
     clearTimeout(rosterPointerTimer);
     activateRosterPointerDrag(e.pointerId);
@@ -6556,6 +6579,7 @@ function moveRosterPointerDrag(e){
   rosterPointerMoved=true;
   e.preventDefault();
   updateRosterDropTarget(e);
+  reorderAutoScrollTrack(e,updateRosterDropTarget);
 }
 function finishRosterPointerDrag(e,cancelled=false){
   clearTimeout(rosterPointerTimer);
@@ -6582,6 +6606,8 @@ function finishRosterPointerDrag(e,cancelled=false){
       }
     }
   }
+  if(rosterPointerActive&&st.type==='touch')rosterSuppressClickUntil=Date.now()+500;
+  reorderAutoScrollStop();
   clearRosterDragVisuals();
   try{source.releasePointerCapture?.(st.pointerId)}catch(_){}
   rosterPointerStart=null;
@@ -6602,11 +6628,13 @@ function attachRosterInteractions(){
     // so the press-and-hold reorder never activated. Block it outright.
     card.addEventListener('dragstart',e=>e.preventDefault());
     card.addEventListener('pointerdown',beginRosterPointerDrag);
+    card.addEventListener('touchmove',e=>{if(rosterPointerActive)e.preventDefault();},{passive:false});
+    card.addEventListener('contextmenu',e=>{if(rosterPointerStart)e.preventDefault();});
     card.addEventListener('pointermove',moveRosterPointerDrag);
     card.addEventListener('pointerup',e=>finishRosterPointerDrag(e,false));
     card.addEventListener('pointercancel',e=>finishRosterPointerDrag(e,true));
     card.addEventListener('click',e=>{
-      if(Date.now()<rosterSuppressClickUntil||rosterPointerMoved||e.target.closest('.card-drag-handle')){
+      if(Date.now()<rosterSuppressClickUntil||rosterPointerMoved){
         e.preventDefault();
         e.stopPropagation();
       }
@@ -10261,7 +10289,7 @@ function fighterSpellsCardMarkup(x){
  const spells=Array.isArray(x.spells)?x.spells:[];
  return spells.length?`<div><span class="micro-label">${en?'SPELLS':'SORTS'}</span><p>${spells.map(s=>refLink('spells',s)).join(' · ')}</p></div>`:'';
 }
-function ownedFighterCard(x,i,f){const en=siteLanguage==='en';const weapons=[...(x.equipmentSelected||[]).filter(e=>e.profile).map(liveEquipmentView),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div><span class="card-drag-handle" aria-hidden="true">⠿</span></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div><div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div></div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!e.profile).map(e=>refLink('equipment',e.name)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div><span class="card-drag-handle" aria-hidden="true">⠿</span></article>`}
+function ownedFighterCard(x,i,f){const en=siteLanguage==='en';const weapons=[...(x.equipmentSelected||[]).filter(e=>e.profile).map(liveEquipmentView),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div><div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div></div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!e.profile).map(e=>refLink('equipment',e.name)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div></article>`}
 function filterFighters(){const q=($('#fighterSearch')?.value||'').toLowerCase(),t=$('#typeFilter')?.value||'';document.querySelectorAll('.fighter-row').forEach(x=>x.style.display=(!q||x.dataset.name.includes(q))&&(!t||x.dataset.type===t)?'block':'none')}
 function openFighterCard(index){const r=activeRoster();if(!r||!r.fighters[index])return;editingIndex=index;equipmentTab='band';equipmentCategoryFilter='all';equipmentSearch='';equipmentOpen=false;loadoutView='loadout';fighterTab='skills';statsOpen=false;progressionOpen=false;progressionSubtab='stats';skillPickerOpen=false;injuryPickerOpen=false;lastInjuryRoll=null;magicDomainAddOpen=false;magicDomainAddSearch='';render('fighter')}
 function weaponSlots(e){if(e?.weaponSlotCost!=null)return Number(e.weaponSlotCost);const t=(e?.profile?.traits||'').toLowerCase();if(/two[- ]handed/.test(t))return 2;if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return 1;if(/paired/.test(t))return 2;if(['Unarmed','Natural Weapons','Tail Blade'].includes(e?.name))return 0;return e?.profile?1:0}
@@ -10543,19 +10571,14 @@ function beginFighterPointerDrag(e){
   if(!card)return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   if(e.target.closest('button,input,textarea,select,a'))return;
-  if(e.pointerType==='touch'&&!e.target.closest('.card-drag-handle'))return;
   clearTimeout(fighterPointerTimer);
   fighterPointerStart={card,pointerId:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType};
   fighterPointerActive=false;
   fighterPointerMoved=false;
   fighterPointerDropTarget=null;
   fighterPointerDropAfter=false;
-  // V-DRAGHANDLE: on touch screens only the ⠿ handle reorders — a finger
-  // anywhere else on the card always scrolls the page (a slow scroll used
-  // to trip the old 220 ms press-and-hold and drag the card instead).
   if(e.pointerType==='touch'){
-    e.preventDefault();
-    activateFighterPointerDrag(e.pointerId);
+    fighterPointerTimer=setTimeout(()=>activateFighterPointerDrag(e.pointerId),TOUCH_REORDER_HOLD_MS);
   }
 }
 
@@ -10564,6 +10587,7 @@ function activateFighterPointerDrag(pointerId){
   if(!st)return;
   fighterPointerActive=true;
   st.card.classList.add('dragging');
+  if(st.type==='touch'){fighterSuppressClickUntil=Date.now()+60000;try{navigator.vibrate?.(30)}catch(_){}}
   try{st.card.setPointerCapture(pointerId)}catch(_){}
 }
 
@@ -10589,7 +10613,12 @@ function moveFighterPointerDrag(e){
   if(!st||e.pointerId!==st.pointerId)return;
   const dx=e.clientX-st.x,dy=e.clientY-st.y;
   if(!fighterPointerActive){
-    if(st.type==='touch')return;
+    // Touch: any real movement before the hold delay means the finger is
+    // scrolling — drop the pending reorder and let the page scroll.
+    if(st.type==='touch'){
+      if(Math.hypot(dx,dy)>TOUCH_REORDER_SLOP_PX){clearTimeout(fighterPointerTimer);fighterPointerStart=null;}
+      return;
+    }
     if(Math.hypot(dx,dy)<6)return;
     clearTimeout(fighterPointerTimer);
     activateFighterPointerDrag(e.pointerId);
@@ -10598,6 +10627,7 @@ function moveFighterPointerDrag(e){
   fighterPointerMoved=true;
   e.preventDefault();
   updateFighterDropTarget(e);
+  reorderAutoScrollTrack(e,updateFighterDropTarget);
 }
 
 function finishFighterPointerDrag(e,cancelled=false){
@@ -10626,6 +10656,8 @@ function finishFighterPointerDrag(e,cancelled=false){
       }
     }
   }
+  if(fighterPointerActive&&st.type==='touch')fighterSuppressClickUntil=Date.now()+500;
+  reorderAutoScrollStop();
   clearFighterDragVisuals();
   try{source.releasePointerCapture?.(st.pointerId)}catch(_){}
   fighterPointerStart=null;
@@ -10641,11 +10673,13 @@ function attachFighterInteractions(){
     if(card.dataset.bound==='1')return;
     card.dataset.bound='1';
     card.addEventListener('pointerdown',beginFighterPointerDrag);
+    card.addEventListener('touchmove',e=>{if(fighterPointerActive)e.preventDefault();},{passive:false});
+    card.addEventListener('contextmenu',e=>{if(fighterPointerStart)e.preventDefault();});
     card.addEventListener('pointermove',moveFighterPointerDrag);
     card.addEventListener('pointerup',e=>finishFighterPointerDrag(e,false));
     card.addEventListener('pointercancel',e=>finishFighterPointerDrag(e,true));
     card.addEventListener('click',e=>{
-      if(Date.now()<fighterSuppressClickUntil||fighterPointerMoved||e.target.closest('.card-drag-handle')){
+      if(Date.now()<fighterSuppressClickUntil||fighterPointerMoved){
         e.preventDefault();
         e.stopPropagation();
         return;
