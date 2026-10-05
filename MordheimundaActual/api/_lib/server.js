@@ -811,7 +811,9 @@ function validateScenarioDefinition(body){
     rewards:arrOf(body?.rewards,30,300),
     campaignSeries:{seriesId:str(body?.campaignSeries?.seriesId,120),seriesName:str(body?.campaignSeries?.seriesName,120),position:str(body?.campaignSeries?.position,20)},
     eventWindow:{start:str(body?.eventWindow?.start,40),end:str(body?.eventWindow?.end,40)},
-    thumbnail:str(body?.thumbnail,2*1024*1024)
+    // Only real images: an uploaded data:image (png/jpeg/webp/gif) or an https URL.
+    thumbnail:(()=>{const v=str(body?.thumbnail,2*1024*1024);return /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v)||/^https:\/\/[^\s"'<>]+$/.test(v)?v:''})(),
+    thumbnailFocus:(()=>{const f=body?.thumbnailFocus;if(!f||typeof f!=='object')return null;const n=(v,lo,hi,d)=>{const x=Number(v);return Number.isFinite(x)?Math.max(lo,Math.min(hi,x)):d};return {x:n(f.x,0,1,0.5),y:n(f.y,0,1,0.5),zoom:n(f.zoom,1,2.5,1)}})()
   };
   const payload=JSON.stringify(definition);
   if(Buffer.byteLength(payload)>4*1024*1024)return {error:'DATA_TOO_LARGE'};
