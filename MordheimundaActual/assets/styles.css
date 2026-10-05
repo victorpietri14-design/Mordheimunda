@@ -3617,9 +3617,5 @@ html[data-theme="light"] .card,html[data-theme="light"] .fcard,html[data-theme="
 .map-builder-icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);border-radius:5px;color:var(--text);font-size:14px;cursor:pointer}
 .map-builder-icon-btn.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .role-animal{color:var(--ok)}.fighter-cost-badge.role-animal{border-color:var(--ok)}
-/* V-DRAGHANDLE: touch-only reorder grip on warband and fighter cards — the rest of the card scrolls the page */
-.dash-wcard[data-roster-id],.fighter-card-v5.draggable-fighter{position:relative}
-.card-drag-handle{position:absolute;right:6px;bottom:6px;z-index:3;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:var(--muted2);font-size:20px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;opacity:.75}
-.card-drag-handle:hover{color:var(--text);background:var(--chip-bg)}
-.dragging .card-drag-handle{cursor:grabbing;color:var(--accent);opacity:1}
-@media(hover:hover) and (pointer:fine){.card-drag-handle{display:none}}
+/* V-LONGPRESS: no iOS link preview / text selection while holding a card to reorder it */
+.dash-wcard[data-roster-id],.fighter-card-v5.draggable-fighter{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
