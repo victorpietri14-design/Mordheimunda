@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0463.0';
+const APP_BUILD='110.0465.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1479,6 +1479,23 @@ function openAdminWeaponEditFromRef(name){adminOpenCategory='gear';adminWeaponEd
 // could render whichever tab (traits, spells…) was last open instead of the
 // equipment form.
 async function openCustomEquipmentEditFromRef(id){
+  // V-MOUNTEDITFROMREF: a Mount shows up in the Référentiel as equipment
+  // (mountCreatureAsEquipment reuses the creature id as customEquipmentId),
+  // but it lives in Custom → Animals & Mounts (state.customCreatures), not in
+  // customEquipmentList() nor in any official warband's equipment — so the
+  // lookups below never found it and ✎ only said the item couldn't be found.
+  // Open the Animals & Mounts editor on it instead (works the same for an
+  // Animal profile, which shares that library and id scheme).
+  if(customCreatureById(id)){customArea='generic';customContentTab='creatures';editCustomCreature(id);return}
+  const officialCreatureHost=(D.factions||[]).find(f=>f?.__official&&(f.creatures||[]).some(c=>c?.customCreatureId===id));
+  if(officialCreatureHost){
+    const en=siteLanguage==='en';
+    const c=officialCreatureHost.creatures.find(x=>x?.customCreatureId===id);
+    const what=c?.kind==='mount'?(en?'This mount':'Cette monture'):(en?'This animal':'Cet animal');
+    const where=officialCreatureHost.displayName||officialCreatureHost.name;
+    toast(en?`${what} is published on “${where}” but isn't in your Animals & Mounts library, so it can't be edited from here`:`${what} est publié(e) sur « ${where} » mais n'est pas dans ta bibliothèque Animaux & Montures : impossible de le modifier d'ici`);
+    return;
+  }
   customArea='generic';customContentTab='equipment';
   if(customEquipmentList().some(x=>x.customEquipmentId===id)){editCustomEquipment(id);return}
   // V-REFEDITOFFICIALONLY: this item can reach the Référentiel purely
@@ -2487,6 +2504,7 @@ function activeRoster(){
     try{syncWarbandRuleEffects(x,r);}catch(e){console.warn('Warband rule recovery skipped',e);}
     try{syncSkillTraitStatBonuses(x,faction(r));}catch(e){console.warn('Skill/trait stat bonus recovery skipped',e);}
     try{syncStalePackModifiers(x,r);}catch(e){console.warn('Pack modifier recovery skipped',e);}
+    try{if(syncAnimalNaturalWeapons(x))r.__adminRetroSyncDirty=true;}catch(e){console.warn('Animal natural weapons sync skipped',e);}
   });
   if(!Array.isArray(r.customValues))r.customValues=[];
   if(!Array.isArray(r.reserve))r.reserve=[];
@@ -5923,7 +5941,11 @@ async function confirmOfficializeItem(){
         // published here stays the single source of truth for an Animal's
         // full profile too, not just a Mount's price.
         const w=customCreatureById(id);if(!w){toast(en?'Profile not found':'Profil introuvable');closeModal();return}
-        if(!d.creatures.some(c=>normName(c.name)===normName(w.name)))d.creatures.push({customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||''});
+        // Replace any same-name copy (like V-EQUIPOFFICIALIZEREPLACE) so
+        // re-officializing an edited Animal/Mount publishes the new profile
+        // instead of silently keeping the old frozen one.
+        d.creatures=d.creatures.filter(c=>normName(c?.name)!==normName(w.name));
+        d.creatures.push({customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||'',naturalWeapons:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[]});
         sourceItem=w;label=w.name;
       }else if(kind==='traits'||kind==='special'){
         const w=customContentById(kind,id);if(!w){toast(en?'Not found':'Introuvable');closeModal();return}
@@ -11921,7 +11943,10 @@ function customCreatureAsWarrior(w){
     sv:w.sv||'',
     rules:w.rules||'',
     ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],
-    defaultEquipment:[],
+    // V-NATURALWEAPONS: an Animal's natural weapons (claws, bite…) picked
+    // on its Custom profile are its default equipment — granted free and
+    // intrinsic on recruit like any fighter's starting gear.
+    defaultEquipment:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[],
     defaultSkills:[],
     skillAccess:{},
     magicAccess:{},
@@ -11930,6 +11955,29 @@ function customCreatureAsWarrior(w){
     race:w.name,
     description:''
   };
+}
+// V-NATURALWEAPONS: keep an already-recruited Animal's free natural weapons
+// in line with its Custom profile — add newly picked ones, remove ones taken
+// off the profile. Only intrinsic copies granted this way are touched, never
+// anything else on the fighter. Returns true when something changed.
+function naturalWeaponItem(name){
+  const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);
+  if(!e)return null;
+  return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
+}
+function syncAnimalNaturalWeapons(x){
+  if(x?.type!=='Animal'||!x.wid)return false;
+  const src=allCustomCreatureList().find(c=>c.customCreatureId===x.wid&&c.kind==='animal');
+  if(!src)return false;
+  const desired=(Array.isArray(src.naturalWeapons)?src.naturalWeapons:[]).map(String);
+  const granted=Array.isArray(x.defaultEquipmentGranted)?x.defaultEquipmentGranted.map(String):[];
+  if(granted.length===desired.length&&granted.every((n,i)=>normName(n)===normName(desired[i])))return false;
+  if(!Array.isArray(x.equipmentSelected))x.equipmentSelected=[];
+  const want=new Set(desired.map(normName)),had=new Set(granted.map(normName));
+  x.equipmentSelected=x.equipmentSelected.filter(e=>!(e?.intrinsic&&had.has(normName(e.name))&&!want.has(normName(e.name))));
+  desired.forEach(n=>{if(!x.equipmentSelected.some(e=>e?.intrinsic&&normName(e.name)===normName(n))){const item=naturalWeaponItem(n);if(item)x.equipmentSelected.push(item);}});
+  x.defaultEquipmentGranted=desired.slice();
+  return true;
 }
 function animalCreatureList(){
   return allCustomCreatureList().filter(w=>w.kind==='animal'&&!w.archived).map(customCreatureAsWarrior);
@@ -12175,7 +12223,7 @@ function equipmentPicker(x,equip){
   // warriorBandAllowed), so without this check an Animal could still shop
   // there like a Henchman. Block the whole picker for the type instead of
   // trying to zero out every list it draws from.
-  if(x?.type==='Animal')return `<div class="empty compact">${en?'War Beasts cannot use weapons, equipment or armour.':'Les bêtes de guerre (War Beasts) ne peuvent pas utiliser d’armes, d’équipement ou d’armure.'}</div>`;
+  if(x?.type==='Animal')return `<div class="empty compact">${en?'War Beasts cannot buy weapons, equipment or armour. Their natural weapons come from their profile in Custom → Animals & Mounts.':'Les bêtes de guerre (War Beasts) ne peuvent pas acheter d’armes, d’équipement ou d’armure. Leurs armes naturelles viennent de leur profil dans Custom → Animaux & Montures.'}</div>`;
   const f=faction(activeRoster()),tabs=[['band','Band List'],['market','Market List'],['unrestricted','Unrestricted List']];
   // V-EQUIPCATSOURCE2: this picker used to build its category filter chips
   // straight off every item's own raw equipmentCategory() string — the exact
@@ -12307,7 +12355,9 @@ function customFighterById(id){
   // customCreatureId (aliased as customFighterId on the recruited copy —
   // see customCreatureAsWarrior). Never match a Mount this way: a Mount
   // isn't a fighter, it's equipment (mountCreatureAsEquipment).
-  return customCreatureList().find(x=>x.customCreatureId===id&&x.kind==='animal')||null;
+  // allCustomCreatureList: an Animal published on an official warband is
+  // offered in every recruitment pool, so it must also resolve here.
+  return allCustomCreatureList().find(x=>x.customCreatureId===id&&x.kind==='animal')||null;
 }
 function customFighterFactionMatches(w,f){
   if(!w||!f)return false;
@@ -12506,6 +12556,7 @@ function customFighterRow(w,isOfficial,editHandler){const en=siteLanguage==='en'
    null, shown as "—") — most useful for a Mount's BS, which Mordheim mounts
    never use, but not hardcoded to any one column so it stays general. */
 let customCreatureEditId=null;
+let customCreatureWeaponDraft=[];
 let customCreatureRuleDraft=[];
 let customCreatureNewKind='animal';
 function customCreatureList(){
@@ -12540,8 +12591,8 @@ function allCustomCreatureList(){
   officialCustomCreatureList().forEach(w=>{const key=normName(w.name);if(seen.has(key))return;seen.add(key);out.push(w);});
   return out;
 }
-function newCustomCreature(){customCreatureEditId=null;customCreatureRuleDraft=[];customCreatureNewKind='animal';render('custom');setTimeout(()=>$('#ccName')?.focus(),30)}
-function editCustomCreature(id){const w=customCreatureById(id);if(!w)return;customCreatureEditId=id;customCreatureRuleDraft=(w.ruleNames||[]).slice();customCreatureNewKind=w.kind||'animal';render('custom')}
+function newCustomCreature(){customCreatureEditId=null;customCreatureRuleDraft=[];customCreatureWeaponDraft=[];customCreatureNewKind='animal';render('custom');setTimeout(()=>$('#ccName')?.focus(),30)}
+function editCustomCreature(id){const w=customCreatureById(id);if(!w)return;customCreatureEditId=id;customCreatureRuleDraft=(w.ruleNames||[]).slice();customCreatureWeaponDraft=(w.naturalWeapons||[]).slice();customCreatureNewKind=w.kind||'animal';render('custom')}
 function setCustomCreatureKind(v){customCreatureNewKind=v==='mount'?'mount':'animal';render('custom')}
 function resetCustomCreatureForm(){newCustomCreature()}
 function deleteCustomCreature(id){const en=siteLanguage==='en';const w=customCreatureById(id);if(!w)return;openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE PROFILE':'SUPPRESSION DE PROFIL'}</div><h2>${en?'Delete “':'Supprimer « '}${esc(w.name)}${en?'”?':' » ?'}</h2><p>${en?'Fighters already using this profile keep their current sheet.':'Les combattants utilisant déjà ce profil conservent leur fiche actuelle.'}</p><button type="button" class="big-delete" onclick="confirmDeleteCustomCreature('${id}')">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
@@ -12571,10 +12622,13 @@ function saveCustomCreature(){
   const profile=P.map((_,i)=>{const raw=($('#ccStat'+i)?.value??'').trim();if(raw==='')return null;const n=Number(raw);return Number.isFinite(n)?n:null});
   const sv=($('#ccSv')?.value||'').trim();
   const ruleNames=customCreatureRuleDraft.slice();
-  const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', ')};
+  const naturalWeapons=kind==='animal'?(document.querySelector('.ccNaturalWeapons')?customFighterReadChecks('ccNaturalWeapons'):customCreatureWeaponDraft.slice()):[];
+  const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', '),naturalWeapons};
   const existing=customCreatureById(item.customCreatureId);item.archived=existing?.archived||false;
   const idx=customCreatureList().findIndex(w=>w.customCreatureId===item.customCreatureId);
-  if(idx>=0)state.customCreatures[idx]=item;else state.customCreatures.push(item);
+  // Keep fields the form doesn't edit (e.g. officialWarbandId) instead of
+  // dropping them on every save.
+  if(idx>=0)state.customCreatures[idx]={...existing,...item};else state.customCreatures.push(item);
   customCreatureEditId=item.customCreatureId;save(true);
   render('custom');toast(idx>=0?(en?'Profile updated':'Profil modifié'):(en?'Profile created':'Profil créé'));
 }
@@ -12594,6 +12648,7 @@ function customCreatureForm(w){
   </div>
   <details class="custom-collapse" open><summary><span>${en?'CHARACTERISTICS':'CARACTÉRISTIQUES'}</span><small>${en?'Same columns as a fighter':'Mêmes colonnes qu’un combattant'}</small></summary><table class="custom-stat-bar"><tr>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}<th title="${en?'Armour Save':'Sauvegarde d’armure'}">Sv</th></tr><tr>${P.map((n,i)=>`<td><input id="ccStat${i}" type="number" step="1" value="${p[i]===null||p[i]===undefined?'':esc(p[i])}" placeholder="—"></td>`).join('')}<td><input id="ccSv" value="${esc(sv)}" placeholder="${en?'e.g. 5+':'ex. 5+'}"></td></tr></table><p class="muted" style="font-size:11px;margin:8px 0 0">${en?'Leave any cell empty to show “—” (e.g. BS on a mount).':'Laisse une case vide pour afficher « — » (ex. BS sur une monture).'}</p></details>
   <details class="custom-collapse" open><summary><span>${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><small>${rules.length} ${en?'linked':(rules.length>1?'liées':'liée')}</small></summary><div class="custom-tag-editor"><div id="ccRuleTags" class="custom-trait-tags">${rules.map((s,i)=>`<span class="custom-trait-tag">${refLink('special',s,s)}${isEditableParamTag('creature',s)?`<button type="button" title="${en?'Edit value':'Modifier la valeur'}" class="trait-tag-edit" onclick="editTraitParamValue('creature',${i})">✎</button>`:''}<button type="button" onclick="removeCustomCreatureRule(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No special rules.':'Aucune règle spéciale.'}</span>`}</div><div class="custom-trait-add"><input id="ccRuleInput" list="ccRuleDatalist" placeholder="${en?'Search a special rule…':'Rechercher une règle spéciale…'}" onkeydown="handleCustomCreatureRuleKey(event)"><datalist id="ccRuleDatalist">${referenceEntries('special').filter(s=>!/^Race\s*\(/i.test(s.name)).map(s=>`<option value="${esc(s.name)}">`).join('')}</datalist><button type="button" class="button secondary" onclick="addCustomCreatureRule()">＋ ${en?'Add':'Ajouter'}</button></div></div></details>
+  ${isMount?'':`<details class="custom-collapse"${customCreatureWeaponDraft.length?' open':''}><summary><span>${en?'NATURAL WEAPONS':'ARMES NATURELLES'}</span><small>${customCreatureWeaponDraft.length} ${en?'item'+(customCreatureWeaponDraft.length!==1?'s':''):'objet'+(customCreatureWeaponDraft.length!==1?'s':'')}</small></summary><p class="sheet-help">${en?'Given free to this animal when recruited (claws, bite…). Create a weapon in Custom → Equipment first if it doesn’t exist yet.':'Données gratuitement à cet animal quand il est recruté (griffes, morsure…). Crée d’abord l’arme dans Custom → Équipements si elle n’existe pas encore.'}</p><div onchange="customCreatureWeaponDraft=customFighterReadChecks('ccNaturalWeapons')">${customFighterEquipmentChooser('ccNaturalWeapons',customCreatureWeaponDraft,'default')}</div></details>`}
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomCreatureForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomCreature()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create profile':'Créer le profil')}</button></div>`;
 }
 function customCreatureRow(w){
