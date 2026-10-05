@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0460.0';
+const APP_BUILD='110.0461.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2499,8 +2499,13 @@ function activeRoster(){
     r.gold=Math.max(0,(faction(r)?.budget||1000)-spent);
   }
   if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;try{save(true);}catch(e){console.warn('Admin retroactive sync save skipped',e);}}
-  if(__arCacheActive)__arCache={id:state.active,r};
-  return r;
+  // save() replaces `state` with a fresh copy, so hand back that copy's
+  // roster — callers that edit the returned object (e.g. drag-reorder
+  // setting r.fighters) would otherwise write to a detached object and lose
+  // the change.
+  const live=state.rosters.find(x=>x.id===state.active)||r;
+  if(__arCacheActive)__arCache={id:state.active,r:live};
+  return live;
 }
 function availableSupplementsForFaction(fid){
   const hand=(window.NECROHEIM_PACKS||[]).filter(p=>p.type==='supplement' && Array.isArray(p.compatibleFactions) && p.compatibleFactions.includes(fid)).map(p=>({id:p.id,name:p.name}));
@@ -6472,7 +6477,7 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
   // so reordering here is enough; nothing else needs to read a separate
   // "position" field.
   const reorderBtns=reorder?`<div class="dash-wcard-reorder"><button type="button" class="dash-wcard-move" title="${en?'Move up':'Monter'}" aria-label="${en?'Move up':'Monter'}" ${reorder.index<=0?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',-1)">▲</button><button type="button" class="dash-wcard-move" title="${en?'Move down':'Descendre'}" aria-label="${en?'Move down':'Descendre'}" ${reorder.index>=reorder.total-1?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',1)">▼</button></div>`:'';
-  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
+  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div>${reorder?'<span class="card-drag-handle" aria-hidden="true">⠿</span>':''}</a>`}
 function moveRosterOrder(id,dir){
   const idx=state.rosters.findIndex(r=>r.id===id);if(idx<0)return;
   const to=idx+dir;if(to<0||to>=state.rosters.length)return;
@@ -6499,14 +6504,19 @@ function beginRosterPointerDrag(e){
   if(!card)return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   if(e.target.closest('button,input,textarea,select'))return;
+  if(e.pointerType==='touch'&&!e.target.closest('.card-drag-handle'))return;
   clearTimeout(rosterPointerTimer);
   rosterPointerStart={card,pointerId:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType};
   rosterPointerActive=false;
   rosterPointerMoved=false;
   rosterPointerDropTarget=null;
   rosterPointerDropAfter=false;
+  // V-DRAGHANDLE: on touch screens only the ⠿ handle reorders — a finger
+  // anywhere else on the card always scrolls the page (a slow scroll used
+  // to trip the old 220 ms press-and-hold and drag the card instead).
   if(e.pointerType==='touch'){
-    rosterPointerTimer=setTimeout(()=>activateRosterPointerDrag(e.pointerId),220);
+    e.preventDefault();
+    activateRosterPointerDrag(e.pointerId);
   }
 }
 function activateRosterPointerDrag(pointerId){
@@ -6596,7 +6606,7 @@ function attachRosterInteractions(){
     card.addEventListener('pointerup',e=>finishRosterPointerDrag(e,false));
     card.addEventListener('pointercancel',e=>finishRosterPointerDrag(e,true));
     card.addEventListener('click',e=>{
-      if(Date.now()<rosterSuppressClickUntil||rosterPointerMoved){
+      if(Date.now()<rosterSuppressClickUntil||rosterPointerMoved||e.target.closest('.card-drag-handle')){
         e.preventDefault();
         e.stopPropagation();
       }
@@ -10251,7 +10261,7 @@ function fighterSpellsCardMarkup(x){
  const spells=Array.isArray(x.spells)?x.spells:[];
  return spells.length?`<div><span class="micro-label">${en?'SPELLS':'SORTS'}</span><p>${spells.map(s=>refLink('spells',s)).join(' · ')}</p></div>`:'';
 }
-function ownedFighterCard(x,i,f){const en=siteLanguage==='en';const weapons=[...(x.equipmentSelected||[]).filter(e=>e.profile).map(liveEquipmentView),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div><div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div></div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!e.profile).map(e=>refLink('equipment',e.name)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div></article>`}
+function ownedFighterCard(x,i,f){const en=siteLanguage==='en';const weapons=[...(x.equipmentSelected||[]).filter(e=>e.profile).map(liveEquipmentView),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div><span class="card-drag-handle" aria-hidden="true">⠿</span></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div><div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div></div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!e.profile).map(e=>refLink('equipment',e.name)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div><span class="card-drag-handle" aria-hidden="true">⠿</span></article>`}
 function filterFighters(){const q=($('#fighterSearch')?.value||'').toLowerCase(),t=$('#typeFilter')?.value||'';document.querySelectorAll('.fighter-row').forEach(x=>x.style.display=(!q||x.dataset.name.includes(q))&&(!t||x.dataset.type===t)?'block':'none')}
 function openFighterCard(index){const r=activeRoster();if(!r||!r.fighters[index])return;editingIndex=index;equipmentTab='band';equipmentCategoryFilter='all';equipmentSearch='';equipmentOpen=false;loadoutView='loadout';fighterTab='skills';statsOpen=false;progressionOpen=false;progressionSubtab='stats';skillPickerOpen=false;injuryPickerOpen=false;lastInjuryRoll=null;magicDomainAddOpen=false;magicDomainAddSearch='';render('fighter')}
 function weaponSlots(e){if(e?.weaponSlotCost!=null)return Number(e.weaponSlotCost);const t=(e?.profile?.traits||'').toLowerCase();if(/two[- ]handed/.test(t))return 2;if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return 1;if(/paired/.test(t))return 2;if(['Unarmed','Natural Weapons','Tail Blade'].includes(e?.name))return 0;return e?.profile?1:0}
@@ -10533,14 +10543,19 @@ function beginFighterPointerDrag(e){
   if(!card)return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   if(e.target.closest('button,input,textarea,select,a'))return;
+  if(e.pointerType==='touch'&&!e.target.closest('.card-drag-handle'))return;
   clearTimeout(fighterPointerTimer);
   fighterPointerStart={card,pointerId:e.pointerId,x:e.clientX,y:e.clientY,type:e.pointerType};
   fighterPointerActive=false;
   fighterPointerMoved=false;
   fighterPointerDropTarget=null;
   fighterPointerDropAfter=false;
+  // V-DRAGHANDLE: on touch screens only the ⠿ handle reorders — a finger
+  // anywhere else on the card always scrolls the page (a slow scroll used
+  // to trip the old 220 ms press-and-hold and drag the card instead).
   if(e.pointerType==='touch'){
-    fighterPointerTimer=setTimeout(()=>activateFighterPointerDrag(e.pointerId),220);
+    e.preventDefault();
+    activateFighterPointerDrag(e.pointerId);
   }
 }
 
@@ -10630,7 +10645,7 @@ function attachFighterInteractions(){
     card.addEventListener('pointerup',e=>finishFighterPointerDrag(e,false));
     card.addEventListener('pointercancel',e=>finishFighterPointerDrag(e,true));
     card.addEventListener('click',e=>{
-      if(Date.now()<fighterSuppressClickUntil||fighterPointerMoved){
+      if(Date.now()<fighterSuppressClickUntil||fighterPointerMoved||e.target.closest('.card-drag-handle')){
         e.preventDefault();
         e.stopPropagation();
         return;
