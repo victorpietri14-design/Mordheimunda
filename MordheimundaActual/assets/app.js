@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0463.0';
+const APP_BUILD='110.0464.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1479,6 +1479,23 @@ function openAdminWeaponEditFromRef(name){adminOpenCategory='gear';adminWeaponEd
 // could render whichever tab (traits, spells…) was last open instead of the
 // equipment form.
 async function openCustomEquipmentEditFromRef(id){
+  // V-MOUNTEDITFROMREF: a Mount shows up in the Référentiel as equipment
+  // (mountCreatureAsEquipment reuses the creature id as customEquipmentId),
+  // but it lives in Custom → Animals & Mounts (state.customCreatures), not in
+  // customEquipmentList() nor in any official warband's equipment — so the
+  // lookups below never found it and ✎ only said the item couldn't be found.
+  // Open the Animals & Mounts editor on it instead (works the same for an
+  // Animal profile, which shares that library and id scheme).
+  if(customCreatureById(id)){customArea='generic';customContentTab='creatures';editCustomCreature(id);return}
+  const officialCreatureHost=(D.factions||[]).find(f=>f?.__official&&(f.creatures||[]).some(c=>c?.customCreatureId===id));
+  if(officialCreatureHost){
+    const en=siteLanguage==='en';
+    const c=officialCreatureHost.creatures.find(x=>x?.customCreatureId===id);
+    const what=c?.kind==='mount'?(en?'This mount':'Cette monture'):(en?'This animal':'Cet animal');
+    const where=officialCreatureHost.displayName||officialCreatureHost.name;
+    toast(en?`${what} is published on “${where}” but isn't in your Animals & Mounts library, so it can't be edited from here`:`${what} est publié(e) sur « ${where} » mais n'est pas dans ta bibliothèque Animaux & Montures : impossible de le modifier d'ici`);
+    return;
+  }
   customArea='generic';customContentTab='equipment';
   if(customEquipmentList().some(x=>x.customEquipmentId===id)){editCustomEquipment(id);return}
   // V-REFEDITOFFICIALONLY: this item can reach the Référentiel purely
@@ -5923,7 +5940,11 @@ async function confirmOfficializeItem(){
         // published here stays the single source of truth for an Animal's
         // full profile too, not just a Mount's price.
         const w=customCreatureById(id);if(!w){toast(en?'Profile not found':'Profil introuvable');closeModal();return}
-        if(!d.creatures.some(c=>normName(c.name)===normName(w.name)))d.creatures.push({customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||''});
+        // Replace any same-name copy (like V-EQUIPOFFICIALIZEREPLACE) so
+        // re-officializing an edited Animal/Mount publishes the new profile
+        // instead of silently keeping the old frozen one.
+        d.creatures=d.creatures.filter(c=>normName(c?.name)!==normName(w.name));
+        d.creatures.push({customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||''});
         sourceItem=w;label=w.name;
       }else if(kind==='traits'||kind==='special'){
         const w=customContentById(kind,id);if(!w){toast(en?'Not found':'Introuvable');closeModal();return}
@@ -12574,7 +12595,9 @@ function saveCustomCreature(){
   const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', ')};
   const existing=customCreatureById(item.customCreatureId);item.archived=existing?.archived||false;
   const idx=customCreatureList().findIndex(w=>w.customCreatureId===item.customCreatureId);
-  if(idx>=0)state.customCreatures[idx]=item;else state.customCreatures.push(item);
+  // Keep fields the form doesn't edit (e.g. officialWarbandId) instead of
+  // dropping them on every save.
+  if(idx>=0)state.customCreatures[idx]={...existing,...item};else state.customCreatures.push(item);
   customCreatureEditId=item.customCreatureId;save(true);
   render('custom');toast(idx>=0?(en?'Profile updated':'Profil modifié'):(en?'Profile created':'Profil créé'));
 }
