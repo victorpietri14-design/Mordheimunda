@@ -3619,3 +3619,48 @@ html[data-theme="light"] .card,html[data-theme="light"] .fcard,html[data-theme="
 .role-animal{color:var(--ok)}.fighter-cost-badge.role-animal{border-color:var(--ok)}
 /* V-LONGPRESS: no iOS link preview / text selection while holding a card to reorder it */
 .dash-wcard[data-roster-id],.fighter-card-v5.draggable-fighter{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* V-PBACTIONS: post-battle Step 4 actions + V-CAPTIVES stash section */
+.pba-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:12px;align-items:start}
+@media(max-width:900px){.pba-grid{grid-template-columns:minmax(0,1fr)}}
+.pba-actor{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:11px;display:grid;gap:9px;margin-top:8px}
+.pba-actor.locked{opacity:.6}
+.pba-actor-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.pba-who{min-width:0}.pba-who strong{font:700 16px 'Cinzel';display:block}
+.pba-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.pba-badge{font:700 9px 'IBM Plex Sans';letter-spacing:.8px;text-transform:uppercase;padding:3px 6px;border:1px solid var(--line2);color:var(--muted2);border-radius:3px;white-space:nowrap}
+.pba-badge.lead{color:var(--accent);border-color:var(--chip-border);background:var(--chip-bg)}
+.pba-badge.warn{color:var(--wip);border-color:var(--wip-border);background:var(--wip-bg)}
+.pba-badge.bad{color:var(--danger);border-color:var(--danger-border);background:var(--danger-bg)}
+.pba-segs{display:flex;flex-wrap:wrap;gap:4px}
+.pba-seg{border:1px solid var(--line2);background:var(--panel);color:var(--muted2);font:600 11px 'IBM Plex Sans';padding:7px 10px;border-radius:5px;cursor:pointer}
+.pba-seg:hover:not(:disabled){color:var(--text);border-color:var(--muted3)}
+.pba-seg.on{background:var(--chip-bg);border-color:var(--accent);color:var(--accent)}
+.pba-seg:disabled{cursor:not-allowed;opacity:.45}
+.pba-why{color:var(--muted2);font-size:11px}
+.pba-detail{border-top:1px dashed var(--line);padding-top:9px;display:grid;gap:8px;font-size:12px;color:var(--text-dim)}
+.pba-detail small{color:var(--muted2)}
+.pba-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pba-row select{background:var(--bg);color:var(--text);border:1px solid var(--line2);padding:7px 9px;border-radius:5px;font:500 12px 'IBM Plex Sans';max-width:100%}
+.pba-die{display:inline-grid;place-items:center;width:26px;height:26px;border:1px solid var(--line2);border-radius:5px;background:var(--panel);font:600 13px 'IBM Plex Mono',monospace;margin-right:3px}
+.pba-mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.pba-plus{color:var(--accent)}.pba-minus{color:var(--danger)}
+.pba-outcome{border:1px solid var(--line2);border-radius:6px;padding:8px 10px;background:var(--panel)}
+.pba-outcome.good{border-color:var(--chip-border);background:var(--chip-bg)}
+.pba-outcome.bad{border-color:var(--danger-border);background:var(--danger-bg)}
+.pba-outcome.mid{border-color:var(--wip-border);background:var(--wip-bg)}
+.pba-cap{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:var(--panel);cursor:pointer}
+.pba-cap span{flex:1;min-width:0;display:grid}
+.pba-side{display:grid;gap:10px;min-width:0}
+.pba-card{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:11px}
+.pba-card h4{font:700 15px 'Cinzel';margin:0 0 8px}
+.pba-ledger{display:grid;gap:4px;font-size:12px}
+.pba-ledger>div{display:flex;justify-content:space-between;gap:10px}
+.pba-ledger .tot{border-top:1px solid var(--line);margin-top:4px;padding-top:6px;font-weight:700}
+.pba-mods{margin-top:6px;color:var(--muted2)}
+.pba-avail{display:flex;align-items:baseline;gap:8px}.pba-avail b{font:700 28px 'Cinzel';color:var(--info)}.pba-avail small{color:var(--muted2)}
+.pba-hint{color:var(--muted2);font-size:11px}
+.pba-apply{width:100%}
+.captives-toolbar{margin-top:22px}
+.captive-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.captive-add .search{flex:1 1 150px;width:auto;min-width:0}
+.captive-check{display:flex;gap:6px;align-items:center;color:var(--muted2);font-size:12px}
