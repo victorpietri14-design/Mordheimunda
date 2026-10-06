@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0481.0';
+const APP_BUILD='110.0482.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13716,7 +13716,33 @@ function toggleMagicDomainFactionLink(id,factionId){
   if(i>=0)d.factionIds.splice(i,1);else d.factionIds.push(factionId);
   save(true);render('custom');
 }
-function deleteCustomSkillTree(id){const en=siteLanguage==='en';const t=customSkillTreeById(id);if(!t)return;const used=customContentList('skills').some(x=>x.tree===t.name);if(used)return toast(en?'Cannot delete a tree that contains custom skills':'Impossible de supprimer un arbre contenant des compétences custom');markDeleted('customSkillTrees',id);state.customSkillTrees=customSkillTreeList().filter(x=>x.id!==id);save(true);render('custom');toast(en?'Tree deleted':'Arbre supprimé')}
+// V-DELETEWHOLETREE: a tree/domain that still held skills/spells used to
+// refuse deletion outright, so a whole homebrew tree could never be removed
+// in one go. It is now deleted together with its own entries, after a
+// confirmation that lists them (and any local fighter profile that still
+// gives access to it). Local Custom data only: a published copy is untouched.
+function customParentAccessUsers(kind,name){
+  const key=kind==='skills'?'skillAccess':'magicAccess';const n=normName(name);
+  return customFighterList().filter(w=>Object.keys(w?.[key]||{}).some(k=>normName(k)===n)).map(w=>w.name);
+}
+function openDeleteCustomParent(kind,id){
+  const en=siteLanguage==='en';const isSkill=kind==='skills';
+  const p=isSkill?customSkillTreeById(id):customMagicDomainById(id);if(!p)return;
+  const items=customBuilderItems(kind,p);const users=customParentAccessUsers(kind,p.name);
+  const what=isSkill?(en?'tree':'arbre'):(en?'domain':'domaine');
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE':'SUPPRESSION'}</div><h2>${en?`Delete the ${what} “${esc(p.name)}”?`:`Supprimer l’${what==='arbre'?'arbre':'domaine'} « ${esc(p.name)} » ?`}</h2><p>${items.length?(en?`Its ${items.length} ${isSkill?'skill':'spell'}${items.length>1?'s':''} will be deleted with it.`:`Ses ${items.length} ${isSkill?'compétence':'sort'}${items.length>1?'s':''} ${items.length>1?'seront supprimé'+(isSkill?'e':'')+'s':'sera supprimé'+(isSkill?'e':'')} avec.`):(en?'It is empty.':'Il est vide.')} ${en?'Only your local Custom copy is deleted; anything already published stays online.':'Seule ta copie locale Custom est supprimée ; ce qui est déjà publié reste en ligne.'}</p>${items.length?customCleanupListMarkup(items.map(x=>x.name)):''}${users.length?`<p class="muted">${en?'Fighter profiles that still list it in their access (it will simply no longer be offered):':'Profils qui l’ont encore dans leur accès (il ne sera simplement plus proposé) :'} ${users.map(esc).join(', ')}</p>`:''}<button type="button" class="big-delete" onclick="confirmDeleteCustomParent('${kind}','${esc(id)}')">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+function confirmDeleteCustomParent(kind,id){
+  const en=siteLanguage==='en';const isSkill=kind==='skills';
+  const p=isSkill?customSkillTreeById(id):customMagicDomainById(id);if(!p){closeModal();return}
+  const items=customBuilderItems(kind,p);const ids=new Set(items.map(x=>x.customContentId));
+  const itemKey=isSkill?'customSkills':'customSpells',parentKey=isSkill?'customSkillTrees':'customMagicDomains';
+  ids.forEach(i=>markDeleted(itemKey,i));state[itemKey]=customContentList(kind).filter(x=>!ids.has(x.customContentId));
+  markDeleted(parentKey,id);state[parentKey]=(isSkill?customSkillTreeList():customMagicDomainList()).filter(x=>x.id!==id);
+  customBuilderResetComposer();save(true);closeModal();render('custom');
+  toast(isSkill?(en?'Tree deleted':'Arbre supprimé'):(en?'Domain deleted':'Domaine supprimé'));
+}
+function deleteCustomSkillTree(id){openDeleteCustomParent('skills',id)}
 // V-RENAMESKILLTREE: renaming a custom skill tree used to be impossible short
 // of deleting and recreating it (losing every skill filed under it, since
 // deleteCustomSkillTree refuses to delete a tree that still has skills). A
@@ -13742,7 +13768,7 @@ function confirmRenameSkillTree(id){
   (state.customFighters||[]).forEach(cf=>{if(cf.skillAccess&&Object.prototype.hasOwnProperty.call(cf.skillAccess,oldName)){cf.skillAccess[newName]=cf.skillAccess[oldName];delete cf.skillAccess[oldName];}});
   save(true);closeModal();render('custom');toast(en?'Tree renamed':'Arbre renommé');
 }
-function deleteCustomMagicDomain(id){const en=siteLanguage==='en';const d=customMagicDomainById(id);if(!d)return;const used=customContentList('spells').some(x=>x.domain===d.name);if(used)return toast(en?'Cannot delete a domain that contains custom spells':'Impossible de supprimer un domaine contenant des sorts custom');markDeleted('customMagicDomains',id);state.customMagicDomains=customMagicDomainList().filter(x=>x.id!==id);save(true);render('custom');toast(en?'Domain deleted':'Domaine supprimé')}
+function deleteCustomMagicDomain(id){openDeleteCustomParent('spells',id)}
 function customFighterSkillNames(){return [...new Set(Object.values(customMergedSkillSets()).flat())].sort((a,b)=>a.localeCompare(b))}
 function customContentTypeLabel(k){const en=siteLanguage==='en';return (en?{traits:'Weapon trait',skills:'Skill',spells:'Spell',special:'Special rule'}:{traits:'Trait d’arme',skills:'Compétence',spells:'Sort',special:'Règle spéciale'})[k]||k}
 function removeCustomContentDraft(i){customContentDraftItems.splice(i,1);render('custom')}
@@ -14623,7 +14649,22 @@ function customDuplicatePlan(){
   });
   return plan;
 }
+// What is live online (merged official warbands), to recognise a local copy
+// of something already published even when its local "published" link is
+// gone (e.g. its published warband's local copy was deleted earlier).
+function customOnlineSets(){
+  const out={fighters:new Set(),equipment:new Set(),traits:new Set(),skills:new Set(),spells:new Set(),special:new Set(),trees:new Set(),domains:new Set()};
+  (D.factions||[]).forEach(f=>{if(!f.__official)return;
+    (f.warriors||[]).forEach(w=>{if(w?.customFighterId)out.fighters.add(w.customFighterId)});
+    (f.equipment||[]).forEach(w=>{if(w?.customEquipmentId)out.equipment.add(w.customEquipmentId)});
+    Object.keys(f.exclusiveSkillSets||{}).forEach(k=>out.trees.add(normName(k)));
+    Object.keys(f.exclusiveMagicDomains||{}).forEach(k=>out.domains.add(normName(k)));
+  });
+  ['traits','skills','spells','special'].forEach(c=>(RULES.categories[c]||[]).forEach(e=>{if(e.__official)out[c].add(normName(e.name))}));
+  return out;
+}
 function customPublishedPlan(){
+  const online=customOnlineSets();
   const rosterCw=new Set((state.rosters||[]).map(r=>r.customWarbandId).filter(Boolean));
   const rosterFighters=customRosterFighterIds();
   const all=customWarbandList();
@@ -14642,23 +14683,53 @@ function customPublishedPlan(){
     (b.specialRules||[]).forEach(e=>keepNames.special.add(normName(e.name)));
   });
   const official={fighters:officializedFighterIdSet(),equipment:officializedEquipmentIdSet(),...officializedContentIdSets()};
-  const items=[];
+  // Which published warband each published item came with, so an item that
+  // has to stay (still used elsewhere) keeps its published status once that
+  // warband's local copy is gone, instead of popping back into the list.
+  const origin=new Map();
+  cws.forEach(cw=>{
+    ['fighterIds','equipmentIds','specialRuleIds','traitIds'].forEach(k=>(cw[k]||[]).forEach(id=>{if(!origin.has(id))origin.set(id,cw.officialId)}));
+    let b;try{b=bundleCustomContentForOfficialize(cw,customWarbandFaction(cw))}catch(e){return}
+    const byName=(tab,list)=>(list||[]).forEach(e=>{const k=CUSTOM_CLEANUP_KINDS.find(q=>q.tab===tab);const x=k&&k.list().find(q=>normName(q.name)===normName(e.name));if(x&&!origin.has(x[k.idKey]))origin.set(x[k.idKey],cw.officialId)});
+    byName('equipment',b.equipment);byName('traits',b.traits);byName('skills',b.skills);byName('spells',b.spells);byName('special',b.specialRules);
+  });
+  const items=[],flag=[];
   CUSTOM_CLEANUP_KINDS.forEach(k=>{
     const off=official[k.tab];if(!off)return;
-    k.list().forEach(x=>{const id=x[k.idKey];if(!off.has(id)||keepIds.has(id))return;
-      if(k.tab==='fighters'&&rosterFighters.has(id))return;
-      if(keepNames[k.tab]&&keepNames[k.tab].has(normName(x.name)))return;
-      // A published item that belongs to a published warband still kept
-      // locally (used by a roster) stays with it.
-      if(k.tab==='fighters'&&x.customWarbandId&&all.some(cw=>cw.id===x.customWarbandId&&!cws.includes(cw)))return;
+    k.list().forEach(x=>{const id=x[k.idKey];
+      const isOnline=k.tab==='fighters'||k.tab==='equipment'?online[k.tab].has(id):(online[k.tab]&&online[k.tab].has(normName(x.name)));
+      if(!off.has(id)&&!isOnline)return;
+      const keep=keepIds.has(id)||(k.tab==='fighters'&&rosterFighters.has(id))||(keepNames[k.tab]&&keepNames[k.tab].has(normName(x.name)))
+        // A published item that belongs to a published warband still kept
+        // locally (used by a roster) stays with it.
+        ||(k.tab==='fighters'&&x.customWarbandId&&all.some(cw=>cw.id===x.customWarbandId&&!cws.includes(cw)));
+      if(keep){if(!x.officialWarbandId&&origin.has(id))flag.push({kind:k,id,officialId:origin.get(id)});return}
       items.push({kind:k,id,name:x.name||'—'})});
   });
-  return {cws,items};
+  // Trees/domains: published as a whole, or left with nothing but deleted
+  // entries, and not offered by a profile that stays.
+  const delIds=new Set(items.map(x=>x.id));
+  const parents=[];
+  [['skills','skillAccess'],['spells','magicAccess']].forEach(([kind,acc])=>{
+    const list=kind==='skills'?customSkillTreeList():customMagicDomainList();
+    list.forEach(pt=>{
+      const its=customBuilderItems(kind,pt);
+      const left=its.filter(x=>!delIds.has(x.customContentId));
+      const live=(kind==='skills'?online.trees:online.domains).has(normName(pt.name));
+      const goes=(pt.officialWarbandId||live)?!left.length:(its.length>0&&!left.length);
+      if(!goes)return;
+      const n=normName(pt.name);
+      const offered=customFighterList().some(w=>!delIds.has(w.customFighterId)&&!official.fighters.has(w.customFighterId)&&Object.keys(w?.[acc]||{}).some(q=>normName(q)===n));
+      if(offered)return;
+      parents.push({kind,id:pt.id,name:pt.name});
+    });
+  });
+  return {cws,items,parents,flag};
 }
 function customCleanupButtonsMarkup(){
   const en=siteLanguage==='en';let dup=0,pub=0;
   try{dup=customDuplicatePlan().length}catch(e){}
-  try{const p=customPublishedPlan();pub=p.cws.length+p.items.length}catch(e){}
+  try{const p=customPublishedPlan();pub=p.cws.length+p.items.length+p.parents.length}catch(e){}
   return (dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
     +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'');
 }
@@ -14685,14 +14756,16 @@ function confirmCleanupCustomDuplicates(){
   toast(en?`${plan.length} duplicate${plan.length>1?'s':''} removed`:`${plan.length} doublon${plan.length>1?'s':''} supprimé${plan.length>1?'s':''}`);
 }
 function cleanupCustomPublished(){
-  const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length;
+  const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length+p.parents.length;
   if(!n){toast(en?'No published local copy to remove':'Aucune copie locale officialisée à supprimer');return}
-  const rows=[...p.cws.map(cw=>`Warband · ${cw.name}`),...p.items.map(x=>`${customCleanupTypeLabel(x.kind.tab)} · ${x.name}`)];
+  const rows=[...p.cws.map(cw=>`Warband · ${cw.name}`),...p.parents.map(x=>`${x.kind==='skills'?(en?'Skill tree':'Arbre de compétences'):(en?'Magic domain':'Domaine de magie')} · ${x.name}`),...p.items.map(x=>`${customCleanupTypeLabel(x.kind.tab)} · ${x.name}`)];
   openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CLEANUP':'NETTOYAGE'}</div><h2>${en?`Remove ${n} published local cop${n>1?'ies':'y'}?`:`Supprimer ${n} copie${n>1?'s':''} locale${n>1?'s':''} officialisée${n>1?'s':''} ?`}</h2><p>${en?'Only the copies kept in your Custom library are removed. <b>The published versions stay online, unchanged, for every player</b>, and remain editable in Admin → Manage. You will no longer be able to re-publish them from Custom (★ / Publish changes). Anything an unpublished creation or one of your warbands still uses is kept.':'Seules les copies gardées dans ta bibliothèque Custom sont supprimées. <b>Les versions officialisées restent en ligne, inchangées, pour tous les joueurs</b>, et restent modifiables dans Admin → Gestion. Tu ne pourras plus les republier depuis Custom (★ / Publier les modifications). Tout ce qu’une création non publiée ou une de tes bandes utilise encore est gardé.'}</p>${customCleanupListMarkup(rows)}<button type="button" class="big-delete" onclick="confirmCleanupCustomPublished()">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
 }
 function confirmCleanupCustomPublished(){
-  const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length;
+  const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length+p.parents.length;
   const cwIds=new Set(p.cws.map(cw=>cw.id));
+  p.flag.forEach(f=>{const x=f.kind.list().find(q=>q[f.kind.idKey]===f.id);if(x&&!x.officialWarbandId)x.officialWarbandId=f.officialId});
+  p.parents.forEach(pt=>{const key=pt.kind==='skills'?'customSkillTrees':'customMagicDomains';markDeleted(key,pt.id);state[key]=(pt.kind==='skills'?customSkillTreeList():customMagicDomainList()).filter(x=>x.id!==pt.id)});
   cwIds.forEach(id=>markDeleted('customWarbands',id));
   state.customWarbands=customWarbandList().filter(cw=>!cwIds.has(cw.id));
   p.items.forEach(x=>markDeleted(x.kind.stateKey,x.id));
