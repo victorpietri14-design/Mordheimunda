@@ -2,7 +2,7 @@
  "format": "mordheimunda-warband-draft",
  "version": 1,
  "name": "Marauders of Chaos (draft)",
- "description": "Draft imported from Border Town Burning (Grade 1c) for review. Tribe (Norse / Kurgan / Hung) chosen at creation; Marks of Chaos via Eye of the Gods (leader) or when hired (Seer). Starting gold 500 gc, max 15 warriors (12 for Hung). Not included yet: skill tree, Marauder special skills, spell lores. Mapped to app items: 'Double-handed weapon' → Great Hammer; no Helmet in the app; Great Axe, Chaos armour and Throwing axe use the app's own items.",
+ "description": "Draft imported from Border Town Burning (Grade 1c) for review. Tribe (Norse / Kurgan / Hung) chosen at creation; Marks of Chaos via Eye of the Gods (leader) or when hired (Seer). Starting gold 500 gc, max 15 warriors (12 for Hung). Choices: tribe at creation (Modify on the warband), Seer's Mark when recruited, Eye of the Gods as post-battle Step 0. Not included yet: skill tree, Marauder special skills, spell lores. Mapped to app items: 'Double-handed weapon' → Great Hammer; no Helmet in the app; Great Axe, Chaos armour and Throwing axe use the app's own items.",
  "warriors": [
   {
    "name": "Marauder Chieftain",
@@ -413,5 +413,120 @@
   "Mark of Onogal the Crow",
   "Mark of Shornaal the Serpent",
   "Bloodfather"
- ]
+ ],
+ "choices": {
+  "groups": [
+   {
+    "id": "tribe",
+    "label": {
+     "en": "Tribe",
+     "fr": "Tribu"
+    },
+    "when": "creation",
+    "options": [
+     {
+      "id": "norse",
+      "name": "Norse",
+      "text": "Fur-clad sea raiders of the north. +1 to rarity rolls; Eye of the Gods triggers on 13+.",
+      "ruleNames": [
+       "Norse: Reavers",
+       "Norse: Pantheon"
+      ],
+      "rarityMod": 1,
+      "eyeTarget": 13,
+      "eyeSkillTarget": 11
+     },
+     {
+      "id": "kurgan",
+      "name": "Kurgan",
+      "text": "Numerous and fierce. Any number of Warhounds, bone bows, −1 to find Rare items.",
+      "ruleNames": [
+       "Kurgan: Pedigree",
+       "Kurgan: Bone Bows",
+       "Kurgan: Difficult Customers"
+      ],
+      "rarityMod": -1
+     },
+     {
+      "id": "hung",
+      "name": "Hung",
+      "text": "Nomad horsemen. Max 12 warriors; Warhorses 40 gc and Ride Warhorse for Heroes.",
+      "ruleNames": [
+       "Hung: Disloyalty",
+       "Hung: Affinity with Horses"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "mark",
+    "label": {
+     "en": "Mark of Chaos",
+     "fr": "Marque du Chaos"
+    },
+    "when": "recruit",
+    "fighters": [
+     "Seer"
+    ],
+    "exclusiveExcept": [
+     "undivided"
+    ],
+    "options": [
+     {
+      "id": "undivided",
+      "name": "Mark of Chaos Undivided",
+      "text": "Chaos in its purest form. Leader: re-roll failed Ld tests in range. Seer: 0–3 Gors, Chaos Rituals.",
+      "ruleNames": [
+       "Mark of Chaos Undivided"
+      ]
+     },
+     {
+      "id": "tchar",
+      "name": "Mark of Tchar the Eagle",
+      "text": "Changer of the Ways. Leader: one random Tchar Ritual. Seer: two Tchar Rituals.",
+      "ruleNames": [
+       "Mark of Tchar the Eagle"
+      ]
+     },
+     {
+      "id": "arkhar",
+      "name": "Mark of Arkhar the Dog",
+      "text": "God of War. Leader: frenzy, spells fail on 4+. Seer: Bloodfather (no spells).",
+      "ruleNames": [
+       "Mark of Arkhar the Dog"
+      ],
+      "recruitRuleNames": [
+       "Bloodfather"
+      ]
+     },
+     {
+      "id": "onogal",
+      "name": "Mark of Onogal the Crow",
+      "text": "Lord of Decay. Leader: +1 T, Serious Injury re-roll, immune to poison. Seer: Onogal Rituals.",
+      "ruleNames": [
+       "Mark of Onogal the Crow"
+      ],
+      "leaderStatMods": {
+       "T": 1
+      }
+     },
+     {
+      "id": "shornaal",
+      "name": "Mark of Shornaal the Serpent",
+      "text": "Lord of Pleasure. Leader: enemies need a 3D6 Ld test to attack him. Seer: Shornaal Rituals, Bugman's Ale.",
+      "ruleNames": [
+       "Mark of Shornaal the Serpent"
+      ]
+     }
+    ]
+   }
+  ],
+  "eyeOfTheGods": {
+   "group": "mark",
+   "baseTarget": 12,
+   "skillName": "Tattooed Body",
+   "skillTarget": 10,
+   "spawnFighter": "Spawn of Chaos"
+  }
+ }
 }

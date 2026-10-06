@@ -558,6 +558,7 @@ const toOfficialFaction=row=>{
     skillTrees:arr(row.definition?.skillTrees),skills:arr(row.definition?.skills),
     magicDomains:arr(row.definition?.magicDomains),spells:arr(row.definition?.spells),
     traits:arr(row.definition?.traits),specialRules:arr(row.definition?.specialRules),
+    choices:row.definition?.choices&&typeof row.definition.choices==='object'?row.definition.choices:null,
     bandRuleNames:arr(row.definition?.bandRuleNames),
     creatures:arr(row.definition?.creatures),
     // V-WARBANDIDSHAPE (Task #80): whether an admin has directly edited this
@@ -640,7 +641,12 @@ function validateWarbandDefinition(body){
   if(!warriors||!warriors.length||warriors.length>60||equipment.length>300)return {error:'INVALID_DEFINITION'};
   if([skillTrees,skills,magicDomains,spells,traits,specialRules].some(a=>a.length>80))return {error:'INVALID_DEFINITION'};
   if(creatures.length>120)return {error:'INVALID_DEFINITION'};
-  const definition={warriors,equipment,skillTrees,skills,magicDomains,spells,traits,specialRules,bandRuleNames,creatures};
+  // Warband choices (tribe at creation, per-fighter Marks, Eye of the Gods…):
+  // plain data rendered escaped client-side; kept as an object, size-capped.
+  let choices=body?.choices&&typeof body.choices==='object'&&!Array.isArray(body.choices)?body.choices:null;
+  if(choices&&Buffer.byteLength(JSON.stringify(choices))>200*1024)return {error:'DATA_TOO_LARGE'};
+  if(choices&&!Array.isArray(choices.groups))choices=null;
+  const definition={warriors,equipment,skillTrees,skills,magicDomains,spells,traits,specialRules,bandRuleNames,creatures,choices};
   const payload=JSON.stringify(definition);
   if(Buffer.byteLength(payload)>2*1024*1024)return {error:'DATA_TOO_LARGE'};
   return {name,payload,supplementOf};
@@ -682,10 +688,13 @@ app.put('/api/admin/warbands/:id',requireDb,requireSameOrigin,auth,requireAdmin,
   // draft is rejected instead of silently overwriting the admin's changes.
   const viaAdminEditor=!!req.body?.viaAdminEditor;
   try{
-    const cur=await pool.query('SELECT admin_edited_at FROM official_warbands WHERE id=$1',[id]);
+    const cur=await pool.query('SELECT admin_edited_at,definition FROM official_warbands WHERE id=$1',[id]);
     if(!cur.rowCount)return res.status(404).json({error:'NOT_FOUND'});
     if(cur.rows[0].admin_edited_at&&!viaAdminEditor)return res.status(409).json({error:'ADMIN_LOCKED'});
-    const q=await pool.query(`UPDATE official_warbands SET name=$1,definition=$2,updated_at=NOW()${viaAdminEditor?',admin_edited_at=NOW()':''} WHERE id=$3 RETURNING id,name,definition,supplement_of,admin_edited_at`,[v.name,v.payload,id]);
+    // An edit that doesn't mention `choices` keeps the warband's existing ones.
+    let payload=v.payload;
+    if(req.body?.choices===undefined&&cur.rows[0].definition?.choices){const d=JSON.parse(payload);d.choices=cur.rows[0].definition.choices;payload=JSON.stringify(d)}
+    const q=await pool.query(`UPDATE official_warbands SET name=$1,definition=$2,updated_at=NOW()${viaAdminEditor?',admin_edited_at=NOW()':''} WHERE id=$3 RETURNING id,name,definition,supplement_of,admin_edited_at`,[v.name,payload,id]);
     if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
     res.json({warband:toOfficialFaction(q.rows[0])});
   }catch(e){next(e)}
