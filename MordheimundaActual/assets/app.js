@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0491.0';
+const APP_BUILD='110.0492.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -5337,6 +5337,18 @@ function confirmAdminDeleteWarrior(idx){
   const en=siteLanguage==='en';
   openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'REMOVE FIGHTER':'RETIRER LE COMBATTANT'}</div><h2>${en?'Remove this fighter from the warband?':'Retirer ce combattant de la bande ?'}</h2><p>${en?'This only affects the definition — saving is still required to apply it.':'Ceci ne modifie que la fiche en cours d’édition — il faudra encore Enregistrer pour l’appliquer.'}</p><button type="button" class="big-delete" onclick="adminDeleteWarrior(${idx});closeModal()">${en?'REMOVE':'RETIRER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
 }
+// Inserts a copy right after the original (new id, "(copy)" name) and opens
+// it; nothing is sent until the warband is saved, like any other edit here.
+function adminDuplicateWarrior(idx){
+  const en=siteLanguage==='en';const d=activeAdminEditData();const src=d?.warriors?.[idx];if(!src)return;
+  const copy=JSON.parse(JSON.stringify(src));
+  const base=String(src.name||'').replace(/\s*\((?:copy|copie)(?: \d+)?\)$/i,'');const taken=new Set(d.warriors.map(w=>normName(w.name)));
+  let name=`${base} (${en?'copy':'copie'})`,n=2;while(taken.has(normName(name))){name=`${base} (${en?'copy':'copie'} ${n})`;n++}
+  copy.name=name;copy.id=(crypto.randomUUID?crypto.randomUUID():String(Date.now()));delete copy.customFighterId;
+  d.warriors.splice(idx+1,0,copy);
+  adminEditWarrior(idx+1);
+  toast(en?`“${name}” added — edit it, then save the warband`:`« ${name} » ajouté — modifie-le puis enregistre la bande`);
+}
 function adminDeleteWarrior(idx){const d=activeAdminEditData();if(!d)return;d.warriors.splice(idx,1);adminEditingWarriorIdx=null;render('admin')}
 function saveAdminWarrior(idx){
   const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
@@ -5387,7 +5399,7 @@ function saveAdminWarrior(idx){
 }
 function adminWarriorRow(w,i,total){
   const en=siteLanguage==='en';
-  return `<article class="custom-item-row"><div class="custom-item-main"><div class="custom-item-icon">☠</div><div><strong>${esc(w.name)}</strong><small>${esc(w.type||'Henchman')} · ${esc(w.race||'Human')} · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" title="${en?'Move up (appears earlier in recruitment)':'Monter (apparaît plus tôt en recrutement)'}" ${i===0?'disabled':''} onclick="moveAdminWarrior(${i},-1)">▲</button><button type="button" class="equipment-action" title="${en?'Move down':'Descendre'}" ${i===total-1?'disabled':''} onclick="moveAdminWarrior(${i},1)">▼</button><button type="button" class="equipment-action" onclick="adminEditWarrior(${i})">✎</button><button type="button" class="equipment-action remove" onclick="confirmAdminDeleteWarrior(${i})">🗑</button></div></article>`;
+  return `<article class="custom-item-row"><div class="custom-item-main"><div class="custom-item-icon">☠</div><div><strong>${esc(w.name)}</strong><small>${esc(w.type||'Henchman')} · ${esc(w.race||'Human')} · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" title="${en?'Move up (appears earlier in recruitment)':'Monter (apparaît plus tôt en recrutement)'}" ${i===0?'disabled':''} onclick="moveAdminWarrior(${i},-1)">▲</button><button type="button" class="equipment-action" title="${en?'Move down':'Descendre'}" ${i===total-1?'disabled':''} onclick="moveAdminWarrior(${i},1)">▼</button><button type="button" class="equipment-action" title="${en?'Duplicate this fighter':'Dupliquer ce combattant'}" onclick="adminDuplicateWarrior(${i})">⧉</button><button type="button" class="equipment-action" onclick="adminEditWarrior(${i})">✎</button><button type="button" class="equipment-action remove" onclick="confirmAdminDeleteWarrior(${i})">🗑</button></div></article>`;
 }
 /* Recruitment shows fighter types in this array's order (see fighterPool),
    so moving a row here directly controls where it appears in the
@@ -13154,7 +13166,25 @@ function customFighterRow(w,isOfficial,editHandler){const en=siteLanguage==='en'
   // editHandler lets a caller (customWarbandEditor's own Combattants roster)
   // route the ✎ button back to itself instead of the generic Custom
   // Générique editor — defaults to the normal standalone edit.
-  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">⚔</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isOfficial?`<span class="archived-tag official-tag">${en?'OFFICIALIZED':'OFFICIALISÉ'}</span> · `:''}${esc(w.type||'Henchman')} · ${esc(bandLabel)} · Race (${esc(fighterRace(w,null))}) · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('fighter',w.customFighterId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomFighterArchive('${w.customFighterId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="${editHandler||`editCustomFighter('${w.customFighterId}')`}">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomFighter('${w.customFighterId}')">🗑</button></div></article>`}
+  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">⚔</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isOfficial?`<span class="archived-tag official-tag">${en?'OFFICIALIZED':'OFFICIALISÉ'}</span> · `:''}${esc(w.type||'Henchman')} · ${esc(bandLabel)} · Race (${esc(fighterRace(w,null))}) · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('fighter',w.customFighterId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomFighterArchive('${w.customFighterId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" title="${en?'Duplicate — start a similar profile from this one':'Dupliquer — partir de ce profil pour en faire un similaire'}" onclick="duplicateCustomFighter('${w.customFighterId}')">⧉</button><button type="button" class="equipment-action" onclick="${editHandler||`editCustomFighter('${w.customFighterId}')`}">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomFighter('${w.customFighterId}')">🗑</button></div></article>`}
+// V-DUPFIGHTERPROFILE: copy a custom fighter profile (stats, rules, skills,
+// equipment, access…) as a new, unpublished profile in the same warband, and
+// open it in the editor — so a similar model doesn't start from scratch.
+function duplicateCustomFighter(id){
+  const en=siteLanguage==='en';const src=customFighterById(id);if(!src)return;
+  const copy=JSON.parse(JSON.stringify(src));
+  copy.customFighterId=crypto.randomUUID();
+  ['officialWarbandId','officialWarbandIds','bookFactionIds','updatedAt'].forEach(k=>delete copy[k]);copy.archived=false;
+  const base=String(src.name||'').replace(/\s*\((?:copy|copie)(?: \d+)?\)$/i,'');const taken=new Set(customFighterList().map(w=>normName(w.name)));
+  let name=`${base} (${en?'copy':'copie'})`,n=2;while(taken.has(normName(name))){name=`${base} (${en?'copy':'copie'} ${n})`;n++}
+  copy.name=name;
+  state.customFighters.push(copy);
+  // Keep it in the same custom warband(s) as the original.
+  customWarbandList().forEach(cw=>{if((cw.fighterIds||[]).includes(id)){cw.fighterIds=[...cw.fighterIds,copy.customFighterId];if(Array.isArray(cw.fighterRefs))cw.fighterRefs=[...cw.fighterRefs,'custom:'+copy.customFighterId]}});
+  save(true);
+  if(copy.customWarbandId&&customWarbandById(copy.customWarbandId))editWarbandFighter(copy.customFighterId,copy.customWarbandId);else{customArea='generic';customContentTab='fighters';editCustomFighter(copy.customFighterId)}
+  toast(en?`“${name}” created — edit it, then save`:`« ${name} » créé — modifie-le puis enregistre`);
+}
 
 /* V-CREATURES: Animals & Mounts — a deliberately slimmer profile builder than
    customFighterForm above. Both kinds keep name + cost + stats + special
