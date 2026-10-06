@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0483.0';
+const APP_BUILD='110.0485.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12310,6 +12310,7 @@ function officializedEquipmentIdSet(){
   // Individually officialized (see officializeItemInto — attached straight to
   // an existing official warband, no whole custom warband involved).
   customEquipmentList().forEach(w=>{if(w.officialWarbandId)ids.add(w.customEquipmentId);});
+  try{customOnlineCopyIds('equipment').forEach(id=>ids.add(id))}catch(e){}
   return ids;
 }
 // Same idea, for custom fighter profiles (Custom > Profils): those are
@@ -12319,6 +12320,7 @@ function officializedFighterIdSet(){
   const ids=new Set();
   customWarbandList().forEach(cw=>{if(cw.officialId)(cw.fighterIds||[]).forEach(id=>ids.add(id));});
   customFighterList().forEach(w=>{if(w.officialWarbandId)ids.add(w.customFighterId);});
+  try{customOnlineCopyIds('fighters').forEach(id=>ids.add(id))}catch(e){}
   return ids;
 }
 // Same idea as officializedEquipmentIdSet, but for traits / skills / spells /
@@ -12350,6 +12352,7 @@ function officializedContentIdSets(){
   // flag directly — no whole-warband bundle to resolve names through.
   ['traits','skills','spells','special'].forEach(kind=>{
     customContentList(kind).forEach(x=>{if(x.officialWarbandId)out[kind].add(x.customContentId);});
+    try{customOnlineCopyIds(kind).forEach(id=>out[kind].add(id))}catch(e){}
   });
   return out;
 }
@@ -14652,23 +14655,43 @@ function customDuplicatePlan(){
 // What is live online (merged official warbands), to recognise a local copy
 // of something already published even when its local "published" link is
 // gone (e.g. its published warband's local copy was deleted earlier).
+// Each set also has a .origin Map (key → official warband id) so a kept
+// local copy can be re-linked to the warband it is published in.
 function customOnlineSets(){
-  const out={fighters:new Set(),equipment:new Set(),traits:new Set(),skills:new Set(),spells:new Set(),special:new Set(),trees:new Set(),domains:new Set()};
-  (D.factions||[]).forEach(f=>{if(!f.__official)return;
-    (f.warriors||[]).forEach(w=>{if(w?.customFighterId)out.fighters.add(w.customFighterId)});
-    (f.equipment||[]).forEach(w=>{if(w?.customEquipmentId)out.equipment.add(w.customEquipmentId)});
-    Object.keys(f.exclusiveSkillSets||{}).forEach(k=>out.trees.add(normName(k)));
-    Object.keys(f.exclusiveMagicDomains||{}).forEach(k=>out.domains.add(normName(k)));
+  const out={};['fighters','equipment','traits','skills','spells','special','trees','domains'].forEach(k=>{out[k]=new Set();out[k].origin=new Map()});
+  const add=(k,key,oid)=>{if(!key)return;out[k].add(key);if(!out[k].origin.has(key))out[k].origin.set(key,oid)};
+  (D.factions||[]).forEach(f=>{if(!f.__official)return;const oid=String(f.id||'').replace(/^official-/,'');
+    (f.warriors||[]).forEach(w=>add('fighters',w?.customFighterId,oid));
+    (f.equipment||[]).forEach(w=>add('equipment',w?.customEquipmentId,oid));
+    (f.traits||[]).forEach(t=>add('traits',normName(t?.name),oid));
+    (f.skills||[]).forEach(t=>add('skills',normName(t?.name),oid));
+    (f.spells||[]).forEach(t=>add('spells',normName(t?.name),oid));
+    (f.specialRules||[]).forEach(t=>add('special',normName(t?.name),oid));
+    Object.keys(f.exclusiveSkillSets||{}).forEach(k=>add('trees',normName(k),oid));
+    Object.keys(f.exclusiveMagicDomains||{}).forEach(k=>add('domains',normName(k),oid));
   });
-  ['traits','skills','spells','special'].forEach(c=>(RULES.categories[c]||[]).forEach(e=>{if(e.__official)out[c].add(normName(e.name))}));
+  ['traits','skills','spells','special'].forEach(c=>(RULES.categories[c]||[]).forEach(e=>{if(e.__official)add(c,normName(e.name),null)}));
   return out;
+}
+// Local copies of content that is live online count as officialized for the
+// Custom library (they go to the OFFICIALIZED folder instead of looking like
+// unpublished work), even when their local "published" link was lost.
+function customOnlineCopyIds(tab){
+  const on=customOnlineSets()[tab];if(!on)return [];
+  if(tab==='fighters')return customFighterList().filter(w=>on.has(w.customFighterId)).map(w=>w.customFighterId);
+  if(tab==='equipment')return customEquipmentList().filter(w=>on.has(w.customEquipmentId)).map(w=>w.customEquipmentId);
+  return customContentList(tab).filter(x=>on.has(normName(x.name))).map(x=>x.customContentId);
 }
 function customPublishedPlan(){
   const online=customOnlineSets();
   const rosterCw=new Set((state.rosters||[]).map(r=>r.customWarbandId).filter(Boolean));
   const rosterFighters=customRosterFighterIds();
   const all=customWarbandList();
-  const cws=all.filter(cw=>cw.officialId&&!rosterCw.has(cw.id));
+  // Only a warband whose official version is actually live (published, so
+  // merged into D.factions) counts: one sent back to draft/archived online
+  // keeps its local copy, the only one players could get it back from.
+  const liveOfficial=new Set((D.factions||[]).filter(f=>f.__official).map(f=>String(f.id||'').replace(/^official-/,'')));
+  const cws=all.filter(cw=>cw.officialId&&liveOfficial.has(String(cw.officialId))&&!rosterCw.has(cw.id));
   const remaining=all.filter(cw=>!cws.includes(cw));
   // Anything a warband that stays (not published, or still used by a
   // roster) relies on is kept, so that warband keeps working.
@@ -14703,7 +14726,8 @@ function customPublishedPlan(){
         // A published item that belongs to a published warband still kept
         // locally (used by a roster) stays with it.
         ||(k.tab==='fighters'&&x.customWarbandId&&all.some(cw=>cw.id===x.customWarbandId&&!cws.includes(cw)));
-      if(keep){if(!x.officialWarbandId&&origin.has(id))flag.push({kind:k,id,officialId:origin.get(id)});kept.push(`${customCleanupTypeLabel(k.tab)} · ${x.name||'—'}`);return}
+      const onlineOid=k.tab==='fighters'||k.tab==='equipment'?online[k.tab]?.origin.get(id):online[k.tab]?.origin.get(normName(x.name));
+      if(keep){if(!x.officialWarbandId&&(origin.get(id)||onlineOid))flag.push({kind:k,id,officialId:origin.get(id)||onlineOid});kept.push(`${customCleanupTypeLabel(k.tab)} · ${x.name||'—'}`);return}
       items.push({kind:k,id,name:x.name||'—'})});
   });
   // Trees/domains: published as a whole, or left with nothing but deleted
@@ -14801,12 +14825,67 @@ function confirmCleanupCustomUnused(){
   save(true);closeModal();render('custom');
   toast(en?`${n} unused item${n>1?'s':''} removed`:`${n} élément${n>1?'s':''} inutilisé${n>1?'s':''} supprimé${n>1?'s':''}`);
 }
+// V-CUSTOMCOMPARE: "is my Custom content really online?" Fetches the live
+// official warbands (published only, what every player gets) and, for an
+// admin, every official warband with its status, then sorts each local
+// Custom item into: live online / only in an official warband that is not
+// published (draft) / online but with a different text / not published at
+// all. Read-only: nothing is changed, locally or online.
+function cmpNorm(t){return String(t||'').replace(/\s+/g,' ').trim()}
+async function openCustomCompare(){
+  const en=siteLanguage==='en';
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'COMPARE':'COMPARAISON'}</div><h2>${en?'Comparing with what is online…':'Comparaison avec le contenu en ligne…'}</h2></div>`);
+  let live=[],adminRows=null;const full=new Map();
+  try{const r=await window.MordheimundaAPI.officialWarbands();live=Array.isArray(r?.warbands)?r.warbands:[]}catch(e){}
+  if(isAdminSession()){try{const r=await window.MordheimundaAPI.adminListWarbands();adminRows=Array.isArray(r?.warbands)?r.warbands:(Array.isArray(r)?r:null)}catch(e){}}
+  const liveIds=new Set(live.map(w=>String(w.id||'').replace(/^official-/,'')));
+  live.forEach(w=>full.set(String(w.id||'').replace(/^official-/,''),{name:w.displayName||w.name,status:'published',def:w}));
+  if(adminRows){for(const row of adminRows){const id=String(row.id);if(full.has(id)){full.get(id).status=row.status||'published';continue}
+    try{const r=await window.MordheimundaAPI.adminGetWarband(id);const w=r?.warband||r;full.set(id,{name:row.name,status:row.status||'draft',def:w?.definition||w||{}})}catch(e){full.set(id,{name:row.name,status:row.status||'draft',def:{}})}}}
+  const idx={fighters:new Map(),equipment:new Map(),traits:new Map(),skills:new Map(),spells:new Map(),special:new Map(),trees:new Map(),domains:new Map()};
+  const put=(k,key,id,text)=>{if(!key)return;const a=idx[k].get(key)||[];a.push({id,text});idx[k].set(key,a)};
+  full.forEach((w,id)=>{const d=w.def||{};
+    (d.warriors||[]).forEach(x=>put('fighters',x?.customFighterId,id));
+    (d.equipment||[]).forEach(x=>put('equipment',x?.customEquipmentId,id));
+    (d.traits||[]).forEach(x=>put('traits',normName(x?.name),id,x?.text));
+    (d.skills||[]).forEach(x=>put('skills',normName(x?.name),id,x?.text));
+    (d.spells||[]).forEach(x=>put('spells',normName(x?.name),id,x?.text));
+    (d.specialRules||[]).forEach(x=>put('special',normName(x?.name),id,x?.text));
+    (d.skillTrees||[]).forEach(x=>put('trees',normName(x?.name||x),id));
+    (d.magicDomains||[]).forEach(x=>put('domains',normName(x?.name||x),id));
+  });
+  const usedBy=item=>customWarbandList().filter(cw=>{try{const b=bundleCustomContentForOfficialize(cw,customWarbandFaction(cw));return [...(b.equipment||[]),...(b.traits||[]),...(b.skills||[]),...(b.spells||[]),...(b.specialRules||[])].some(e=>normName(e.name)===normName(item))||customWarbandWarriors(cw).some(w=>normName(w.name)===normName(item))}catch(e){return false}}).map(cw=>cw.name);
+  const groups={live:[],draft:[],diff:[],none:[]};
+  const sortItem=(label,name,hits,localText)=>{
+    const liveHits=(hits||[]).filter(h=>liveIds.has(h.id));
+    const row=`${label} · ${name}`;
+    if(liveHits.length){if(localText!=null&&liveHits.every(h=>h.text!=null&&cmpNorm(h.text)!==cmpNorm(localText)))groups.diff.push(`${row} — ${liveHits.map(h=>full.get(h.id)?.name).join(', ')}`);else groups.live.push(row);return}
+    if((hits||[]).length){groups.draft.push(`${row} — ${hits.map(h=>`${full.get(h.id)?.name} (${full.get(h.id)?.status})`).join(', ')}`);return}
+    const u=usedBy(name);groups.none.push(`${row}${u.length?` — ${en?'used by':'utilisé par'} ${u.join(', ')}`:''}`);
+  };
+  customFighterList().forEach(w=>sortItem(customCleanupTypeLabel('fighters'),w.name,idx.fighters.get(w.customFighterId),null));
+  customEquipmentList().forEach(w=>sortItem(customCleanupTypeLabel('equipment'),w.name,idx.equipment.get(w.customEquipmentId),null));
+  ['traits','skills','spells','special'].forEach(k=>customContentList(k).forEach(x=>sortItem(customCleanupTypeLabel(k),x.name,idx[k].get(normName(x.name)),x.text||'')));
+  customSkillTreeList().forEach(t=>sortItem(en?'Skill tree':'Arbre de compétences',t.name,idx.trees.get(normName(t.name)),null));
+  customMagicDomainList().forEach(t=>sortItem(en?'Magic domain':'Domaine de magie',t.name,idx.domains.get(normName(t.name)),null));
+  const cwRows=customWarbandList().map(cw=>{const o=cw.officialId?full.get(String(cw.officialId)):null;
+    const st=!cw.officialId?(en?'not officialized':'non officialisée'):!o?(adminRows?(en?'⚠ officialized here but NOT FOUND online (deleted?)':'⚠ officialisée ici mais INTROUVABLE en ligne (supprimée ?)'):(en?'not live (draft/archived, or deleted)':'pas en ligne (brouillon/archivée, ou supprimée)')):o.status==='published'?(en?'✓ live':'✓ en ligne'):`⚠ ${o.status} — ${en?'not visible to players':'invisible pour les joueurs'}`;
+    return `${cw.name} — ${st}`});
+  const sec=(title,rows,open)=>`<details class="custom-collapse"${open?' open':''} style="text-align:left"><summary><span>${title}</span><small>${rows.length}</small></summary>${rows.length?customCleanupListMarkup(rows):`<p class="muted">—</p>`}</details>`;
+  openModal(`<div class="delete-dialog" style="text-align:left"><div class="eyebrow">${en?'COMPARE · READ ONLY':'COMPARAISON · LECTURE SEULE'}</div><h2>${en?'Your Custom library vs online':'Ta bibliothèque Custom vs en ligne'}</h2><p class="muted">${en?`${liveIds.size} published official warband${liveIds.size>1?'s':''} online`:`${liveIds.size} warband${liveIds.size>1?'s':''} officielle${liveIds.size>1?'s':''} publiée${liveIds.size>1?'s':''} en ligne`}${adminRows?` · ${full.size-liveIds.size} ${en?'not published (draft/archived)':'non publiée(s) (brouillon/archivée)'}`:''}. ${en?'Nothing is changed.':'Rien n’est modifié.'}</p>
+   ${sec(en?'Your custom warbands':'Tes warbands custom',cwRows,true)}
+   ${sec(en?'⚠ Online but with a different text':'⚠ En ligne mais avec un texte différent',groups.diff,true)}
+   ${sec(en?'⚠ Only in an official warband that is not published':'⚠ Seulement dans une warband officielle non publiée',groups.draft,true)}
+   ${sec(en?'Not published (only on your account)':'Non publiés (seulement sur ton compte)',groups.none,true)}
+   ${sec(en?'✓ Live online':'✓ En ligne',groups.live,false)}
+   <button type="button" class="button secondary full" onclick="closeModal()">${en?'Close':'Fermer'}</button></div>`);
+}
 function customCleanupButtonsMarkup(){
   const en=siteLanguage==='en';let dup=0,pub=0;
   try{dup=customDuplicatePlan().length}catch(e){}
   try{const p=customPublishedPlan();pub=p.cws.length+p.items.length+p.parents.length}catch(e){}
   let unused=0;try{const p=customUnusedPlan();unused=p.items.length+p.parents.length}catch(e){}
-  return (dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
+  return `<button class="button secondary" type="button" onclick="openCustomCompare()">🔍 ${en?'Compare with online':'Comparer avec le publié'}</button>`+(dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
     +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'')
     +(unused?`<button class="button secondary" type="button" onclick="cleanupCustomUnused()">🧹 ${en?`Remove unused items (${unused})`:`Supprimer les éléments inutilisés (${unused})`}</button>`:'');
 }
