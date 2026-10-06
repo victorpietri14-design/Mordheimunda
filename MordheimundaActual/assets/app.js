@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0485.0';
+const APP_BUILD='110.0486.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1491,6 +1491,7 @@ async function openCustomEquipmentEditFromRef(id){
   // Animal profile, which shares that library and id scheme).
   if(customCreatureById(id)){customArea='generic';customContentTab='creatures';editCustomCreature(id);return}
   const officialCreatureHost=(D.factions||[]).find(f=>f?.__official&&(f.creatures||[]).some(c=>c?.customCreatureId===id));
+  if(officialCreatureHost&&restoreOfficialAndEdit('creatures',id))return;
   if(officialCreatureHost){
     const en=siteLanguage==='en';
     const c=officialCreatureHost.creatures.find(x=>x?.customCreatureId===id);
@@ -1514,6 +1515,7 @@ async function openCustomEquipmentEditFromRef(id){
   // this item instead — that IS the editable source of truth for already-
   // published content (see saveAdminEquipment, fixed alongside this to stop
   // dropping the id on every save).
+  if(restoreOfficialAndEdit('equipment',id))return;
   const en=siteLanguage==='en';
   const host=(D.factions||[]).find(f=>f?.__official&&(f.equipment||[]).some(e=>e?.customEquipmentId===id));
   if(!host){toast(en?'Could not find this item to edit':'Impossible de trouver cet objet à modifier');return}
@@ -14880,12 +14882,66 @@ async function openCustomCompare(){
    ${sec(en?'✓ Live online':'✓ En ligne',groups.live,false)}
    <button type="button" class="button secondary full" onclick="closeModal()">${en?'Close':'Fermer'}</button></div>`);
 }
+// V-RESTOREFROMOFFICIAL: published content whose local Custom copy is gone
+// (deleted by a cleanup, or never kept) could no longer be edited: every ✎ /
+// ★ path looks the item up in the local library. This rebuilds the local
+// copy from the live official warband — same id, linked to that warband
+// (officialWarbandId) — so it opens in its usual Custom editor and ★
+// republishes it in place. Nothing online changes until you republish.
+function officialMissingLocal(){
+  const out=[];const seen=new Set();
+  const haveF=new Set(customFighterList().map(w=>w.customFighterId)),haveE=new Set(customEquipmentList().map(w=>w.customEquipmentId)),haveC=new Set(customCreatureList().map(w=>w.customCreatureId));
+  const haveN={};['traits','skills','spells','special'].forEach(k=>haveN[k]=new Set(customContentList(k).map(x=>normName(x.name))));
+  (D.factions||[]).forEach(f=>{if(!f.__official)return;const oid=String(f.id||'').replace(/^official-/,'');const host=f.displayName||f.name||oid;
+    const add=(tab,key,label,src)=>{const k=tab+'|'+key;if(!key||seen.has(k))return;seen.add(k);out.push({tab,key,name:label,host,oid,src})};
+    (f.warriors||[]).forEach(w=>{if(w?.customFighterId&&!haveF.has(w.customFighterId))add('fighters',w.customFighterId,w.name,w)});
+    (f.equipment||[]).forEach(e=>{if(e?.customEquipmentId&&!haveE.has(e.customEquipmentId)&&!haveC.has(e.customEquipmentId))add('equipment',e.customEquipmentId,e.name,e)});
+    (f.creatures||[]).forEach(c=>{if(c?.customCreatureId&&!haveC.has(c.customCreatureId))add('creatures',c.customCreatureId,c.name,c)});
+    [['traits','traits'],['skills','skills'],['spells','spells'],['special','specialRules']].forEach(([tab,fld])=>(f[fld]||[]).forEach(x=>{if(x?.name&&!haveN[tab].has(normName(x.name)))add(tab,normName(x.name),x.name,x)}));
+  });
+  return out;
+}
+function restoreOfficialItem(m){
+  if(!m)return null;const now=Date.now();const src=JSON.parse(JSON.stringify(m.src||{}));
+  if(m.tab==='fighters'){const d=warriorToCustomFighterDraft(src,null);Object.assign(d,{customFighterId:m.key,officialWarbandId:m.oid,updatedAt:now});state.customFighters.push(d);return d.customFighterId}
+  if(m.tab==='equipment'){const d={...src,officialWarbandId:m.oid,updatedAt:now};d.factions=(Array.isArray(src.factions)?src.factions:[]).filter(x=>x!=='__ALL__'&&!String(x).startsWith('official-'));customEquipmentList().push(d);return d.customEquipmentId}
+  if(m.tab==='creatures'){const d={...src,officialWarbandId:m.oid,updatedAt:now};customCreatureList().push(d);return d.customCreatureId}
+  const d={...src,customContentId:crypto.randomUUID(),name:src.name,text:src.text||'',officialWarbandId:m.oid,updatedAt:now};delete d.id;delete d.__official;
+  // A skill/spell is shown inside its tree/domain: rebuild that local record too if it's gone.
+  if(m.tab==='skills'&&d.tree&&!customSkillTreeList().some(t=>normName(t.name)===normName(d.tree)))customSkillTreeList().push({id:crypto.randomUUID(),name:d.tree,description:'',updatedAt:now});
+  if(m.tab==='spells'&&d.domain&&!customMagicDomainList().some(t=>normName(t.name)===normName(d.domain)))customMagicDomainList().push({id:crypto.randomUUID(),name:d.domain,description:'',updatedAt:now});
+  customContentList(m.tab).push(d);return d.customContentId;
+}
+function openRestoreOfficial(){
+  const en=siteLanguage==='en';const list=officialMissingLocal();
+  if(!list.length){toast(en?'Every published item already has its Custom copy':'Tous les éléments publiés ont déjà leur copie Custom');return}
+  const rows=list.map((m,i)=>`<label class="cwc-check" style="display:flex;gap:6px;text-align:left"><input type="checkbox" class="roPick" value="${i}" checked> ${esc(customCleanupTypeLabel(m.tab))} · ${esc(m.name)} <span class="muted">— ${esc(m.host)}</span></label>`);
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'RESTORE':'RÉCUPÉRER'}</div><h2>${en?'Bring published items back into Custom':'Remettre les éléments publiés dans Custom'}</h2><p>${en?'These are live online but have no copy in your Custom library, so they can’t be edited from there. A copy is rebuilt from the published version (same id, linked to its official warband): edit it, then ★ to republish. Nothing online changes until you republish.':'Ils sont en ligne mais n’ont plus de copie dans ta bibliothèque Custom, donc impossible de les modifier. Une copie est recréée depuis la version publiée (même identifiant, rattachée à sa warband officielle) : modifie-la, puis ★ pour republier. Rien ne change en ligne tant que tu ne republies pas.'}</p><div style="max-height:280px;overflow:auto;margin:10px 0;display:grid;gap:4px">${rows.join('')}</div><button type="button" class="button primary full" onclick="confirmRestoreOfficial()">${en?'RESTORE SELECTED':'RÉCUPÉRER LA SÉLECTION'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+function confirmRestoreOfficial(){
+  const en=siteLanguage==='en';const list=officialMissingLocal();
+  const picked=new Set([...document.querySelectorAll('.roPick:checked')].map(i=>Number(i.value)));
+  let n=0;list.forEach((m,i)=>{if(picked.has(i)&&restoreOfficialItem(m))n++});
+  save(true);closeModal();render('custom');
+  toast(en?`${n} item${n>1?'s':''} restored to Custom (in the OFFICIALIZED folder)`:`${n} élément${n>1?'s':''} récupéré${n>1?'s':''} dans Custom (dossier OFFICIALISÉS)`);
+}
+// One item, straight from an edit button (Référentiel ✎ …).
+function restoreOfficialAndEdit(tab,key){
+  const en=siteLanguage==='en';const m=officialMissingLocal().find(x=>x.tab===tab&&x.key===key);if(!m)return false;
+  const id=restoreOfficialItem(m);save(true);
+  customArea='generic';customContentTab=tab;
+  if(tab==='equipment')editCustomEquipment(id);else if(tab==='creatures')editCustomCreature(id);else if(tab==='fighters')editCustomFighter(id);else editCustomContent(tab,id);
+  render('custom');
+  toast(en?'Custom copy rebuilt from the published version — edit, then ★ to republish':'Copie Custom recréée depuis la version publiée — modifie, puis ★ pour republier');
+  return true;
+}
 function customCleanupButtonsMarkup(){
   const en=siteLanguage==='en';let dup=0,pub=0;
   try{dup=customDuplicatePlan().length}catch(e){}
   try{const p=customPublishedPlan();pub=p.cws.length+p.items.length+p.parents.length}catch(e){}
   let unused=0;try{const p=customUnusedPlan();unused=p.items.length+p.parents.length}catch(e){}
-  return `<button class="button secondary" type="button" onclick="openCustomCompare()">🔍 ${en?'Compare with online':'Comparer avec le publié'}</button>`+(dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
+  let missing=0;try{missing=officialMissingLocal().length}catch(e){}
+  return (missing?`<button class="button secondary" type="button" onclick="openRestoreOfficial()">↺ ${en?`Restore ${missing} published item${missing>1?'s':''} to edit`:`Récupérer ${missing} élément${missing>1?'s':''} publié${missing>1?'s':''} pour les modifier`}</button>`:'')+`<button class="button secondary" type="button" onclick="openCustomCompare()">🔍 ${en?'Compare with online':'Comparer avec le publié'}</button>`+(dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
     +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'')
     +(unused?`<button class="button secondary" type="button" onclick="cleanupCustomUnused()">🧹 ${en?`Remove unused items (${unused})`:`Supprimer les éléments inutilisés (${unused})`}</button>`:'');
 }
