@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0479.0';
+const APP_BUILD='110.0480.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14138,7 +14138,7 @@ function custom(){
     library=`<aside class="card custom-library"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${esc(title)}</h3></div><span>${shown.length}</span></div><input class="search" value="${esc(customContentSearch)}" placeholder="${en?'Search…':'Rechercher…'}" oninput="customContentSearch=this.value;render('custom')"><div class="custom-item-list">${active.length?active.map(rowFn).join(''):(archived.length?'':`<div class="empty large"><strong>${en?'No custom entry.':'Aucune entrée custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`)}</div>${archived.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'ARCHIVED':'ARCHIVÉES'}</span><small>${archived.length}</small></summary><div class="custom-item-list">${archived.map(rowFn).join('')}</div></details>`:''}${official.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'OFFICIALIZED':'OFFICIALISÉES'}</span><small>${official.length}</small></summary><p class="muted" style="font-size:10.5px;margin:0 0 8px">${en?'Already published — live for every player. Click ★ again to re-push after editing, or to pick up a fix.':'Déjà publiées — visibles par tous les joueurs. Reclique sur ★ pour republier après une modification, ou pour appliquer un correctif.'}</p><div class="custom-item-list">${official.map(rowFn).join('')}</div></details>`:''}</aside>`;
   }
   const orphanFighterCount=customContentTab==='fighters'?orphanCustomFighterIds().length:0;
-  const introButton=(customContentTab==='skills'||customContentTab==='spells')?'':(action?`<button class="button primary" onclick="${action}">＋ ${esc(createLabel)}</button>`:'')+(customContentTab==='warband'?`<button class="button secondary" type="button" onclick="openDuplicateWarbandPicker()">⧉ ${en?'Duplicate an existing warband':'Dupliquer une warband existante'}</button><button class="button secondary" type="button" onclick="openImportWarbandPicker()">⇪ ${en?'Import a warband':'Importer une warband'}</button>`:'')+(orphanFighterCount?`<button class="button secondary" type="button" onclick="cleanupOrphanCustomFighters()">🧹 ${en?`Clean up ${orphanFighterCount} orphan profile${orphanFighterCount>1?'s':''}`:`Nettoyer ${orphanFighterCount} profil${orphanFighterCount>1?'s':''} orphelin${orphanFighterCount>1?'s':''}`}</button>`:'');
+  const introButton=(customContentTab==='skills'||customContentTab==='spells')?'':(action?`<button class="button primary" onclick="${action}">＋ ${esc(createLabel)}</button>`:'')+(customContentTab==='warband'?`<button class="button secondary" type="button" onclick="openDuplicateWarbandPicker()">⧉ ${en?'Duplicate an existing warband':'Dupliquer une warband existante'}</button><button class="button secondary" type="button" onclick="openImportWarbandPicker()">⇪ ${en?'Import a warband':'Importer une warband'}</button>`:'')+(orphanFighterCount?`<button class="button secondary" type="button" onclick="cleanupOrphanCustomFighters()">🧹 ${en?`Clean up ${orphanFighterCount} orphan profile${orphanFighterCount>1?'s':''}`:`Nettoyer ${orphanFighterCount} profil${orphanFighterCount>1?'s':''} orphelin${orphanFighterCount>1?'s':''}`}</button>`:'')+customCleanupButtonsMarkup();
   const description=customContentTab==='warband'?(en?'New warband, or a duplicate of an existing one — one place for its fighters, traits, and its exclusive equipment/special rules. Once picked or created, click Edit to set everything up on a single page.':'Nouvelle warband ou duplicata d’une existante — un seul endroit pour ses combattants, traits, et son équipement/règles spéciales exclusifs. Une fois choisie ou créée, clique Modifier pour tout configurer sur une seule page.'):(customContentTab==='skills'||customContentTab==='spells')?(customContentTab==='skills'?(en?'Create a skill tree before adding its skills. Each tree can hold up to 6 custom skills.':'Crée un arbre de compétences avant d’ajouter ses compétences. Chaque arbre peut contenir jusqu’à 6 compétences custom.'):(en?'Create a magic domain before adding its spells.':'Crée un domaine de magie avant d’ajouter ses sorts.')):customContentTab==='creatures'?(en?'A simple profile — stats and special rules only. An Animal is a complete, recruitable profile; a Mount still costs GC and counts toward the warband’s value, but attaches onto an existing fighter instead of its own roster slot — it shows up in the Equipment Market/Band List under “Mounts”.':'Un profil simple — juste les stats et les règles spéciales. Un Animal est un profil complet et recrutable ; une Monture coûte toujours des PO et compte dans la valeur de la bande, mais s’intègre à un combattant existant au lieu d’occuper son propre emplacement — elle apparaît dans le Marché/Liste de bande sous « Montures ».'):(en?'Create custom content without modifying the M17 catalog. Entries are linked to the Reference.':'Crée du contenu personnalisé sans modifier le catalogue M17. Les entrées sont reliées au Référentiel.');
   // V-CUSTOMTABCOUNTS: these used to show a count next to each tab
   // (customFighterList().length etc.) — always the RAW total, counting
@@ -14558,6 +14558,122 @@ function confirmCleanupOrphanCustomFighters(){
   state.customFighters=customFighterList().filter(w=>!ids.includes(w.customFighterId));
   save(true);closeModal();render('custom');
   toast(en?`${ids.length} orphan profile${ids.length>1?'s':''} deleted`:`${ids.length} profil${ids.length>1?'s':''} orphelin${ids.length>1?'s':''} supprimé${ids.length>1?'s':''}`);
+}
+// V-CUSTOMCLEANUP: two library-wide cleanups next to the orphan one.
+// Both only ever touch this account's LOCAL Custom copies (state.custom*):
+// published/official content lives in its own server-side definition and is
+// only written by an explicit Officialize / Publish / Admin save, never by
+// these, so what is online stays exactly as it is.
+const CUSTOM_CLEANUP_KINDS=[
+  {tab:'fighters',stateKey:'customFighters',idKey:'customFighterId',list:()=>customFighterList()},
+  {tab:'equipment',stateKey:'customEquipment',idKey:'customEquipmentId',list:()=>customEquipmentList()},
+  {tab:'creatures',stateKey:'customCreatures',idKey:'customCreatureId',list:()=>customCreatureList()},
+  {tab:'traits',stateKey:'customTraits',idKey:'customContentId',list:()=>customContentList('traits')},
+  {tab:'skills',stateKey:'customSkills',idKey:'customContentId',list:()=>customContentList('skills')},
+  {tab:'spells',stateKey:'customSpells',idKey:'customContentId',list:()=>customContentList('spells')},
+  {tab:'special',stateKey:'customSpecialRules',idKey:'customContentId',list:()=>customContentList('special')}
+];
+const CUSTOM_CLEANUP_VOLATILE=new Set(['customFighterId','customEquipmentId','customCreatureId','customContentId','updatedAt','archived','officialWarbandId']);
+function customCleanupSignature(x){const o={};Object.keys(x||{}).sort().forEach(k=>{if(!CUSTOM_CLEANUP_VOLATILE.has(k))o[k]=x[k]});return JSON.stringify(o)}
+function customRosterFighterIds(){const ids=new Set();(state.rosters||[]).forEach(r=>(r.fighters||[]).forEach(x=>{if(x?.customFighterId)ids.add(x.customFighterId)}));return ids}
+// Exact copies only (same name AND same content), e.g. from importing or
+// duplicating twice. Per group, the copy that is published, else used by a
+// warband/roster, else the first one is kept; references to the removed
+// copies are re-pointed to it.
+function customDuplicatePlan(){
+  const official={fighters:officializedFighterIdSet(),equipment:officializedEquipmentIdSet(),...officializedContentIdSets()};
+  const used=new Set();customWarbandList().forEach(cw=>['fighterIds','equipmentIds','specialRuleIds','traitIds'].forEach(k=>(cw[k]||[]).forEach(id=>used.add(id))));
+  customRosterFighterIds().forEach(id=>used.add(id));
+  const plan=[];
+  CUSTOM_CLEANUP_KINDS.forEach(k=>{
+    const groups=new Map();
+    k.list().forEach(x=>{const sig=customCleanupSignature(x);if(!groups.has(sig))groups.set(sig,[]);groups.get(sig).push(x)});
+    groups.forEach(g=>{
+      if(g.length<2)return;
+      const off=official[k.tab]||new Set();
+      const keep=g.find(x=>off.has(x[k.idKey]))||g.find(x=>used.has(x[k.idKey]))||g[0];
+      g.forEach(x=>{if(x!==keep&&!off.has(x[k.idKey]))plan.push({kind:k,id:x[k.idKey],keepId:keep[k.idKey],name:x.name||'—'})});
+    });
+  });
+  return plan;
+}
+function customPublishedPlan(){
+  const rosterCw=new Set((state.rosters||[]).map(r=>r.customWarbandId).filter(Boolean));
+  const rosterFighters=customRosterFighterIds();
+  const all=customWarbandList();
+  const cws=all.filter(cw=>cw.officialId&&!rosterCw.has(cw.id));
+  const remaining=all.filter(cw=>!cws.includes(cw));
+  // Anything a warband that stays (not published, or still used by a
+  // roster) relies on is kept, so that warband keeps working.
+  const keepIds=new Set(),keepNames={equipment:new Set(),traits:new Set(),skills:new Set(),spells:new Set(),special:new Set()};
+  remaining.forEach(cw=>{
+    ['fighterIds','equipmentIds','specialRuleIds','traitIds'].forEach(k=>(cw[k]||[]).forEach(id=>keepIds.add(id)));
+    let b;try{b=bundleCustomContentForOfficialize(cw,customWarbandFaction(cw))}catch(e){return}
+    (b.equipment||[]).forEach(e=>keepNames.equipment.add(normName(e.name)));
+    (b.traits||[]).forEach(e=>keepNames.traits.add(normName(e.name)));
+    (b.skills||[]).forEach(e=>keepNames.skills.add(normName(e.name)));
+    (b.spells||[]).forEach(e=>keepNames.spells.add(normName(e.name)));
+    (b.specialRules||[]).forEach(e=>keepNames.special.add(normName(e.name)));
+  });
+  const official={fighters:officializedFighterIdSet(),equipment:officializedEquipmentIdSet(),...officializedContentIdSets()};
+  const items=[];
+  CUSTOM_CLEANUP_KINDS.forEach(k=>{
+    const off=official[k.tab];if(!off)return;
+    k.list().forEach(x=>{const id=x[k.idKey];if(!off.has(id)||keepIds.has(id))return;
+      if(k.tab==='fighters'&&rosterFighters.has(id))return;
+      if(keepNames[k.tab]&&keepNames[k.tab].has(normName(x.name)))return;
+      // A published item that belongs to a published warband still kept
+      // locally (used by a roster) stays with it.
+      if(k.tab==='fighters'&&x.customWarbandId&&all.some(cw=>cw.id===x.customWarbandId&&!cws.includes(cw)))return;
+      items.push({kind:k,id,name:x.name||'—'})});
+  });
+  return {cws,items};
+}
+function customCleanupButtonsMarkup(){
+  const en=siteLanguage==='en';let dup=0,pub=0;
+  try{dup=customDuplicatePlan().length}catch(e){}
+  try{const p=customPublishedPlan();pub=p.cws.length+p.items.length}catch(e){}
+  return (dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
+    +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'');
+}
+function customCleanupListMarkup(rows){
+  const en=siteLanguage==='en';const max=40;
+  return `<ul class="muted" style="text-align:left;max-height:200px;overflow:auto;margin:10px 0;padding-left:18px">${rows.slice(0,max).map(r=>`<li>${esc(r)}</li>`).join('')}${rows.length>max?`<li>${en?`… and ${rows.length-max} more`:`… et ${rows.length-max} autres`}</li>`:''}</ul>`;
+}
+function customCleanupTypeLabel(tab){const en=siteLanguage==='en';const m={fighters:en?'Fighter':'Profil',equipment:en?'Equipment':'Équipement',creatures:en?'Creature':'Créature',traits:'Trait',skills:en?'Skill':'Compétence',spells:en?'Spell':'Sort',special:en?'Special rule':'Règle spéciale'};return m[tab]||tab}
+function cleanupCustomDuplicates(){
+  const en=siteLanguage==='en';const plan=customDuplicatePlan();
+  if(!plan.length){toast(en?'No duplicate to remove':'Aucun doublon à supprimer');return}
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CLEANUP':'NETTOYAGE'}</div><h2>${en?`Remove ${plan.length} duplicate${plan.length>1?'s':''}?`:`Supprimer ${plan.length} doublon${plan.length>1?'s':''} ?`}</h2><p>${en?'Exact copies (same name and same content). One copy of each is kept, and warbands using a removed copy are switched to the kept one. Nothing published online is changed.':'Copies identiques (même nom et même contenu). Une copie de chaque est gardée, et les warbands qui utilisaient une copie supprimée passent sur celle gardée. Rien de ce qui est en ligne n’est modifié.'}</p>${customCleanupListMarkup(plan.map(x=>`${customCleanupTypeLabel(x.kind.tab)} · ${x.name}`))}<button type="button" class="big-delete" onclick="confirmCleanupCustomDuplicates()">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+function confirmCleanupCustomDuplicates(){
+  const en=siteLanguage==='en';const plan=customDuplicatePlan();
+  const remap=new Map(plan.map(x=>[x.id,x.keepId]));
+  const swap=arr=>Array.isArray(arr)?[...new Set(arr.map(id=>remap.get(id)||id))]:arr;
+  const swapRef=arr=>Array.isArray(arr)?[...new Set(arr.map(r=>typeof r==='string'&&r.startsWith('custom:')&&remap.has(r.slice(7))?'custom:'+remap.get(r.slice(7)):r))]:arr;
+  customWarbandList().forEach(cw=>{['fighterIds','equipmentIds','specialRuleIds','traitIds'].forEach(k=>{if(cw[k])cw[k]=swap(cw[k])});['fighterRefs','equipmentRefs'].forEach(k=>{if(cw[k])cw[k]=swapRef(cw[k])})});
+  (state.rosters||[]).forEach(r=>(r.fighters||[]).forEach(x=>{if(x?.customFighterId&&remap.has(x.customFighterId))x.customFighterId=remap.get(x.customFighterId)}));
+  plan.forEach(x=>markDeleted(x.kind.stateKey,x.id));
+  CUSTOM_CLEANUP_KINDS.forEach(k=>{const del=new Set(plan.filter(x=>x.kind===k).map(x=>x.id));if(del.size)state[k.stateKey]=k.list().filter(x=>!del.has(x[k.idKey]))});
+  save(true);closeModal();render('custom');
+  toast(en?`${plan.length} duplicate${plan.length>1?'s':''} removed`:`${plan.length} doublon${plan.length>1?'s':''} supprimé${plan.length>1?'s':''}`);
+}
+function cleanupCustomPublished(){
+  const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length;
+  if(!n){toast(en?'No published local copy to remove':'Aucune copie locale officialisée à supprimer');return}
+  const rows=[...p.cws.map(cw=>`Warband · ${cw.name}`),...p.items.map(x=>`${customCleanupTypeLabel(x.kind.tab)} · ${x.name}`)];
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CLEANUP':'NETTOYAGE'}</div><h2>${en?`Remove ${n} published local cop${n>1?'ies':'y'}?`:`Supprimer ${n} copie${n>1?'s':''} locale${n>1?'s':''} officialisée${n>1?'s':''} ?`}</h2><p>${en?'Only the copies kept in your Custom library are removed. <b>The published versions stay online, unchanged, for every player</b>, and remain editable in Admin → Manage. You will no longer be able to re-publish them from Custom (★ / Publish changes). Anything an unpublished creation or one of your warbands still uses is kept.':'Seules les copies gardées dans ta bibliothèque Custom sont supprimées. <b>Les versions officialisées restent en ligne, inchangées, pour tous les joueurs</b>, et restent modifiables dans Admin → Gestion. Tu ne pourras plus les republier depuis Custom (★ / Publier les modifications). Tout ce qu’une création non publiée ou une de tes bandes utilise encore est gardé.'}</p>${customCleanupListMarkup(rows)}<button type="button" class="big-delete" onclick="confirmCleanupCustomPublished()">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+function confirmCleanupCustomPublished(){
+  const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length;
+  const cwIds=new Set(p.cws.map(cw=>cw.id));
+  cwIds.forEach(id=>markDeleted('customWarbands',id));
+  state.customWarbands=customWarbandList().filter(cw=>!cwIds.has(cw.id));
+  p.items.forEach(x=>markDeleted(x.kind.stateKey,x.id));
+  CUSTOM_CLEANUP_KINDS.forEach(k=>{const del=new Set(p.items.filter(x=>x.kind===k).map(x=>x.id));if(del.size)state[k.stateKey]=k.list().filter(x=>!del.has(x[k.idKey]))});
+  if(customWarbandEditId&&cwIds.has(customWarbandEditId))customWarbandEditId=null;
+  save(true);closeModal();render('custom');
+  toast(en?`${n} published local cop${n>1?'ies':'y'} removed — online versions unchanged`:`${n} copie${n>1?'s':''} locale${n>1?'s':''} supprimée${n>1?'s':''} — versions en ligne inchangées`);
 }
 function confirmDeleteCustomWarband(id){
   const en=siteLanguage==='en';
