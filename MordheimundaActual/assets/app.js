@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0482.0';
+const APP_BUILD='110.0483.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14693,7 +14693,7 @@ function customPublishedPlan(){
     const byName=(tab,list)=>(list||[]).forEach(e=>{const k=CUSTOM_CLEANUP_KINDS.find(q=>q.tab===tab);const x=k&&k.list().find(q=>normName(q.name)===normName(e.name));if(x&&!origin.has(x[k.idKey]))origin.set(x[k.idKey],cw.officialId)});
     byName('equipment',b.equipment);byName('traits',b.traits);byName('skills',b.skills);byName('spells',b.spells);byName('special',b.specialRules);
   });
-  const items=[],flag=[];
+  const items=[],flag=[],kept=[];
   CUSTOM_CLEANUP_KINDS.forEach(k=>{
     const off=official[k.tab];if(!off)return;
     k.list().forEach(x=>{const id=x[k.idKey];
@@ -14703,7 +14703,7 @@ function customPublishedPlan(){
         // A published item that belongs to a published warband still kept
         // locally (used by a roster) stays with it.
         ||(k.tab==='fighters'&&x.customWarbandId&&all.some(cw=>cw.id===x.customWarbandId&&!cws.includes(cw)));
-      if(keep){if(!x.officialWarbandId&&origin.has(id))flag.push({kind:k,id,officialId:origin.get(id)});return}
+      if(keep){if(!x.officialWarbandId&&origin.has(id))flag.push({kind:k,id,officialId:origin.get(id)});kept.push(`${customCleanupTypeLabel(k.tab)} · ${x.name||'—'}`);return}
       items.push({kind:k,id,name:x.name||'—'})});
   });
   // Trees/domains: published as a whole, or left with nothing but deleted
@@ -14724,14 +14724,91 @@ function customPublishedPlan(){
       parents.push({kind,id:pt.id,name:pt.name});
     });
   });
-  return {cws,items,parents,flag};
+  return {cws,items,parents,flag,kept};
+}
+// V-CUSTOMUNUSED: everything local Custom content is referenced by — custom
+// warbands (their full officialize bundle: fighters' default/accessible
+// equipment, skill trees, magic domains, rules), standalone custom
+// fighters, choice options, and the fighters of every roster. Names are
+// normalised; ids cover what is linked by id.
+function customUsageIndex(){
+  const names={equipment:new Set(),traits:new Set(),skills:new Set(),spells:new Set(),special:new Set(),trees:new Set(),domains:new Set()};
+  const ids=new Set();
+  const addBundle=b=>{(b.equipment||[]).forEach(e=>names.equipment.add(normName(e.name)));(b.traits||[]).forEach(e=>names.traits.add(normName(e.name)));(b.skills||[]).forEach(e=>names.skills.add(normName(e.name)));(b.spells||[]).forEach(e=>names.spells.add(normName(e.name)));(b.specialRules||[]).forEach(e=>names.special.add(normName(e.name)))};
+  const addAccess=w=>{Object.keys(w?.skillAccess||{}).forEach(k=>names.trees.add(normName(k)));Object.keys(w?.magicAccess||{}).forEach(k=>names.domains.add(normName(k)))};
+  customWarbandList().forEach(cw=>{
+    ['fighterIds','equipmentIds','specialRuleIds','traitIds'].forEach(k=>(cw[k]||[]).forEach(id=>ids.add(id)));
+    try{addBundle(bundleCustomContentForOfficialize(cw,customWarbandFaction(cw)))}catch(e){}
+    (cw.choices?.groups||[]).forEach(g=>(g.options||[]).forEach(o=>{[...(o.ruleNames||[]),...(o.recruitRuleNames||[])].forEach(n=>names.special.add(normName(n)));(o.magicDomains||[]).forEach(n=>names.domains.add(normName(n)))}));
+  });
+  const fighters=customFighterList();
+  fighters.forEach(addAccess);
+  try{const fx={id:'custom-all',warriors:fighters.map(w=>customFighterAsWarrior(w)),equipment:[]};addBundle(bundleCustomContentForOfficialize({id:'custom-all',specialRuleIds:[],traitIds:[]},fx))}catch(e){}
+  (state.rosters||[]).forEach(r=>(r.fighters||[]).forEach(x=>{
+    if(x?.customFighterId)ids.add(x.customFighterId);
+    [...(x.skills||[])].forEach(n=>names.skills.add(normName(typeof n==='string'?n:n?.name)));
+    [...(x.spells||[])].forEach(n=>names.spells.add(normName(typeof n==='string'?n:n?.name)));
+    [...(x.extraRuleNames||[]),...(x.rules||[]),...(x.specialRules||[])].forEach(n=>names.special.add(normName(typeof n==='string'?n:n?.name)));
+    [...(x.equipmentSelected||[]),...(x.equipmentStash||[])].forEach(e=>names.equipment.add(normName(e?.name)));
+    (x.unlockedMagicDomains||[]).forEach(n=>names.domains.add(normName(n)));
+  }));
+  // Equipment that stays keeps its own traits.
+  customEquipmentList().forEach(e=>{if(names.equipment.has(normName(e.name))||ids.has(e.customEquipmentId)){[e.profile?.traits,e.traits,...(Array.isArray(e.profiles)?e.profiles.map(q=>q?.traits):[])].flatMap(t=>Array.isArray(t)?t:String(t||'').split(',')).forEach(n=>{n=String(n||'').replace(/\s*\(.*$/,'').trim();if(n)names.traits.add(normName(n))})}});
+  return {names,ids};
+}
+// Unused + not published: candidates for "Remove unused items". Fighters
+// and creatures are left out on purpose (a profile is a creation in itself).
+function customUnusedPlan(){
+  const u=customUsageIndex();
+  const official={equipment:officializedEquipmentIdSet(),...officializedContentIdSets()};
+  const items=[];
+  CUSTOM_CLEANUP_KINDS.filter(k=>['equipment','traits','skills','spells','special'].includes(k.tab)).forEach(k=>{
+    k.list().forEach(x=>{const id=x[k.idKey];if(official[k.tab]?.has(id)||u.ids.has(id))return;
+      if(u.names[k.tab].has(normName(x.name)))return;
+      if(k.tab==='skills'&&u.names.trees.has(normName(x.tree||'')))return;
+      if(k.tab==='spells'&&u.names.domains.has(normName(x.domain||'')))return;
+      items.push({kind:k,id,name:x.name||'—',place:x.tree||x.domain||''})});
+  });
+  const del=new Set(items.map(x=>x.id));const parents=[];
+  [['skills','trees'],['spells','domains']].forEach(([kind,nk])=>{
+    (kind==='skills'?customSkillTreeList():customMagicDomainList()).forEach(pt=>{
+      if(pt.officialWarbandId||u.names[nk].has(normName(pt.name)))return;
+      if(customBuilderItems(kind,pt).every(x=>del.has(x.customContentId)))parents.push({kind,id:pt.id,name:pt.name});
+    });
+  });
+  return {items,parents};
+}
+function cleanupCustomUnused(){
+  const en=siteLanguage==='en';const p=customUnusedPlan();const n=p.items.length+p.parents.length;
+  if(!n){toast(en?'No unused item':'Aucun élément inutilisé');return}
+  const row=(val,label)=>`<label class="cwc-check" style="display:flex;gap:6px;text-align:left"><input type="checkbox" class="cuPick" value="${esc(val)}" checked> ${esc(label)}</label>`;
+  const rows=[...p.parents.map(x=>row(`p:${x.kind}:${x.id}`,`${x.kind==='skills'?(en?'Skill tree':'Arbre de compétences'):(en?'Magic domain':'Domaine de magie')} · ${x.name}`)),...p.items.map(x=>row(`i:${x.kind.tab}:${x.id}`,`${customCleanupTypeLabel(x.kind.tab)} · ${x.name}${x.place?` (${x.place})`:''}`))];
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CLEANUP':'NETTOYAGE'}</div><h2>${en?`Remove unused items?`:`Supprimer les éléments inutilisés ?`}</h2><p>${en?'Not published, and used by none of your custom warbands, custom profiles, choices or warbands. Untick what you want to keep (e.g. something you just created). Only local Custom data is changed.':'Ni publiés, ni utilisés par tes warbands custom, tes profils custom, tes choix ou tes bandes. Décoche ce que tu veux garder (par ex. une création toute récente). Seules tes données Custom locales changent.'}</p><div style="max-height:260px;overflow:auto;margin:10px 0;display:grid;gap:4px">${rows.join('')}</div><button type="button" class="big-delete" onclick="confirmCleanupCustomUnused()">${en?'DELETE SELECTED':'SUPPRIMER LA SÉLECTION'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+function confirmCleanupCustomUnused(){
+  const en=siteLanguage==='en';
+  const picked=[...document.querySelectorAll('.cuPick:checked')].map(i=>i.value);
+  const p=customUnusedPlan();
+  const items=p.items.filter(x=>picked.includes(`i:${x.kind.tab}:${x.id}`));
+  const parents=p.parents.filter(x=>picked.includes(`p:${x.kind}:${x.id}`));
+  // A tree/domain only goes if none of its entries were unticked.
+  const keptItems=new Set(p.items.filter(x=>!items.includes(x)).map(x=>x.id));
+  const goParents=parents.filter(pt=>customBuilderItems(pt.kind,(pt.kind==='skills'?customSkillTreeById(pt.id):customMagicDomainById(pt.id))).every(x=>!keptItems.has(x.customContentId)));
+  items.forEach(x=>markDeleted(x.kind.stateKey,x.id));
+  CUSTOM_CLEANUP_KINDS.forEach(k=>{const del=new Set(items.filter(x=>x.kind===k).map(x=>x.id));if(del.size)state[k.stateKey]=k.list().filter(x=>!del.has(x[k.idKey]))});
+  goParents.forEach(pt=>{const key=pt.kind==='skills'?'customSkillTrees':'customMagicDomains';markDeleted(key,pt.id);state[key]=(pt.kind==='skills'?customSkillTreeList():customMagicDomainList()).filter(x=>x.id!==pt.id)});
+  const n=items.length+goParents.length;
+  save(true);closeModal();render('custom');
+  toast(en?`${n} unused item${n>1?'s':''} removed`:`${n} élément${n>1?'s':''} inutilisé${n>1?'s':''} supprimé${n>1?'s':''}`);
 }
 function customCleanupButtonsMarkup(){
   const en=siteLanguage==='en';let dup=0,pub=0;
   try{dup=customDuplicatePlan().length}catch(e){}
   try{const p=customPublishedPlan();pub=p.cws.length+p.items.length+p.parents.length}catch(e){}
+  let unused=0;try{const p=customUnusedPlan();unused=p.items.length+p.parents.length}catch(e){}
   return (dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
-    +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'');
+    +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'')
+    +(unused?`<button class="button secondary" type="button" onclick="cleanupCustomUnused()">🧹 ${en?`Remove unused items (${unused})`:`Supprimer les éléments inutilisés (${unused})`}</button>`:'');
 }
 function customCleanupListMarkup(rows){
   const en=siteLanguage==='en';const max=40;
@@ -14759,7 +14836,7 @@ function cleanupCustomPublished(){
   const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length+p.parents.length;
   if(!n){toast(en?'No published local copy to remove':'Aucune copie locale officialisée à supprimer');return}
   const rows=[...p.cws.map(cw=>`Warband · ${cw.name}`),...p.parents.map(x=>`${x.kind==='skills'?(en?'Skill tree':'Arbre de compétences'):(en?'Magic domain':'Domaine de magie')} · ${x.name}`),...p.items.map(x=>`${customCleanupTypeLabel(x.kind.tab)} · ${x.name}`)];
-  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CLEANUP':'NETTOYAGE'}</div><h2>${en?`Remove ${n} published local cop${n>1?'ies':'y'}?`:`Supprimer ${n} copie${n>1?'s':''} locale${n>1?'s':''} officialisée${n>1?'s':''} ?`}</h2><p>${en?'Only the copies kept in your Custom library are removed. <b>The published versions stay online, unchanged, for every player</b>, and remain editable in Admin → Manage. You will no longer be able to re-publish them from Custom (★ / Publish changes). Anything an unpublished creation or one of your warbands still uses is kept.':'Seules les copies gardées dans ta bibliothèque Custom sont supprimées. <b>Les versions officialisées restent en ligne, inchangées, pour tous les joueurs</b>, et restent modifiables dans Admin → Gestion. Tu ne pourras plus les republier depuis Custom (★ / Publier les modifications). Tout ce qu’une création non publiée ou une de tes bandes utilise encore est gardé.'}</p>${customCleanupListMarkup(rows)}<button type="button" class="big-delete" onclick="confirmCleanupCustomPublished()">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CLEANUP':'NETTOYAGE'}</div><h2>${en?`Remove ${n} published local cop${n>1?'ies':'y'}?`:`Supprimer ${n} copie${n>1?'s':''} locale${n>1?'s':''} officialisée${n>1?'s':''} ?`}</h2><p>${en?'Only the copies kept in your Custom library are removed. <b>The published versions stay online, unchanged, for every player</b>, and remain editable in Admin → Manage. You will no longer be able to re-publish them from Custom (★ / Publish changes). Anything an unpublished creation or one of your warbands still uses is kept.':'Seules les copies gardées dans ta bibliothèque Custom sont supprimées. <b>Les versions officialisées restent en ligne, inchangées, pour tous les joueurs</b>, et restent modifiables dans Admin → Gestion. Tu ne pourras plus les republier depuis Custom (★ / Publier les modifications). Tout ce qu’une création non publiée ou une de tes bandes utilise encore est gardé.'}</p>${customCleanupListMarkup(rows)}${p.kept.length?`<p class="muted">${en?`Kept because an unpublished custom warband, a custom profile or one of your warbands still uses them (${p.kept.length}):`:`Gardés car une warband custom non publiée, un profil custom ou une de tes bandes les utilise encore (${p.kept.length}) :`}</p>${customCleanupListMarkup(p.kept)}`:''}<button type="button" class="big-delete" onclick="confirmCleanupCustomPublished()">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
 }
 function confirmCleanupCustomPublished(){
   const en=siteLanguage==='en';const p=customPublishedPlan();const n=p.cws.length+p.items.length+p.parents.length;
