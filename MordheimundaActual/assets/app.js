@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0492.0';
+const APP_BUILD='110.0493.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -189,8 +189,15 @@ const MAGIC_ACCESS={
 // Dwarf model in Mordheim knows True Grit from the start, regardless of
 // type) — add more here as they're confirmed rather than guessing.
 const STARTING_SKILLS={
-  dwarfs:{'*':['True Grit']}
+  // Dwarfs no longer start with True Grit: it was replaced by the
+  // race-wide "Dwarfen Resilience" special rule (RACE_FIGHTER_RULES below).
 };
+// V-RACEFIGHTERRULES: special rules every fighter of a race carries, in
+// every warband (book, official or custom) — added to the fighter's own rule
+// list wherever its race is read, not only on the Rules: Warbands page. The
+// rule's text comes from the existing Référentiel entry of that name.
+const RACE_FIGHTER_RULES={'Dwarf':['Dwarfen Resilience']};
+function raceFighterRuleNames(race){const k=Object.keys(RACE_FIGHTER_RULES).find(r=>normName(r)===normName(String(race||'').replace(/s$/i,''))||normName(r)===normName(race));return k?RACE_FIGHTER_RULES[k].slice():[]}
 // V-SUPPLEMENTMAGICLEAK: the baseFactionId fallback below was written for a
 // hand-coded PACK (like blood-dragons, sharing undead's hardcoded entry) —
 // but f.baseFactionId is set the exact same way for an ADMIN-OFFICIALIZED
@@ -9242,7 +9249,7 @@ function fighterRuleCardMarkup(w,f){
   // (Ancestral Grudge, Elf Grudge, Burly…) it stood for.
   const raceMatch=rawRuleParts.find(r=>/^Race\s*\(/i.test(r));
   const raceName=raceMatch?(/^Race\s*\(([^)]+)\)/i.exec(raceMatch)||[])[1]?.trim():null;
-  const raceBundle=raceName?(RACE_SPECIAL_RULES[raceName]||[]):[];
+  const raceBundle=raceName?[...(RACE_SPECIAL_RULES[raceName]||[]),...raceFighterRuleNames(raceName).map(name=>({name}))]:[];
   const ruleNames=[...rawRuleParts.filter(r=>r&&!/^Race\s*\(/i.test(r)&&r.toLowerCase()!==String(w.type||'').toLowerCase()),...raceBundle.map(r=>r.name).filter(n=>!rawRuleParts.some(r2=>r2.toLowerCase()===n.toLowerCase()))];
   // V-WBKEYWORDPEEK: these keywords used to jump straight to the Référentiel
   // page on click (openReference), leaving no way to just glance at the rule
@@ -13438,7 +13445,8 @@ function fighterRuleNames(x,f){
   }
   names=names.filter(n=>!/^Race\s*\(/i.test(String(n)));
   const equipmentRules=standardEquipmentSpecialRules(x);
-  return [...new Set([raceRule,...names,...equipmentRules,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
+  let raceRules=[];try{raceRules=raceFighterRuleNames(fighterRace(x,f))}catch(e){}
+  return [...new Set([raceRule,...names,...raceRules,...equipmentRules,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
 }
 function warriorBandAllowed(w,x){if(x?.customFighterId){return Array.isArray(x.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name))}
   if(isCustomEquipment(w)){
