@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0487.0';
+const APP_BUILD='110.0488.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4563,6 +4563,7 @@ async function loadCatalogOverrides(){
     const list=Array.isArray(r?.overrides)?r.overrides:[];
     catalogOverrideMap=new Map(list.map(o=>[o.factionId,o]));
     applyCatalogOverrides();
+    pruneDeletedWeaponsFromFactions();
   }catch(e){console.warn('Catalog overrides unavailable',e);}
 }
 // V151 (Task #63): per-faction tracker for the skills/spells a book
@@ -4733,10 +4734,57 @@ async function loadWeaponOverrides(){
 }
 function applyWeaponOverrides(){
   if(!D.__weaponsBaseline)D.__weaponsBaseline=D.weapons.slice();
-  const merged=D.__weaponsBaseline.map(w=>{const o=weaponOverrideMap.get(w.name);return o?{...w,...o,name:w.name}:w});
+  // V-WEAPONDELETE: an override flagged `deleted` removes the book item for
+  // every account — gone from the shared pool, from every faction's
+  // equipment list, and from the Référentiel (hidden only greys it out).
+  // The book data itself is untouched, so ↺ Restore (dropping the override)
+  // brings it back exactly as it was.
+  const deleted=new Set();weaponOverrideMap.forEach((o,name)=>{if(o&&o.deleted)deleted.add(normName(name))});
+  const merged=D.__weaponsBaseline.filter(w=>!deleted.has(normName(w.name))).map(w=>{const o=weaponOverrideMap.get(w.name);return o?{...w,...o,name:w.name}:w});
   const baseNames=new Set(D.__weaponsBaseline.map(w=>normName(w.name)));
-  weaponOverrideMap.forEach((data,name)=>{if(!baseNames.has(normName(name)))merged.push({...data,name:data.name||name,__catalogAdded:true})});
+  weaponOverrideMap.forEach((data,name)=>{if(!baseNames.has(normName(name))&&!data?.deleted)merged.push({...data,name:data.name||name,__catalogAdded:true})});
   D.weapons=merged;
+  D.__deletedWeaponNames=deleted;
+  pruneDeletedWeaponsFromFactions();
+}
+// Drops deleted book items from the book factions' own equipment lists
+// (in place; also re-run after the per-faction catalog overrides load, which
+// can replace those lists). A restored item comes back on the next load.
+function pruneDeletedWeaponsFromFactions(){
+  const deleted=D.__deletedWeaponNames;if(!deleted||!deleted.size)return;
+  const keep=n=>!deleted.has(normName(typeof n==='string'?n:n?.name));
+  (D.factions||[]).forEach(f=>{if(f.__official)return;
+    if(Array.isArray(f.equipment))f.equipment=f.equipment.filter(keep);
+    if(f.equipmentGroupsSource&&typeof f.equipmentGroupsSource==='object')Object.keys(f.equipmentGroupsSource).forEach(k=>{const v=f.equipmentGroupsSource[k];if(Array.isArray(v))f.equipmentGroupsSource[k]=v.filter(keep)});
+    if(f.equipmentItemGroups&&typeof f.equipmentItemGroups==='object')Object.keys(f.equipmentItemGroups).forEach(k=>{if(!keep(k))delete f.equipmentItemGroups[k]});
+  });
+}
+function weaponDeletedForAll(name){return !!D.__deletedWeaponNames?.has(normName(name))}
+function adminDeleteWeaponForAll(name){
+  const en=siteLanguage==='en';
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE FOR EVERYONE':'SUPPRESSION POUR TOUT LE MONDE'}</div><h2>${en?`Delete “${esc(name)}”?`:`Supprimer « ${esc(name)} » ?`}</h2><p>${en?'Removed for every account: from the shared pool, every warband’s equipment list, the Market and the Référentiel. Fighters who already own it keep their copy. The book data is kept, so it can be restored later from Admin → Weapons & gear catalog → Deleted.':'Retiré pour tous les comptes : du pool partagé, de la liste d’équipement de chaque bande, du Marché et du Référentiel. Les combattants qui le possèdent déjà gardent leur exemplaire. Les données du livre sont conservées : tu peux le restaurer plus tard depuis Admin → Catalogue d’armes & équipement → Supprimés.'}</p><button type="button" class="big-delete" data-wname="${esc(name)}" onclick="confirmAdminDeleteWeaponForAll(this.dataset.wname)">${en?'DELETE FOR EVERYONE':'SUPPRIMER POUR TOUS'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+async function confirmAdminDeleteWeaponForAll(name){
+  const en=siteLanguage==='en';
+  const w=(D.weapons||[]).find(x=>x.name===name)||(D.__weaponsBaseline||[]).find(x=>x.name===name)||{name};
+  const data={name:w.name,category:w.category||'Équipements divers',price:Number(w.price||0),availability:w.availability||'',market:false,band:false,hidden:true,deleted:true};
+  try{
+    await window.MordheimundaAPI.adminSaveWeaponOverride(w.name,data);
+    await loadWeaponOverrides();
+    if(adminWeaponEditName===name)adminWeaponEditName=null;
+    closeModal();toast(en?`${name} deleted for everyone`:`${name} supprimé pour tout le monde`);render('admin');
+  }catch(e){toast(authError(e,en));}
+}
+async function adminRestoreDeletedWeapon(name){
+  const en=siteLanguage==='en';
+  const baseline=(D.__weaponsBaseline||[]).some(w=>normName(w.name)===normName(name));
+  try{
+    // A book item goes back to its book values; an admin-added item can't
+    // be "un-deleted" to anything but its last data, so drop the flag only.
+    if(baseline)await window.MordheimundaAPI.adminResetWeaponOverride(name);
+    else{const o={...(weaponOverrideMap.get(name)||{name})};delete o.deleted;o.hidden=false;await window.MordheimundaAPI.adminSaveWeaponOverride(name,o)}
+    await loadWeaponOverrides();toast(en?`${name} restored — reload the page to see it back in every list`:`${name} restauré — recharge la page pour le revoir dans toutes les listes`);render('admin');
+  }catch(e){toast(authError(e,en));}
 }
 /* ================= OFFICIAL MAGIC DOMAIN OVERRIDES (Task #56) =============
    Admin-editable DISPLAY name + frame color for an official (book)
@@ -5208,7 +5256,8 @@ function adminWeaponCatalogCardMarkup(){
     <h3>${en?'Shared pool':'Pool partagé'}</h3>
     <p class="muted">${en?'The single shared list every faction and warband draws its equipment from. Editing an item here changes it everywhere it’s used; a faction’s own access to it is set from its Base catalog → Equipment tab above.':'La liste partagée unique dont proviennent les équipements de toutes les factions et bandes. Modifier un objet ici le change partout où il est utilisé ; l’accès d’une faction à cet objet se règle depuis l’onglet Équipement de son Catalogue de base ci-dessus.'}</p>
     <div class="custom-form-grid" style="margin-bottom:10px"><label class="custom-field wide"><span>${en?'Search':'Recherche'}</span><input class="admin-weapon-search" value="${esc(adminWeaponSearch||'')}" oninput="setAdminWeaponSearch(this.value)" placeholder="${en?'Filter by name or category…':'Filtrer par nom ou sous-catégorie…'}"></label></div>
-    <div class="custom-item-list" style="max-height:420px;overflow:auto">${list.map(w=>{const isBaseline=baselineNames.has(normName(w.name)),overridden=weaponOverrideMap.has(w.name);return `<article class="custom-item-row${w.hidden?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.profile?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${esc(equipmentCategory(w))} · ${Number(w.price||0)} GC${w.hidden?` · <span class="archived-tag">${en?'HIDDEN':'MASQUÉ'}</span>`:''}${overridden&&!w.hidden?` · <span class="official-draft-tag">${isBaseline?(en?'MODIFIED':'MODIFIÉ'):(en?'ADDED':'AJOUTÉ')}</span>`:''}</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" data-wname="${esc(w.name)}" onclick="openAdminWeaponEdit(this.dataset.wname)">✎</button><button type="button" class="equipment-action${w.hidden?'':' remove'}" title="${w.hidden?(en?'Unhide — show again everywhere':'Réafficher partout'):(en?'Hide — buggy or undesirable, remove from Market/Band List/Reference':'Masquer — bugué ou non désirable, retirer du Marché/Liste de bande/Référentiel')}" data-wname="${esc(w.name)}" onclick="toggleAdminWeaponHidden(this.dataset.wname)">${w.hidden?'👁':'🚫'}</button>${overridden&&!w.hidden?`<button type="button" class="equipment-action remove" title="${isBaseline?(en?'Revert to the book values':'Revenir aux valeurs du livre'):(en?'Delete':'Supprimer')}" data-wname="${esc(w.name)}" onclick="resetAdminWeapon(this.dataset.wname)">${isBaseline?'↺':'🗑'}</button>`:''}</div></article>`}).join('')||`<div class="empty compact">${en?'No match.':'Aucun résultat.'}</div>`}</div>
+    <div class="custom-item-list" style="max-height:420px;overflow:auto">${list.map(w=>{const isBaseline=baselineNames.has(normName(w.name)),overridden=weaponOverrideMap.has(w.name);return `<article class="custom-item-row${w.hidden?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.profile?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${esc(equipmentCategory(w))} · ${Number(w.price||0)} GC${w.hidden?` · <span class="archived-tag">${en?'HIDDEN':'MASQUÉ'}</span>`:''}${overridden&&!w.hidden?` · <span class="official-draft-tag">${isBaseline?(en?'MODIFIED':'MODIFIÉ'):(en?'ADDED':'AJOUTÉ')}</span>`:''}</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" data-wname="${esc(w.name)}" onclick="openAdminWeaponEdit(this.dataset.wname)">✎</button><button type="button" class="equipment-action${w.hidden?'':' remove'}" title="${w.hidden?(en?'Unhide — show again everywhere':'Réafficher partout'):(en?'Hide — buggy or undesirable, remove from Market/Band List/Reference':'Masquer — bugué ou non désirable, retirer du Marché/Liste de bande/Référentiel')}" data-wname="${esc(w.name)}" onclick="toggleAdminWeaponHidden(this.dataset.wname)">${w.hidden?'👁':'🚫'}</button><button type="button" class="equipment-action remove" title="${en?'Delete for everyone':'Supprimer pour tout le monde'}" data-wname="${esc(w.name)}" onclick="adminDeleteWeaponForAll(this.dataset.wname)">🗑</button>${overridden&&!w.hidden?`<button type="button" class="equipment-action remove" title="${isBaseline?(en?'Revert to the book values':'Revenir aux valeurs du livre'):(en?'Delete':'Supprimer')}" data-wname="${esc(w.name)}" onclick="resetAdminWeapon(this.dataset.wname)">${isBaseline?'↺':'🗑'}</button>`:''}</div></article>`}).join('')||`<div class="empty compact">${en?'No match.':'Aucun résultat.'}</div>`}</div>
+    ${(()=>{const del=[...weaponOverrideMap.entries()].filter(([,o])=>o&&o.deleted).map(([n])=>n).sort((a,b)=>a.localeCompare(b));return del.length?`<details class="custom-collapse" style="margin-top:10px"><summary><span>${en?'DELETED FOR EVERYONE':'SUPPRIMÉS POUR TOUT LE MONDE'}</span><small>${del.length}</small></summary><div class="custom-item-list">${del.map(n=>`<article class="custom-item-row is-archived"><div class="custom-item-main"><div class="custom-item-icon">🗑</div><div><strong>${esc(n)}</strong></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" title="${en?'Restore':'Restaurer'}" data-wname="${esc(n)}" onclick="adminRestoreDeletedWeapon(this.dataset.wname)">↺</button></div></article>`).join('')}</div></details>`:''})()}
     <div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="newAdminWeapon()">＋ ${en?'Add a new item':'Ajouter un objet'}</button></div>
   </div>`;
 }
@@ -13591,7 +13640,7 @@ function referenceEntriesUncached(category){
     // must disappear from the Référentiel too, not just Market/Band List —
     // RULES.categories.equipment entries are parsed glossary text keyed by
     // name, not the D.weapons objects themselves, so cross-reference by name.
-    const hiddenNames=new Set((D.weapons||[]).filter(w=>w.hidden).map(w=>normName(w.name)));
+    const hiddenNames=new Set([...(D.weapons||[]).filter(w=>w.hidden).map(w=>normName(w.name)),...(D.__deletedWeaponNames||[])]);
     // V-OFFICIALIZEMERGE: same draft-vs-published check as referenceEquipmentPool.
     const customs=allCustomEquipmentList().map(w=>({id:'custom-equipment-'+w.customEquipmentId,name:w.name,text:w.rulesText||'Aucune règle supplémentaire enregistrée.',lines:String(w.rulesText||'').split(/\n+/).filter(Boolean).length||1,custom:!isPublishedCustomEquipment(w),customEquipmentId:w.customEquipmentId}));
     // V-REFDUPE: allCustomEquipmentList() already prioritizes a Mount Creature
