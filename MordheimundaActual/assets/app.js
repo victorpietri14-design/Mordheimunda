@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0492.0';
+const APP_BUILD='110.0494.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -189,7 +189,8 @@ const MAGIC_ACCESS={
 // Dwarf model in Mordheim knows True Grit from the start, regardless of
 // type) — add more here as they're confirmed rather than guessing.
 const STARTING_SKILLS={
-  dwarfs:{'*':['True Grit']}
+  // Dwarfs no longer start with True Grit hard-coded here: race-wide rules
+  // and skills are set on the profiles themselves (Admin → Rules by race).
 };
 // V-SUPPLEMENTMAGICLEAK: the baseFactionId fallback below was written for a
 // hand-coded PACK (like blood-dragons, sharing undead's hardcoded entry) —
@@ -4348,6 +4349,8 @@ function admin(){
       </div>`:''}
       ${adminCategoryBar('gear',en?'Manage · Weapons & Gear':'Gestion · Armes & équipement',en?'Shared weapon/gear pool used by every faction':'Pool d’armes/équipement partagé par toutes les factions',adminOpenCategory==='gear')}
       ${adminOpenCategory==='gear'?`<div class="admin-category-body">${adminWeaponCatalogCardMarkup()}</div>`:''}
+      ${adminCategoryBar('racerules',en?'Manage · Rules by race':'Gestion · Règles par race',en?'Add or remove a special rule / default skill on every fighter of a race':'Ajouter ou retirer une règle spéciale / compétence par défaut sur tous les combattants d’une race',adminOpenCategory==='racerules')}
+      ${adminOpenCategory==='racerules'?`<div class="admin-category-body">${adminRaceRulesCardMarkup()}</div>`:''}
       ${adminCategoryBar('scenarios',en?'Manage · Scenarios':'Gestion · Scénarios',en?'Battle plans + deployment map library':'Plans de bataille + bibliothèque de cartes',adminOpenCategory==='scenarios')}
       ${adminOpenCategory==='scenarios'?`<div class="admin-category-body">${adminScenariosSectionMarkup(en)}</div>`:''}
       ${adminCategoryBar('support',en?'Support · Player warbands':'Support · Bandes des joueurs',en?'Search an account and live-edit their data':'Rechercher un compte et éditer ses données en direct',adminOpenCategory==='support')}
@@ -5203,6 +5206,89 @@ async function resetAdminWeapon(name){
     await loadWeaponOverrides();
     toast(en?'Reverted to the book values':'Revenu aux valeurs du livre');
     render('admin');
+  }catch(e){toast(authError(e,en));}
+}
+// V-RACERULES: writes a special rule (and/or drops a default skill) into the
+// fighter PROFILES of one race, everywhere they live — base book factions
+// (their Base catalog), official warbands (incl. drafts/supplements) and this
+// account's Custom profiles — exactly as if added by hand in each editor, so
+// it can be edited or removed later from those same editors.
+let adminRaceRulesPlan=null;
+function warriorRaceName(w){const r=w?.race||(/Race\s*\(([^)]+)\)/i.exec(String(w?.rules||''))||[])[1]||'';return String(r).replace(/^Race\s*\(\s*/i,'').replace(/\s*\)\s*$/,'').trim()}
+function warriorRuleNameList(w){if(Array.isArray(w?.ruleNames)&&w.ruleNames.length)return w.ruleNames.slice();return String(w?.rules||'').replace(/\.\s*$/,'').split(/,\s*/).map(x=>x.trim()).filter(x=>x&&!/^Race\s*\(/i.test(x))}
+// Returns true when the warrior changed.
+function applyRaceRuleToWarrior(w,op){
+  let changed=false;const has=n=>warriorRuleNameList(w).some(x=>normName(x)===normName(n));
+  if(op.rule){
+    if(op.mode==='add'&&!has(op.rule)){w.ruleNames=[...warriorRuleNameList(w),op.rule];w.rules=[String(w.rules||'').replace(/\.\s*$/,''),op.rule].filter(Boolean).join(', ');changed=true}
+    if(op.mode==='remove'&&has(op.rule)){w.ruleNames=warriorRuleNameList(w).filter(x=>normName(x)!==normName(op.rule));w.rules=String(w.rules||'').replace(/\.\s*$/,'').split(/,\s*/).filter(x=>normName(x.trim())!==normName(op.rule)).join(', ');changed=true}
+  }
+  if(op.dropSkill&&Array.isArray(w.defaultSkills)&&w.defaultSkills.some(x=>normName(x)===normName(op.dropSkill))){w.defaultSkills=w.defaultSkills.filter(x=>normName(x)!==normName(op.dropSkill));changed=true}
+  return changed;
+}
+function adminRaceRulesCardMarkup(){
+  const en=siteLanguage==='en';
+  const races=[...new Set([...(D.factions||[]).flatMap(f=>(f.warriors||[]).map(warriorRaceName)),...customFighterList().map(w=>w.race||'')].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const rules=referenceEntries('special').map(e=>e.name).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  const plan=adminRaceRulesPlan;
+  return `<div class="admin-live-rosters card"><div class="eyebrow">${en?'RULES BY RACE':'RÈGLES PAR RACE'}</div>
+   <p class="muted">${en?'Writes the change into every profile of that race (Base catalog, official warbands, your Custom profiles), as if done by hand in each editor — so you can edit or remove it there later. Already-recruited fighters follow their profile.':'Écrit le changement dans chaque profil de cette race (catalogue de base, warbands officielles, tes profils Custom), comme si tu le faisais à la main dans chaque éditeur — tu peux donc le modifier ou l’enlever plus tard au même endroit. Les combattants déjà recrutés suivent leur profil.'}</p>
+   <div class="custom-form-grid">
+    <label class="custom-field"><span>${en?'Race':'Race'}</span><select id="rrRace">${races.map(r=>`<option ${normName(r)==='dwarf'?'selected':''}>${esc(r)}</option>`).join('')}</select></label>
+    <label class="custom-field"><span>${en?'Action':'Action'}</span><select id="rrMode"><option value="add">${en?'Add the rule':'Ajouter la règle'}</option><option value="remove">${en?'Remove the rule':'Retirer la règle'}</option></select></label>
+    <label class="custom-field wide"><span>${en?'Special rule':'Règle spéciale'}</span><input id="rrRule" list="rrRuleList" placeholder="${en?'e.g. Dwarfen Resilience':'ex. Dwarfen Resilience'}"><datalist id="rrRuleList">${rules.map(r=>`<option value="${esc(r)}">`).join('')}</datalist></label>
+    <label class="custom-field wide"><span>${en?'Also remove this default skill (optional)':'Retirer aussi cette compétence par défaut (optionnel)'}</span><input id="rrSkill" list="rrSkillList" placeholder="${en?'e.g. True Grit':'ex. True Grit'}"><datalist id="rrSkillList">${customFighterSkillNames().map(r=>`<option value="${esc(r)}">`).join('')}</datalist></label>
+   </div>
+   <div class="custom-actions"><button type="button" class="button secondary" onclick="previewAdminRaceRules()">${en?'Preview':'Aperçu'}</button>${plan&&plan.total?`<button type="button" class="button primary" onclick="applyAdminRaceRules()">${en?`Apply to ${plan.total} profile${plan.total>1?'s':''}`:`Appliquer à ${plan.total} profil${plan.total>1?'s':''}`}</button>`:''}</div>
+   ${plan?`<div class="muted" style="margin-top:8px">${plan.total?customCleanupListMarkup(plan.rows):(en?'Nothing to change.':'Rien à changer.')}</div>`:''}
+  </div>`;
+}
+async function adminRaceRulesCollect(op){
+  // Fresh copies of every editable definition, with the change applied.
+  const targets=[];
+  (D.factions||[]).filter(f=>!f.__official&&!String(f.id||'').startsWith('custom-warband-')&&(f.warriors||[]).length).forEach(f=>{
+    const d=bookCatalogDefinition(f.id);if(!d)return;const names=[];
+    d.warriors.forEach(w=>{if(normName(warriorRaceName(w))===normName(op.race)&&applyRaceRuleToWarrior(w,op))names.push(w.name)});
+    if(names.length)targets.push({kind:'book',id:f.id,label:`${en2('Base','Base')} · ${f.displayName||f.id}`,names,d});
+  });
+  try{
+    const {warbands}=await window.MordheimundaAPI.adminListWarbands();
+    for(const row of (warbands||[])){
+      if(isContentPoolWarband(row))continue;
+      const res=await window.MordheimundaAPI.adminGetWarband(row.id);const full=res?.warband||res;if(!full)continue;
+      const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
+      const names=[];d.warriors.forEach(w=>{if(normName(warriorRaceName(w))===normName(op.race)&&applyRaceRuleToWarrior(w,op))names.push(w.name)});
+      if(names.length)targets.push({kind:'official',id:row.id,label:row.name+(row.status&&row.status!=='published'?` (${row.status})`:''),names,d});
+    }
+  }catch(e){}
+  const customs=customFighterList().filter(w=>normName(w.race||'')===normName(op.race)).filter(w=>applyRaceRuleToWarrior(JSON.parse(JSON.stringify(w)),op));
+  if(customs.length)targets.push({kind:'custom',id:'custom',label:'Custom',names:customs.map(w=>w.name),ids:customs.map(w=>w.customFighterId)});
+  return targets;
+}
+function en2(a,b){return siteLanguage==='en'?a:b}
+function adminRaceRulesReadOp(){return {race:$('#rrRace')?.value||'',mode:$('#rrMode')?.value||'add',rule:($('#rrRule')?.value||'').trim(),dropSkill:($('#rrSkill')?.value||'').trim()}}
+async function previewAdminRaceRules(){
+  const en=siteLanguage==='en';const op=adminRaceRulesReadOp();
+  if(!op.race||(!op.rule&&!op.dropSkill)){toast(en?'Pick a race and a rule (or a skill)':'Choisis une race et une règle (ou une compétence)');return}
+  const targets=await adminRaceRulesCollect(op);
+  adminRaceRulesPlan={op,targets,total:targets.reduce((n,t)=>n+t.names.length,0),rows:targets.map(t=>`${t.label} — ${t.names.join(', ')}`)};
+  render('admin');
+  const keep=()=>{const set=(id,v)=>{const el=$(id);if(el)el.value=v};set('#rrRace',op.race);set('#rrMode',op.mode);set('#rrRule',op.rule);set('#rrSkill',op.dropSkill)};keep();
+}
+async function applyAdminRaceRules(){
+  const en=siteLanguage==='en';const plan=adminRaceRulesPlan;if(!plan)return;
+  // Re-collect right before writing, so nothing edited meanwhile is lost.
+  const targets=await adminRaceRulesCollect(plan.op);let n=0;
+  try{
+    for(const t of targets){
+      if(t.kind==='book'){const d=t.d;await window.MordheimundaAPI.adminSaveCatalogOverride(t.id,{warriors:d.warriors,equipment:d.equipment,bandRuleNames:d.bandRuleNames,traits:d.traits,specialRules:d.specialRules,skillTrees:d.skillTrees,skills:d.skills,magicDomains:d.magicDomains,spells:d.spells})}
+      else if(t.kind==='official')await window.MordheimundaAPI.adminUpdateOfficialWarband(t.id,{...t.d,viaAdminEditor:true});
+      else t.ids.forEach(id=>{const w=customFighterById(id);if(w)applyRaceRuleToWarrior(w,plan.op)});
+      n+=t.names.length;
+    }
+    save(true);
+    try{await loadCatalogOverrides();adminOfficialCache=null;await loadOfficialWarbands()}catch(e){}
+    adminRaceRulesPlan=null;toast(en?`${n} profile${n>1?'s':''} updated`:`${n} profil${n>1?'s':''} mis à jour`);render('admin');
   }catch(e){toast(authError(e,en));}
 }
 function adminWeaponFormMarkup(name){
