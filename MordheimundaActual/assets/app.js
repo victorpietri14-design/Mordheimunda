@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0478.0';
+const APP_BUILD='110.0479.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3326,6 +3326,9 @@ function ruleOverrideKey(sectionId,page){return `${siteLanguage==='fr'?'fr:':''}
 // English site never downloads it.
 let frRulesLoading=false;
 function frRulesBundle(){return window.MORDHEIMUNDA_FR_RULES||null}
+// Fingerprint of the English text a bundled translation was made from
+// (same algorithm as the bundle generator): "b…" = book text, "o…" = admin correction.
+function frSourceHash(t){t=String(t||'').replace(/\r\n/g,'\n').trim();let h=5381;for(let i=0;i<t.length;i++)h=((h*33)^t.charCodeAt(i))>>>0;return 'o'+h.toString(36)}
 // French version of a built-in English data text (exploration, …), or the English text.
 function frData(key,en){if(siteLanguage!=='fr')return en;const v=frRulesBundle()?.[key];return typeof v==='string'?v:en}
 function ensureFrRules(){
@@ -3358,7 +3361,12 @@ function ruleTitleMarkup(title){
 // re-render whichever of the two is actually on screen, not always 'rules'.
 function rerenderOverrideHost(){const v=parseAppRoute().view;if(v==='rules'||v==='references'||v==='rulesWarbands'||v==='rulesWarbandDetail')render(v);else if(v==='admin'&&adminWeaponEditName)render('admin');}
 function ruleEffectiveText(sectionId,page){const o=ruleOverridesCache?.[ruleOverrideKey(sectionId,page)];if(typeof o==='string')return o;
-  if(siteLanguage==='fr'){const raw=`${sectionId}:${page}`;const fr=frRulesBundle()?.[raw];if(typeof fr==='string')return fr;const en=ruleOverridesCache?.[raw];if(typeof en==='string')return en}
+  if(siteLanguage==='fr'){const raw=`${sectionId}:${page}`;const fr=frRulesBundle()?.[raw];const en=ruleOverridesCache?.[raw];
+    // A bundled translation is only used when it was made from the English
+    // text currently in force: an admin correction written after the
+    // translation (new layout, sub-titles, cards…) wins until it is translated.
+    if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;return en}
+    if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o'))return fr}
   return null}
 async function loadRuleOverrides(){
   if(ruleOverridesLoading||ruleOverridesCache!==null)return;
