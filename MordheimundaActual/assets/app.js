@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0489.0';
+const APP_BUILD='110.0490.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12455,8 +12455,11 @@ function mountCreatureAsEquipment(w){
     category:'Montures',
     subcategory:'Montures',
     price:Number(w.cost||0),
-    market:true,
-    unrestricted:true,
+    market:w.market!==false,
+    // Limited to some warbands → only their Band List (plus the Market if
+    // ticked); otherwise unchanged: the general list for everyone.
+    unrestricted:!(Array.isArray(w.factions)&&w.factions.length),
+    factions:Array.isArray(w.factions)&&w.factions.length?w.factions.slice():[],
     rarity:'',
     availability:'—',
     traits:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],
@@ -12545,8 +12548,19 @@ function syncAnimalNaturalWeapons(x){
   x.defaultEquipmentGranted=desired.slice();
   return true;
 }
-function animalCreatureList(){
-  return allCustomCreatureList().filter(w=>w.kind==='animal'&&!w.archived).map(customCreatureAsWarrior);
+function animalCreatureList(f){
+  return allCustomCreatureList().filter(w=>w.kind==='animal'&&!w.archived&&creatureAvailableFor(w,f)).map(customCreatureAsWarrior);
+}
+// V-CREATURESCOPE: an Animal/Mount profile is offered to every warband by
+// default; a non-empty `factions` list limits it to those warbands (book,
+// official or custom-warband ids). A Mount's own `market` flag (default on)
+// keeps it buyable by everyone at the Trading Post regardless.
+function creatureAvailableFor(w,f){const list=Array.isArray(w?.factions)?w.factions:[];if(!list.length||!f)return true;const ids=new Set([normName(f.id),normName(f.displayName||'')]);return list.some(id=>ids.has(normName(id)))}
+function creatureScopeFactionOptions(){
+  const out=[],seen=new Set();
+  (D.factions||[]).forEach(f=>{if(!f?.id||seen.has(f.id))return;seen.add(f.id);out.push({id:f.id,name:f.displayName||f.name||f.id})});
+  customWarbandList().forEach(cw=>{const id='custom-warband-'+cw.id;if(seen.has(id))return;seen.add(id);out.push({id,name:cw.name+' (Custom)'})});
+  return out.sort((a,b)=>a.name.localeCompare(b.name));
 }
 function allCustomEquipmentList(){
   // V-EQUIPDUPES2: dedupe by NAME first (not customEquipmentId) — two custom
@@ -13191,7 +13205,11 @@ function saveCustomCreature(){
   const naturalWeapons=kind==='animal'?(document.querySelector('.ccNaturalWeapons')?customFighterReadChecks('ccNaturalWeapons'):customCreatureWeaponDraft.slice()):[];
   const prevSkills=customCreatureById(customCreatureEditId)?.skills||[];
   const skills=document.querySelector('.ccSkills')?customFighterReadChecks('ccSkills'):prevSkills.slice();
-  const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', '),naturalWeapons,skills};
+  const prev=customCreatureById(customCreatureEditId);
+  const limited=document.querySelector('input[name="ccScope"]')?document.querySelector('input[name="ccScope"]:checked')?.value==='some':!!(prev?.factions||[]).length;
+  const factions=limited?(document.querySelector('.ccFaction')?[...document.querySelectorAll('.ccFaction:checked')].map(x=>x.dataset.faction):(prev?.factions||[]).slice()):[];
+  const market=kind==='mount'?($('#ccMarket')?$('#ccMarket').checked:prev?.market!==false):false;
+  const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', '),naturalWeapons,skills,factions,market};
   const existing=customCreatureById(item.customCreatureId);item.archived=existing?.archived||false;
   const idx=customCreatureList().findIndex(w=>w.customCreatureId===item.customCreatureId);
   // Keep fields the form doesn't edit (e.g. officialWarbandId) instead of
@@ -13218,6 +13236,12 @@ function customCreatureForm(w){
   <details class="custom-collapse" open><summary><span>${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><small>${rules.length} ${en?'linked':(rules.length>1?'liées':'liée')}</small></summary><div class="custom-tag-editor"><div id="ccRuleTags" class="custom-trait-tags">${rules.map((s,i)=>`<span class="custom-trait-tag">${refLink('special',s,s)}${isEditableParamTag('creature',s)?`<button type="button" title="${en?'Edit value':'Modifier la valeur'}" class="trait-tag-edit" onclick="editTraitParamValue('creature',${i})">✎</button>`:''}<button type="button" onclick="removeCustomCreatureRule(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No special rules.':'Aucune règle spéciale.'}</span>`}</div><div class="custom-trait-add"><input id="ccRuleInput" list="ccRuleDatalist" placeholder="${en?'Search a special rule…':'Rechercher une règle spéciale…'}" onkeydown="handleCustomCreatureRuleKey(event)"><datalist id="ccRuleDatalist">${referenceEntries('special').filter(s=>!/^Race\s*\(/i.test(s.name)).map(s=>`<option value="${esc(s.name)}">`).join('')}</datalist><button type="button" class="button secondary" onclick="addCustomCreatureRule()">＋ ${en?'Add':'Ajouter'}</button></div></div></details>
   ${(()=>{const own=Array.isArray(w?.skills)?w.skills:[];const all=[...new Set([...customFighterSkillNames(),...own])].sort((a,b)=>a.localeCompare(b));return `<details class="custom-collapse"${own.length?' open':''}><summary><span>${en?'SKILLS':'COMPÉTENCES'}</span><small>${own.length}</small></summary><p class="sheet-help">${isMount?(en?'Shown with the mount on its rider’s sheet.':'Affichées avec la monture sur la fiche de son cavalier.'):(en?'Given to this animal when recruited, like a fighter’s default skills.':'Données à cet animal quand il est recruté, comme les compétences par défaut d’un combattant.')}</p><input class="search" placeholder="${en?'Filter skills…':'Filtrer les compétences…'}" oninput="const q=this.value.toLowerCase();this.nextElementSibling.querySelectorAll('label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(q)?'':'none')"><div class="custom-equipment-checks" style="max-height:240px;overflow:auto">${all.map(sn=>`<label><input class="ccSkills" data-name="${esc(sn)}" type="checkbox" ${own.some(n=>normName(n)===normName(sn))?'checked':''}><span>${refLink('skills',sn,sn)}</span></label>`).join('')}</div></details>`})()}
   ${isMount?'':`<details class="custom-collapse"${customCreatureWeaponDraft.length?' open':''}><summary><span>${en?'NATURAL WEAPONS':'ARMES NATURELLES'}</span><small>${customCreatureWeaponDraft.length} ${en?'item'+(customCreatureWeaponDraft.length!==1?'s':''):'objet'+(customCreatureWeaponDraft.length!==1?'s':'')}</small></summary><p class="sheet-help">${en?'Given free to this animal when recruited (claws, bite…). Create a weapon in Custom → Equipment first if it doesn’t exist yet.':'Données gratuitement à cet animal quand il est recruté (griffes, morsure…). Crée d’abord l’arme dans Custom → Équipements si elle n’existe pas encore.'}</p><div onchange="customCreatureWeaponDraft=customFighterReadChecks('ccNaturalWeapons')">${customFighterEquipmentChooser('ccNaturalWeapons',customCreatureWeaponDraft,'default')}</div></details>`}
+  ${(()=>{const sel=Array.isArray(w?.factions)?w.factions:[];const some=sel.length>0;const opts=creatureScopeFactionOptions();return `<details class="custom-collapse"${some?' open':''}><summary><span>${en?'AVAILABILITY':'DISPONIBILITÉ'}</span><small>${some?`${sel.length} ${en?'warband'+(sel.length>1?'s':''):'bande'+(sel.length>1?'s':'')}`:(en?'All warbands':'Toutes les bandes')}</small></summary>
+    <label class="custom-check"><input type="radio" name="ccScope" value="all" ${some?'':'checked'} onchange="this.closest('details').querySelector('.cc-faction-grid').style.display='none'"> <span><b>${en?'All warbands':'Toutes les bandes'}</b><small>${isMount?(en?'In the general equipment list of every warband.':'Dans la liste d’équipement générale de toutes les bandes.'):(en?'Recruitable by every warband.':'Recrutable par toutes les bandes.')}</small></span></label>
+    <label class="custom-check"><input type="radio" name="ccScope" value="some" ${some?'checked':''} onchange="this.closest('details').querySelector('.cc-faction-grid').style.display=''"> <span><b>${en?'Only the warbands ticked below':'Seulement les bandes cochées ci-dessous'}</b><small>${isMount?(en?'Only in their Band List.':'Seulement dans leur Liste de bande.'):(en?'Only they can recruit it.':'Seules elles peuvent le recruter.')}</small></span></label>
+    <div class="custom-faction-grid cc-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="ccFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div>
+    ${isMount?`<label class="custom-check market-check"><input id="ccMarket" type="checkbox" ${w?.market===false?'':'checked'}> <span><b>${en?'Market (Trading Post)':'Marché (Trading Post)'}</b><small>${en?'Also buyable by every warband at the Trading Post, whatever is ticked above.':'Aussi achetable par toutes les bandes au Trading Post, quelles que soient les bandes cochées.'}</small></span></label>`:''}
+  </details>`})()}
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomCreatureForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomCreature()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create profile':'Créer le profil')}</button></div>`;
 }
 function customCreatureRow(w){
@@ -13519,9 +13543,9 @@ function fighterPool(f){
   // Animal-kind Custom Creatures are unrestricted (no faction field on that
   // form, same as Mounts) — see customCreatureAsWarrior/animalCreatureList
   // — so every warband's Recruitment pool offers the same animal roster.
-  const animalEntries=animalCreatureList().filter(w=>!seenIds.has(w.id));
+  const animalEntries=animalCreatureList(f).filter(w=>!seenIds.has(w.id));
   const all=[...base,...customFighterEntries,...animalEntries];
-  const r=activeRoster();return `<div class="pool-grid">${all.map(w=>{const owned=(r?.fighters||[]).filter(x=>x.wid===w.id).length;const maxed=w.max!==null&&owned>=w.max;const rc=fighterRecruitCost(w,faction(r));return `<article class="fighter-card-v4 fighter-row ${maxed?'maxed':''}" data-name="${esc(w.name.toLowerCase())}" data-type="${esc(w.type)}"><div class="fighter-top"><div class="fighter-ident"><div class="fighter-sigil">${w.custom?'✦':(factionSigils[f.id]||'◆')}</div><div><div class="fighter-name-line"><h4>${esc(w.name)}</h4><span class="role-badge role-${esc(w.type.toLowerCase().replace(/\s+/g,'-'))}">${esc(w.type)}</span>${w.custom?'<span class="custom-armory-badge">CUSTOM</span>':''}</div><div class="fighter-subline">${w.max!==null?'Maximum '+w.max:'Aucune limite'} · ${owned} recrutée${owned!==1?'s':''}</div></div></div><span class="fc-cost">${rc} GC${rc!==Number(w.cost||0)?`<small class="muted" title="${siteLanguage==='en'?'Profile + default equipment':'Profil + équipement par défaut'}"> (${Number(w.cost||0)}+${rc-Number(w.cost||0)})</small>`:''}</span></div>${profileMarkup(effectiveFighterProfile(w,f),0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">RÈGLES / ACCÈS</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')}</p></div></div><button class="button primary recruit-btn recruit-btn-full" type="button" data-recruit-fighter="${esc(w.id)}" ${maxed?'disabled':''}>${maxed?'Limite atteinte':`Recruter — ${rc} GC`}</button></article>`}).join('')}</div>`}
+  const r=activeRoster();return `<div class="pool-grid">${all.map(w=>{const owned=(r?.fighters||[]).filter(x=>x.wid===w.id).length;const maxed=w.max!==null&&owned>=w.max;const rc=fighterRecruitCost(w,r?faction(r):f);return `<article class="fighter-card-v4 fighter-row ${maxed?'maxed':''}" data-name="${esc(w.name.toLowerCase())}" data-type="${esc(w.type)}"><div class="fighter-top"><div class="fighter-ident"><div class="fighter-sigil">${w.custom?'✦':(factionSigils[f.id]||'◆')}</div><div><div class="fighter-name-line"><h4>${esc(w.name)}</h4><span class="role-badge role-${esc(w.type.toLowerCase().replace(/\s+/g,'-'))}">${esc(w.type)}</span>${w.custom?'<span class="custom-armory-badge">CUSTOM</span>':''}</div><div class="fighter-subline">${w.max!==null?'Maximum '+w.max:'Aucune limite'} · ${owned} recrutée${owned!==1?'s':''}</div></div></div><span class="fc-cost">${rc} GC${rc!==Number(w.cost||0)?`<small class="muted" title="${siteLanguage==='en'?'Profile + default equipment':'Profil + équipement par défaut'}"> (${Number(w.cost||0)}+${rc-Number(w.cost||0)})</small>`:''}</span></div>${profileMarkup(effectiveFighterProfile(w,f),0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">RÈGLES / ACCÈS</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')}</p></div></div><button class="button primary recruit-btn recruit-btn-full" type="button" data-recruit-fighter="${esc(w.id)}" ${maxed?'disabled':''}>${maxed?'Limite atteinte':`Recruter — ${rc} GC`}</button></article>`}).join('')}</div>`}
 window.addFighter=addFighter;
 window.setGangTab=setGangTab;
 window.filterFighters=filterFighters;
