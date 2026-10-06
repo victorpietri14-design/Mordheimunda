@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0480.0';
+const APP_BUILD='110.0481.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6251,7 +6251,7 @@ async function publishOfficialWarbandChanges(cwId){
   if(!(fx.warriors||[]).length){toast(en?'Add at least one fighter first':'Ajoute d’abord au moins un combattant');return}
   const bundle=bundleCustomContentForOfficialize(cw,fx);
   try{
-    await window.MordheimundaAPI.adminUpdateOfficialWarband(cw.officialId,{name:cw.name,warriors:fx.warriors,...bundle});
+    await window.MordheimundaAPI.adminUpdateOfficialWarband(cw.officialId,{name:cw.name,warriors:fx.warriors,...bundle,...(cw.choices&&Array.isArray(cw.choices.groups)?{choices:cw.choices}:{})});
     adminOfficialCache=null;
     await loadOfficialWarbands();
     toast(en?'Official warband updated':'Bande officielle mise à jour');
@@ -10817,7 +10817,33 @@ function magicAccessFor(x){
    const f=faction(activeRoster()), map=MAGIC_ACCESS[f?.id]||{};
    allowed=map[x?.name]||map['*']||[];
  }
+ allowed=choiceMagicDomainFilter(activeRoster(),x,allowed);
  return [...new Set([...allowed,...unlocked])].filter(d=>domains[d]);
+}
+// V-CHOICEMAGIC: a choice option (e.g. a Mark of Chaos) can carry
+// magicDomains. Every domain named by ANY option of a group that applies to
+// this fighter is "choice-linked": it is dropped from the profile's own
+// access and only the chosen option's domains are given back. Domains not
+// linked to a choice, and ones unlocked another way (unlockedMagicDomains),
+// are untouched. An option's magicDomainFighters (optional) limits its
+// domains to those fighter profiles.
+function choiceMagicDomainFilter(r,x,allowed){
+ const def=r?warbandChoiceDef(r):null;if(!def||!x)return allowed;
+ const who=normName(x.sourceName||x.name);
+ const groups=[...(def.groups||[]).filter(g=>g.when==='creation'),...fighterChoiceGroups(r,x)];
+ const linked=new Set(),granted=[];
+ const appliesTo=o=>!Array.isArray(o.magicDomainFighters)||!o.magicDomainFighters.length||o.magicDomainFighters.some(n=>normName(n)===who);
+ groups.forEach(g=>{
+  const opts=(g.options||[]).filter(o=>Array.isArray(o.magicDomains)&&o.magicDomains.length&&appliesTo(o));
+  if(!opts.length)return;
+  opts.forEach(o=>o.magicDomains.forEach(d=>linked.add(normName(d))));
+  const o=choiceOption(g,g.when==='creation'?rosterChoice(r,g.id):fighterChoice(x,g.id));
+  if(o&&appliesTo(o))granted.push(...(o.magicDomains||[]));
+ });
+ if(!linked.size)return allowed;
+ const domains=Object.keys(customMergedMagicDomains(faction(r)));
+ const canon=n=>domains.find(d=>normName(d)===normName(n))||n;
+ return [...allowed.filter(d=>!linked.has(normName(d))),...granted.map(canon)];
 }
 function unlockMagicDomain(encoded){
  const x=activeRoster()?.fighters[editingIndex],domain=decodeURIComponent(encoded);
@@ -14755,6 +14781,7 @@ function customWarbandChoicesEditor(cw){
   const id=esc(cw.id);
   const ruleNames=[...(cw.specialRuleIds||[]).map(i=>customContentById('special',i)?.name),...(cw.traitIds||[]).map(i=>customContentById('traits',i)?.name)].filter(Boolean);
   const fighterNames=customWarbandWarriors(cw).map(w=>w.name);
+  const domainNames=Object.keys(customMergedMagicDomains(customWarbandFaction(cw))).sort((a,b)=>a.localeCompare(b));
   const lab=g=>typeof g.label==='object'&&g.label?g.label:{en:String(g.label||''),fr:String(g.label||'')};
   const chk=(on,handler,label)=>`<label class="cwc-check"><input type="checkbox" ${on?'checked':''} onchange="${handler}"> ${label}</label>`;
   const groups=cw.choices.groups.map(g=>{const gid=esc(g.id);const L=lab(g);
@@ -14767,6 +14794,8 @@ function customWarbandChoicesEditor(cw){
       ${g.when==='recruit'?chk((g.exclusiveExcept||[]).includes(o.id),`cwChoiceSet('${id}','${gid}','${oid}','coexist',this.checked)`,en?'Can coexist with other options in the warband':'Peut coexister avec les autres options dans la bande'):''}
       <div class="cwc-sub">${en?'Rules given':'Règles données'}</div><div class="cwc-list">${ruleNames.map(n=>chk((o.ruleNames||[]).some(x=>normName(x)===normName(n)),`cwChoiceToggleList('${id}','${gid}','${oid}','ruleNames','${esc(n).replace(/'/g,"\\'")}',this.checked)`,esc(n))).join('')}</div>
       ${g.when==='recruit'?`<div class="cwc-sub">${en?'Extra rules only when chosen at recruitment':'Règles en plus seulement si choisi au recrutement'}</div><div class="cwc-list">${ruleNames.map(n=>chk((o.recruitRuleNames||[]).some(x=>normName(x)===normName(n)),`cwChoiceToggleList('${id}','${gid}','${oid}','recruitRuleNames','${esc(n).replace(/'/g,"\\'")}',this.checked)`,esc(n))).join('')}</div>`:''}
+      <div class="cwc-sub">${en?'Spell domains given (the fighter only sees the chosen option’s domains among those linked here)':'Domaines de sorts donnés (le combattant ne voit que ceux de l’option choisie parmi ceux liés ici)'}</div><div class="cwc-list">${domainNames.length?domainNames.map(n=>chk((o.magicDomains||[]).some(x=>normName(x)===normName(n)),`cwChoiceToggleList('${id}','${gid}','${oid}','magicDomains','${esc(n).replace(/'/g,"\\'")}',this.checked)`,esc(n))).join(''):`<span class="muted">${en?'No spell domain yet: create them in Custom → Spells.':'Aucun domaine pour l’instant : crée-les dans Custom → Sorts.'}</span>`}</div>
+      ${domainNames.length?`<div class="cwc-sub">${en?'Only for these fighters (none checked = every fighter with this choice)':'Seulement pour ces combattants (aucun coché = tous ceux qui ont ce choix)'}</div><div class="cwc-list">${fighterNames.map(n=>chk((o.magicDomainFighters||[]).some(x=>normName(x)===normName(n)),`cwChoiceToggleList('${id}','${gid}','${oid}','magicDomainFighters','${esc(n).replace(/'/g,"\\'")}',this.checked)`,esc(n))).join('')}</div>`:''}
     </div></details>`}).join('');
     return `<section class="cwc-group"><div class="eyebrow">${esc((L.en||g.id).toUpperCase())}</div>${head}<div class="cwc-opts">${opts}</div></section>`}).join('');
   const e=cw.choices.eyeOfTheGods;
