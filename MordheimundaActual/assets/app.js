@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0488.0';
+const APP_BUILD='110.0489.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10776,7 +10776,8 @@ function findEquippedMount(x){
     name:liveCreature?.name||mount.name,
     creatureProfile:profile,
     creatureSv:mountSaveValue(x),
-    traits:Array.isArray(liveCreature?.ruleNames)?liveCreature.ruleNames:(Array.isArray(mount.traits)?mount.traits:[])
+    traits:Array.isArray(liveCreature?.ruleNames)?liveCreature.ruleNames:(Array.isArray(mount.traits)?mount.traits:[]),
+    skills:Array.isArray(liveCreature?.skills)?liveCreature.skills:(Array.isArray(mount.creatureSkills)?mount.creatureSkills:[])
   };
 }
 function fighterMountMarkup(x,equip){
@@ -10786,7 +10787,7 @@ function fighterMountMarkup(x,equip){
   const profile=mount.creatureProfile;
   const stats=P.map((n,i)=>`<div class="profile-stat"><span>${n}</span><i></i><b>${profile[i]===null||profile[i]===undefined?'—':esc(profile[i])}</b></div>`).join('');
   const traits=Array.isArray(mount.traits)?mount.traits:[];
-  return `<section class="sheet-block mount-block"><div class="sheet-block-head prominent-section"><h4>🐎 ${en?'Mounted':'Monté'} · ${esc(mount.name)}</h4></div><div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat"><span>Sv</span><i></i><b>${esc(mount.creatureSv||'—')}</b></div></div></div><div class="rule-name-tags">${traits.length?traits.map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}</div></section>`;
+  return `<section class="sheet-block mount-block"><div class="sheet-block-head prominent-section"><h4>🐎 ${en?'Mounted':'Monté'} · ${esc(mount.name)}</h4></div><div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat"><span>Sv</span><i></i><b>${esc(mount.creatureSv||'—')}</b></div></div></div><div class="rule-name-tags">${traits.length?traits.map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}</div>${(mount.skills||[]).length?`<div class="rule-name-tags"><small>${en?'Skills':'Compétences'} :</small>${mount.skills.map(n=>`<span>${refLink('skills',n)}</span>`).join('')}</div>`:''}</section>`;
 }
 // Compact counterpart of fighterMountMarkup, for the roster's own fighter
 // card — so a mounted fighter shows its mount's stat line and keywords
@@ -10805,7 +10806,7 @@ function mountCardMarkup(mount){
   const profile=mount.creatureProfile;
   const stats=P.map((n,i)=>`<div class="profile-stat"><span>${n}</span><i></i><b>${profile[i]===null||profile[i]===undefined?'—':esc(profile[i])}</b></div>`).join('');
   const traits=Array.isArray(mount.traits)?mount.traits:[];
-  return `<div class="mount-stat-row"><div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat mount-sv-cell"><span>Sv</span><i></i><b>${esc(mount.creatureSv||'—')}</b></div></div></div><div class="rule-name-tags">${traits.length?traits.map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}</div></div>`;
+  return `<div class="mount-stat-row"><div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat mount-sv-cell"><span>Sv</span><i></i><b>${esc(mount.creatureSv||'—')}</b></div></div></div><div class="rule-name-tags">${traits.length?traits.map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}${(mount.skills||[]).map(n=>`<span>${refLink('skills',n)}</span>`).join('')}</div></div>`;
 }
 function equippedItemRow(e,index){
   // V-RETROEQUIP: display the LIVE definition (current profile/traits) so an
@@ -12468,6 +12469,7 @@ function mountCreatureAsEquipment(w){
     // card can render the creature's actual stat line instead of nothing.
     creatureProfile:Array.isArray(w.profile)?w.profile.slice():[],
     creatureSv:w.sv||'',
+    creatureSkills:Array.isArray(w.skills)?w.skills.slice():[],
     customEquipmentId:w.customCreatureId,
     mountCreatureId:w.customCreatureId
   };
@@ -12511,7 +12513,7 @@ function customCreatureAsWarrior(w){
     // on its Custom profile are its default equipment — granted free and
     // intrinsic on recruit like any fighter's starting gear.
     defaultEquipment:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[],
-    defaultSkills:[],
+    defaultSkills:Array.isArray(w.skills)?w.skills.slice():[],
     skillAccess:{},
     magicAccess:{},
     equipmentAccess:[],
@@ -13187,7 +13189,9 @@ function saveCustomCreature(){
   const sv=($('#ccSv')?.value||'').trim();
   const ruleNames=customCreatureRuleDraft.slice();
   const naturalWeapons=kind==='animal'?(document.querySelector('.ccNaturalWeapons')?customFighterReadChecks('ccNaturalWeapons'):customCreatureWeaponDraft.slice()):[];
-  const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', '),naturalWeapons};
+  const prevSkills=customCreatureById(customCreatureEditId)?.skills||[];
+  const skills=document.querySelector('.ccSkills')?customFighterReadChecks('ccSkills'):prevSkills.slice();
+  const item={customCreatureId:customCreatureEditId||crypto.randomUUID(),kind,name,cost,profile,sv,ruleNames,rules:ruleNames.join(', '),naturalWeapons,skills};
   const existing=customCreatureById(item.customCreatureId);item.archived=existing?.archived||false;
   const idx=customCreatureList().findIndex(w=>w.customCreatureId===item.customCreatureId);
   // Keep fields the form doesn't edit (e.g. officialWarbandId) instead of
@@ -13212,6 +13216,7 @@ function customCreatureForm(w){
   </div>
   <details class="custom-collapse" open><summary><span>${en?'CHARACTERISTICS':'CARACTÉRISTIQUES'}</span><small>${en?'Same columns as a fighter':'Mêmes colonnes qu’un combattant'}</small></summary><table class="custom-stat-bar"><tr>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}<th title="${en?'Armour Save':'Sauvegarde d’armure'}">Sv</th></tr><tr>${P.map((n,i)=>`<td><input id="ccStat${i}" type="number" step="1" value="${p[i]===null||p[i]===undefined?'':esc(p[i])}" placeholder="—"></td>`).join('')}<td><input id="ccSv" value="${esc(sv)}" placeholder="${en?'e.g. 5+':'ex. 5+'}"></td></tr></table><p class="muted" style="font-size:11px;margin:8px 0 0">${en?'Leave any cell empty to show “—” (e.g. BS on a mount).':'Laisse une case vide pour afficher « — » (ex. BS sur une monture).'}</p></details>
   <details class="custom-collapse" open><summary><span>${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><small>${rules.length} ${en?'linked':(rules.length>1?'liées':'liée')}</small></summary><div class="custom-tag-editor"><div id="ccRuleTags" class="custom-trait-tags">${rules.map((s,i)=>`<span class="custom-trait-tag">${refLink('special',s,s)}${isEditableParamTag('creature',s)?`<button type="button" title="${en?'Edit value':'Modifier la valeur'}" class="trait-tag-edit" onclick="editTraitParamValue('creature',${i})">✎</button>`:''}<button type="button" onclick="removeCustomCreatureRule(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No special rules.':'Aucune règle spéciale.'}</span>`}</div><div class="custom-trait-add"><input id="ccRuleInput" list="ccRuleDatalist" placeholder="${en?'Search a special rule…':'Rechercher une règle spéciale…'}" onkeydown="handleCustomCreatureRuleKey(event)"><datalist id="ccRuleDatalist">${referenceEntries('special').filter(s=>!/^Race\s*\(/i.test(s.name)).map(s=>`<option value="${esc(s.name)}">`).join('')}</datalist><button type="button" class="button secondary" onclick="addCustomCreatureRule()">＋ ${en?'Add':'Ajouter'}</button></div></div></details>
+  ${(()=>{const own=Array.isArray(w?.skills)?w.skills:[];const all=[...new Set([...customFighterSkillNames(),...own])].sort((a,b)=>a.localeCompare(b));return `<details class="custom-collapse"${own.length?' open':''}><summary><span>${en?'SKILLS':'COMPÉTENCES'}</span><small>${own.length}</small></summary><p class="sheet-help">${isMount?(en?'Shown with the mount on its rider’s sheet.':'Affichées avec la monture sur la fiche de son cavalier.'):(en?'Given to this animal when recruited, like a fighter’s default skills.':'Données à cet animal quand il est recruté, comme les compétences par défaut d’un combattant.')}</p><input class="search" placeholder="${en?'Filter skills…':'Filtrer les compétences…'}" oninput="const q=this.value.toLowerCase();this.nextElementSibling.querySelectorAll('label').forEach(l=>l.style.display=l.textContent.toLowerCase().includes(q)?'':'none')"><div class="custom-equipment-checks" style="max-height:240px;overflow:auto">${all.map(sn=>`<label><input class="ccSkills" data-name="${esc(sn)}" type="checkbox" ${own.some(n=>normName(n)===normName(sn))?'checked':''}><span>${refLink('skills',sn,sn)}</span></label>`).join('')}</div></details>`})()}
   ${isMount?'':`<details class="custom-collapse"${customCreatureWeaponDraft.length?' open':''}><summary><span>${en?'NATURAL WEAPONS':'ARMES NATURELLES'}</span><small>${customCreatureWeaponDraft.length} ${en?'item'+(customCreatureWeaponDraft.length!==1?'s':''):'objet'+(customCreatureWeaponDraft.length!==1?'s':'')}</small></summary><p class="sheet-help">${en?'Given free to this animal when recruited (claws, bite…). Create a weapon in Custom → Equipment first if it doesn’t exist yet.':'Données gratuitement à cet animal quand il est recruté (griffes, morsure…). Crée d’abord l’arme dans Custom → Équipements si elle n’existe pas encore.'}</p><div onchange="customCreatureWeaponDraft=customFighterReadChecks('ccNaturalWeapons')">${customFighterEquipmentChooser('ccNaturalWeapons',customCreatureWeaponDraft,'default')}</div></details>`}
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomCreatureForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomCreature()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create profile':'Créer le profil')}</button></div>`;
 }
