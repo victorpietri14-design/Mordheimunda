@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0472.0';
+const APP_BUILD='110.0473.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6102,6 +6102,48 @@ function equipmentToCustomDraft(e){
     customArmor:!!e.customArmor
   };
 }
+// V-WARBANDDRAFTIMPORT: bring a warband package (fighters, equipment,
+// special rules, warband rules) into Custom so it can be checked and
+// translated before use. Same conversion as importOfficialWarbandForEditing,
+// fed from a bundled draft (data/drafts) or a .json file instead of the API.
+// Rules and equipment already in Custom are reused by name, never duplicated.
+function importCustomWarbandPackage(pkg){
+  const en=siteLanguage==='en';
+  if(!pkg||!Array.isArray(pkg.warriors)){toast(en?'This file is not a warband package':'Ce fichier n’est pas une bande à importer');return null}
+  if(!Array.isArray(state.customFighters))state.customFighters=[];
+  if(!Array.isArray(state.customEquipment))state.customEquipment=[];
+  customWarbandList();
+  const cwId=crypto.randomUUID();
+  const specialEntries=(pkg.specialRules||[]).map(r=>{const e=ensureCustomContent('special',r);if(e&&!e.text&&r.text)e.text=r.text;return e}).filter(Boolean);
+  const traitEntries=(pkg.traits||[]).map(r=>ensureCustomContent('traits',r)).filter(Boolean);
+  const equipmentIds=(pkg.equipment||[]).map(e=>{const found=customEquipmentList().find(x=>normName(x.name)===normName(e.name));if(found)return found.customEquipmentId;const d=equipmentToCustomDraft(e);if(e.rarity)d.rarity=e.rarity;d.market=e.market!==false;state.customEquipment.push(d);return d.customEquipmentId}).filter(Boolean);
+  const fighterIds=pkg.warriors.map(w=>{const d=warriorToCustomFighterDraft(w,cwId);d.maxMode='auto';d.manualMaxProfile=null;state.customFighters.push(d);return d.customFighterId});
+  const bandNames=new Set((pkg.bandRuleNames||[]).map(normName));
+  const pick=list=>list.filter(e=>!bandNames.size||bandNames.has(normName(e.name))).map(e=>e.customContentId);
+  let name=String(pkg.name||'Imported warband').trim();const taken=new Set(customWarbandList().map(c=>normName(c.name)));if(taken.has(normName(name))){let k=2;while(taken.has(normName(`${name} ${k}`)))k++;name=`${name} ${k}`}
+  const cw={id:cwId,name,description:String(pkg.description||''),fighterIds,equipmentIds,fighterRefs:fighterIds.map(id=>`custom:${id}`),equipmentRefs:equipmentIds.map(id=>`custom:${id}`),specialRuleIds:pick(specialEntries),traitIds:pick(traitEntries)};
+  state.customWarbands.push(cw);
+  save(true);
+  customArea='warband';customContentTab='warband';customWarbandEditId=cwId;customWarbandCreating=false;customWarbandSection='fighters';
+  render('custom');
+  toast(en?`${name} imported into Custom: ${fighterIds.length} fighters, ${equipmentIds.length} items, ${specialEntries.length} rules`:`${name} importée dans Custom : ${fighterIds.length} combattants, ${equipmentIds.length} objets, ${specialEntries.length} règles`,3500);
+  return cw;
+}
+async function openImportWarbandPicker(){
+  const en=siteLanguage==='en';let drafts=[];
+  try{const res=await fetch('/data/drafts/index.json',{cache:'no-store'});if(res.ok)drafts=await res.json()}catch(e){}
+  openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'CUSTOM · IMPORT':'CUSTOM · IMPORT'}</div><h2>${en?'Import a warband':'Importer une warband'}</h2><p class="sheet-help">${en?'Adds the fighters, equipment and rules to Custom so you can check and edit them. Nothing is published.':'Ajoute les combattants, l’équipement et les règles dans Custom pour que tu puisses les vérifier et les modifier. Rien n’est publié.'}</p>${Array.isArray(drafts)&&drafts.length?`<div class="eyebrow" style="margin-top:12px">${en?'DRAFTS READY TO REVIEW':'BROUILLONS À VÉRIFIER'}</div><div class="custom-item-list">${drafts.map(d=>`<button type="button" class="skill-modal-skill" style="width:100%;text-align:left" onclick="importBundledWarbandDraft('${esc(d.file)}')"><strong>${esc(d.name)}</strong><small>${esc(d.source||'')}</small></button>`).join('')}</div>`:''}<div class="custom-actions" style="margin-top:14px"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="pickWarbandPackageFile()">${en?'Import a .json file':'Importer un fichier .json'}</button></div></div>`);
+}
+async function importBundledWarbandDraft(file){
+  const en=siteLanguage==='en';if(!/^[a-z0-9-]+\.json$/i.test(String(file)))return;
+  try{const res=await fetch('/data/drafts/'+file,{cache:'no-store'});if(!res.ok)throw new Error(res.status);const pkg=await res.json();closeModal();importCustomWarbandPackage(pkg)}
+  catch(e){toast(en?'Could not load this draft':'Impossible de charger ce brouillon')}
+}
+function pickWarbandPackageFile(){
+  const en=siteLanguage==='en';const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.style.display='none';
+  input.onchange=()=>{const f=input.files?.[0];input.remove();if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const pkg=JSON.parse(String(rd.result||''));closeModal();importCustomWarbandPackage(pkg)}catch(e){toast(en?'Invalid JSON file':'Fichier JSON invalide')}};rd.readAsText(f)};
+  document.body.appendChild(input);input.click();
+}
 async function importOfficialWarbandForEditing(officialId){
   const en=siteLanguage==='en';
   // Only reuse an existing local draft if it actually has fighters in it —
@@ -9766,7 +9808,7 @@ function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded
 // names plus the catalog's per-faction band flags. Only a warband with
 // neither (e.g. a custom warband) falls back to what its fighter profiles
 // can access.
-function tradingBandItems(r){const f=faction(r);if(!f)return [];const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
+function tradingBandItems(r){const f=faction(r);if(!f)return [];const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object');const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
 function tradingPostItems(r,post){const f=faction(r);const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
 function tradingLockReason(r,it){if(!it.rarity)return '';const a=tradingAvailability(r),en=siteLanguage==='en';if(a==null)return en?'Roll rarity first':'Lance la rareté d’abord';if(it.rarity>a)return en?`Needs Availability ${it.rarity}`:`Disponibilité ${it.rarity} requise`;return ''}
 function tradingChange(fn){const r=activeRoster();if(!r)return;postBattleStep5Open=true;const out=fn(r,tradingData(r));if(out===false)return;save(true);render('builder')}
@@ -13878,7 +13920,7 @@ function custom(){
     library=`<aside class="card custom-library"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${esc(title)}</h3></div><span>${shown.length}</span></div><input class="search" value="${esc(customContentSearch)}" placeholder="${en?'Search…':'Rechercher…'}" oninput="customContentSearch=this.value;render('custom')"><div class="custom-item-list">${active.length?active.map(rowFn).join(''):(archived.length?'':`<div class="empty large"><strong>${en?'No custom entry.':'Aucune entrée custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`)}</div>${archived.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'ARCHIVED':'ARCHIVÉES'}</span><small>${archived.length}</small></summary><div class="custom-item-list">${archived.map(rowFn).join('')}</div></details>`:''}${official.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'OFFICIALIZED':'OFFICIALISÉES'}</span><small>${official.length}</small></summary><p class="muted" style="font-size:10.5px;margin:0 0 8px">${en?'Already published — live for every player. Click ★ again to re-push after editing, or to pick up a fix.':'Déjà publiées — visibles par tous les joueurs. Reclique sur ★ pour republier après une modification, ou pour appliquer un correctif.'}</p><div class="custom-item-list">${official.map(rowFn).join('')}</div></details>`:''}</aside>`;
   }
   const orphanFighterCount=customContentTab==='fighters'?orphanCustomFighterIds().length:0;
-  const introButton=(customContentTab==='skills'||customContentTab==='spells')?'':(action?`<button class="button primary" onclick="${action}">＋ ${esc(createLabel)}</button>`:'')+(customContentTab==='warband'?`<button class="button secondary" type="button" onclick="openDuplicateWarbandPicker()">⧉ ${en?'Duplicate an existing warband':'Dupliquer une warband existante'}</button>`:'')+(orphanFighterCount?`<button class="button secondary" type="button" onclick="cleanupOrphanCustomFighters()">🧹 ${en?`Clean up ${orphanFighterCount} orphan profile${orphanFighterCount>1?'s':''}`:`Nettoyer ${orphanFighterCount} profil${orphanFighterCount>1?'s':''} orphelin${orphanFighterCount>1?'s':''}`}</button>`:'');
+  const introButton=(customContentTab==='skills'||customContentTab==='spells')?'':(action?`<button class="button primary" onclick="${action}">＋ ${esc(createLabel)}</button>`:'')+(customContentTab==='warband'?`<button class="button secondary" type="button" onclick="openDuplicateWarbandPicker()">⧉ ${en?'Duplicate an existing warband':'Dupliquer une warband existante'}</button><button class="button secondary" type="button" onclick="openImportWarbandPicker()">⇪ ${en?'Import a warband':'Importer une warband'}</button>`:'')+(orphanFighterCount?`<button class="button secondary" type="button" onclick="cleanupOrphanCustomFighters()">🧹 ${en?`Clean up ${orphanFighterCount} orphan profile${orphanFighterCount>1?'s':''}`:`Nettoyer ${orphanFighterCount} profil${orphanFighterCount>1?'s':''} orphelin${orphanFighterCount>1?'s':''}`}</button>`:'');
   const description=customContentTab==='warband'?(en?'New warband, or a duplicate of an existing one — one place for its fighters, traits, and its exclusive equipment/special rules. Once picked or created, click Edit to set everything up on a single page.':'Nouvelle warband ou duplicata d’une existante — un seul endroit pour ses combattants, traits, et son équipement/règles spéciales exclusifs. Une fois choisie ou créée, clique Modifier pour tout configurer sur une seule page.'):(customContentTab==='skills'||customContentTab==='spells')?(customContentTab==='skills'?(en?'Create a skill tree before adding its skills. Each tree can hold up to 6 custom skills.':'Crée un arbre de compétences avant d’ajouter ses compétences. Chaque arbre peut contenir jusqu’à 6 compétences custom.'):(en?'Create a magic domain before adding its spells.':'Crée un domaine de magie avant d’ajouter ses sorts.')):customContentTab==='creatures'?(en?'A simple profile — stats and special rules only. An Animal is a complete, recruitable profile; a Mount still costs GC and counts toward the warband’s value, but attaches onto an existing fighter instead of its own roster slot — it shows up in the Equipment Market/Band List under “Mounts”.':'Un profil simple — juste les stats et les règles spéciales. Un Animal est un profil complet et recrutable ; une Monture coûte toujours des PO et compte dans la valeur de la bande, mais s’intègre à un combattant existant au lieu d’occuper son propre emplacement — elle apparaît dans le Marché/Liste de bande sous « Montures ».'):(en?'Create custom content without modifying the M17 catalog. Entries are linked to the Reference.':'Crée du contenu personnalisé sans modifier le catalogue M17. Les entrées sont reliées au Référentiel.');
   // V-CUSTOMTABCOUNTS: these used to show a count next to each tab
   // (customFighterList().length etc.) — always the RAW total, counting

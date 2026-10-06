@@ -1,0 +1,417 @@
+{
+ "format": "mordheimunda-warband-draft",
+ "version": 1,
+ "name": "Marauders of Chaos (draft)",
+ "description": "Draft imported from Border Town Burning (Grade 1c) for review. Tribe (Norse / Kurgan / Hung) chosen at creation; Marks of Chaos via Eye of the Gods (leader) or when hired (Seer). Starting gold 500 gc, max 15 warriors (12 for Hung). Not included yet: skill tree, Marauder special skills, spell lores. Mapped to app items: 'Double-handed weapon' → Great Hammer; no Helmet in the app; Great Axe, Chaos armour and Throwing axe use the app's own items.",
+ "warriors": [
+  {
+   "name": "Marauder Chieftain",
+   "type": "Leader",
+   "cost": 95,
+   "max": 1,
+   "profile": [
+    4,
+    5,
+    3,
+    4,
+    4,
+    1,
+    5,
+    1,
+    8,
+    8,
+    8,
+    8
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)",
+    "Leader"
+   ],
+   "equipmentAccess": [
+    "Dagger",
+    "Hammer or Mace",
+    "Axe",
+    "Sword",
+    "Halberd",
+    "Morning Star",
+    "Great Hammer",
+    "Flail",
+    "Barbed Whip",
+    "Great Axe",
+    "Shield",
+    "Light armour",
+    "Heavy armour"
+   ],
+   "description": "Starts with 20 XP. Cool, Willpower and Intelligence set equal to Leadership."
+  },
+  {
+   "name": "Seer",
+   "type": "Champion",
+   "cost": 45,
+   "max": 1,
+   "profile": [
+    4,
+    4,
+    3,
+    3,
+    3,
+    1,
+    4,
+    1,
+    8,
+    8,
+    8,
+    8
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)",
+    "Wizard",
+    "Seer's Mark"
+   ],
+   "equipmentAccess": [
+    "Dagger",
+    "Hammer or Mace",
+    "Axe",
+    "Sword",
+    "Halberd",
+    "Morning Star",
+    "Great Hammer",
+    "Flail",
+    "Barbed Whip",
+    "Great Axe"
+   ],
+   "description": "Hero. Starts with 8 XP. Weapons only (no armour). Spell lists depend on his Mark (to add). Cool, Willpower and Intelligence = Leadership."
+  },
+  {
+   "name": "Champion",
+   "type": "Champion",
+   "cost": 45,
+   "max": 2,
+   "profile": [
+    4,
+    4,
+    3,
+    4,
+    3,
+    1,
+    4,
+    1,
+    7,
+    7,
+    7,
+    7
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)"
+   ],
+   "equipmentAccess": [
+    "Dagger",
+    "Hammer or Mace",
+    "Axe",
+    "Sword",
+    "Halberd",
+    "Morning Star",
+    "Great Hammer",
+    "Flail",
+    "Barbed Whip",
+    "Great Axe",
+    "Shield",
+    "Light armour",
+    "Heavy armour"
+   ],
+   "description": "Starts with 8 XP. Cool, Willpower and Intelligence = Leadership."
+  },
+  {
+   "name": "Condemned",
+   "type": "Champion",
+   "cost": 55,
+   "max": 1,
+   "profile": [
+    4,
+    3,
+    3,
+    3,
+    3,
+    1,
+    4,
+    2,
+    7,
+    7,
+    7,
+    7
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)",
+    "Inconsistency",
+    "Fear",
+    "Condemned Experience",
+    "Fate"
+   ],
+   "equipmentAccess": [],
+   "description": "Hero. Starts with 8 XP. Variable profile: WS D6, S D6, T D6, A D3 (shown here as 3/3/3/2 placeholders). Uses no equipment until all variable attributes are set (see Fate). Cool, Willpower and Intelligence = Leadership."
+  },
+  {
+   "name": "Chaos Marauder",
+   "type": "Henchman",
+   "cost": 35,
+   "max": null,
+   "profile": [
+    4,
+    4,
+    3,
+    3,
+    3,
+    1,
+    4,
+    1,
+    7,
+    7,
+    7,
+    7
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)"
+   ],
+   "equipmentAccess": [
+    "Dagger",
+    "Hammer or Mace",
+    "Axe",
+    "Sword",
+    "Spear",
+    "Morning Star",
+    "Flail",
+    "Throwing axe",
+    "Shield",
+    "Light armour"
+   ],
+   "description": "Henchmen, bought in groups of 1–5. Cool, Willpower and Intelligence = Leadership."
+  },
+  {
+   "name": "Warhound of Chaos",
+   "type": "Henchman",
+   "cost": 15,
+   "max": 5,
+   "profile": [
+    7,
+    4,
+    0,
+    4,
+    3,
+    1,
+    3,
+    1,
+    5,
+    5,
+    5,
+    5
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)",
+    "Animals (Warhounds)"
+   ],
+   "equipmentAccess": [],
+   "description": "0–5 (any number for Kurgan, see Pedigree). Fights with fangs, no weapons, no penalty. Cool, Willpower and Intelligence = Leadership."
+  },
+  {
+   "name": "Spawn of Chaos",
+   "type": "Henchman",
+   "cost": 180,
+   "max": 1,
+   "profile": [
+    7,
+    3,
+    0,
+    4,
+    5,
+    3,
+    2,
+    4,
+    10,
+    10,
+    10,
+    10
+   ],
+   "race": "Human",
+   "ruleNames": [
+    "Race (Human)",
+    "Fear",
+    "Large Target",
+    "Spawn: Special Attacks",
+    "Spawn: Special Movement",
+    "Spawn: Psychology",
+    "Spawn: No Brain"
+   ],
+   "equipmentAccess": [],
+   "description": "0–1. Variable profile: M 2D6, A D6+1 (shown here as 7 and 4 placeholders). Fights with claws and tentacles, no equipment. Cool, Willpower and Intelligence = Leadership."
+  }
+ ],
+ "equipment": [
+  {
+   "name": "Barbed Whip",
+   "category": "Armes de corps à corps",
+   "price": 15,
+   "rarity": "Rare 9",
+   "market": true,
+   "profile": {
+    "range": "Melee",
+    "strength": "S",
+    "ap": "-",
+    "damage": "1",
+    "traits": ""
+   },
+   "rulesText": "Whipcrack: when the wielder charges they gain +1A for that turn (added after any other modifications). When charged they gain +1A usable only against the charger, striking first. Only +1A in total even if charged by several opponents. With two whips: +1A for the additional hand weapon, but only the first whip gets the whipcrack +1A.\nCannot Be Parried: a model attacked by a barbed whip may not parry with a sword or buckler.\nEnrage: as long as the Hero is not in close combat, all Warhounds of Chaos within 4\" gain +1 attack."
+  },
+  {
+   "name": "Obsidian Weapon",
+   "category": "Armes de corps à corps",
+   "price": 0,
+   "rarity": "Rare 12",
+   "market": true,
+   "profile": {
+    "range": "Melee",
+    "strength": "S+1",
+    "ap": "-",
+    "damage": "1",
+    "traits": ""
+   },
+   "rulesText": "Cost: 4 × the price of the weapon (set the price per weapon).\nBlemished: may never be used by Dwarfs, Elves, Sisters of Sigmar, Witch Hunters or Priests.\nHeavy: the warrior using it always strikes last, even when charging.\nNote: Sons of Hashut also have an Obsidian Weapon; use only one version in a campaign."
+  }
+ ],
+ "specialRules": [
+  {
+   "name": "Eye of the Gods",
+   "text": "An aspiring chaos follower is always watched by the vigilant eyes of the dark gods, who reward the successful generously but punish failures harshly. Roll 2D6 after every battle (see Spawn of Chaos and Mark of Chaos). As soon as the leader receives a Mark of Chaos this test is no longer taken – until the leader leaves the warband, in which case the new leader must prove himself the same way. If the warband already includes a Spawn of Chaos, the doomed leader is simply erased from the roster (never more than one Spawn of Chaos). Not in effect if the leader did not take part in the previous battle."
+  },
+  {
+   "name": "Spawn of Chaos (Eye of the Gods)",
+   "text": "If you lost the preceding battle, add +1 to the Eye of the Gods roll for each of your Heroes taken out of action. On 12+ the warband's leader turns into a Chaos Spawn. His experience, skills, injuries and equipment are lost."
+  },
+  {
+   "name": "Mark of Chaos (Eye of the Gods)",
+   "text": "If you won the battle, add +1 to the Eye of the Gods roll for every enemy model the leader took out of action. On 12+ you may choose a Mark of Chaos for the winning leader."
+  },
+  {
+   "name": "Hired Swords (Marauders)",
+   "text": "Marauders of Chaos may only hire: Pit Fighters, Ogres, Norse Shamans and Imperial Assassins, plus any Hired Sword that specifies it may be hired by Marauders of Chaos. Witches and Warlocks may be hired except by warbands including warriors with the Mark of Arkhar."
+  },
+  {
+   "name": "Norse: Reavers",
+   "text": "Norse tribe only. +1 to rarity rolls when searching during the post-game sequence."
+  },
+  {
+   "name": "Norse: Pantheon",
+   "text": "Norse tribe only. The Eye of the Gods effect (becoming a Chaos Spawn or receiving a Mark) happens on 13+ instead of 12+."
+  },
+  {
+   "name": "Kurgan: Pedigree",
+   "text": "Kurgan tribe only. The warband may include any number of Warhounds of Chaos, not only up to five."
+  },
+  {
+   "name": "Kurgan: Bone Bows",
+   "text": "Kurgan tribe only. Heroes and Chaos Marauder Henchmen may use bows (cost 10 gc, availability Common)."
+  },
+  {
+   "name": "Kurgan: Difficult Customers",
+   "text": "Kurgan tribe only. −1 when rolling to find Rare items, except for Great Axes and Barbed Whips."
+  },
+  {
+   "name": "Hung: Disloyalty",
+   "text": "Hung tribe only. The maximum number of warriors in the warband is 12 (instead of 15)."
+  },
+  {
+   "name": "Hung: Affinity with Horses",
+   "text": "Hung tribe only. Warhorses always cost 40 gc to the warband, not only to starting warbands. All Heroes (including Henchmen who advance to Heroes) automatically have the Ride Warhorse skill. The number of mounts per warband is not restricted."
+  },
+  {
+   "name": "Seer's Mark",
+   "text": "The Seer gets a Mark of Chaos when hired, which determines the kind of magic he uses: Mark of the Serpent, the Crow, the Eagle, Arkhar, or Chaos Undivided."
+  },
+  {
+   "name": "Inconsistency",
+   "text": "The body of the Condemned is mutating permanently. The variable attributes WS, S, T and A are determined whenever needed, once every turn."
+  },
+  {
+   "name": "Condemned Experience",
+   "text": "Whenever the Condemned would increase one of his variable attributes, roll the appropriate die instead. If satisfied, set the attribute to that number (e.g. roll a D6 instead of increasing Strength; on a 4 the model may get S 4). Otherwise the attribute stays variable and the advance is lost. The Marauders' maximum attributes may be exceeded this way."
+  },
+  {
+   "name": "Fate",
+   "text": "Once all variable attributes are set, the Condemned may use weapons, armour and miscellaneous equipment as usual. If he reaches 90 Experience with variable attributes still left, he turns into a Spawn of Chaos. If the warband already has a Spawn, he wanders off and is never seen again."
+  },
+  {
+   "name": "Animals (Warhounds)",
+   "text": "Warhounds are animals and do not gain experience."
+  },
+  {
+   "name": "Spawn: Special Attacks",
+   "text": "Roll at the beginning of each Close Combat phase to determine the Spawn's number of Attacks for that phase (D6+1)."
+  },
+  {
+   "name": "Spawn: Special Movement",
+   "text": "The Spawn moves 2D6\" straight ahead in each of its Movement phases. Before it does so, its player may turn it to choose the direction. It does not double its movement for charging; if its movement takes it into contact with a model it counts as charging and engages that model."
+  },
+  {
+   "name": "Spawn: Psychology",
+   "text": "Spawns are mindless and automatically pass any Leadership-based test."
+  },
+  {
+   "name": "Spawn: No Brain",
+   "text": "Spawns of Chaos are crazed creatures and gain no experience."
+  },
+  {
+   "name": "Mark of Chaos Undivided",
+   "text": "Only Mark that may coexist with other Marks in the warband. Leader: all warband members within the leader rule's radius (6\", 12\" with Battle Tongue) may re-roll all failed Ld tests. Seer: the warband may include 0–3 Gors (see Beastmen Raiders), counting towards the maximum of 15; re-roll all results of 'The lad's got talent' for them. A Seer of Chaos Undivided uses Chaos Rituals."
+  },
+  {
+   "name": "Mark of Tchar the Eagle",
+   "text": "Leader: the Hero can cast spells and immediately learns one random spell from the Tchar Rituals, but suffers −1 on all Difficulty rolls unless he was a wizard before. Seer: starts with two spells from the Tchar Rituals, one chosen freely, the second random."
+  },
+  {
+   "name": "Mark of Arkhar the Dog",
+   "text": "Leader: the Hero is subject to frenzy from now on; any spell that targets him fails on a 4+. Seer: becomes a Bloodfather (see Bloodfather)."
+  },
+  {
+   "name": "Bloodfather",
+   "text": "A Seer with the Mark of Arkhar is a war-priest and cannot cast spells. Each time he takes an enemy out of action in hand-to-hand combat, take a Leadership test: if passed, add +1 to his WS, S, T or I until the end of the battle (each characteristic only once). A Bloodfather may also take Strength skills."
+  },
+  {
+   "name": "Mark of Onogal the Crow",
+   "text": "Leader: the Hero gets +1 T and may re-roll on the Serious Injuries table once; he is immune to poison. Seer: uses Onogal Rituals and is immune to poison."
+  },
+  {
+   "name": "Mark of Shornaal the Serpent",
+   "text": "Leader: enemy models not immune to psychology cannot attack the Hero in close combat unless they pass a Ld test with 3D6, discarding the lowest D6. If failed, they are hit automatically in close combat; once passed, no further test for the battle (Lizardmen's Cold Blooded does not apply). Seer: uses Shornaal Rituals. If not taken out of action, instead of searching for rare items he may brew a strong drink for the warband (treat as Bugman's Ale, cannot be sold)."
+  },
+  {
+   "name": "One Mark per warband",
+   "text": "Except for the Mark of Chaos Undivided, there may never be two models in the warband with different Marks. A Seer chooses his Mark when hired; a Seer who becomes leader chooses the Mark of his patron when rewarded through Eye of the Gods."
+  }
+ ],
+ "traits": [],
+ "bandRuleNames": [
+  "Eye of the Gods",
+  "Spawn of Chaos (Eye of the Gods)",
+  "Mark of Chaos (Eye of the Gods)",
+  "Hired Swords (Marauders)",
+  "One Mark per warband",
+  "Norse: Reavers",
+  "Norse: Pantheon",
+  "Kurgan: Pedigree",
+  "Kurgan: Bone Bows",
+  "Kurgan: Difficult Customers",
+  "Hung: Disloyalty",
+  "Hung: Affinity with Horses",
+  "Mark of Chaos Undivided",
+  "Mark of Tchar the Eagle",
+  "Mark of Arkhar the Dog",
+  "Mark of Onogal the Crow",
+  "Mark of Shornaal the Serpent",
+  "Bloodfather"
+ ]
+}
