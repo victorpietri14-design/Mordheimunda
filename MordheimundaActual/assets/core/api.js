@@ -10,6 +10,8 @@
     const res=await fetch(base+path,init);let body=null;try{body=await res.json()}catch{}
     if(!res.ok){const e=new Error(body?.error||`HTTP_${res.status}`);e.status=res.status;throw e}return body;
   }
+  /* French-mode rule corrections live beside the English ones under a "fr:" prefix. */
+  const ruleLangSection=id=>(typeof siteLanguage!=='undefined'&&siteLanguage==='fr'?'fr:':'')+id;
   window.MordheimundaAPI={request,health:()=>request('/api/health'),session:()=>request('/api/account/me'),register:p=>request('/api/auth/register',{method:'POST',body:JSON.stringify(p)}),login:p=>request('/api/auth/login',{method:'POST',body:JSON.stringify(p)}),logout:()=>request('/api/auth/logout',{method:'POST'}),
   /* Local-dev only — see localDevAdmin in server.js. 403 on the live site. */
   devAdminLogin:()=>request('/api/auth/dev-admin',{method:'POST'}),recoverPassword:p=>request('/api/auth/forgot-password',{method:'POST',body:JSON.stringify(p)}),resetPassword:p=>request('/api/auth/reset-password',{method:'POST',body:JSON.stringify(p)}),verifyEmail:p=>request('/api/auth/verify-email',{method:'POST',body:JSON.stringify(p)}),resendVerification:()=>request('/api/auth/resend-verification',{method:'POST'}),recoverUsername:p=>request('/api/auth/forgot-username',{method:'POST',body:JSON.stringify(p)}),changePassword:p=>request('/api/account/change-password',{method:'POST',body:JSON.stringify(p)}),
@@ -40,8 +42,8 @@
      admin correct a page of the built-in rulebook (baked into RULES_BOOK in
      app.js) from the Règles tab itself, without editing code/redeploying. */
   ruleOverrides:()=>request('/api/rules/overrides'),
-  adminSaveRuleOverride:(sectionId,page,text)=>request('/api/admin/rules/overrides',{method:'PUT',body:JSON.stringify({sectionId,page,text})}),
-  adminDeleteRuleOverride:(sectionId,page)=>request('/api/admin/rules/overrides/'+encodeURIComponent(sectionId)+'/'+encodeURIComponent(page),{method:'DELETE'}),
+  adminSaveRuleOverride:(sectionId,page,text)=>request('/api/admin/rules/overrides',{method:'PUT',body:JSON.stringify({sectionId:ruleLangSection(sectionId),page,text})}),
+  adminDeleteRuleOverride:(sectionId,page)=>request('/api/admin/rules/overrides/'+encodeURIComponent(ruleLangSection(sectionId))+'/'+encodeURIComponent(page),{method:'DELETE'}),
   /* Base M17 catalog overrides (V147) — public read, admin-only write. Lets
      an admin correct a book faction's fighter profiles/equipment (baked into
      data/catalog.js) from the site itself, without editing code/redeploying. */
