@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0490.0';
+const APP_BUILD='110.0491.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -5915,6 +5915,14 @@ async function ensureContentPoolWarbandId(){
   }catch(e){return null}
 }
 let officializeItemKind=null,officializeItemId=null;
+// A base book faction's current Base-catalog definition (its admin override
+// when there is one, else the book), shaped like an official warband's.
+function bookCatalogDefinition(fid){
+  const f=(D.factions||[]).find(x=>x.id===fid&&!x.__official);if(!f)return null;
+  const o=catalogOverrideMap.get(fid)||{};const base=f.__catalogBaseline||{warriors:f.warriors,equipment:f.equipment};
+  const a=v=>Array.isArray(v)?JSON.parse(JSON.stringify(v)):[];
+  return {name:f.displayName||f.name||fid,warriors:a(Array.isArray(o.warriors)&&o.warriors.length?o.warriors:base.warriors),equipment:a(Array.isArray(o.equipment)&&o.equipment.length?o.equipment:base.equipment),bandRuleNames:a(o.bandRuleNames),traits:a(o.traits),specialRules:a(o.specialRules),skillTrees:a(o.skillTrees),skills:a(o.skills),magicDomains:a(o.magicDomains),spells:a(o.spells),creatures:[]};
+}
 async function openOfficializeItemPicker(kind,id){
   officializeItemKind=kind;officializeItemId=id;
   const en=siteLanguage==='en';
@@ -5923,7 +5931,12 @@ async function openOfficializeItemPicker(kind,id){
     const {warbands}=await window.MordheimundaAPI.adminListWarbands();
     officializeWarbandsCache=warbands||[];
     const box=$('#officializeItemBody');if(!box)return;
-    const published=officializeWarbandsCache.filter(w=>w.status!=='draft'&&!isContentPoolWarband(w));
+    // V-OFFICIALIZEANYWHERE: every official warband (drafts and supplements
+    // too, labelled) plus every base book faction (written into its Base
+    // catalog), not only the published standalone official warbands.
+    const supName=id=>{if(!id)return '';const b=(D.factions||[]).find(f=>f.id===id||f.id==='official-'+id);const o=officializeWarbandsCache.find(x=>String(x.id)===String(id));return b?.displayName||o?.name||id};
+    const published=officializeWarbandsCache.filter(w=>!isContentPoolWarband(w)).map(w=>({...w,name:`${w.name}${w.supplement_of?` — ${en?'supplement of':'supplément de'} ${supName(w.supplement_of)}`:''}${w.status&&w.status!=='published'?` (${w.status})`:''}`}))
+      .concat(kind==='creature'?[]:(D.factions||[]).filter(f=>!f.__official&&!String(f.id||'').startsWith('custom-warband-')&&Array.isArray(f.warriors)&&f.warriors.length).map(f=>({id:'book:'+f.id,name:`${en?'Base':'Base'} · ${f.displayName||f.name||f.id}`})));
     const poolOption=`<option value="__POOL__">${en?'— No warband (free-standing content)':'— Aucune bande (contenu libre)'}</option>`;
     // V-OFFICIALIZESCOPE ("Portée"): equipment is the one content type that's
     // actually scoped per-warband once published (toOfficialFaction rescopes
@@ -5987,8 +6000,11 @@ async function confirmOfficializeItem(){
       // this used to read straight off the raw envelope, so every attach here
       // silently wiped the target warband's existing warriors/equipment/rules
       // (d.warriors etc. always started from [] instead of the real content).
-      const itemRes=await window.MordheimundaAPI.adminGetWarband(targetId);
-      const full=itemRes?.warband||itemRes;
+      const isBook=String(targetId).startsWith('book:');
+      const bookFid=isBook?String(targetId).slice(5):null;
+      const itemRes=isBook?null:await window.MordheimundaAPI.adminGetWarband(targetId);
+      const full=isBook?bookCatalogDefinition(bookFid):(itemRes?.warband||itemRes);
+      if(!full){toast(en?'Warband not found':'Warband introuvable');closeModal();return}
       const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
       if(kind==='fighter'){
         const w=customFighterById(id);if(!w){toast(en?'Fighter not found':'Combattant introuvable');closeModal();return}
@@ -6028,8 +6044,19 @@ async function confirmOfficializeItem(){
         // warband record instead of leaving old pollution for the picker's
         // "last wins" lookup to stumble into again.
         const published={...w,archived:false,exclusiveWarbandId:null,officialWarbandId:null};
+        if(isBook){
+          // A base faction's list holds item NAMES from the shared pool, so
+          // the item joins that pool (an admin weapon override, like any item
+          // added from Admin → Weapons & gear catalog) and its name is added
+          // to this faction's Band List.
+          const pool={...published};['customEquipmentId','factions','unrestricted','officialWarbandIds','archived','exclusiveWarbandId','officialWarbandId'].forEach(k=>delete pool[k]);
+          pool.name=w.name;pool.band=true;pool.market=w.market!==false&&!!w.market;
+          await window.MordheimundaAPI.adminSaveWeaponOverride(w.name,pool);
+          d.equipment=d.equipment.filter(e=>normName(typeof e==='string'?e:e?.name)!==normName(w.name));d.equipment.push(w.name);
+        }else{
         d.equipment=d.equipment.filter(e=>normName(e?.name)!==normName(w.name));
         d.equipment.push(published);
+        }
         sourceItem=w;label=w.name;
       }else if(kind==='creature'){
         // V-CREATUREOFFICIALIZE: carries the FULL creature shape (stats/Sv/
@@ -6085,7 +6112,7 @@ async function confirmOfficializeItem(){
         // the active Custom library) only ever checks each item's own
         // officialWarbandId flag, so without this every skill/spell here would
         // still show up as "not yet published" even though it just was.
-        items.forEach(s=>{s.officialWarbandId=targetId;});
+        if(!isBook)items.forEach(s=>{s.officialWarbandId=targetId;});
       }else{closeModal();return}
       // V-OFFICIALIZEITEMLOCK: this always pushes a definition it just fetched
       // fresh from the server (full=adminGetWarband(targetId) above) plus ONE
@@ -6098,16 +6125,25 @@ async function confirmOfficializeItem(){
       // "ADMIN_LOCKED" toast (reported as "ça me dit admin lock ... je suis
       // admin") even though the user calling this is always an admin
       // (officializeBtnMarkup only renders this action for isAdminEditUI()).
-      await window.MordheimundaAPI.adminUpdateOfficialWarband(targetId,{...d,viaAdminEditor:true});
+      if(isBook)await window.MordheimundaAPI.adminSaveCatalogOverride(bookFid,{warriors:d.warriors,equipment:d.equipment,bandRuleNames:d.bandRuleNames,traits:d.traits,specialRules:d.specialRules,skillTrees:d.skillTrees,skills:d.skills,magicDomains:d.magicDomains,spells:d.spells});
+      else await window.MordheimundaAPI.adminUpdateOfficialWarband(targetId,{...d,viaAdminEditor:true});
     }
+    const officialTargets=targetIds.filter(t=>!String(t).startsWith('book:'));
+    if(targetIds.some(t=>String(t).startsWith('book:'))){try{await loadCatalogOverrides();await loadWeaponOverrides()}catch(e){}}
     if(sourceItem){
       // officialWarbandId stays a single id (last target pushed) so the
       // existing ★/☆ badge and officializedEquipmentIdSet() truthy checks
       // keep working unchanged; officialWarbandIds carries the full list for
       // anything that later wants to show every scoped destination.
-      sourceItem.officialWarbandId=lastTargetId;
-      if(targetIds.length>1)sourceItem.officialWarbandIds=targetIds.slice();
-      else delete sourceItem.officialWarbandIds;
+      // Base book factions are tracked apart (bookFactionIds): they aren't
+      // official warbands, so ★ / republish keep pointing at real ones.
+      const books=targetIds.filter(t=>String(t).startsWith('book:')).map(t=>String(t).slice(5));
+      if(books.length)sourceItem.bookFactionIds=[...new Set([...(sourceItem.bookFactionIds||[]),...books])];
+      if(officialTargets.length){
+        sourceItem.officialWarbandId=officialTargets[officialTargets.length-1];
+        if(officialTargets.length>1)sourceItem.officialWarbandIds=officialTargets.slice();
+        else delete sourceItem.officialWarbandIds;
+      }
     }
     save(true);
     adminOfficialCache=null;await loadOfficialWarbands();
