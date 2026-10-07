@@ -1665,8 +1665,9 @@ function creatureCardsFor(w,kind){
   const ge=equipmentGlossaryEntry(w.name);
   const text=equipmentEffectiveText(w.name).text||w.rulesText||'';
   const blocks=parseCreatureBlocks(text,w.name);
-  if(!blocks.length)return [{name:w.name,kind,cost:w.price,stats:[],sv:'',rules:Array.isArray(w.traits)?w.traits:[],skills:[],weapons:[],availability:w.availability,restriction:'',desc:text,anchor:ge?ge.id:refSlug(w.name)}];
-  return blocks.map((b,i)=>({...b,kind,cost:i===0?(w.price??b.cost):b.cost,availability:i===0?w.availability:'',anchor:i===0&&ge?ge.id:refSlug(b.name),titleOverride:i===0?null:b.name,sv:'',weapons:[]}));
+  if(!blocks.length)return [{name:w.name,kind,cost:w.price,stats:[],sv:'',rules:Array.isArray(w.traits)?w.traits:[],skills:[],weapons:[],availability:w.availability,restriction:factionRestrictionLabel(w.factions),desc:text,anchor:ge?ge.id:refSlug(w.name)}];
+  const adminRestriction=factionRestrictionLabel(w.factions);
+  return blocks.map((b,i)=>({...b,kind,cost:i===0?(w.price??b.cost):b.cost,availability:i===0?w.availability:'',anchor:i===0&&ge?ge.id:refSlug(b.name),titleOverride:i===0?null:b.name,sv:'',weapons:[],restriction:i===0&&adminRestriction?adminRestriction:b.restriction}));
 }
 function referenceCreatureMarkup(items,kind){
   const cards=[];
@@ -5249,6 +5250,7 @@ async function saveAdminWeapon(originalName){
     market:$('#awpMarket')?.checked!==false,
     band:$('#awpBand')?.checked!==false,
     hidden:$('#awpHidden')?.checked===true,
+    factions:document.querySelector('input[name="awpScope"]:checked')?.value==='some'?[...document.querySelectorAll('.awpFaction:checked')].map(x=>x.dataset.faction):[],
     profile:{range:($('#awpRange')?.value||''),strength:($('#awpStrength')?.value||''),ap:($('#awpAp')?.value||''),damage:($('#awpDamage')?.value||''),traits:adminWeaponTraitDraft.join(', ')}
   };
   try{
@@ -5416,6 +5418,10 @@ function adminWeaponFormMarkup(name){
     <label class="custom-check"><input id="awpBand" type="checkbox" ${w?.band!==false?'checked':''}><span>${en?'Available as a Band List item':'Disponible dans la Liste de Bande'}</span></label>
     ${isNew?'':`<label class="custom-check"><input id="awpHidden" type="checkbox" ${w?.hidden===true?'checked':''}><span>${en?'Hidden — buggy or undesirable, removed from Market/Band List/Reference everywhere':'Masqué — bugué ou non désirable, retiré du Marché/Liste de Bande/Référentiel partout'}</span></label>`}
   </div>
+  ${(()=>{const sel=Array.isArray(w?.factions)?w.factions:[];const some=sel.length>0;const opts=creatureScopeFactionOptions();return `<details class="custom-collapse"${some?' open':''}><summary><span>${en?'AVAILABILITY':'DISPONIBILITÉ'}</span><small>${some?`${sel.length} ${en?'warband'+(sel.length>1?'s':''):'bande'+(sel.length>1?'s':'')}`:(en?'All warbands':'Toutes les bandes')}</small></summary>
+    <label class="custom-check"><input type="radio" name="awpScope" value="all" ${some?'':'checked'} onchange="this.closest('details').querySelector('.awp-faction-grid').style.display='none'"> <span><b>${en?'All warbands':'Toutes les bandes'}</b><small>${en?'Visible to every warband (according to the Market / Band List ticks above).':'Visible par toutes les bandes (selon les cases Marché / Liste de bande ci-dessus).'}</small></span></label>
+    <label class="custom-check"><input type="radio" name="awpScope" value="some" ${some?'checked':''} onchange="this.closest('details').querySelector('.awp-faction-grid').style.display=''"> <span><b>${en?'Only the warbands ticked below':'Seulement les bandes cochées ci-dessous'}</b><small>${en?'Hidden from everyone else — Band List, Market, Unrestricted list and Trading Post. E.g. Wardogs for Human warbands only.':'Invisible pour les autres — Liste de bande, Marché, liste libre et Trading Post. Ex. : Wardogs réservés aux bandes humaines.'}</small></span></label>
+    <div class="custom-faction-grid awp-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="awpFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div></details>`})()}
   <div class="custom-weapon-grid" id="awpProfileFields"><label class="custom-field"><span>${en?'Range':'Portée'}</span><input id="awpRange" value="${esc(p.range||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Strength':'Force'}</span><input id="awpStrength" value="${esc(p.strength||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>AP</span><input id="awpAp" value="${esc(p.ap||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Damage':'Dégâts'}</span><input id="awpDamage" value="${esc(p.damage||'')}" oninput="refreshAdminWeaponPreview()"></label></div>
   ${traitPickerMarkup('adminWeapon')}
   <div class="custom-weapon-preview" id="awpWeaponPreview">${adminWeaponPreviewMarkup(w?.name||$('#awpName')?.value,p)}</div>
@@ -10186,7 +10192,7 @@ function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded
 // neither (e.g. a custom warband) falls back to what its fighter profiles
 // can access.
 function tradingBandItems(r){const f=faction(r);if(!f)return [];const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object');const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
-function tradingPostItems(r,post){const f=faction(r);const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
+function tradingPostItems(r,post){const f=faction(r);const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
 function tradingLockReason(r,it){if(!it.rarity)return '';const a=tradingAvailability(r),en=siteLanguage==='en';if(a==null)return en?'Roll rarity first':'Lance la rareté d’abord';if(it.rarity>a)return en?`Needs Availability ${it.rarity}`:`Disponibilité ${it.rarity} requise`;return ''}
 function tradingChange(fn){const r=activeRoster();if(!r)return;postBattleStep5Open=true;const out=fn(r,tradingData(r));if(out===false)return;save(true);render('builder')}
 function rollTradingRarity(manual){tradingChange((r,t)=>{const again=Number.isFinite(t.availability);const bonus=tradingSeekBonus(r);if(manual!=null){const v=Math.floor(Number(manual));if(!(v>=2&&v<=12)){toast(siteLanguage==='en'?'Enter a 2D6 total between 2 and 12':'Indique un total de 2D6 entre 2 et 12');return false}t.dice=null;t.manual=v;t.bonus=bonus;t.availability=v+bonus}else{t.dice=[postBattleRoll(),postBattleRoll()];t.manual=null;t.bonus=bonus;t.availability=t.dice[0]+t.dice[1]+bonus}logHistory(r,'equipment',siteLanguage==='en'?`Seek Rare Equipment${again?' (changed)':''}: Availability ${t.availability}`:`Seek Rare Equipment${again?' (modifié)':''} : disponibilité ${t.availability}`)})}
@@ -12793,6 +12799,14 @@ function animalCreatureList(f){
 // official or custom-warband ids). A Mount's own `market` flag (default on)
 // keeps it buyable by everyone at the Trading Post regardless.
 function creatureAvailableFor(w,f){const list=Array.isArray(w?.factions)?w.factions:[];if(!list.length||!f)return true;const ids=new Set([normName(f.id),normName(f.displayName||'')]);return list.some(id=>ids.has(normName(id)))}
+// V-BOOKITEMFACTIONS: a shared-pool (book / admin-added) item can carry a
+// `factions` whitelist set from Admin → Catalog → Availability. When set, the
+// item is visible and buyable ONLY by those warbands — Band List, Market,
+// Unrestricted list and Trading Post alike ("Wardogs are not for everyone").
+// Custom equipment keeps its own `factions` semantics (band linking + the
+// Market tick), so it's deliberately left out of this check.
+function bookItemFactionAllowed(w,f){if(!w||isCustomEquipment(w))return true;const list=Array.isArray(w.factions)?w.factions:[];if(!list.length||!f)return true;return creatureAvailableFor(w,f);}
+function factionRestrictionLabel(list){const en=siteLanguage==='en';const ids=Array.isArray(list)?list:[];if(!ids.length)return '';const opts=creatureScopeFactionOptions();return (en?'Only for: ':'Réservé à : ')+ids.map(id=>opts.find(o=>o.id===id)?.name||D.factions.find(f=>f.id===id)?.name||id).join(', ');}
 function creatureScopeFactionOptions(){
   const out=[],seen=new Set();
   (D.factions||[]).forEach(f=>{if(!f?.id||seen.has(f.id))return;seen.add(f.id);out.push({id:f.id,name:f.displayName||f.name||f.id})});
@@ -13765,6 +13779,7 @@ function equipmentPool(tab,x){
     const customUnrestrictedNames=new Set(customUnrestricted.map(w=>normName(w.name)));
     ws=[...D.weapons.filter(w=>!w.hidden&&!customUnrestrictedNames.has(normName(w.name))),...customUnrestricted];
   }
+  ws=ws.filter(w=>bookItemFactionAllowed(w,f));
   if(equipmentCategoryFilter!=='all')ws=ws.filter(w=>canonEquipmentCategory(equipmentCategory(w))===equipmentCategoryFilter);
   const q=(equipmentSearch||'').trim().toLowerCase();if(q)ws=ws.filter(w=>(w.name||'').toLowerCase().includes(q)||(equipmentCategory(w)||'').toLowerCase().includes(q)||(w.rulesText||'').toLowerCase().includes(q));
   return ws;
