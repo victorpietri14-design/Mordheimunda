@@ -1581,8 +1581,93 @@ function referenceEquipmentCardMarkup(items){
   }).join('');
   return `<div class="reference-list">${cards}</div>`;
 }
+// V-REFCREATURECARDS: the Animals / Mounts tabs used to dump each book
+// creature's glossary text as one raw paragraph — stat line inline, several
+// creatures merged in one entry (the Wardog page also carries Giant Wolves
+// and Giant Rats, the Trained Bear page carries Dire Wolves). Per the
+// product owner, every animal/mount is now its own fighter-style card
+// (name, cost, stat bar, Sv, special-rule / skill pills with the usual
+// hover peek, hire restriction), for book creatures parsed out of that
+// text and for Custom → Animals & Mounts profiles read straight from their
+// structured data.
+const CREATURE_STAT_HEADER=/^M\s+WS\s+BS\s+S\s+T\s+W\s+I\s+A\s+LD\s+CL\s+WIL\s+INT$/i;
+function splitRuleList(s){
+  const out=[];let rest=String(s||'').replace(/\.\s*$/,'').trim();
+  rest=rest.replace(/Race\s*\([^)]*\)/gi,m=>{out.push(m.trim());return ','});
+  rest.split(/,|;/).map(x=>x.trim()).filter(Boolean).forEach(x=>out.push(x));
+  return out;
+}
+function parseCreatureBlocks(text,itemName){
+  const lines=String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const headers=lines.map((l,i)=>CREATURE_STAT_HEADER.test(l)?i:-1).filter(i=>i>=0);
+  if(!headers.length)return [];
+  const blocks=[];let start=0;
+  headers.forEach((h,k)=>{
+    const seg=lines.slice(start,h);
+    let name=k===0?itemName:(seg[0]||itemName);
+    const descLines=(k===0?seg:seg.slice(1)).filter(l=>normName(l)!==normName(itemName));
+    let cost=null;
+    const desc=descLines.filter(l=>{const m=/^cost to hire:\s*(\d+)/i.exec(l);if(m){cost=Number(m[1]);return false}return true}).join(' ');
+    const stats=(lines[h+1]||'').split(/\s+/).slice(0,12);
+    let i=h+2;const rules=[],skills=[];let restriction='';
+    while(i<lines.length){
+      const l=lines[i];
+      let m;
+      if((m=/^special rules?:\s*(.*)$/i.exec(l))){if(m[1])rules.push(...splitRuleList(m[1]));else if(lines[i+1]&&!CREATURE_STAT_HEADER.test(lines[i+1])){rules.push(...splitRuleList(lines[++i]));}i++;continue}
+      if((m=/^skills?:\s*(.*)$/i.exec(l))){skills.push(...splitRuleList(m[1]));i++;continue}
+      if(/^\(only .* may hire\)$/i.test(l)){restriction=l.replace(/^\(|\)$/g,'');i++;continue}
+      break;
+    }
+    blocks.push({name,cost,desc,stats,rules,skills,restriction});
+    start=i;
+  });
+  return blocks;
+}
+function creatureRuleLink(name,cat){
+  const direct=referenceFind(cat,name);
+  if(direct)return refLink(cat,name);
+  const singular=String(name).replace(/s$/i,''),plural=String(name)+'s';
+  if(singular!==name&&referenceFind(cat,singular))return refLink(cat,singular,name);
+  if(referenceFind(cat,plural))return refLink(cat,plural,name);
+  return esc(name);
+}
+function creatureCardMarkup(c,w){
+  const en=siteLanguage==='en';
+  const {nameHtml,editBtn,statsBtn,overrideTag,customTag}=w?equipmentNameCellMarkup(w):{nameHtml:esc(c.name),editBtn:'',statsBtn:'',overrideTag:'',customTag:''};
+  const title=c.titleOverride?esc(c.titleOverride):nameHtml;
+  const stats=Array.isArray(c.stats)&&c.stats.length?P.map((label,i)=>`<div${i>=8?' class="mental-stat"':''}><span>${esc(label)}</span><b>${esc(c.stats[i]??'—')}</b></div>`).join(''):'';
+  const pills=(list,cat,label)=>list&&list.length?`<div class="fcard-rules"><span class="rlabel">${label}</span><div class="rlist">${list.map(n=>`<span class="rpill">${creatureRuleLink(n,cat)}</span>`).join('')}</div></div>`:'';
+  const weapons=c.weapons&&c.weapons.length?`<div class="fcard-rules"><span class="rlabel">${en?'Natural weapons':'Armes naturelles'}</span><div class="rlist">${c.weapons.map(n=>`<span class="rpill">${refLinkByName(n,'equipment')}</span>`).join('')}</div></div>`:'';
+  const kindBadge=`<span class="role-badge role-${c.kind==='mount'?'mount':'animal'}">${c.kind==='mount'?(en?'Mount':'Monture'):(en?'Animal':'Animal')}</span>`;
+  const meta=[c.sv?`<span class="fmax" title="${en?'Armour save':'Sauvegarde'}">Sv ${esc(c.sv)}</span>`:'',c.availability&&c.availability!=='—'?`<span class="muted">${esc(c.availability)}</span>`:''].join('');
+  const restriction=c.restriction?`<div class="fcard-rules"><span class="muted">${esc(c.restriction)}</span></div>`:'';
+  const desc=c.desc?`<details class="fcard-rules creature-desc"><summary class="muted">${en?'Description':'Description'}</summary><p class="muted">${esc(c.desc)}</p></details>`:'';
+  return `<div class="fcard creature-card" id="ref-entry-${esc(c.anchor||refSlug(c.name))}"><div class="fcard-top"><div class="ref-eq-name-row"><span class="fname">${title}</span>${customTag}${overrideTag}${editBtn}${statsBtn}</div><div class="fcard-top-meta"><span class="fcost">${c.cost!=null?`${esc(String(c.cost))} GC`:'–'}</span>${kindBadge}${meta}</div></div>${stats?`<div class="statbar">${stats}</div>`:''}${pills(c.rules,'special',en?'Special rules':'Règles spéciales')}${pills(c.skills,'skills',en?'Skills':'Compétences')}${weapons}${restriction}${desc}</div>`;
+}
+function creatureCardsFor(w,kind){
+  const en=siteLanguage==='en';
+  const creature=w.customCreatureId?allCustomCreatureList().find(c=>c.customCreatureId===w.customCreatureId):null;
+  if(creature||Array.isArray(w.creatureProfile)){
+    const src=creature||{};
+    return [{name:w.name,kind,cost:w.price??src.cost,stats:Array.isArray(w.creatureProfile)?w.creatureProfile:(src.profile||[]),sv:w.creatureSv||src.sv||'',rules:Array.isArray(src.ruleNames)?src.ruleNames:(Array.isArray(w.traits)?w.traits:[]),skills:w.creatureSkills||src.skills||[],weapons:src.naturalWeapons||[],availability:w.availability,restriction:Array.isArray(src.factions)&&src.factions.length?(en?'Only for: ':'Réservé à : ')+src.factions.map(id=>D.factions.find(f=>f.id===id)?.name||id).join(', '):'',desc:w.rulesText||src.rules||'',anchor:w.customCreatureId}];
+  }
+  const ge=equipmentGlossaryEntry(w.name);
+  const text=equipmentEffectiveText(w.name).text||w.rulesText||'';
+  const blocks=parseCreatureBlocks(text,w.name);
+  if(!blocks.length)return [{name:w.name,kind,cost:w.price,stats:[],sv:'',rules:Array.isArray(w.traits)?w.traits:[],skills:[],weapons:[],availability:w.availability,restriction:'',desc:text,anchor:ge?ge.id:refSlug(w.name)}];
+  return blocks.map((b,i)=>({...b,kind,cost:i===0?(w.price??b.cost):b.cost,availability:i===0?w.availability:'',anchor:i===0&&ge?ge.id:refSlug(b.name),titleOverride:i===0?null:b.name,sv:'',weapons:[]}));
+}
+function referenceCreatureMarkup(items,kind){
+  const cards=[];
+  items.forEach(w=>creatureCardsFor(w,kind).forEach((c,i)=>cards.push(creatureCardMarkup(c,i===0?w:null))));
+  return `<div class="reference-list creature-list">${cards.join('')}</div>`;
+}
+function referenceCustomAnimalEntries(){
+  const published=new Set(officialCustomCreatureList().map(c=>normName(c.name)));
+  return allCustomCreatureList().filter(c=>c.kind==='animal'&&!c.archived).map(c=>({name:c.name,category:'Animaux',subcategory:'Animaux',price:Number(c.cost||0),custom:!published.has(normName(c.name)),rulesText:c.rules||'',traits:Array.isArray(c.ruleNames)?c.ruleNames.slice():[],creatureProfile:Array.isArray(c.profile)?c.profile.slice():[],creatureSv:c.sv||'',creatureSkills:Array.isArray(c.skills)?c.skills.slice():[],customEquipmentId:c.customCreatureId,customCreatureId:c.customCreatureId,availability:'—'}));
+}
 function referenceEquipmentBodyMarkup(q){
-  const pool=referenceEquipmentPool();
+  const pool=[...referenceEquipmentPool(),...referenceCustomAnimalEntries()];
   let list=pool;
   if(referenceSourceFilter==='book')list=list.filter(e=>!e.custom);
   else if(referenceSourceFilter==='custom')list=list.filter(e=>e.custom);
@@ -1598,7 +1683,8 @@ function referenceEquipmentBodyMarkup(q){
   const pills=sections.map(s=>`<a href="#" class="ref-pill${s.cat===active?' active':''}" onclick="event.preventDefault();setReferenceEquipCat('${esc(s.cat).replace(/'/g,"\\'")}')">${esc(s.label)} <span class="n">${groups.get(s.cat).length}</span></a>`).join('');
   const s=sections.find(x=>x.cat===active);
   const items=groups.get(s.cat).slice().sort((a,b)=>a.name.localeCompare(b.name));
-  const body=`<section class="ref-group" id="ref-eq-${refSlug(s.cat)}"><div class="tc-head ref-group-head"><h3>${esc(s.label)}</h3><span class="tc-count">${items.length}</span></div>${s.weapon?referenceWeaponTableMarkup(items):referenceEquipmentCardMarkup(items)}</section>`;
+  const isCreature=s.cat==='Animaux'||s.cat==='Montures';
+  const body=`<section class="ref-group" id="ref-eq-${refSlug(s.cat)}"><div class="tc-head ref-group-head"><h3>${esc(s.label)}</h3><span class="tc-count">${items.length}</span></div>${s.weapon?referenceWeaponTableMarkup(items):isCreature?referenceCreatureMarkup(items,s.cat==='Montures'?'mount':'animal'):referenceEquipmentCardMarkup(items)}</section>`;
   return `<nav class="ref-pillnav">${pills}</nav>${body}`;
 }
 function referenceBodyMarkup(){
