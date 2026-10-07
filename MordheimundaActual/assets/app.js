@@ -1635,6 +1635,17 @@ function creatureCardMarkup(c,w){
   const en=siteLanguage==='en';
   const {nameHtml,editBtn,statsBtn,overrideTag,customTag}=w?equipmentNameCellMarkup(w):{nameHtml:esc(c.name),editBtn:'',statsBtn:'',overrideTag:'',customTag:''};
   const title=c.titleOverride?esc(c.titleOverride):nameHtml;
+  // V-REFCREATUREDELETE: same two delete paths as everywhere else, just
+  // reachable from the card — a Custom profile goes through its own
+  // confirm (deleteCustomCreature), a book creature through "delete for
+  // everyone" (adminDeleteWeaponForAll). Sub-cards parsed out of another
+  // item's text (Dire Wolves inside Trained Bear) have nothing of their own
+  // to delete, so no button there.
+  let deleteBtn='';
+  if(w&&!c.titleOverride&&isAdminEditUI()){
+    if(w.customCreatureId&&customCreatureById(w.customCreatureId))deleteBtn=`<button type="button" class="rule-edit-btn ref-eq-edit-btn ref-eq-delete-btn" title="${en?'Delete this profile':'Supprimer ce profil'}" onclick="deleteCustomCreature('${esc(w.customCreatureId)}');event.stopPropagation()">🗑</button>`;
+    else if(!w.customEquipmentId)deleteBtn=`<button type="button" class="rule-edit-btn ref-eq-edit-btn ref-eq-delete-btn" title="${en?'Delete for everyone (admin)':'Supprimer pour tout le monde (admin)'}" onclick="adminDeleteWeaponForAll('${esc(w.name).replace(/'/g,"\\'")}');event.stopPropagation()">🗑</button>`;
+  }
   const stats=Array.isArray(c.stats)&&c.stats.length?P.map((label,i)=>`<div${i>=8?' class="mental-stat"':''}><span>${esc(label)}</span><b>${esc(c.stats[i]??'—')}</b></div>`).join(''):'';
   const pills=(list,cat,label)=>list&&list.length?`<div class="fcard-rules"><span class="rlabel">${label}</span><div class="rlist">${list.map(n=>`<span class="rpill">${creatureRuleLink(n,cat)}</span>`).join('')}</div></div>`:'';
   const weapons=c.weapons&&c.weapons.length?`<div class="fcard-rules"><span class="rlabel">${en?'Natural weapons':'Armes naturelles'}</span><div class="rlist">${c.weapons.map(n=>`<span class="rpill">${refLinkByName(n,'equipment')}</span>`).join('')}</div></div>`:'';
@@ -1642,7 +1653,7 @@ function creatureCardMarkup(c,w){
   const meta=[c.sv?`<span class="fmax" title="${en?'Armour save':'Sauvegarde'}">Sv ${esc(c.sv)}</span>`:'',c.availability&&c.availability!=='—'?`<span class="muted">${esc(c.availability)}</span>`:''].join('');
   const restriction=c.restriction?`<div class="fcard-rules"><span class="muted">${esc(c.restriction)}</span></div>`:'';
   const desc=c.desc?`<details class="fcard-rules creature-desc"><summary class="muted">${en?'Description':'Description'}</summary><p class="muted">${esc(c.desc)}</p></details>`:'';
-  return `<div class="fcard creature-card" id="ref-entry-${esc(c.anchor||refSlug(c.name))}"><div class="fcard-top"><div class="ref-eq-name-row"><span class="fname">${title}</span>${customTag}${overrideTag}${editBtn}${statsBtn}</div><div class="fcard-top-meta"><span class="fcost">${c.cost!=null?`${esc(String(c.cost))} GC`:'–'}</span>${kindBadge}${meta}</div></div>${stats?`<div class="statbar">${stats}</div>`:''}${pills(c.rules,'special',en?'Special rules':'Règles spéciales')}${pills(c.skills,'skills',en?'Skills':'Compétences')}${weapons}${restriction}${desc}</div>`;
+  return `<div class="fcard creature-card" id="ref-entry-${esc(c.anchor||refSlug(c.name))}"><div class="fcard-top"><div class="ref-eq-name-row"><span class="fname">${title}</span>${customTag}${overrideTag}${editBtn}${deleteBtn}${statsBtn}</div><div class="fcard-top-meta"><span class="fcost">${c.cost!=null?`${esc(String(c.cost))} GC`:'–'}</span>${kindBadge}${meta}</div></div>${stats?`<div class="statbar">${stats}</div>`:''}${pills(c.rules,'special',en?'Special rules':'Règles spéciales')}${pills(c.skills,'skills',en?'Skills':'Compétences')}${weapons}${restriction}${desc}</div>`;
 }
 function creatureCardsFor(w,kind){
   const en=siteLanguage==='en';
@@ -4866,7 +4877,7 @@ async function confirmAdminDeleteWeaponForAll(name){
     await window.MordheimundaAPI.adminSaveWeaponOverride(w.name,data);
     await loadWeaponOverrides();
     if(adminWeaponEditName===name)adminWeaponEditName=null;
-    closeModal();toast(en?`${name} deleted for everyone`:`${name} supprimé pour tout le monde`);render('admin');
+    closeModal();toast(en?`${name} deleted for everyone`:`${name} supprimé pour tout le monde`);render(parseAppRoute().view==='references'?'references':'admin');
   }catch(e){toast(authError(e,en));}
 }
 async function adminRestoreDeletedWeapon(name){
@@ -13420,7 +13431,7 @@ function editCustomCreature(id){const w=customCreatureById(id);if(!w)return;cust
 function setCustomCreatureKind(v){customCreatureNewKind=v==='mount'?'mount':'animal';render('custom')}
 function resetCustomCreatureForm(){newCustomCreature()}
 function deleteCustomCreature(id){const en=siteLanguage==='en';const w=customCreatureById(id);if(!w)return;openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE PROFILE':'SUPPRESSION DE PROFIL'}</div><h2>${en?'Delete “':'Supprimer « '}${esc(w.name)}${en?'”?':' » ?'}</h2><p>${en?'Fighters already using this profile keep their current sheet.':'Les combattants utilisant déjà ce profil conservent leur fiche actuelle.'}</p><button type="button" class="big-delete" onclick="confirmDeleteCustomCreature('${id}')">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
-function confirmDeleteCustomCreature(id){const en=siteLanguage==='en';markDeleted('customCreatures',id);state.customCreatures=customCreatureList().filter(w=>w.customCreatureId!==id);if(customCreatureEditId===id)customCreatureEditId=null;save(true);closeModal();render('custom');toast(en?'Profile deleted':'Profil supprimé')}
+function confirmDeleteCustomCreature(id){const en=siteLanguage==='en';markDeleted('customCreatures',id);state.customCreatures=customCreatureList().filter(w=>w.customCreatureId!==id);if(customCreatureEditId===id)customCreatureEditId=null;save(true);closeModal();render(parseAppRoute().view==='references'?'references':'custom');toast(en?'Profile deleted':'Profil supprimé')}
 function toggleCustomCreatureArchive(id){const en=siteLanguage==='en';const w=customCreatureById(id);if(!w)return;w.archived=!w.archived;save(true);render('custom');toast(w.archived?(en?'Profile archived':'Profil archivé'):(en?'Profile unarchived':'Profil désarchivé'))}
 function refreshCustomCreatureTags(){
   const el=$('#ccRuleTags');if(!el)return;
