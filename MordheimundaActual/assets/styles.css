@@ -3809,3 +3809,8 @@ html[data-theme="light"] .card,html[data-theme="light"] .fcard,html[data-theme="
 .cwc-list{display:flex;flex-wrap:wrap;gap:6px}
 .cwc-check{display:inline-flex;gap:6px;align-items:center;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;background:var(--panel);min-height:32px}
 .cwc-sub{font:700 9px 'IBM Plex Sans';letter-spacing:.8px;text-transform:uppercase;color:var(--muted3)}
+
+/* V-DARKREADABILITY: brighter secondary text on the dark theme — the
+   previous greys (#b0afac / #b8b7b3 / #a3a29e) were hard to read on the
+   near-black panels. Light theme keeps its own values. */
+html:not([data-theme="light"]){--muted:#d3d2ce;--muted2:#dcdbd7;--muted3:#c4c3bf;--text-dim:#f0f0ec}

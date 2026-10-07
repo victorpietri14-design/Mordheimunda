@@ -574,7 +574,12 @@ function refLink(category,name,display=name){const e=referenceFind(category,name
   // when there's truly no override — fixes this without touching the
   // override feature itself (still wins when one is set).
   const shown=(display===name)?refDisplayName(category,e,name):display;
-  return `<span class="rule-ref" tabindex="0" data-ref-category="${safeCat}" data-ref-id="${safeId}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showRulePeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(shown)}</span>`;}
+  // V-PARAMPEEK: when a "(X)"/"(X+)" template is shown with its real value,
+  // pass that value along so showRulePeek can fill X in the title and text.
+  const param=refParamValue(e,display,name);
+  return `<span class="rule-ref" tabindex="0" data-ref-category="${safeCat}" data-ref-id="${safeId}"${param?` data-ref-param="${esc(param)}"`:''} onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showRulePeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(shown)}</span>`;}
+function refParamValue(e,...names){if(!e||!isTraitParamTemplate(e.name))return '';for(const n of names){const v=traitParamCurrentValue(String(n||''));if(v&&!/^x\+?$/i.test(v))return v;}return '';}
+function applyRuleParam(text,param){if(!param)return text;const digits=String(param).replace(/\+\s*$/,'');return String(text||'').replace(/\(X\+\)/g,`(${digits}+)`).replace(/\(X\)/g,`(${param})`).replace(/\bX\+/g,`${digits}+`).replace(/\bX\b/g,digits);}
 function refLinkByName(name,preferred){if(preferred)return refLink(preferred,name);for(const c of Object.keys(REFERENCE_CATEGORIES)){const e=referenceFind(c,name);if(e)return refLink(c,name)}return esc(name);}
 function refInfo(category,name){const en=siteLanguage==='en';const e=referenceFind(category,name);if(!e)return '';return `<button type="button" class="rule-ref-info" aria-label="${en?`View rule ${esc(e.name)}`:`Voir la règle ${esc(e.name)}`}" data-ref-category="${esc(category)}" data-ref-id="${esc(e.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showRulePeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">ⓘ</button>`;}
 function rulePeekSummary(rawText){const en=siteLanguage==='en';const lines=stripCustomTextMarkup(String(rawText||'')).split(/\n+/).map(x=>x.trim()).filter(Boolean);let text=lines.slice(0,5).join(' ');if(text.length>430)text=text.slice(0,427).replace(/\s+\S*$/,'')+'…';return text||(en?'No rule text recorded.':'Aucun texte de règle enregistré.');}
@@ -652,7 +657,7 @@ function showRulePeek(el){
     // themselves) and prepend its profile grid when it has one.
     const weaponForProfile=cat==='equipment'?equipmentPeekFind(e.name):null;
     const profileMarkup=weaponForProfile?equipmentPeekProfileMarkup(weaponForProfile):'';
-    pop.innerHTML=`<div class="rule-peek-head"><div class="rule-peek-icon">${rulePeekIcon(cat)}</div><div><div class="rule-peek-kicker">${esc(rulePeekTitle(cat))}</div><strong>${esc(refDisplayName(cat,e))}</strong></div></div><div class="rule-peek-divider"></div>${profileMarkup}<p>${rulePeekSummaryHtml(text,e.name)}</p><button type="button" class="rule-peek-open" onclick="openReferenceFromPeek(event)">${e.lines>5?'Voir la règle complète →':'Ouvrir dans le référentiel →'}</button>`;
+    pop.innerHTML=`<div class="rule-peek-head"><div class="rule-peek-icon">${rulePeekIcon(cat)}</div><div><div class="rule-peek-kicker">${esc(rulePeekTitle(cat))}</div><strong>${esc(applyRuleParam(refDisplayName(cat,e),el.dataset.refParam))}</strong></div></div><div class="rule-peek-divider"></div>${profileMarkup}<p>${rulePeekSummaryHtml(applyRuleParam(text,el.dataset.refParam),e.name)}</p><button type="button" class="rule-peek-open" onclick="openReferenceFromPeek(event)">${e.lines>5?'Voir la règle complète →':'Ouvrir dans le référentiel →'}</button>`;
   }
   pop.classList.add('visible');
   // V-PEEKSWAPRACE: replacing pop.innerHTML above can itself make the browser
@@ -9338,12 +9343,13 @@ function fighterRuleCardMarkup(w,f){
   // touch) shows the rule text inline, and only its own "open" button
   // navigates away.
   const rulesMarkup=ruleNames.length?ruleNames.map(r=>{
-    const baseName=(/^([^(]+)\(/.exec(r)||[])[1]?.trim()||r;
-    let cat=null,entry=referenceEntryByName('special',baseName);
-    if(entry)cat='special';
-    else if((entry=referenceEntryByName('traits',baseName)))cat='traits';
-    else if((entry=referenceEntryByName('skills',baseName)))cat='skills';
-    return entry?`<span class="rpill">${refLink(cat,baseName,r)}</span>`:`<span class="rpill">${esc(r)}</span>`;
+    // V-WBPARAMPILL: resolve with referenceFind (exact, then "(X)"-template
+    // fallback) so "Magic Resistance (6)" / "Regeneration (5+)" link to their
+    // "(X)" entry like every other pill — referenceEntryByName on the bare
+    // base name ("Magic Resistance") never matched a template and left those
+    // pills as inert text with no hover.
+    const cat=['special','traits','skills'].find(c=>referenceFind(c,r));
+    return cat?`<span class="rpill">${refLink(cat,r)}</span>`:`<span class="rpill">${esc(r)}</span>`;
   }).join(''):`<span class="empty-note">${en?'None':'Aucune'}</span>`;
   const skillAccess=w.skillAccess||{};
   // V-WBSKILLSTATUS: previously this section only listed the trees this
