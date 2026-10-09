@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0527.0';
+const APP_BUILD='110.0528.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -249,7 +249,7 @@ function warbandExclusiveSkillTrees(f){
   // f.exclusiveSkillSets) is counted — a leftover key with nothing backing
   // it is silently dropped instead of displayed as a phantom entry.
   const known=new Set([...Object.keys(D.skillSets||{}),...Object.keys(f.exclusiveSkillSets||{})].map(normName));
-  (f.warriors||[]).forEach(w=>Object.keys(w.skillAccess||{}).forEach(t=>{if(!COMMON_SKILL_TREES.includes(t)&&known.has(normName(t)))set.add(t);}));
+  (f.warriors||[]).filter(w=>!isHiredSword(w)).forEach(w=>Object.keys(w.skillAccess||{}).forEach(t=>{if(!COMMON_SKILL_TREES.includes(t)&&known.has(normName(t)))set.add(t);}));
   Object.keys(f.exclusiveSkillSets||{}).forEach(t=>set.add(t));
   return [...set];
 }
@@ -299,7 +299,7 @@ function warbandExclusiveEquipment(f){
 // field, so it can never drift out of sync with the roster picker's own
 // limits.
 function warbandCompositionLines(f,en){
-  return (f.warriors||[]).filter(w=>w.max!=null).map(w=>`• Max ${w.max} × ${w.name} (${w.type||''})`);
+  return (f.warriors||[]).filter(w=>w.max!=null&&!isHiredSword(w)).map(w=>`• Max ${w.max} × ${w.name} (${w.type||''})`);
 }
 // V-FACTIONRULESSYNC: single source of truth for a faction's "Faction Rules"
 // text — the admin-editable section on Rules: Warbands (section 0 of
@@ -10098,7 +10098,7 @@ function rulesWarbandDetail(){
     const head=w.type!==lastRole?(lastRole=w.type,`<div class="role-head">${esc(w.type||(en?'Other':'Autre'))}</div>`):'';
     return head+fighterRuleCardMarkup(w,f);
   }).join('');
-  const combatantsSection=`<div class="section-block"><h2><span class="n">2</span>${en?'Fighters':'Combattants'}</h2><p style="font-size:11px;color:var(--muted2);margin:-4px 0 14px;font-style:italic">${en?'Visible without expanding: name, stats, cost and special rules. Three separate menus under each profile break down, by category, the skills, magic and equipment available at recruitment.':'Visible sans dérouler : nom, statistiques, coût et règles spéciales. Trois menus séparés sous chaque profil détaillent, par catégorie, les compétences, la magie et l’équipement disponibles à la création.'}</p>${cards||`<div class="empty">${en?'No fighter profile in this warband yet.':'Aucun profil de combattant dans cette warband pour l’instant.'}</div>`}${hiredSwordRulesMarkup(f)}</div>`;
+  const combatantsSection=`<div class="section-block"><h2><span class="n">2</span>${en?'Fighters':'Combattants'}</h2><p style="font-size:11px;color:var(--muted2);margin:-4px 0 14px;font-style:italic">${en?'Visible without expanding: name, stats, cost and special rules. Three separate menus under each profile break down, by category, the skills, magic and equipment available at recruitment.':'Visible sans dérouler : nom, statistiques, coût et règles spéciales. Trois menus séparés sous chaque profil détaillent, par catégorie, les compétences, la magie et l’équipement disponibles à la création.'}</p>${cards||`<div class="empty">${en?'No fighter profile in this warband yet.':'Aucun profil de combattant dans cette warband pour l’instant.'}</div>`}</div>`;
 
   // Section 3 — exclusive skill tree(s): each skill rendered as its own
   // full Référentiel card (referenceEntryMarkup — same name/category tag/
@@ -11199,10 +11199,6 @@ function hiredSwordsRulesPageMarkup(){
   <div class="section-block">${list.length?list.map(w=>`<div class="role-head">${esc(w.name)}</div><div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}<span class="muted">${scope(w)}</span>${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,pseudo)}`).join(''):`<div class="empty">${en?'No Hired Sword yet.':'Aucun Hired Sword pour l’instant.'}</div>`}</div></div>`;
 }
 // Rules: Warbands — the Hired Swords this warband can hire.
-function hiredSwordRulesMarkup(f){
-  const en=siteLanguage==='en';const list=hiredSwordsFor(f,null);if(!list.length)return '';
-  return `<div class="role-head">Hired Swords</div>${list.map(w=>`<div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,f)}`).join('')}`;
-}
 /* V-RECRUITPANEL: Recruitment is a foldable panel at the top of the Warband
    tab (compact one-line profiles, a click on the name unfolds the full card)
    instead of its own tab; History opens from a button next to Edit, in a
