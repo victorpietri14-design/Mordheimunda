@@ -3833,3 +3833,7 @@ html:not([data-theme="light"]){--muted:#d3d2ce;--muted2:#dcdbd7;--muted3:#c4c3bf
 .rule-line.rs-toggle.rs-closed::after{transform:translateY(-50%) rotate(-90deg)}
 .rule-line.rs-toggle:hover{filter:brightness(1.15)}
 .rule-line.rs-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* V-RULESNAVFOLD: theme groups of the Rules: The Game menu are buttons */
+button.rn-head{width:100%;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;display:flex;gap:6px;align-items:center}
+button.rn-head:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}

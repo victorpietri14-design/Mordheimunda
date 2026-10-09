@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0496.0';
+const APP_BUILD='110.0497.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3759,6 +3759,8 @@ function openRuleSectionFromNav(id){openRuleSection(id);}
 // the on-page theme grid) but had nothing rendering into it since. Every
 // group is always expanded — no collapse-to-grey interaction — matching the
 // same explicit design choice already made for the popup version.
+let rulesNavGroupOpen=new Map();
+function toggleRulesNavGroup(id,wasOpen){rulesNavGroupOpen.set(id,!wasOpen);const nav=document.getElementById('rulesNavSidebar');if(nav)nav.outerHTML=rulesNavSidebarMarkup()}
 function rulesNavSidebarMarkup(){
   const en=siteLanguage==='en';
   const groups=RULES_NAV_GROUPS.map(g=>{
@@ -3766,7 +3768,11 @@ function rulesNavSidebarMarkup(){
     if(!items.length)return '';
     const active=items.some(s=>s.id===rulesOpen);
     const subItems=items.map(s=>`<a href="#" class="rn-item${s.id===rulesOpen?' active':''}" onclick="event.preventDefault();openRuleSectionFromNav('${s.id}')">${ruleTitleMarkup(s.title)}</a>`).join('');
-    return `<div class="rn-group${active?' active':''}"><div class="rn-head open"><span class="chev">▾</span><span>${esc(en?g.en:g.fr)}</span></div><div class="rn-items">${subItems}</div></div>`;
+    // V-RULESNAVFOLD: each theme group (0, 1, 2…, 3) folds; the one holding
+    // the open page starts unfolded, the others folded, and a click on a
+    // group's title keeps the reader's choice for the session.
+    const open=rulesNavGroupOpen.has(g.id)?rulesNavGroupOpen.get(g.id):active;
+    return `<div class="rn-group${active?' active':''}"><button type="button" class="rn-head${open?' open':''}" aria-expanded="${open}" onclick="toggleRulesNavGroup('${esc(g.id)}',${open})"><span class="chev">${open?'▾':'▸'}</span><span>${esc(en?g.en:g.fr)}</span></button>${open?`<div class="rn-items">${subItems}</div>`:''}</div>`;
   }).join('')||`<div class="empty compact">${en?'No themes yet.':'Aucun thème pour l’instant.'}</div>`;
   const adminBtn=isAdminEditUI()?`<button type="button" class="button secondary" style="width:100%;margin-top:14px" onclick="openRuleGroupsEditor()">✎ ${en?'Edit categories':'Éditer les catégories'}</button>`:'';
   return `<nav class="rules-nav" id="rulesNavSidebar">${groups}${adminBtn}</nav>`;
