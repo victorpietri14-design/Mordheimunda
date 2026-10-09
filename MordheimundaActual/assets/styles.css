@@ -4112,3 +4112,8 @@ html,body{overflow-x:clip}
 /* V-HOMECOVERCLIP: a zoomed picture (focus zoom = transform:scale) must stay
    inside its cover instead of spilling over the card body below it. */
 .home-spot-cover,.home-side-cover{overflow:hidden}
+/* V-HOMECOVERLINK: the cover itself opens the warband */
+a.home-spot-cover,a.home-side-cover{text-decoration:none;color:inherit;cursor:pointer}
+a.home-spot-cover .home-cover-img,a.home-side-cover .home-cover-img{transition:filter .15s}
+a.home-spot-cover:hover .home-cover-img,a.home-side-cover:hover .home-cover-img{filter:brightness(1.12)}
+a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
