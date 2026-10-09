@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0509.0';
+const APP_BUILD='110.0510.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3891,7 +3891,9 @@ function revealRuleAnchor(el){if(!el)return;const keys=[...(el.__rsCtl||[]),el.d
 const PRINT_GROUPS=[
  {id:'rules',sel:'.rules-article-body .rule-line.rs-toggle',en:'Rule sections',fr:'Sections de règles'},
  {id:'tables',sel:'table:not(.custom-stat-bar)',en:'Tables',fr:'Tableaux'},
+ {id:'acgroups',sel:'.ac-group',en:'Action sections',fr:'Sections d’actions'},
  {id:'actions',sel:'.action-card',en:'Action cards',fr:'Cartes d’action'},
+ {id:'legend',sel:'.actions-toolbar',en:'Legends',fr:'Légendes'},
  {id:'spells',sel:'.spell-card,.magic-domain-card',en:'Skill & spell cards',fr:'Cartes de compétences & sorts'},
  {id:'fighters',sel:'.fcard,.fighter-card-v5,.fighter-card-v4',en:'Fighters',fr:'Combattants'},
  {id:'ref',sel:'.ref-entry',en:'Reference entries',fr:'Entrées du référentiel'},
@@ -3899,12 +3901,22 @@ const PRINT_GROUPS=[
  {id:'sections',sel:'.section-block',en:'Sections',fr:'Sections'}
 ];
 let printPickerItems=[],printPrep=null;
+// The action legend = the status legend toolbar + the action-type legend
+// right after it. Printed with any action card / action section.
+function printActionLegendEls(root){const tb=(root||document).querySelector('.actions-toolbar');if(!tb)return [];const out=[tb];const nx=tb.nextElementSibling;if(nx?.classList.contains('type-legend'))out.push(nx);return out}
+function printNeedsLegend(els){return els.some(el=>el?.matches?.('.action-card,.ac-group,.action-cards'))}
 function printTableContext(el){
   const card=el.closest('.fcard,.spell-card,.scn-card,.action-card');const cn=card?.querySelector('.fname,.sc-name,h2,h3,h4');if(cn)return cn.textContent.replace(/\s+/g,' ').trim();
   let n=el;for(let up=0;up<4&&n;up++){let p=n.previousElementSibling;while(p){if(p.matches('.rs-toggle,h1,h2,h3,h4,.role-head,.subsection-title'))return p.textContent.replace(/[▾▸]/g,'').replace(/\s+/g,' ').trim();const inner=[...p.querySelectorAll('.rs-toggle,h2,h3,h4')].pop();if(inner)return inner.textContent.replace(/[▾▸]/g,'').replace(/\s+/g,' ').trim();p=p.previousElementSibling}n=n.parentElement;if(n?.id==='content')break}
   return '';
 }
-function printItemLabel(el){if(el.tagName==='TABLE'){const ctx=printTableContext(el);const head=[...el.querySelectorAll('th')].slice(0,3).map(t=>t.textContent.trim()).filter(Boolean).join(' / ');const t=[ctx,head].filter(Boolean).join(' — ');if(t)return t.length>80?t.slice(0,78)+'…':t}let h=el.matches('.rule-line,h1,h2,h3,h4')?el:null;if(!h)for(const q of ['.sc-name','.fname','h1','h2','h3','h4','h5','summary','strong','th','b']){h=el.querySelector(q);if(h&&h.textContent.trim())break;h=null}const c=(h||el).cloneNode(true);c.querySelectorAll('button,.rule-edit-btn,.ref-src-chip,.ref-info,sup').forEach(n=>n.remove());const t=c.textContent.replace(/\s+/g,' ').trim();return t.length>70?t.slice(0,68)+'…':t||'—'}
+function printItemSection(el){
+  if(el.matches?.('.action-card'))return el.closest('.ac-group')?.querySelector('.ac-group-title')?.textContent.trim()||'';
+  if(el.tagName==='TABLE')return printTableContext(el);
+  if(el.matches?.('.spell-card,.ref-entry'))return el.closest('[class*="group"],section')?.querySelector('h2,h3,h4,.ref-group-title')?.textContent.trim()||'';
+  return '';
+}
+function printItemLabel(el){if(el.matches?.('.actions-toolbar'))return siteLanguage==='en'?'Action legend (statuses & action types)':'Légende des actions (statuts & types d’action)';if(el.matches?.('.ac-group')){const t=el.querySelector('.ac-group-title')?.textContent.trim();return (siteLanguage==='en'?'Actions — ':'Actions — ')+(t||'')}if(el.tagName==='TABLE'){const ctx=printTableContext(el);const head=[...el.querySelectorAll('th')].slice(0,3).map(t=>t.textContent.trim()).filter(Boolean).join(' / ');const t=[ctx,head].filter(Boolean).join(' — ');if(t)return t.length>80?t.slice(0,78)+'…':t}let h=el.matches('.rule-line,h1,h2,h3,h4')?el:null;if(!h)for(const q of ['.ac-name','.sc-name','.fname','h1','h2','h3','h4','h5','summary','strong','th','b']){h=el.querySelector(q);if(h&&h.textContent.trim())break;h=null}const c=(h||el).cloneNode(true);c.querySelectorAll('button,.rule-edit-btn,.ref-src-chip,.ref-info,sup').forEach(n=>n.remove());const t=c.textContent.replace(/\s+/g,' ').trim();return t.length>70?t.slice(0,68)+'…':t||'—'}
 function openPrintPicker(){
   const en=siteLanguage==='en';const root=$('#content');if(!root)return;
   printPickerItems=[];const groups=[];
@@ -3962,10 +3974,11 @@ function addPickedToPrintList(){
   }else{
     const seen=new Set();const picks=[...document.querySelectorAll('.printPick:checked')].filter(c=>{const v=Number(c.value);if(seen.has(v))return false;seen.add(v);return true}).map(c=>({el:printPickerItems[Number(c.value)],group:printPickerItems[Number(c.value)]?.tagName==='TABLE'?(siteLanguage==='en'?'Tables':'Tableaux'):(c.closest('details')?.querySelector('summary span')?.textContent||'')})).filter(o=>o.el);
     if(!picks.length){toast(en?'Tick at least one item':'Coche au moins un élément');return}
+    if(printNeedsLegend(picks.map(o=>o.el))&&!list.some(it=>it.legend)&&!picks.some(o=>o.el.matches('.actions-toolbar'))){const lg=printActionLegendEls(root);if(lg.length){list.push({id:crypto.randomUUID(),legend:true,label:printItemLabel(lg[0]),group:en?'Legends':'Légendes',source,html:printSnapshot(lg)});added++}}
     picks.forEach(({el,group})=>{
-      let els=[el];
+      let els=el.matches('.actions-toolbar')?printActionLegendEls(root):[el];
       if(el.matches('.rule-line.rs-toggle')&&el.dataset.rsKey){document.querySelectorAll('.rules-article-body .rule-page-text > *').forEach(x=>{if(x!==el&&x.__rsCtl&&x.__rsCtl.includes(el.dataset.rsKey))els.push(x)})}
-      list.push({id:crypto.randomUUID(),label:printItemLabel(el),group,source,html:printSnapshot(els)});added++;
+      list.push({id:crypto.randomUUID(),label:printItemLabel(el),section:printItemSection(el),card:!!el.matches('.action-card,.spell-card'),group,source,html:printSnapshot(els)});added++;
     });
   }
   if(!printListSave(list))return;
@@ -3979,7 +3992,7 @@ function printList(){
   const en=siteLanguage==='en';const list=printListLoad();
   $('#content').innerHTML=`<div class="print-list-page"><div class="rules-head print-list-head"><h1 class="rules-page-title">${en?'Print list':'Liste d’impression'}</h1><p>${en?'Gather items from anywhere on the site (🖨 Print… → “Add to print list”), put them in order, then print them together on white paper. Kept in this browser.':'Rassemble des éléments de n’importe où sur le site (🖨 Imprimer… → « Ajouter à la liste d’impression »), mets-les dans l’ordre, puis imprime-les ensemble sur fond blanc. Gardée dans ce navigateur.'}</p>
    <div class="custom-actions print-list-toolbar"><button type="button" class="button primary" onclick="printListPrint()" ${list.length?'':'disabled'}>🖨 ${en?'Print the list':'Imprimer la liste'}</button><button type="button" class="button secondary" onclick="printListClear()" ${list.length?'':'disabled'}>🗑 ${en?'Empty the list':'Vider la liste'}</button></div></div>
-   ${list.length?`<div class="print-list-items">${list.map((it,i)=>`<section class="print-list-item"><div class="print-list-item-head"><div><b>${esc(it.label||'—')}</b><small>${esc([it.group,it.source?.title].filter(Boolean).join(' · '))}</small></div><div class="print-list-item-actions"><button type="button" class="equipment-action" title="${en?'Up':'Monter'}" onclick="printListMove(${i},-1)" ${i?'':'disabled'}>↑</button><button type="button" class="equipment-action" title="${en?'Down':'Descendre'}" onclick="printListMove(${i},1)" ${i<list.length-1?'':'disabled'}>↓</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Retirer'}" onclick="printListRemove(${i})">✕</button></div></div>${/table/i.test(it.group||'')?`<div class="print-list-item-title">${esc(String(it.label||'').split(' — ')[0])}</div>`:''}<div class="print-snap">${it.html||''}</div></section>`).join('')}</div>`:`<div class="empty large"><strong>${en?'The print list is empty.':'La liste d’impression est vide.'}</strong><span>${en?'On any page, open 🖨 Print… (or Ctrl+P), tick what you want and click “Add to print list”.':'Sur n’importe quelle page, ouvre 🖨 Imprimer… (ou Ctrl+P), coche ce que tu veux et clique sur « Ajouter à la liste d’impression ».'}</span></div>`}
+   ${list.length?`<div class="print-list-items">${list.map((it,i)=>`${it.section&&it.section!==list[i-1]?.section?`<div class="print-list-section">${esc(it.section)}</div>`:''}<section class="print-list-item${it.card?' is-card':''}"><div class="print-list-item-head"><div><b>${esc(it.label||'—')}</b><small>${esc([it.group,it.source?.title].filter(Boolean).join(' · '))}</small></div><div class="print-list-item-actions"><button type="button" class="equipment-action" title="${en?'Up':'Monter'}" onclick="printListMove(${i},-1)" ${i?'':'disabled'}>↑</button><button type="button" class="equipment-action" title="${en?'Down':'Descendre'}" onclick="printListMove(${i},1)" ${i<list.length-1?'':'disabled'}>↓</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Retirer'}" onclick="printListRemove(${i})">✕</button></div></div>${/table/i.test(it.group||'')&&!it.section?`<div class="print-list-item-title">${esc(String(it.label||'').split(' — ')[0])}</div>`:''}<div class="print-snap">${it.html||''}</div></section>`).join('')}</div>`:`<div class="empty large"><strong>${en?'The print list is empty.':'La liste d’impression est vide.'}</strong><span>${en?'On any page, open 🖨 Print… (or Ctrl+P), tick what you want and click “Add to print list”.':'Sur n’importe quelle page, ouvre 🖨 Imprimer… (ou Ctrl+P), coche ce que tu veux et clique sur « Ajouter à la liste d’impression ».'}</span></div>`}
   </div>`;
 }
 function printPrepare(picks){
@@ -3992,6 +4005,7 @@ function printPrepare(picks){
     let list=picks.slice();
     // A rule heading brings the text of its section with it.
     picks.forEach(h=>{if(h.matches?.('.rule-line.rs-toggle')&&h.dataset.rsKey)document.querySelectorAll('.rules-article-body .rule-page-text > *').forEach(el=>{if(el.__rsCtl&&el.__rsCtl.includes(h.dataset.rsKey))list.push(el)})});
+    if(printNeedsLegend(list)||list.some(el=>el.matches?.('.actions-toolbar')))list.unshift(...printActionLegendEls(root));
     list=[...new Set(list)].filter(el=>!list.some(o=>o!==el&&o.contains(el)));
     const keep=new Set();list.forEach(el=>{let n=el;while(n&&n!==root){keep.add(n);n=n.parentElement}});
     keep.forEach(n=>{[...(n.parentElement?.children||[])].forEach(sib=>{if(!keep.has(sib)&&!sib.classList.contains('print-hide')){sib.classList.add('print-hide');prep.hidden.push(sib)}})});
