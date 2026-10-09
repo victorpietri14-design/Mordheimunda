@@ -638,9 +638,11 @@ function validateWarbandDefinition(body){
   let supplementOf=body?.supplementOf;
   supplementOf=(typeof supplementOf==='string'&&supplementOf.trim())?supplementOf.trim().slice(0,120):null;
   if(!name||name.length>80)return {error:'INVALID_NAME'};
-  if(!warriors||!warriors.length||warriors.length>60||equipment.length>300)return {error:'INVALID_DEFINITION'};
-  if([skillTrees,skills,magicDomains,spells,traits,specialRules].some(a=>a.length>80))return {error:'INVALID_DEFINITION'};
-  if(creatures.length>120)return {error:'INVALID_DEFINITION'};
+  if(!warriors||!warriors.length||warriors.length>150||equipment.length>600)return {error:'INVALID_DEFINITION'};
+  // 500 (was 80): the shared "no warband" content pool carries every
+  // free-standing rule/skill/spell, which quickly went past 80.
+  if([skillTrees,skills,magicDomains,spells,traits,specialRules].some(a=>a.length>500))return {error:'INVALID_DEFINITION'};
+  if(creatures.length>300)return {error:'INVALID_DEFINITION'};
   // Warband choices (tribe at creation, per-fighter Marks, Eye of the Gods…):
   // plain data rendered escaped client-side; kept as an object, size-capped.
   let choices=body?.choices&&typeof body.choices==='object'&&!Array.isArray(body.choices)?body.choices:null;
