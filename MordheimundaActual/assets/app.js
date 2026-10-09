@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0526.0';
+const APP_BUILD='110.0527.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3860,7 +3860,9 @@ function setupRuleCollapsibles(){
   const page=rulesOpen||'';
   body.querySelectorAll('.rule-page-text').forEach((box,bi)=>{
     const kids=[...box.children];const heads=[];
-    kids.forEach((el,i)=>{if(el.classList.contains('rule-heading'))heads.push({i,el,lvl:1});else if(el.classList.contains('rule-subheading'))heads.push({i,el,lvl:2})});
+    // V-NOSUBFOLD: only main headings fold; ALL-CAPS sub-headings (TO HIT
+    // MODIFIERS…) always stay open, as plain titles inside their section.
+    kids.forEach((el,i)=>{if(el.classList.contains('rule-heading'))heads.push({i,el,lvl:1})});
     if(!heads.length)return;
     heads.forEach((h,hi)=>{
       let end=kids.length;for(let j=hi+1;j<heads.length;j++){if(heads[j].lvl<=h.lvl||h.lvl===2){end=heads[j].i;break}}
