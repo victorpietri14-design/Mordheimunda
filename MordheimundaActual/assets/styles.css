@@ -3875,3 +3875,28 @@ button.rn-head:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
 .hs-choice-group{border:1px dashed #4a3d63;border-radius:10px;padding:10px;margin:8px 0;display:flex;flex-direction:column;gap:8px}
 .hs-choice-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .hs-choice-head .hsChLabel{flex:1;min-width:140px}.hs-choice-head .hsChCount{width:64px}
+/* V-PRINT */
+#printBtn{margin-bottom:6px}
+.print-picker h2{margin:4px 0 6px}
+.print-picker-groups{margin:8px 0 0 4px;max-height:52vh;overflow:auto}
+.print-picker-groups.is-off{opacity:.45;pointer-events:none}
+.print-picker-tools{display:flex;gap:6px;margin:6px 0}
+.print-picker-list{display:flex;flex-direction:column;gap:2px}
+@media print{
+ @page{margin:12mm}
+ html,body{background:#fff!important;color:#111!important}
+ .app-bg,.app-bg-scrim,.noise,.sidebar,#modal,.toast,.rules-pages-nav-fab,.rules-pages-nav-panel,.rules-nav,.rules-toc,.ref-sidebar,.ref-sidebar-toggle,.ref-pillnav,.rules-collapse-bar,.button,.ghost,.equipment-action,.big-delete,.rule-edit-btn,.dash-btn-primary,.trait-tag-edit,.text-button,.reference-peek-button,.rule-peek-open,.wbr-jump,.sc-remove,.scn-filter,.mu-btn-cancel,.image-edit-badge,.image-remove-button,.equipment-add-block,.gang-tabs,.roster-toolbar-actions,.recruit-select-row,.custom-top-tabs{display:none!important}
+ .main{margin:0!important;padding:0!important;width:auto!important;max-width:none!important;min-height:0!important}
+ #app,#content{padding:0!important;margin:0!important}
+ *{box-shadow:none!important;text-shadow:none!important;animation:none!important;transition:none!important}
+ body.printing #content *{background-image:none!important;background-color:transparent!important;color:#111!important;border-color:#bbb!important}
+ body.printing #content a{text-decoration:none!important}
+ body.printing #content table{border-collapse:collapse}
+ body.printing #content th,body.printing #content td{border:1px solid #999!important}
+ body.printing #content th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .rule-line.rs-toggle::after{display:none!important}
+ .action-card,.spell-card,.magic-domain-card,.fcard,.fighter-card-v5,.fighter-card-v4,.ref-entry,.scn-card,tr,img{break-inside:avoid;page-break-inside:avoid}
+ h1,h2,h3,h4,.rule-line,.role-head{break-after:avoid;page-break-after:avoid}
+ #content .print-hide,body .print-hide{display:none!important}
+ details>summary{list-style:none}
+}
