@@ -455,3 +455,23 @@ CREATE TABLE IF NOT EXISTS deployment_maps (
 -- both empty: the server enforces one or the other on write.
 ALTER TABLE deployment_maps ALTER COLUMN image DROP NOT NULL;
 ALTER TABLE deployment_maps ADD COLUMN IF NOT EXISTS shapes JSONB NOT NULL DEFAULT '{"tableInches":{"w":48,"h":48},"items":[]}';
+
+-- V-HOME: the Home page's site-wide feed ("New on Mordheimunda") and the
+-- admin-editable Active Event. News rows are added automatically when admin
+-- content becomes visible to every player (a published warband, a new Hired
+-- Sword or fighter in a published warband, a published campaign or scenario)
+-- and by hand from the Home page; site_settings holds the Active Event.
+CREATE TABLE IF NOT EXISTS site_news (
+  id UUID PRIMARY KEY,
+  kind TEXT NOT NULL DEFAULT 'update',
+  title TEXT NOT NULL,
+  link TEXT NOT NULL DEFAULT '',
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS site_news_created_at_idx ON site_news(created_at DESC);
+CREATE TABLE IF NOT EXISTS site_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

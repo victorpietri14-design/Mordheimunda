@@ -122,5 +122,10 @@
   adminUpdateCampaign:(id,p)=>request('/api/admin/campaigns/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(p)}),
   adminSetCampaignStatus:(id,status)=>request('/api/admin/campaigns/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status})}),
   adminNewCampaignCode:id=>request('/api/admin/campaigns/'+encodeURIComponent(id)+'/code',{method:'POST'}),
-  adminDeleteCampaign:id=>request('/api/admin/campaigns/'+encodeURIComponent(id),{method:'DELETE'})};
+  adminDeleteCampaign:id=>request('/api/admin/campaigns/'+encodeURIComponent(id),{method:'DELETE'}),
+  /* V-HOME: site news + Active Event shown on the Home page. */
+  home:()=>request('/api/home'),
+  adminSetHomeEvent:p=>request('/api/admin/home/event',{method:'PUT',body:JSON.stringify(p)}),
+  adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),
+  adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'})};
 })();

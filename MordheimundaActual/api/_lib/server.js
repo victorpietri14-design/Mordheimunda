@@ -668,6 +668,8 @@ app.post('/api/admin/warbands',requireDb,requireSameOrigin,auth,requireAdmin,asy
     }
     const id=crypto.randomUUID();
     const q=await pool.query('INSERT INTO official_warbands(id,slug,name,created_by,definition,supplement_of) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,name,definition,supplement_of',[id,slug,v.name,req.user.user_id,v.payload,v.supplementOf]);
+    if(v.name!==CONTENT_POOL_WARBAND_NAME)await addNews('warband',`${v.name} — new warband`,`/rules/warbands/official-${id}`,req.user.user_id);
+    else await newsForWarbandEdit(v.name,'published',null,JSON.parse(v.payload),req.user.user_id);
     res.status(201).json({warband:toOfficialFaction(q.rows[0])});
   }catch(e){next(e)}
 });
@@ -690,7 +692,7 @@ app.put('/api/admin/warbands/:id',requireDb,requireSameOrigin,auth,requireAdmin,
   // draft is rejected instead of silently overwriting the admin's changes.
   const viaAdminEditor=!!req.body?.viaAdminEditor;
   try{
-    const cur=await pool.query('SELECT admin_edited_at,definition FROM official_warbands WHERE id=$1',[id]);
+    const cur=await pool.query('SELECT admin_edited_at,definition,status FROM official_warbands WHERE id=$1',[id]);
     if(!cur.rowCount)return res.status(404).json({error:'NOT_FOUND'});
     if(cur.rows[0].admin_edited_at&&!viaAdminEditor)return res.status(409).json({error:'ADMIN_LOCKED'});
     // An edit that doesn't mention `choices` keeps the warband's existing ones.
@@ -698,6 +700,7 @@ app.put('/api/admin/warbands/:id',requireDb,requireSameOrigin,auth,requireAdmin,
     if(req.body?.choices===undefined&&cur.rows[0].definition?.choices){const d=JSON.parse(payload);d.choices=cur.rows[0].definition.choices;payload=JSON.stringify(d)}
     const q=await pool.query(`UPDATE official_warbands SET name=$1,definition=$2,updated_at=NOW()${viaAdminEditor?',admin_edited_at=NOW()':''} WHERE id=$3 RETURNING id,name,definition,supplement_of,admin_edited_at`,[v.name,payload,id]);
     if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    await newsForWarbandEdit(v.name,cur.rows[0].status,cur.rows[0].definition,JSON.parse(payload),req.user.user_id);
     res.json({warband:toOfficialFaction(q.rows[0])});
   }catch(e){next(e)}
 });
@@ -727,8 +730,10 @@ app.patch('/api/admin/warbands/:id/status',requireDb,requireSameOrigin,auth,requ
   const status=req.body?.status;
   if(status!=='draft'&&status!=='published')return res.status(400).json({error:'INVALID_STATUS'});
   try{
+    const prev=await pool.query('SELECT status,name FROM official_warbands WHERE id=$1',[rawWarbandId(req)]);
     const q=await pool.query('UPDATE official_warbands SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status',[status,rawWarbandId(req)]);
     if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    if(status==='published'&&prev.rows[0]?.status==='draft'&&prev.rows[0].name!==CONTENT_POOL_WARBAND_NAME)await addNews('warband',`${prev.rows[0].name} — published again`,`/rules/warbands/official-${q.rows[0].id}`,req.user.user_id);
     res.json({ok:true,status:q.rows[0].status});
   }catch(e){next(e)}
 });
@@ -880,8 +885,10 @@ app.patch('/api/admin/scenarios/:id/status',requireDb,requireSameOrigin,auth,req
   const status=req.body?.status;
   if(status!=='draft'&&status!=='published')return res.status(400).json({error:'INVALID_STATUS'});
   try{
+    const prev=await pool.query('SELECT status,name FROM scenarios WHERE id=$1',[req.params.id]);
     const q=await pool.query('UPDATE scenarios SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status',[status,req.params.id]);
     if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    if(status==='published'&&prev.rows[0]?.status!=='published')await addNews('scenario',`${prev.rows[0].name} — new scenario`,`/rules/scenarios/${req.params.id}`,req.user.user_id);
     res.json({ok:true,status:q.rows[0].status});
   }catch(e){next(e)}
 });
@@ -966,13 +973,55 @@ app.put('/api/admin/campaigns/:id',requireDb,requireSameOrigin,auth,requireAdmin
 });
 app.patch('/api/admin/campaigns/:id/status',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const status=req.body?.status==='published'?'published':'draft';
-  try{const q=await pool.query('UPDATE campaigns SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status',[status,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({ok:true,status})}catch(e){next(e)}
+  try{const prev=await pool.query('SELECT status,name FROM campaigns WHERE id=$1',[req.params.id]);const q=await pool.query('UPDATE campaigns SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status',[status,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});if(status==='published'&&prev.rows[0]?.status!=='published')await addNews('campaign',`${prev.rows[0].name} — campaign opened`,`/rules/campaign/${req.params.id}`,req.user.user_id);res.json({ok:true,status})}catch(e){next(e)}
 });
 app.post('/api/admin/campaigns/:id/code',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const code=campaignCode();const q=await pool.query('UPDATE campaigns SET join_code=$1 WHERE id=$2 RETURNING join_code',[code,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({joinCode:q.rows[0].join_code})}catch(e){next(e)}
 });
 app.delete('/api/admin/campaigns/:id',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const cur=await pool.query('SELECT status FROM campaigns WHERE id=$1',[req.params.id]);if(!cur.rowCount)return res.status(404).json({error:'NOT_FOUND'});if(cur.rows[0].status!=='draft')return res.status(409).json({error:'MUST_UNPUBLISH_FIRST'});await pool.query('DELETE FROM campaigns WHERE id=$1',[req.params.id]);res.json({ok:true})}catch(e){next(e)}
+});
+
+// ---- Home page: site news + Active Event (V-HOME) -------------------------
+const NEWS_KINDS=['warband','hired-sword','fighter','campaign','scenario','update'];
+async function addNews(kind,title,link,userId){
+  try{await pool.query('INSERT INTO site_news(id,kind,title,link,created_by) VALUES($1,$2,$3,$4,$5)',[crypto.randomUUID(),NEWS_KINDS.includes(kind)?kind:'update',String(title||'').slice(0,160),String(link||'').slice(0,300),userId||null])}catch(e){console.warn('addNews failed',e.message)}
+}
+const toNews=r=>({id:r.id,kind:r.kind,title:r.title,link:r.link,createdAt:r.created_at});
+const warriorIsHS=w=>!!w&&(w.hiredSword===true||w.type==='Hired Sword');
+// New warriors of an edited, published warband become news — Hired Swords
+// on their own, others as "X joins <warband>".
+async function newsForWarbandEdit(name,status,before,after,userId){
+  if(status!=='published')return;
+  const old=new Set((before?.warriors||[]).map(w=>String(w?.name||'').toLowerCase()));
+  for(const w of (after?.warriors||[])){
+    const n=String(w?.name||'');if(!n||old.has(n.toLowerCase()))continue;
+    if(warriorIsHS(w))await addNews('hired-sword',`${n} — new Hired Sword`,'/rules/warbands/hired-swords',userId);
+    else if(name!==CONTENT_POOL_WARBAND_NAME)await addNews('fighter',`${n} joins ${name}`,'',userId);
+  }
+}
+app.get('/api/home',requireDb,async(req,res,next)=>{
+  try{
+    const n=await pool.query('SELECT * FROM site_news ORDER BY created_at DESC LIMIT 12');
+    const e=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='activeEvent'");
+    res.json({news:n.rows.map(toNews),event:e.rowCount?{...e.rows[0].value,updatedAt:e.rows[0].updated_at}:null});
+  }catch(e){next(e)}
+});
+app.put('/api/admin/home/event',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const b=req.body||{};const clip=(v,n)=>String(v||'').slice(0,n);
+  const value={title:clip(b.title,120),text:clip(b.text,2000),campaignId:clip(b.campaignId,80),link:clip(b.link,300),label:clip(b.label,40)};
+  try{
+    if(!value.title&&!value.text){await pool.query("DELETE FROM site_settings WHERE key='activeEvent'");return res.json({event:null})}
+    await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('activeEvent',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify(value)]);
+    res.json({event:value});
+  }catch(e){next(e)}
+});
+app.post('/api/admin/news',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const title=String(req.body?.title||'').trim();if(!title)return res.status(400).json({error:'INVALID_TITLE'});
+  try{await addNews(req.body?.kind||'update',title,req.body?.link||'',req.user.user_id);res.status(201).json({ok:true})}catch(e){next(e)}
+});
+app.delete('/api/admin/news/:id',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{await pool.query('DELETE FROM site_news WHERE id=$1',[req.params.id]);res.json({ok:true})}catch(e){next(e)}
 });
 
 // ---- Deployment maps (admin-managed library of numbered map images) ------
