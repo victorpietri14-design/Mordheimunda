@@ -3900,3 +3900,21 @@ button.rn-head:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
  #content .print-hide,body .print-hide{display:none!important}
  details>summary{list-style:none}
 }
+/* V-PRINTLIST */
+#printListBtn{margin-bottom:6px}
+.print-list-hint{margin:10px 0 0;font-size:12px}
+.print-list-items{display:flex;flex-direction:column;gap:16px;margin-top:14px}
+.print-list-item{border:1px solid var(--line);border-radius:12px;padding:12px;background:rgba(0,0,0,.25)}
+.print-list-item-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+.print-list-item-head small{display:block;color:var(--muted);font-size:11px}
+.print-list-item-actions{display:flex;gap:6px}
+.print-snap .print-snap-chain{display:block!important;grid-template-columns:none!important;width:auto!important;max-width:none!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;background:none!important;position:static!important;columns:auto!important}
+.print-snap-page{display:block}
+@media print{
+ .print-list-head,.print-list-item-head{display:none!important}
+ .print-list-item{border:0!important;padding:0!important;margin:0 0 10mm!important}
+ .print-list-items{gap:0!important;margin:0!important}
+}
+.print-tree-sub{margin-left:24px;font-size:12.5px}
+.print-list-item-title{display:none}
+@media print{.print-list-item-title{display:block;font:700 13px 'IBM Plex Sans',sans-serif;text-transform:uppercase;letter-spacing:.5px;margin:0 0 4px;color:#111!important}}
