@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0500.0';
+const APP_BUILD='110.0501.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7503,7 +7503,11 @@ function rulesWarbandsRaceColumnsMarkup(){
 <div class="wbr-card-body">${catBlocks}${directItems.map(f=>rowMarkup(f)).join('')}</div>
 </div>`;
   }).join('');
-  return `<div class="wbr-layout"><div class="wbr-jumprow">${jumpList}</div><div class="wbr-cards">${cards}</div></div>`;
+  // V-HIREDSWORDS: own "Hired Swords" card, shown once at least one exists.
+  const hsList=hiredSwordRawList();
+  const hsCard=hsList.length?`<div class="wbr-card" id="wbrace-hs" style="--rc:#c99bff"><div class="wbr-card-head"><span class="wbr-card-dot"></span><h3>Hired Swords</h3><span class="wbr-card-count">${hsList.length}</span></div><div class="wbr-card-body">${hsList.slice().sort((a,b)=>a.name.localeCompare(b.name,en?'en':'fr')).map(w=>`<div class="wbr-row"><span class="wbr-avatar" style="color:var(--rc)">🗡</span><a href="#" onclick="openRulesWarband('hired-swords');return false;">${esc(w.name)}</a><span class="wbr-tag">${Number(w.cost||0)} / ${Number(w.upkeep||0)} GC</span><span class="wbr-chev">›</span></div>`).join('')}</div></div>`:'';
+  const hsJump=hsList.length?`<button type="button" class="wbr-jump" onclick="document.getElementById('wbrace-hs')?.scrollIntoView({behavior:'smooth',block:'start'})"><span class="wbr-jump-dot" style="background:#c99bff"></span>Hired Swords<span class="wbr-jump-count">${hsList.length}</span></button>`:'';
+  return `<div class="wbr-layout"><div class="wbr-jumprow">${jumpList}${hsJump}</div><div class="wbr-cards">${cards}${hsCard}</div></div>`;
 }
 function openRulesWarband(fid){navigateApp('/rules/warbands/'+encodeURIComponent(fid))}
 // Generic "not built yet" page: the nav entry exists (so people can see the
@@ -9822,6 +9826,7 @@ function warbandSectionMarkup(f,page,titleEn,titleFr,defaultRichHtml,defaultPlai
 function rulesWarbandDetail(){
   if(ruleOverridesCache===null)loadRuleOverrides();
   const en=siteLanguage==='en';
+  if(currentRulesWarbandId==='hired-swords'){$('#content').innerHTML=hiredSwordsRulesPageMarkup();return}
   const f=D.factions.find(x=>x.id===currentRulesWarbandId);
   if(!f){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Warband not found.':'Warband introuvable.'}</strong><span><a href="#" onclick="navigateApp('/rules/warbands');return false;">${en?'← Back to Rules: Warbands':'← Retour à Règles : Warbands'}</a></span></div>`;return}
   const race=raceTagMap.get(f.id)||'';
@@ -10762,6 +10767,15 @@ function applyHiredSwordUpkeep(){
   save(true);render('builder');toast(en?`Upkeep paid: −${total} GC`:`Entretien payé : −${total} GC`);
 }
 function undoHiredSwordUpkeep(){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);const d=p.hsUpkeepApplied;if(!d)return;r.gold=Number(r.gold||0)+Number(d.total||0);(d.left||[]).forEach(id=>{const x=r.fighters.find(q=>q.instance===id);if(x)x.hsLeft=false});p.hsUpkeepApplied=null;save(true);render('builder');toast(en?'Upkeep undone':'Entretien annulé')}
+// Rules: Warbands → Hired Swords: every Hired Sword, with costs and the
+// warbands that can hire it.
+function hiredSwordsRulesPageMarkup(){
+  const en=siteLanguage==='en';const list=hiredSwordRawList().map(hiredSwordAsWarrior).sort((a,b)=>a.name.localeCompare(b.name,en?'en':'fr'));
+  const pseudo={id:'hired-swords',displayName:'Hired Swords',warriors:[],equipment:[]};
+  const opts=creatureScopeFactionOptions();const scope=w=>(w.hsFactions||[]).length?(en?'Hired by: ':'Embauché par : ')+w.hsFactions.map(id=>opts.find(o=>o.id===id)?.name||D.factions.find(f=>f.id===id)?.displayName||id).map(esc).join(', '):(en?'Hireable by every warband':'Embauchable par toutes les bandes');
+  return `<div class="ref-page"><div class="rules-head"><p><a href="#" onclick="navigateApp('/rules/warbands');return false;">${en?'← Back to Rules: Warbands':'← Retour à Règles : Warbands'}</a></p><h1 class="rules-page-title">Hired Swords</h1><p>${en?'Neither Heroes nor Henchmen. One copy of each per warband; hire cost paid once, upkeep paid at each post-battle Income step (unpaid: it leaves). No value of its own: adds half its hire cost to the warband value. Fixed equipment, no Market.':'Ni Heroes ni Henchmen. Un seul exemplaire de chacun par bande ; coût d’embauche payé une fois, entretien payé à chaque étape Income d’après-bataille (non payé : il part). Pas de valeur propre : ajoute la moitié de son coût d’embauche à la valeur de bande. Équipement fixe, pas de Marché.'}</p></div>
+  <div class="section-block">${list.length?list.map(w=>`<div class="role-head">${esc(w.name)}</div><div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}<span class="muted">${scope(w)}</span>${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,pseudo)}`).join(''):`<div class="empty">${en?'No Hired Sword yet.':'Aucun Hired Sword pour l’instant.'}</div>`}</div></div>`;
+}
 // Rules: Warbands — the Hired Swords this warband can hire.
 function hiredSwordRulesMarkup(f){
   const en=siteLanguage==='en';const list=hiredSwordsFor(f,null);if(!list.length)return '';
