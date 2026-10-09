@@ -1182,6 +1182,31 @@ app.delete('/api/admin/catalog/race-tags/:factionId',requireDb,requireSameOrigin
   }catch(e){next(e)}
 });
 
+// Racial stat maximums (V-RACEMAX): public read, admin-only write.
+app.get('/api/catalog/race-maximums',requireDb,async(req,res,next)=>{
+  try{
+    const q=await pool.query('SELECT race,maxima,updated_at FROM race_stat_maximums');
+    res.json({maximums:q.rows.map(r=>({race:r.race,maxima:r.maxima,updatedAt:r.updated_at}))});
+  }catch(e){next(e)}
+});
+app.put('/api/admin/catalog/race-maximums/:race',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const race=String(req.params.race||'').trim();
+  const raw=req.body?.maxima;
+  if(!race||race.length>RACE_TAG_MAX_LEN||!Array.isArray(raw)||raw.length>20)return res.status(400).json({error:'INVALID_RACE_MAXIMUMS'});
+  const maxima=raw.map(v=>v===null||v===''||v===undefined?null:Number(v)).map(v=>v===null||!Number.isFinite(v)?null:Math.max(0,Math.min(99,Math.round(v))));
+  try{
+    await pool.query(`INSERT INTO race_stat_maximums(race,maxima,updated_by,updated_at) VALUES($1,$2,$3,NOW())
+      ON CONFLICT (race) DO UPDATE SET maxima=EXCLUDED.maxima,updated_by=EXCLUDED.updated_by,updated_at=NOW()`,[race,JSON.stringify(maxima),req.user.user_id]);
+    res.json({ok:true});
+  }catch(e){next(e)}
+});
+app.delete('/api/admin/catalog/race-maximums/:race',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{
+    await pool.query('DELETE FROM race_stat_maximums WHERE race=$1',[String(req.params.race||'').trim()]);
+    res.json({ok:true});
+  }catch(e){next(e)}
+});
+
 // Warband categories (V-WBCATEGORIES): "créer des catégories qui
 // ressembleraient à une warband pour en mettre des warband officielle en
 // sous warband. Mais la grande serait vide" — an empty, race-scoped

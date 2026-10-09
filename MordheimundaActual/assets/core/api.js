@@ -59,6 +59,9 @@
   /* Race-category tags for the "Create warband" picker (V149) — public
      read, admin-only write. */
   raceTags:()=>request('/api/catalog/race-tags'),
+  raceMaximums:()=>request('/api/catalog/race-maximums'),
+  adminSetRaceMaximums:(race,maxima)=>request('/api/admin/catalog/race-maximums/'+encodeURIComponent(race),{method:'PUT',body:JSON.stringify({maxima})}),
+  adminClearRaceMaximums:race=>request('/api/admin/catalog/race-maximums/'+encodeURIComponent(race),{method:'DELETE'}),
   adminSetRaceTag:(factionId,race)=>request('/api/admin/catalog/race-tags/'+encodeURIComponent(factionId),{method:'PUT',body:JSON.stringify({race})}),
   adminClearRaceTag:factionId=>request('/api/admin/catalog/race-tags/'+encodeURIComponent(factionId),{method:'DELETE'}),
   /* Warband categories (V-WBCATEGORIES) — empty, race-scoped grouping shells

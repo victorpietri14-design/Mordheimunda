@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0498.0';
+const APP_BUILD='110.0499.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4503,6 +4503,8 @@ function admin(){
       ${adminOpenCategory==='gear'?`<div class="admin-category-body">${adminWeaponCatalogCardMarkup()}</div>`:''}
       ${adminCategoryBar('racerules',en?'Manage · Rules by race':'Gestion · Règles par race',en?'Add or remove a special rule / default skill on every fighter of a race':'Ajouter ou retirer une règle spéciale / compétence par défaut sur tous les combattants d’une race',adminOpenCategory==='racerules')}
       ${adminOpenCategory==='racerules'?`<div class="admin-category-body">${adminRaceRulesCardMarkup()}</div>`:''}
+      ${adminCategoryBar('racemax',en?'Manage · Racial maximums':'Gestion · Maximums raciaux',en?'Stat maximums for every fighter of a race (Automatic mode)':'Maximums de caractéristiques pour tous les combattants d’une race (mode Automatique)',adminOpenCategory==='racemax')}
+      ${adminOpenCategory==='racemax'?`<div class="admin-category-body">${adminRaceMaxCardMarkup()}</div>`:''}
       ${adminCategoryBar('scenarios',en?'Manage · Scenarios':'Gestion · Scénarios',en?'Battle plans + deployment map library':'Plans de bataille + bibliothèque de cartes',adminOpenCategory==='scenarios')}
       ${adminOpenCategory==='scenarios'?`<div class="admin-category-body">${adminScenariosSectionMarkup(en)}</div>`:''}
       ${adminCategoryBar('support',en?'Support · Player warbands':'Support · Bandes des joueurs',en?'Search an account and live-edit their data':'Rechercher un compte et éditer ses données en direct',adminOpenCategory==='support')}
@@ -5055,6 +5057,50 @@ async function loadRaceTags(){
     const list=Array.isArray(r?.tags)?r.tags:[];
     raceTagMap=new Map(list.map(t=>[t.factionId,t.race]));
   }catch(e){console.warn('Race tags unavailable',e);}
+}
+/* V-RACEMAX: racial stat maximums, editable in Admin → Racial maximums and
+   stored server-side (shared by every account). Used by maxProfileFor for
+   every fighter whose maximums are in Automatic mode — a profile set to
+   Manual (e.g. Vampires) keeps its own grid. */
+let raceMaximumsMap=new Map(),raceMaximumsNames=new Map();
+async function loadRaceMaximums(){
+  try{const r=await window.MordheimundaAPI.raceMaximums();const list=(Array.isArray(r?.maximums)?r.maximums:[]).filter(m=>m?.race&&Array.isArray(m.maxima));raceMaximumsMap=new Map(list.map(m=>[normName(m.race),m.maxima]));raceMaximumsNames=new Map(list.map(m=>[normName(m.race),m.race]));}
+  catch(e){console.warn('Race maximums unavailable',e);}
+}
+function raceMaximumsFor(race){if(!race)return null;const m=raceMaximumsMap.get(normName(race));return Array.isArray(m)&&m.some(v=>v!==null&&v!==undefined&&v!=='')?m:null}
+let adminRaceMaxExtra=[];
+function adminRaceMaxRaces(){
+  const fromProfiles=[...(D.factions||[]).flatMap(f=>(f.warriors||[]).map(warriorRaceName)),...customFighterList().map(w=>w.race||'')].filter(Boolean);
+  const all=[...fromProfiles,...raceMaximumsNames.values(),...adminRaceMaxExtra];
+  const seen=new Set(),out=[];all.forEach(r=>{const k=normName(r);if(!k||seen.has(k))return;seen.add(k);out.push(r)});
+  return out.sort((a,b)=>a.localeCompare(b));
+}
+function adminRaceMaxCardMarkup(){
+  const en=siteLanguage==='en';const races=adminRaceMaxRaces();
+  const bookFor=r=>{const k=Object.keys(MAX_RACE).find(n=>normName(n)===normName(r));return k?MAX_RACE[k]:null};
+  return `<div class="admin-live-rosters card"><div class="eyebrow">${en?'RACIAL MAXIMUMS':'MAXIMUMS RACIAUX'}</div>
+   <p class="muted">${en?'Stat maximums for every fighter of a race whose profile is in “Automatic” maximums mode. An empty cell keeps the automatic cap (base + usual bonus) for that stat. A profile set to “Manual” (e.g. Vampires) keeps its own maximums. Applies live to every warband, already-recruited fighters included.':'Maximums de caractéristiques pour tous les combattants d’une race dont le profil est en mode des maximums « Automatique ». Une case vide garde le maximum automatique (base + bonus habituel) pour cette caractéristique. Un profil en mode « Manuel » (ex. Vampires) garde ses propres maximums. S’applique en direct à toutes les bandes, combattants déjà recrutés compris.'}</p>
+   <div style="overflow:auto"><table class="custom-stat-bar race-max-table"><tr><th style="text-align:left">${en?'Race':'Race'}</th>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}<th></th></tr>
+   ${races.map(r=>{const cur=raceMaximumsMap.get(normName(r))||[];const book=bookFor(r);return `<tr class="raceMaxRow" data-race="${esc(r)}"><td style="text-align:left;white-space:nowrap"><b>${esc(r)}</b>${cur.some(v=>v!==null&&v!==undefined)?' <span class="archived-tag official-tag">✓</span>':''}</td>${P.map((n,i)=>`<td><input class="raceMaxCell" data-i="${i}" type="number" min="0" step="1" value="${cur[i]===null||cur[i]===undefined?'':esc(cur[i])}" placeholder="${book?esc(book[i]):'—'}"></td>`).join('')}<td style="white-space:nowrap">${book?`<button type="button" class="equipment-action" title="${en?'Fill with the book values (placeholders)':'Remplir avec les valeurs du livre (grisées)'}" onclick="adminRaceMaxFillBook(this)">📖</button>`:''}<button type="button" class="equipment-action remove" title="${en?'Clear this race':'Vider cette race'}" onclick="this.closest('tr').querySelectorAll('.raceMaxCell').forEach(x=>x.value='')">✕</button></td></tr>`}).join('')}
+   </table></div>
+   <div class="custom-trait-add" style="margin-top:10px"><input id="raceMaxNew" placeholder="${en?'Add a race…':'Ajouter une race…'}"><button type="button" class="button secondary" onclick="adminRaceMaxAddRace()">＋ ${en?'Add':'Ajouter'}</button></div>
+   <div class="custom-actions"><button type="button" class="button primary" onclick="saveAdminRaceMaximums()">${en?'Save racial maximums':'Enregistrer les maximums raciaux'}</button></div>
+  </div>`;
+}
+function adminRaceMaxFillBook(btn){btn.closest('tr').querySelectorAll('.raceMaxCell').forEach(x=>{if(x.placeholder&&x.placeholder!=='—')x.value=x.placeholder})}
+function adminRaceMaxAddRace(){const v=($('#raceMaxNew')?.value||'').trim();if(!v)return;if(!adminRaceMaxRaces().some(r=>normName(r)===normName(v)))adminRaceMaxExtra.push(v);render('admin')}
+async function saveAdminRaceMaximums(){
+  const en=siteLanguage==='en';const ops=[];
+  document.querySelectorAll('.raceMaxRow').forEach(tr=>{
+    const race=tr.dataset.race;const vals=[...tr.querySelectorAll('.raceMaxCell')].map(x=>x.value.trim()===''?null:Math.max(0,Number(x.value)));
+    const cur=raceMaximumsMap.get(normName(race))||null;const empty=vals.every(v=>v===null||!Number.isFinite(v));
+    const norm=vals.map(v=>v===null||!Number.isFinite(v)?null:v);
+    if(empty){if(cur)ops.push(window.MordheimundaAPI.adminClearRaceMaximums(race));return}
+    if(!cur||JSON.stringify(cur.map(v=>v===undefined?null:v))!==JSON.stringify(norm))ops.push(window.MordheimundaAPI.adminSetRaceMaximums(race,norm));
+  });
+  if(!ops.length){toast(en?'Nothing changed':'Rien n’a changé');return}
+  try{await Promise.all(ops);await loadRaceMaximums();adminRaceMaxExtra=[];render('admin');toast(en?`Saved — ${ops.length} race${ops.length>1?'s':''} updated`:`Enregistré — ${ops.length} race${ops.length>1?'s':''} mise${ops.length>1?'s':''} à jour`)}
+  catch(e){toast(authError(e,en))}
 }
 function raceIcon(r){return {'Humain':'☉','Dwarf':'⚒','Elves':'✦','Orcs and Goblin':'☠','Chaos':'✶','Undead':'☾','Skaven':'⁂','Unique':'◈'}[r]||'◆'}
 function openRaceTagEditor(currentRace){
@@ -10708,6 +10754,12 @@ function maxProfileFor(x){
   const mods=(f?.packRuleModifiers||[]).filter(m=>(!m.target||m.target===source?.name||m.target===source?.id||m.target==='all')&&(!m.targetType||m.targetType==='unit')&&(!m.rule||(Array.isArray(source?.ruleNames)&&source.ruleNames.some(n=>normName(n)===normName(m.rule)))));
   const defaultBonus=[1,3,3,1,1,2,3,3,2,2,2,2];
   for(let i=0;i<max.length;i++)max[i]=Number(max[i]||0)+defaultBonus[i];
+  // V-RACEMAX: racial maximums set in Admin → Racial maximums replace the
+  // automatic cap stat by stat (an empty cell keeps it). Never below the
+  // fighter's own current permanent value, so a legit rule bonus is never
+  // flagged OVER.
+  const rm=raceMaximumsFor(fighterRace(x,f));
+  if(rm)for(let i=0;i<max.length;i++){if(rm[i]!==null&&rm[i]!==undefined&&rm[i]!=='')max[i]=Math.max(Number(rm[i]),Number(base[i]||0));}
   mods.forEach(m=>{const i=P.indexOf(m.stat);if(i>=0)max[i]=Number(max[i]||0)+Number(m.amount||0);});
   return max;
 }
@@ -15934,5 +15986,5 @@ if(hasStoredAccountSession){
 }else{
   Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();bootstrapAccountSession();});
 }
-loadRaceTags().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
+loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());
