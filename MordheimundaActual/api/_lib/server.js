@@ -896,6 +896,85 @@ app.delete('/api/admin/scenarios/:id',requireDb,requireSameOrigin,auth,requireAd
   }catch(e){next(e)}
 });
 
+// ---- Campaigns (V-CAMPAIGNS) ----------------------------------------------
+// Admins create and edit campaigns; players read the published ones and
+// enter / withdraw their own warbands (one campaign per warband at a time).
+const CAMPAIGN_COLOR=/^#[0-9a-f]{6}$/i;
+const campaignCode=()=>crypto.randomBytes(5).toString('base64url').replace(/[^A-Za-z0-9]/g,'').slice(0,6).toUpperCase().padEnd(6,'X');
+function validateCampaign(body){
+  const name=String(body?.name||'').trim();
+  if(!name||name.length>80)return {error:'INVALID_NAME'};
+  const color=CAMPAIGN_COLOR.test(String(body?.color||''))?String(body.color):'#ff8a3d';
+  const def=body?.definition&&typeof body.definition==='object'&&!Array.isArray(body.definition)?body.definition:{};
+  const payload=JSON.stringify(def);
+  if(Buffer.byteLength(payload)>2*1024*1024)return {error:'DATA_TOO_LARGE'};
+  return {name,color,payload};
+}
+const toCampaign=(row,members)=>({id:row.id,name:row.name,color:row.color,status:row.status,joinCode:row.join_code,definition:row.definition||{},createdAt:row.created_at,updatedAt:row.updated_at,...(members?{members}:{})});
+const toMember=r=>({rosterId:r.roster_id,userId:r.user_id,username:r.username||'',rosterName:r.roster_name,faction:r.faction,stats:r.stats||{},joinedAt:r.joined_at,leftAt:r.left_at});
+async function campaignMembers(id){const q=await pool.query('SELECT m.*,u.username FROM campaign_members m LEFT JOIN users u ON u.id=m.user_id WHERE m.campaign_id=$1 ORDER BY m.joined_at ASC',[id]);return q.rows.map(toMember)}
+app.get('/api/campaigns',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT c.*,(SELECT COUNT(*) FROM campaign_members m WHERE m.campaign_id=c.id AND m.left_at IS NULL)::int AS member_count FROM campaigns c WHERE status='published' ORDER BY created_at ASC");res.json({campaigns:q.rows.map(r=>({...toCampaign(r),joinCode:undefined,memberCount:r.member_count}))})}catch(e){next(e)}
+});
+app.get('/api/campaigns/:id',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT * FROM campaigns WHERE id=$1 AND status='published'",[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({campaign:{...toCampaign(q.rows[0],await campaignMembers(req.params.id)),joinCode:undefined}})}catch(e){next(e)}
+});
+// The signed-in player's entries (and the campaigns they are in).
+app.get('/api/account/campaigns',requireDb,auth,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT m.*,c.name AS campaign_name,c.color AS campaign_color,c.status AS campaign_status FROM campaign_members m JOIN campaigns c ON c.id=m.campaign_id WHERE m.user_id=$1 ORDER BY m.joined_at DESC',[req.user.user_id]);res.json({entries:q.rows.map(r=>({...toMember(r),campaignId:r.campaign_id,campaignName:r.campaign_name,campaignColor:r.campaign_color,campaignStatus:r.campaign_status}))})}catch(e){next(e)}
+});
+async function joinCampaign(req,res,campaignRow){
+  const rosterId=String(req.body?.rosterId||'').trim().slice(0,120);
+  if(!rosterId)return res.status(400).json({error:'INVALID_ROSTER'});
+  const rosterName=String(req.body?.rosterName||'').trim().slice(0,80),faction=String(req.body?.faction||'').trim().slice(0,80);
+  const other=await pool.query('SELECT campaign_id FROM campaign_members WHERE user_id=$1 AND roster_id=$2 AND left_at IS NULL AND campaign_id<>$3',[req.user.user_id,rosterId,campaignRow.id]);
+  if(other.rowCount)return res.status(409).json({error:'ALREADY_IN_A_CAMPAIGN'});
+  const taken=await pool.query('SELECT user_id FROM campaign_members WHERE campaign_id=$1 AND roster_id=$2',[campaignRow.id,rosterId]);
+  if(taken.rowCount&&taken.rows[0].user_id!==req.user.user_id)return res.status(409).json({error:'ROSTER_ID_TAKEN'});
+  await pool.query(`INSERT INTO campaign_members(campaign_id,roster_id,user_id,roster_name,faction) VALUES($1,$2,$3,$4,$5)
+    ON CONFLICT (campaign_id,roster_id) DO UPDATE SET roster_name=EXCLUDED.roster_name,faction=EXCLUDED.faction,left_at=NULL,joined_at=CASE WHEN campaign_members.left_at IS NULL THEN campaign_members.joined_at ELSE NOW() END`,[campaignRow.id,rosterId,req.user.user_id,rosterName,faction]);
+  res.json({ok:true,campaign:{id:campaignRow.id,name:campaignRow.name,color:campaignRow.color}});
+}
+app.post('/api/campaigns/:id/join',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT * FROM campaigns WHERE id=$1 AND status='published'",[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});await joinCampaign(req,res,q.rows[0])}catch(e){next(e)}
+});
+app.post('/api/campaigns/join-code',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const code=String(req.body?.code||'').trim().toUpperCase();const q=await pool.query("SELECT * FROM campaigns WHERE join_code=$1 AND status='published'",[code]);if(!q.rowCount)return res.status(404).json({error:'CODE_NOT_FOUND'});await joinCampaign(req,res,q.rows[0])}catch(e){next(e)}
+});
+app.post('/api/campaigns/:id/leave',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const rosterId=String(req.body?.rosterId||'');const q=await pool.query('UPDATE campaign_members SET left_at=NOW() WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 AND left_at IS NULL',[req.params.id,rosterId,req.user.user_id]);res.json({ok:true,left:q.rowCount})}catch(e){next(e)}
+});
+// Updates the public line of the player's own entry (name, rating…).
+app.put('/api/campaigns/:id/entry',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const rosterId=String(req.body?.rosterId||'');const stats=req.body?.stats&&typeof req.body.stats==='object'?req.body.stats:{};if(Buffer.byteLength(JSON.stringify(stats))>20000)return res.status(413).json({error:'DATA_TOO_LARGE'});
+    const q=await pool.query('UPDATE campaign_members SET roster_name=COALESCE($4,roster_name),stats=$5 WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 RETURNING roster_id',[req.params.id,rosterId,req.user.user_id,req.body?.rosterName?String(req.body.rosterName).slice(0,80):null,JSON.stringify(stats)]);res.json({ok:true,updated:q.rowCount})}catch(e){next(e)}
+});
+app.get('/api/admin/campaigns',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT * FROM campaigns ORDER BY created_at DESC');res.json({campaigns:q.rows.map(r=>toCampaign(r))})}catch(e){next(e)}
+});
+app.get('/api/admin/campaigns/:id',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT * FROM campaigns WHERE id=$1',[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({campaign:toCampaign(q.rows[0],await campaignMembers(req.params.id))})}catch(e){next(e)}
+});
+app.post('/api/admin/campaigns',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const v=validateCampaign(req.body);if(v.error)return res.status(v.error==='DATA_TOO_LARGE'?413:400).json({error:v.error});
+  try{let code=campaignCode();for(let i=0;i<5;i++){const c=await pool.query('SELECT 1 FROM campaigns WHERE join_code=$1',[code]);if(!c.rowCount)break;code=campaignCode()}
+    const q=await pool.query('INSERT INTO campaigns(id,name,color,join_code,definition,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[crypto.randomUUID(),v.name,v.color,code,v.payload,req.user.user_id]);res.status(201).json({campaign:toCampaign(q.rows[0])})}catch(e){next(e)}
+});
+app.put('/api/admin/campaigns/:id',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const v=validateCampaign(req.body);if(v.error)return res.status(v.error==='DATA_TOO_LARGE'?413:400).json({error:v.error});
+  try{const q=await pool.query('UPDATE campaigns SET name=$1,color=$2,definition=$3,updated_at=NOW() WHERE id=$4 RETURNING *',[v.name,v.color,v.payload,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({campaign:toCampaign(q.rows[0])})}catch(e){next(e)}
+});
+app.patch('/api/admin/campaigns/:id/status',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const status=req.body?.status==='published'?'published':'draft';
+  try{const q=await pool.query('UPDATE campaigns SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,status',[status,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({ok:true,status})}catch(e){next(e)}
+});
+app.post('/api/admin/campaigns/:id/code',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const code=campaignCode();const q=await pool.query('UPDATE campaigns SET join_code=$1 WHERE id=$2 RETURNING join_code',[code,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({joinCode:q.rows[0].join_code})}catch(e){next(e)}
+});
+app.delete('/api/admin/campaigns/:id',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const cur=await pool.query('SELECT status FROM campaigns WHERE id=$1',[req.params.id]);if(!cur.rowCount)return res.status(404).json({error:'NOT_FOUND'});if(cur.rows[0].status!=='draft')return res.status(409).json({error:'MUST_UNPUBLISH_FIRST'});await pool.query('DELETE FROM campaigns WHERE id=$1',[req.params.id]);res.json({ok:true})}catch(e){next(e)}
+});
+
 // ---- Deployment maps (admin-managed library of numbered map images) ------
 // A map is EITHER an uploaded raster image (inline data URL, same convention
 // app.js already uses for fighter/warband portraits) OR a vector map built

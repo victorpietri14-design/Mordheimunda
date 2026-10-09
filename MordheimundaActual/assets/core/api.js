@@ -107,5 +107,20 @@
   deploymentMaps:()=>request('/api/deployment-maps'),
   adminCreateDeploymentMap:p=>request('/api/admin/deployment-maps',{method:'POST',body:JSON.stringify(p)}),
   adminUpdateDeploymentMap:(id,p)=>request('/api/admin/deployment-maps/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(p)}),
-  adminDeleteDeploymentMap:id=>request('/api/admin/deployment-maps/'+encodeURIComponent(id),{method:'DELETE'})};
+  adminDeleteDeploymentMap:id=>request('/api/admin/deployment-maps/'+encodeURIComponent(id),{method:'DELETE'}),
+  /* V-CAMPAIGNS */
+  campaigns:()=>request('/api/campaigns'),
+  campaign:id=>request('/api/campaigns/'+encodeURIComponent(id)),
+  myCampaignEntries:()=>request('/api/account/campaigns'),
+  joinCampaign:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/join',{method:'POST',body:JSON.stringify(p)}),
+  joinCampaignByCode:p=>request('/api/campaigns/join-code',{method:'POST',body:JSON.stringify(p)}),
+  leaveCampaign:(id,rosterId)=>request('/api/campaigns/'+encodeURIComponent(id)+'/leave',{method:'POST',body:JSON.stringify({rosterId})}),
+  updateCampaignEntry:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/entry',{method:'PUT',body:JSON.stringify(p)}),
+  adminCampaigns:()=>request('/api/admin/campaigns'),
+  adminCampaign:id=>request('/api/admin/campaigns/'+encodeURIComponent(id)),
+  adminCreateCampaign:p=>request('/api/admin/campaigns',{method:'POST',body:JSON.stringify(p)}),
+  adminUpdateCampaign:(id,p)=>request('/api/admin/campaigns/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(p)}),
+  adminSetCampaignStatus:(id,status)=>request('/api/admin/campaigns/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status})}),
+  adminNewCampaignCode:id=>request('/api/admin/campaigns/'+encodeURIComponent(id)+'/code',{method:'POST'}),
+  adminDeleteCampaign:id=>request('/api/admin/campaigns/'+encodeURIComponent(id),{method:'DELETE'})};
 })();
