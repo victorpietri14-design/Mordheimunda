@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0494.0';
+const APP_BUILD='110.0500.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -219,7 +219,7 @@ const COMMON_SKILL_TREES=['Agility','Brawn','Combat','Cunning','Ferocity','Leade
 // rules (see the Starting a Warband page), with Animal (a future combatant
 // category) slotted in right after; anything else (Hired Sword, etc.)
 // sorts after, in first-seen order.
-const WARBAND_ROLE_ORDER=['Leader','Champion','Raw Recruit','Henchman','Animal'];
+const WARBAND_ROLE_ORDER=['Leader','Champion','Raw Recruit','Henchman','Animal','Hired Sword'];
 function warbandRoleSortIndex(t){const i=WARBAND_ROLE_ORDER.indexOf(t);return i===-1?WARBAND_ROLE_ORDER.length:i;}
 // MAGIC_ACCESS access resolved for a faction, falling back to its base
 // faction's entry for a supplement/pack that doesn't define its own (e.g.
@@ -2474,7 +2474,7 @@ function toast(t,duration=1800){t=translateSiteText(t);const x=document.createEl
 function syncAdminManagedFighter(x,r){
   if(!x||!r)return false;
   const f=faction(r);
-  const w=f?.warriors?.find(a=>a?.id===x.wid||normName(a?.name)===normName(x.sourceName||x.name));
+  const w=isHiredSword(x)?hiredSwordSourceWarrior(x):f?.warriors?.find(a=>a?.id===x.wid||normName(a?.name)===normName(x.sourceName||x.name));
   // V-OFFICIALCUSTOMID: same root cause as liveFighterCost's identical
   // comment above — x.customFighterId used to bail out of this whole sync
   // unconditionally, which was right for a true personal Custom-tab fighter
@@ -2491,7 +2491,7 @@ function syncAdminManagedFighter(x,r){
   // Keep the player's chosen display name; sourceName remains the stable
   // reference even when the Admin changes the fighter's visible name.
   if(!x.sourceName)x.sourceName=w.name;
-  copy('type',w.type||x.type||'Henchman');
+  copy('type',isHiredSword(x)?'Hired Sword':(w.type||x.type||'Henchman'));
   copy('cost',Number(w.cost||0));
   copy('race',w.race||x.race||'Human');
   copy('max',w.max===undefined?null:w.max);
@@ -2869,10 +2869,10 @@ function liveFighterCost(x,f){
   if(w)return Number(w.cost||0);
   return Number(x?.cost||0);
 }
-function fighterValue(x,f){const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+Number(e?.value ?? e?.price ?? 0),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
+function fighterValue(x,f){if(isHiredSword(x))return 0;const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+Number(e?.value ?? e?.price ?? 0),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
 function fighterPaid(x,f){const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+Number(e?.paid ?? e?.price ?? 0),0))}
 function fighterCost(x,f){return fighterValue(x,f)}
-function total(r){const fighters=Array.isArray(r?.fighters)?r.fighters:[];const reserve=Array.isArray(r?.reserve)?r.reserve:[];const f=faction(r);return fighters.reduce((n,x)=>n+fighterValue(x,f),0)+reserve.reduce((n,e)=>n+Number(e?.value??e?.price??0),0)}
+function total(r){const fighters=Array.isArray(r?.fighters)?r.fighters:[];const reserve=Array.isArray(r?.reserve)?r.reserve:[];const f=faction(r);return fighters.reduce((n,x)=>n+fighterValue(x,f)+hiredSwordRatingShare(x),0)+reserve.reduce((n,e)=>n+Number(e?.value??e?.price??0),0)}
 const MAGIC_RULEBOOK={
 'Prayers of Sigmar':[
 ['1','Sigmar’s Fiery Hammer','0 · Basic · Continuous','Le Prêtre utilise un marteau magique : S+2, AP -, D2, Flaming Attack, Stun.'],
@@ -3716,6 +3716,7 @@ function openRuleSection(id){rulesOpen=id;persistUiState('rulesOpen',id);render(
 function scrollToRuleHeading(e,id){
   if(e)e.preventDefault();
   const el=document.getElementById(id);
+  try{revealRuleAnchor(el)}catch(err){}
   if(el)el.scrollIntoView({block:'start',behavior:'smooth'});
 }
 // V151/V153/V154: a popup reachable at any viewport width, grouped by theme
@@ -3758,6 +3759,8 @@ function openRuleSectionFromNav(id){openRuleSection(id);}
 // the on-page theme grid) but had nothing rendering into it since. Every
 // group is always expanded — no collapse-to-grey interaction — matching the
 // same explicit design choice already made for the popup version.
+let rulesNavGroupOpen=new Map();
+function toggleRulesNavGroup(id,wasOpen){rulesNavGroupOpen.set(id,!wasOpen);const nav=document.getElementById('rulesNavSidebar');if(nav)nav.outerHTML=rulesNavSidebarMarkup()}
 function rulesNavSidebarMarkup(){
   const en=siteLanguage==='en';
   const groups=RULES_NAV_GROUPS.map(g=>{
@@ -3765,7 +3768,11 @@ function rulesNavSidebarMarkup(){
     if(!items.length)return '';
     const active=items.some(s=>s.id===rulesOpen);
     const subItems=items.map(s=>`<a href="#" class="rn-item${s.id===rulesOpen?' active':''}" onclick="event.preventDefault();openRuleSectionFromNav('${s.id}')">${ruleTitleMarkup(s.title)}</a>`).join('');
-    return `<div class="rn-group${active?' active':''}"><div class="rn-head open"><span class="chev">▾</span><span>${esc(en?g.en:g.fr)}</span></div><div class="rn-items">${subItems}</div></div>`;
+    // V-RULESNAVFOLD: each theme group (0, 1, 2…, 3) folds; the one holding
+    // the open page starts unfolded, the others folded, and a click on a
+    // group's title keeps the reader's choice for the session.
+    const open=rulesNavGroupOpen.has(g.id)?rulesNavGroupOpen.get(g.id):active;
+    return `<div class="rn-group${active?' active':''}"><button type="button" class="rn-head${open?' open':''}" aria-expanded="${open}" onclick="toggleRulesNavGroup('${esc(g.id)}',${open})"><span class="chev">${open?'▾':'▸'}</span><span>${esc(en?g.en:g.fr)}</span></button>${open?`<div class="rn-items">${subItems}</div>`:''}</div>`;
   }).join('')||`<div class="empty compact">${en?'No themes yet.':'Aucun thème pour l’instant.'}</div>`;
   const adminBtn=isAdminEditUI()?`<button type="button" class="button secondary" style="width:100%;margin-top:14px" onclick="openRuleGroupsEditor()">✎ ${en?'Edit categories':'Éditer les catégories'}</button>`:'';
   return `<nav class="rules-nav" id="rulesNavSidebar">${groups}${adminBtn}</nav>`;
@@ -3823,6 +3830,7 @@ ${rulesNavSidebarMarkup()}
 <div class="rules-main">
 ${current?`<div class="rules-crumb"><a href="#" onclick="render('dashboard');return false;">${en?'Home':'Accueil'}</a><span class="sep">›</span><span class="cur">${esc(current.title)}</span></div>
 <div class="title-row"><h1 class="rules-title">${ruleTitleMarkup(current.title)}</h1></div>
+<div class="rules-collapse-bar"><button type="button" class="button secondary small" onclick="setAllRuleSections(true)">${en?'Expand all':'Tout déplier'}</button><button type="button" class="button secondary small" onclick="setAllRuleSections(false)">${en?'Collapse all':'Tout replier'}</button></div>
 <div class="rules-article-body">${articleBodyHtml}</div>${current.id==='magic'?magicSpellGalleryMarkup(en):''}${current.id==='actions'?actionGroupsGalleryMarkup(en):''}`:`<div class="empty large"><strong>${en?'No rule found.':'Aucune règle trouvée.'}</strong><span>${en?'Try another term.':'Essaie un autre terme.'}</span></div>`}
 </div>
 ${tocMarkup}
@@ -3830,9 +3838,50 @@ ${tocMarkup}
 <button type="button" class="rules-pages-nav-fab${rulesPagesNavOpen?' open':''}" id="rulesPagesNavFab" onclick="toggleRulesPagesNav()" aria-label="${en?'Jump to a page':'Aller à une page'}">▤</button>
 ${rulesPagesNavPanelMarkup()}
 </div>`;
+setupRuleCollapsibles();
 ensureRulesScrollSpy();
 requestAnimationFrame(updateRulesScrollSpy);
 }
+// V-RULESCOLLAPSE: on Rules: The Game, every heading folds the text under it
+// (a main heading: everything up to the next main heading; an ALL-CAPS
+// sub-heading: up to the next heading). Sub-sections start folded so a page
+// reads as a list of titles; what the reader opens is remembered for the
+// session. Admin editing (✎ forms) is never folded.
+let rulesSectionState=new Map(),rulesSectionDefault=new Map(),rulesAllOpen=false;
+function setupRuleCollapsibles(){
+  const body=document.querySelector('.rules-article-body');if(!body||ruleOverridesEditKey)return;
+  const page=rulesOpen||'';
+  body.querySelectorAll('.rule-page-text').forEach((box,bi)=>{
+    const kids=[...box.children];const heads=[];
+    kids.forEach((el,i)=>{if(el.classList.contains('rule-heading'))heads.push({i,el,lvl:1});else if(el.classList.contains('rule-subheading'))heads.push({i,el,lvl:2})});
+    if(!heads.length)return;
+    heads.forEach((h,hi)=>{
+      let end=kids.length;for(let j=hi+1;j<heads.length;j++){if(heads[j].lvl<=h.lvl||h.lvl===2){end=heads[j].i;break}}
+      const items=kids.slice(h.i+1,end);if(!items.length)return;
+      const key=`${page}:${bi}:${h.el.id||hi}`;h.el.dataset.rsKey=key;h.el.classList.add('rs-toggle');h.el.setAttribute('role','button');h.el.tabIndex=0;
+      items.forEach(it=>{it.__rsCtl=(it.__rsCtl||[]).concat(key)});
+      h.el.__rsItems=items;h.el.__rsLvl=h.lvl;
+      h.el.onclick=()=>{rulesSectionState.set(key,!ruleSectionOpen(key));applyRuleCollapse()};
+      h.el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.el.onclick()}};
+      // Main headings start open; sub-sections start folded.
+      rulesSectionDefault.set(key,h.lvl===1);
+    });
+  });
+  applyRuleCollapse();
+}
+function ruleSectionOpen(key){return rulesSectionState.has(key)?rulesSectionState.get(key):!!rulesSectionDefault.get(key)}
+function applyRuleCollapse(){
+  const body=document.querySelector('.rules-article-body');if(!body)return;
+  body.querySelectorAll('.rs-toggle').forEach(h=>h.classList.toggle('rs-closed',!ruleSectionOpen(h.dataset.rsKey)));
+  body.querySelectorAll('.rule-page-text > *').forEach(el=>{if(!el.__rsCtl)return;el.style.display=el.__rsCtl.every(ruleSectionOpen)?'':'none'});
+}
+function setAllRuleSections(open){
+  const body=document.querySelector('.rules-article-body');if(!body)return;
+  body.querySelectorAll('.rs-toggle').forEach(h=>rulesSectionState.set(h.dataset.rsKey,!!open));
+  applyRuleCollapse();
+}
+// Opens every folded section around an anchor so a jump lands on visible text.
+function revealRuleAnchor(el){if(!el)return;const keys=[...(el.__rsCtl||[]),el.dataset?.rsKey].filter(Boolean);keys.forEach(k=>rulesSectionState.set(k,true));applyRuleCollapse()}
 function accountDiagLocalMarkup(en){
   const m=state?.meta||{};
   const rows=[
@@ -4454,6 +4503,8 @@ function admin(){
       ${adminOpenCategory==='gear'?`<div class="admin-category-body">${adminWeaponCatalogCardMarkup()}</div>`:''}
       ${adminCategoryBar('racerules',en?'Manage · Rules by race':'Gestion · Règles par race',en?'Add or remove a special rule / default skill on every fighter of a race':'Ajouter ou retirer une règle spéciale / compétence par défaut sur tous les combattants d’une race',adminOpenCategory==='racerules')}
       ${adminOpenCategory==='racerules'?`<div class="admin-category-body">${adminRaceRulesCardMarkup()}</div>`:''}
+      ${adminCategoryBar('racemax',en?'Manage · Racial maximums':'Gestion · Maximums raciaux',en?'Stat maximums for every fighter of a race (Automatic mode)':'Maximums de caractéristiques pour tous les combattants d’une race (mode Automatique)',adminOpenCategory==='racemax')}
+      ${adminOpenCategory==='racemax'?`<div class="admin-category-body">${adminRaceMaxCardMarkup()}</div>`:''}
       ${adminCategoryBar('scenarios',en?'Manage · Scenarios':'Gestion · Scénarios',en?'Battle plans + deployment map library':'Plans de bataille + bibliothèque de cartes',adminOpenCategory==='scenarios')}
       ${adminOpenCategory==='scenarios'?`<div class="admin-category-body">${adminScenariosSectionMarkup(en)}</div>`:''}
       ${adminCategoryBar('support',en?'Support · Player warbands':'Support · Bandes des joueurs',en?'Search an account and live-edit their data':'Rechercher un compte et éditer ses données en direct',adminOpenCategory==='support')}
@@ -5007,6 +5058,50 @@ async function loadRaceTags(){
     raceTagMap=new Map(list.map(t=>[t.factionId,t.race]));
   }catch(e){console.warn('Race tags unavailable',e);}
 }
+/* V-RACEMAX: racial stat maximums, editable in Admin → Racial maximums and
+   stored server-side (shared by every account). Used by maxProfileFor for
+   every fighter whose maximums are in Automatic mode — a profile set to
+   Manual (e.g. Vampires) keeps its own grid. */
+let raceMaximumsMap=new Map(),raceMaximumsNames=new Map();
+async function loadRaceMaximums(){
+  try{const r=await window.MordheimundaAPI.raceMaximums();const list=(Array.isArray(r?.maximums)?r.maximums:[]).filter(m=>m?.race&&Array.isArray(m.maxima));raceMaximumsMap=new Map(list.map(m=>[normName(m.race),m.maxima]));raceMaximumsNames=new Map(list.map(m=>[normName(m.race),m.race]));}
+  catch(e){console.warn('Race maximums unavailable',e);}
+}
+function raceMaximumsFor(race){if(!race)return null;const m=raceMaximumsMap.get(normName(race));return Array.isArray(m)&&m.some(v=>v!==null&&v!==undefined&&v!=='')?m:null}
+let adminRaceMaxExtra=[];
+function adminRaceMaxRaces(){
+  const fromProfiles=[...(D.factions||[]).flatMap(f=>(f.warriors||[]).map(warriorRaceName)),...customFighterList().map(w=>w.race||'')].filter(Boolean);
+  const all=[...fromProfiles,...raceMaximumsNames.values(),...adminRaceMaxExtra];
+  const seen=new Set(),out=[];all.forEach(r=>{const k=normName(r);if(!k||seen.has(k))return;seen.add(k);out.push(r)});
+  return out.sort((a,b)=>a.localeCompare(b));
+}
+function adminRaceMaxCardMarkup(){
+  const en=siteLanguage==='en';const races=adminRaceMaxRaces();
+  const bookFor=r=>{const k=Object.keys(MAX_RACE).find(n=>normName(n)===normName(r));return k?MAX_RACE[k]:null};
+  return `<div class="admin-live-rosters card"><div class="eyebrow">${en?'RACIAL MAXIMUMS':'MAXIMUMS RACIAUX'}</div>
+   <p class="muted">${en?'Stat maximums for every fighter of a race whose profile is in “Automatic” maximums mode. An empty cell keeps the automatic cap (base + usual bonus) for that stat. A profile set to “Manual” (e.g. Vampires) keeps its own maximums. Applies live to every warband, already-recruited fighters included.':'Maximums de caractéristiques pour tous les combattants d’une race dont le profil est en mode des maximums « Automatique ». Une case vide garde le maximum automatique (base + bonus habituel) pour cette caractéristique. Un profil en mode « Manuel » (ex. Vampires) garde ses propres maximums. S’applique en direct à toutes les bandes, combattants déjà recrutés compris.'}</p>
+   <div style="overflow:auto"><table class="custom-stat-bar race-max-table"><tr><th style="text-align:left">${en?'Race':'Race'}</th>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}<th></th></tr>
+   ${races.map(r=>{const cur=raceMaximumsMap.get(normName(r))||[];const book=bookFor(r);return `<tr class="raceMaxRow" data-race="${esc(r)}"><td style="text-align:left;white-space:nowrap"><b>${esc(r)}</b>${cur.some(v=>v!==null&&v!==undefined)?' <span class="archived-tag official-tag">✓</span>':''}</td>${P.map((n,i)=>`<td><input class="raceMaxCell" data-i="${i}" type="number" min="0" step="1" value="${cur[i]===null||cur[i]===undefined?'':esc(cur[i])}" placeholder="${book?esc(book[i]):'—'}"></td>`).join('')}<td style="white-space:nowrap">${book?`<button type="button" class="equipment-action" title="${en?'Fill with the book values (placeholders)':'Remplir avec les valeurs du livre (grisées)'}" onclick="adminRaceMaxFillBook(this)">📖</button>`:''}<button type="button" class="equipment-action remove" title="${en?'Clear this race':'Vider cette race'}" onclick="this.closest('tr').querySelectorAll('.raceMaxCell').forEach(x=>x.value='')">✕</button></td></tr>`}).join('')}
+   </table></div>
+   <div class="custom-trait-add" style="margin-top:10px"><input id="raceMaxNew" placeholder="${en?'Add a race…':'Ajouter une race…'}"><button type="button" class="button secondary" onclick="adminRaceMaxAddRace()">＋ ${en?'Add':'Ajouter'}</button></div>
+   <div class="custom-actions"><button type="button" class="button primary" onclick="saveAdminRaceMaximums()">${en?'Save racial maximums':'Enregistrer les maximums raciaux'}</button></div>
+  </div>`;
+}
+function adminRaceMaxFillBook(btn){btn.closest('tr').querySelectorAll('.raceMaxCell').forEach(x=>{if(x.placeholder&&x.placeholder!=='—')x.value=x.placeholder})}
+function adminRaceMaxAddRace(){const v=($('#raceMaxNew')?.value||'').trim();if(!v)return;if(!adminRaceMaxRaces().some(r=>normName(r)===normName(v)))adminRaceMaxExtra.push(v);render('admin')}
+async function saveAdminRaceMaximums(){
+  const en=siteLanguage==='en';const ops=[];
+  document.querySelectorAll('.raceMaxRow').forEach(tr=>{
+    const race=tr.dataset.race;const vals=[...tr.querySelectorAll('.raceMaxCell')].map(x=>x.value.trim()===''?null:Math.max(0,Number(x.value)));
+    const cur=raceMaximumsMap.get(normName(race))||null;const empty=vals.every(v=>v===null||!Number.isFinite(v));
+    const norm=vals.map(v=>v===null||!Number.isFinite(v)?null:v);
+    if(empty){if(cur)ops.push(window.MordheimundaAPI.adminClearRaceMaximums(race));return}
+    if(!cur||JSON.stringify(cur.map(v=>v===undefined?null:v))!==JSON.stringify(norm))ops.push(window.MordheimundaAPI.adminSetRaceMaximums(race,norm));
+  });
+  if(!ops.length){toast(en?'Nothing changed':'Rien n’a changé');return}
+  try{await Promise.all(ops);await loadRaceMaximums();adminRaceMaxExtra=[];render('admin');toast(en?`Saved — ${ops.length} race${ops.length>1?'s':''} updated`:`Enregistré — ${ops.length} race${ops.length>1?'s':''} mise${ops.length>1?'s':''} à jour`)}
+  catch(e){toast(authError(e,en))}
+}
 function raceIcon(r){return {'Humain':'☉','Dwarf':'⚒','Elves':'✦','Orcs and Goblin':'☠','Chaos':'✶','Undead':'☾','Skaven':'⁂','Unique':'◈'}[r]||'◆'}
 function openRaceTagEditor(currentRace){
   const en=siteLanguage==='en';
@@ -5525,6 +5620,19 @@ async function saveAdminWarbandRules(force){
 }
 /* ---- Warriors (fighters) section of the admin direct-edit panel ---- */
 function adminEditWarrior(idx){const d=activeAdminEditData();adminEditingWarriorIdx=idx;adminRuleDraft=(d?.warriors?.[idx]?.ruleNames||[]).slice();render('admin')}
+// The free text shown under each profile on recruitment cards (e.g. the
+// notes imported with a warband draft). Clearing it here is the same as
+// emptying each profile's DESCRIPTION field by hand.
+function clearWarbandFighterDescriptions(cwId){
+  const en=siteLanguage==='en';const list=customFighterList().filter(w=>w.customWarbandId===cwId&&String(w.description||'').trim());if(!list.length)return;
+  if(!confirm(en?`Clear the description of ${list.length} profile(s)? (Publish changes afterwards for an official warband.)`:`Effacer la description de ${list.length} profil(s) ? (Publie ensuite les modifications pour une warband officielle.)`))return;
+  list.forEach(w=>{w.description=''});save(true);render('custom');toast(en?'Descriptions cleared':'Descriptions effacées');
+}
+function adminClearWarriorDescriptions(){
+  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
+  if(!confirm(en?'Clear every fighter description of this warband? Save the warband afterwards.':'Effacer toutes les descriptions des combattants de cette bande ? Enregistre ensuite la bande.'))return;
+  (d.warriors||[]).forEach(w=>{if(w)w.description=''});render('admin');toast(en?'Descriptions cleared — save the warband':'Descriptions effacées — enregistre la bande');
+}
 function adminNewWarrior(){adminEditingWarriorIdx=-1;adminRuleDraft=[];render('admin')}
 function adminCancelWarrior(){adminEditingWarriorIdx=null;adminRuleDraft=[];render('admin')}
 function confirmAdminDeleteWarrior(idx){
@@ -5809,7 +5917,7 @@ function adminWarbandRulesPanel(){
     if(adminEditingWarriorIdx!=null){
       body=`<section class="card admin-card">${adminWarriorFormMarkup(adminEditingWarriorIdx===-1?null:d.warriors[adminEditingWarriorIdx],adminEditingWarriorIdx)}</section>`;
     }else{
-      body=`<section class="card admin-card"><p class="sheet-help">${en?'Use ▲/▼ to reorder — this is also the order fighters appear in the recruitment list.':'Utilise ▲/▼ pour réordonner — c’est aussi l’ordre d’apparition des combattants en recrutement.'}</p><div class="custom-item-list">${d.warriors.length?d.warriors.map((w,i)=>adminWarriorRow(w,i,d.warriors.length)).join(''):`<div class="empty">${en?'No fighters yet.':'Aucun combattant pour l’instant.'}</div>`}</div><div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="adminNewWarrior()">＋ ${en?'Add fighter':'Ajouter un combattant'}</button></div></section>`;
+      body=`<section class="card admin-card"><p class="sheet-help">${en?'Use ▲/▼ to reorder — this is also the order fighters appear in the recruitment list.':'Utilise ▲/▼ pour réordonner — c’est aussi l’ordre d’apparition des combattants en recrutement.'}</p><div class="custom-item-list">${d.warriors.length?d.warriors.map((w,i)=>adminWarriorRow(w,i,d.warriors.length)).join(''):`<div class="empty">${en?'No fighters yet.':'Aucun combattant pour l’instant.'}</div>`}</div><div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="adminNewWarrior()">＋ ${en?'Add fighter':'Ajouter un combattant'}</button>${(d.warriors||[]).some(w=>String(w?.description||'').trim())?`<button type="button" class="button secondary" onclick="adminClearWarriorDescriptions()">🧹 ${en?'Clear all fighter descriptions':'Effacer toutes les descriptions'}</button>`:''}</div></section>`;
     }
   }else if(adminWarbandSection==='equipment'){
     if(isCatalog){
@@ -6214,7 +6322,8 @@ async function confirmOfficializeItem(){
       const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
       if(kind==='fighter'){
         const w=customFighterById(id);if(!w){toast(en?'Fighter not found':'Combattant introuvable');closeModal();return}
-        d.warriors.push(customFighterAsWarrior(w));sourceItem=w;label=w.name;
+        d.warriors=d.warriors.filter(x=>!(w.customFighterId&&x?.customFighterId===w.customFighterId));
+        d.warriors.push(publishedEntryFor('fighters',w));sourceItem=w;label=w.name;
       }else if(kind==='equipment'){
         const w=customEquipmentList().find(x=>x.customEquipmentId===id);if(!w){toast(en?'Item not found':'Objet introuvable');closeModal();return}
         // V-EQUIPOFFICIALIZEFIELDS: this used to publish only a hand-picked
@@ -6276,22 +6385,22 @@ async function confirmOfficializeItem(){
         // re-officializing an edited Animal/Mount publishes the new profile
         // instead of silently keeping the old frozen one.
         d.creatures=d.creatures.filter(c=>normName(c?.name)!==normName(w.name));
-        d.creatures.push({customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||'',naturalWeapons:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[]});
+        d.creatures.push(publishedEntryFor('creatures',w));
         sourceItem=w;label=w.name;
       }else if(kind==='traits'||kind==='special'){
         const w=customContentById(kind,id);if(!w){toast(en?'Not found':'Introuvable');closeModal();return}
-        const list=kind==='traits'?d.traits:d.specialRules;
-        if(!list.some(r=>normName(r.name)===normName(w.name)))list.push({name:w.name,text:w.text||''});
+        const field=kind==='traits'?'traits':'specialRules';
+        d[field]=d[field].filter(r=>normName(r?.name)!==normName(w.name));d[field].push(publishedEntryFor(kind,w));
         sourceItem=w;label=w.name;
       }else if(kind==='skills'){
         const w=customContentById('skills',id);if(!w){toast(en?'Not found':'Introuvable');closeModal();return}
         if(w.tree&&!D.skillSets[w.tree]&&!d.skillTrees.some(t=>normName(t.name)===normName(w.tree)))d.skillTrees.push({name:w.tree});
-        if(!d.skills.some(s=>normName(s.name)===normName(w.name)))d.skills.push({name:w.name,tree:w.tree||'',text:w.text||''});
+        d.skills=d.skills.filter(s=>!publishedEntryMatches('skills',s,w));d.skills.push(publishedEntryFor('skills',w));
         sourceItem=w;label=w.name;
       }else if(kind==='spells'){
         const w=customContentById('spells',id);if(!w){toast(en?'Not found':'Introuvable');closeModal();return}
         if(w.domain&&!MAGIC_DOMAINS[w.domain]&&!d.magicDomains.some(t=>normName(t.name)===normName(w.domain)))d.magicDomains.push({name:w.domain});
-        if(!d.spells.some(s=>normName(s.name)===normName(w.name)))d.spells.push({name:w.name,domain:w.domain||'',text:w.text||''});
+        d.spells=d.spells.filter(s=>!publishedEntryMatches('spells',s,w));d.spells.push(publishedEntryFor('spells',w));
         sourceItem=w;label=w.name;
       }else if(kind==='skillTree'||kind==='magicDomain'){
         // V-OFFICIALIZEGROUP (Task #77): officialize a whole custom skill tree
@@ -6306,10 +6415,10 @@ async function confirmOfficializeItem(){
         const items=customBuilderItems(isSkill?'skills':'spells',parent);
         if(isSkill){
           if(!d.skillTrees.some(t=>normName(t.name)===normName(parent.name)))d.skillTrees.push({name:parent.name});
-          items.forEach(s=>{if(!d.skills.some(x=>normName(x.name)===normName(s.name)))d.skills.push({name:s.name,tree:parent.name,text:s.text||''});});
+          items.forEach(s=>{d.skills=d.skills.filter(x=>!publishedEntryMatches('skills',x,s));d.skills.push(publishedEntryFor('skills',{...s,tree:parent.name}));});
         }else{
           if(!d.magicDomains.some(t=>normName(t.name)===normName(parent.name)))d.magicDomains.push({name:parent.name});
-          items.forEach(s=>{if(!d.spells.some(x=>normName(x.name)===normName(s.name)))d.spells.push({name:s.name,domain:parent.name,text:s.text||''});});
+          items.forEach(s=>{d.spells=d.spells.filter(x=>!publishedEntryMatches('spells',x,s));d.spells.push(publishedEntryFor('spells',{...s,domain:parent.name}));});
         }
         sourceItem=parent;label=`${parent.name} (${items.length} ${isSkill?(en?'skills':'compétences'):(en?'spells':'sorts')})`;
         // V-OFFICIALIZEGROUPTAG (Task #83): tag every individual skill/spell
@@ -6364,6 +6473,137 @@ function officializeBtnMarkup(kind,id,officialWarbandId){
   const en=siteLanguage==='en';
   const title=officialWarbandId?(en?'Already attached — attach elsewhere / update':'Déjà rattaché — rattacher ailleurs / mettre à jour'):(en?'Officialize — attach to an official warband':'Officialiser — rattacher à une bande officielle');
   return `<button type="button" class="equipment-action" title="${esc(title)}" onclick="openOfficializeItemPicker('${kind}','${esc(id)}')">${officialWarbandId?'★':'☆'}</button>`;
+}
+/* V-PUBLISHEDITS: an item already published (★) used to stay frozen online
+   as it was at the moment it was officialized — editing the local Custom
+   copy afterwards only changed it on the admin's own account (who sees their
+   local copy first), so players kept the old version: e.g. an Animal still
+   recruitable by every warband after its Availability was restricted (the
+   creature push also never carried `factions`/`skills`/`market` at all), or
+   a rule whose new text never showed. Now:
+   - saving a published item pushes it to every official warband / base
+     faction that carries it (autoPushPublishedEdit);
+   - Custom → "⇪ Publish my edits" lists every published item whose online
+     copy differs from the local one, to push them in one go. Only entries
+     ALREADY present online are replaced — nothing is added anywhere new. */
+const PUBLISHED_FIELD={fighters:'warriors',equipment:'equipment',creatures:'creatures',traits:'traits',special:'specialRules',skills:'skills',spells:'spells'};
+function publishedEntryFor(kind,w){
+  if(kind==='fighters')return customFighterAsWarrior(w);
+  if(kind==='equipment')return {...w,archived:false,exclusiveWarbandId:null,officialWarbandId:null};
+  if(kind==='creatures')return {customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||'',naturalWeapons:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[],skills:Array.isArray(w.skills)?w.skills.slice():[],factions:Array.isArray(w.factions)?w.factions.slice():[],market:w.kind==='mount'?w.market!==false:false};
+  if(kind==='skills')return {name:w.name,tree:w.tree||'',text:w.text||''};
+  if(kind==='spells'){const o={name:w.name,domain:w.domain||'',text:w.text||''};if(w.profile)o.profile=w.profile;return o}
+  return {name:w.name,text:w.text||''};
+}
+function publishedEntryMatches(kind,e,w){
+  if(!e||typeof e!=='object')return false;
+  if(kind==='fighters')return !!w.customFighterId&&e.customFighterId===w.customFighterId;
+  if(kind==='equipment')return (!!w.customEquipmentId&&e.customEquipmentId===w.customEquipmentId)||(!!e.customEquipmentId&&normName(e.name)===normName(w.name));
+  if(kind==='creatures')return (!!w.customCreatureId&&e.customCreatureId===w.customCreatureId)||normName(e.name)===normName(w.name);
+  if(normName(e.name)!==normName(w.name))return false;
+  if(kind==='skills')return !e.tree||!w.tree||normName(e.tree)===normName(w.tree);
+  if(kind==='spells')return !e.domain||!w.domain||normName(e.domain)===normName(w.domain);
+  return true;
+}
+function publishedLocalItems(){
+  const out=[];
+  customFighterList().forEach(w=>out.push({kind:'fighters',w}));
+  customEquipmentList().forEach(w=>out.push({kind:'equipment',w}));
+  customCreatureList().forEach(w=>out.push({kind:'creatures',w}));
+  ['traits','skills','spells','special'].forEach(k=>customContentList(k).forEach(w=>out.push({kind:k,w})));
+  return out;
+}
+const PUBLISHED_VOLATILE=new Set(['updatedAt','archived','officialWarbandId','officialWarbandIds','bookFactionIds','exclusiveWarbandId']);
+function publishedStable(v){if(Array.isArray(v))return v.map(publishedStable);if(v&&typeof v==='object'){const o={};Object.keys(v).sort().forEach(k=>{if(v[k]!==undefined&&v[k]!==null&&!PUBLISHED_VOLATILE.has(k))o[k]=publishedStable(v[k])});return o}return v}
+// Compares what matters: equipment `factions` are rescoped server-side for
+// official warbands, so they're ignored for equipment only.
+function publishedDiffers(kind,online,local){
+  const a={...online},b={...local};if(kind==='equipment'){delete a.factions;delete b.factions}
+  return JSON.stringify(publishedStable(a))!==JSON.stringify(publishedStable(b));
+}
+// Every official warband definition (drafts too), plus base factions'
+// catalog overrides an item was attached to (bookFactionIds).
+async function publishedLoadTargets(onlyIds){
+  const {warbands}=await window.MordheimundaAPI.adminListWarbands();
+  const rows=(warbands||[]).filter(w=>!onlyIds||onlyIds.has(String(w.id)));
+  const out=[];
+  for(const row of rows){try{const r=await window.MordheimundaAPI.adminGetWarband(row.id);const full=r?.warband||r;if(full)out.push({id:String(row.id),name:row.name,status:row.status,full})}catch(e){}}
+  return out;
+}
+function publishedPlanFor(targets,items){
+  const plan=[];
+  targets.forEach(t=>{
+    items.forEach(({kind,w})=>{
+      const field=PUBLISHED_FIELD[kind];const list=Array.isArray(t.full[field])?t.full[field]:[];
+      const i=list.findIndex(e=>publishedEntryMatches(kind,e,w));if(i<0)return;
+      const entry=publishedEntryFor(kind,w);
+      if(publishedDiffers(kind,list[i],entry))plan.push({targetId:t.id,targetName:t.name,status:t.status,kind,w,entry});
+    });
+  });
+  return plan;
+}
+async function publishedApplyPlan(targets,plan){
+  let pushed=0;
+  for(const t of targets){
+    const mine=plan.filter(p=>p.targetId===t.id);if(!mine.length)continue;
+    const full=t.full;
+    const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
+    mine.forEach(p=>{const field=PUBLISHED_FIELD[p.kind];d[field]=d[field].map(e=>publishedEntryMatches(p.kind,e,p.w)?p.entry:e)});
+    await window.MordheimundaAPI.adminUpdateOfficialWarband(t.id,{...d,viaAdminEditor:true});pushed+=mine.length;
+  }
+  return pushed;
+}
+// Base book factions an item was attached to: its Base-catalog override
+// (fighters/rules) or the shared weapon override (equipment).
+async function publishedPushBook(kind,w){
+  const books=Array.isArray(w?.bookFactionIds)?w.bookFactionIds:[];if(!books.length)return 0;let n=0;
+  if(kind==='equipment'){const pool={...publishedEntryFor('equipment',w)};['customEquipmentId','factions','unrestricted','officialWarbandIds','archived','exclusiveWarbandId','officialWarbandId','bookFactionIds'].forEach(k=>delete pool[k]);pool.band=true;pool.market=w.market!==false&&!!w.market;await window.MordheimundaAPI.adminSaveWeaponOverride(w.name,pool);await loadWeaponOverrides();return 1}
+  const field=PUBLISHED_FIELD[kind];if(!field||kind==='creatures')return 0;
+  for(const fid of books){
+    const d=bookCatalogDefinition(fid);if(!d||!Array.isArray(d[field]))continue;
+    if(!d[field].some(e=>publishedEntryMatches(kind,e,w)))continue;
+    d[field]=d[field].map(e=>publishedEntryMatches(kind,e,w)?publishedEntryFor(kind,w):e);
+    await window.MordheimundaAPI.adminSaveCatalogOverride(fid,{warriors:d.warriors,equipment:d.equipment,bandRuleNames:d.bandRuleNames,traits:d.traits,specialRules:d.specialRules,skillTrees:d.skillTrees,skills:d.skills,magicDomains:d.magicDomains,spells:d.spells});n++;
+  }
+  if(n)await loadCatalogOverrides();
+  return n;
+}
+function publishedIsLinked(kind,w){
+  if(!w)return false;if(w.officialWarbandId||(w.officialWarbandIds||[]).length||(w.bookFactionIds||[]).length)return true;
+  return (D.factions||[]).some(f=>f.__official&&(f[PUBLISHED_FIELD[kind]]||[]).some(e=>publishedEntryMatches(kind,e,w)));
+}
+// Called right after a local save of a published item (admin only).
+async function autoPushPublishedEdit(kind,id){
+  if(!isAdminEditUI())return;
+  const en=siteLanguage==='en';
+  const finder={fighters:()=>customFighterById(id),equipment:()=>customEquipmentList().find(x=>x.customEquipmentId===id),creatures:()=>customCreatureById(id)}[kind];
+  const w=finder?finder():customContentById(kind,id);
+  if(!publishedIsLinked(kind,w))return;
+  try{
+    const targets=await publishedLoadTargets();
+    const plan=publishedPlanFor(targets,[{kind,w}]);
+    const n=await publishedApplyPlan(targets,plan)+await publishedPushBook(kind,w);
+    if(plan.length){adminOfficialCache=null;await loadOfficialWarbands();}
+    if(n)toast(en?`⇪ “${w.name}” updated online for every player`:`⇪ « ${w.name} » mis à jour en ligne pour tous les joueurs`);
+  }catch(e){toast((en?'Saved locally, but not online: ':'Enregistré localement, mais pas en ligne : ')+authError(e,en))}
+}
+let publishedEditsPending=null;
+async function openPublishEdits(){
+  const en=siteLanguage==='en';
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'PUBLISH MY EDITS':'PUBLIER MES MODIFICATIONS'}</div><h2>${en?'Comparing with what is online…':'Comparaison avec le contenu en ligne…'}</h2></div>`);
+  try{
+    const targets=await publishedLoadTargets();const plan=publishedPlanFor(targets,publishedLocalItems());
+    publishedEditsPending={targets,plan};
+    const rows=plan.map((p,i)=>`<label class="custom-check"><input type="checkbox" class="pubEditCheck" data-i="${i}" checked> <span><b>${esc(customCleanupTypeLabel(p.kind))} · ${esc(p.w.name)}</b><small>${esc(p.targetName)}${p.status&&p.status!=='published'?` (${esc(p.status)})`:''}</small></span></label>`).join('');
+    openModal(`<div class="delete-dialog" style="text-align:left"><div class="eyebrow">${en?'PUBLISH MY EDITS':'PUBLIER MES MODIFICATIONS'}</div><h2>${plan.length?(en?`${plan.length} published item${plan.length>1?'s':''} differ online`:`${plan.length} élément${plan.length>1?'s':''} publié${plan.length>1?'s':''} différent${plan.length>1?'s':''} en ligne`):(en?'Everything online is up to date':'Tout est à jour en ligne')}</h2><p class="muted">${en?'Your local Custom version replaces the online one, for every player. Untick anything you edited directly online (Admin → Manage) and want to keep.':'Ta version locale (Custom) remplace celle en ligne, pour tous les joueurs. Décoche ce que tu as modifié directement en ligne (Admin → Gestion) et veux garder.'}</p>${plan.length?`<div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;margin:10px 0">${rows}</div><button type="button" class="big-delete" style="background:var(--accent,#9dfa3c);color:#132007" onclick="confirmPublishEdits()">⇪ ${en?'PUBLISH':'PUBLIER'}</button>`:''}<button type="button" class="button secondary full" onclick="closeModal()">${en?'Close':'Fermer'}</button></div>`);
+  }catch(e){openModal(`<div class="delete-dialog"><p>${authError(e,en)}</p><button type="button" class="button secondary full" onclick="closeModal()">OK</button></div>`)}
+}
+async function confirmPublishEdits(){
+  const en=siteLanguage==='en';const pend=publishedEditsPending;if(!pend)return closeModal();
+  const keep=new Set([...document.querySelectorAll('.pubEditCheck:checked')].map(x=>Number(x.dataset.i)));
+  const plan=pend.plan.filter((_,i)=>keep.has(i));
+  try{const n=await publishedApplyPlan(pend.targets,plan);publishedEditsPending=null;adminOfficialCache=null;await loadOfficialWarbands();closeModal();render('custom');toast(en?`⇪ ${n} update${n!==1?'s':''} published`:`⇪ ${n} mise${n!==1?'s':''} à jour publiée${n!==1?'s':''}`)}
+  catch(e){toast(authError(e,en))}
 }
 /* ================= EDIT AN OFFICIAL WARBAND (same tool as custom) =========
    Rather than a second, parallel editor just for official content, editing
@@ -9601,13 +9841,13 @@ function rulesWarbandDetail(){
   // Recruit → Henchman → anything else), each group under a .role-head
   // divider, matching the approved mockup — previously one flat list in
   // catalog order.
-  const warriors=(f.warriors||[]).slice().sort((a,b)=>warbandRoleSortIndex(a.type)-warbandRoleSortIndex(b.type));
+  const warriors=(f.warriors||[]).filter(w=>!isHiredSword(w)).slice().sort((a,b)=>warbandRoleSortIndex(a.type)-warbandRoleSortIndex(b.type));
   let lastRole=null;
   const cards=warriors.map(w=>{
     const head=w.type!==lastRole?(lastRole=w.type,`<div class="role-head">${esc(w.type||(en?'Other':'Autre'))}</div>`):'';
     return head+fighterRuleCardMarkup(w,f);
   }).join('');
-  const combatantsSection=`<div class="section-block"><h2><span class="n">2</span>${en?'Fighters':'Combattants'}</h2><p style="font-size:11px;color:var(--muted2);margin:-4px 0 14px;font-style:italic">${en?'Visible without expanding: name, stats, cost and special rules. Three separate menus under each profile break down, by category, the skills, magic and equipment available at recruitment.':'Visible sans dérouler : nom, statistiques, coût et règles spéciales. Trois menus séparés sous chaque profil détaillent, par catégorie, les compétences, la magie et l’équipement disponibles à la création.'}</p>${cards||`<div class="empty">${en?'No fighter profile in this warband yet.':'Aucun profil de combattant dans cette warband pour l’instant.'}</div>`}</div>`;
+  const combatantsSection=`<div class="section-block"><h2><span class="n">2</span>${en?'Fighters':'Combattants'}</h2><p style="font-size:11px;color:var(--muted2);margin:-4px 0 14px;font-style:italic">${en?'Visible without expanding: name, stats, cost and special rules. Three separate menus under each profile break down, by category, the skills, magic and equipment available at recruitment.':'Visible sans dérouler : nom, statistiques, coût et règles spéciales. Trois menus séparés sous chaque profil détaillent, par catégorie, les compétences, la magie et l’équipement disponibles à la création.'}</p>${cards||`<div class="empty">${en?'No fighter profile in this warband yet.':'Aucun profil de combattant dans cette warband pour l’instant.'}</div>`}${hiredSwordRulesMarkup(f)}</div>`;
 
   // Section 3 — exclusive skill tree(s): each skill rendered as its own
   // full Référentiel card (referenceEntryMarkup — same name/category tag/
@@ -9835,7 +10075,7 @@ function setPostBattleWinner(value){const r=activeRoster();if(!r)return;const p=
 function rollPostBattleDie(i){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();if(!p.dice[i])return;p.dice[i].value=postBattleRoll();postBattleMarkDirty(p);save(true);render('builder')}
 function editPostBattleDie(i,value){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();const n=Math.floor(Number(value));if(Number.isInteger(n)&&n>=1&&n<=6)p.dice[i].value=n;else if(value==='')p.dice[i].value=null;postBattleMarkDirty(p);save(true);render('builder')}
 function togglePostBattleDie(i){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();if(!p.dice[i])return;const selected=p.dice.filter(d=>d.selected).length;if(!p.dice[i].selected&&selected>=6){toast(siteLanguage==='en'?'Maximum of 6 dice kept':'Maximum de 6 dés retenus');return}p.dice[i].selected=!p.dice[i].selected;postBattleMarkDirty(p);save(true);render('builder')}
-function applyPostBattleIncome(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);const dice=postBattleSelectedDice(p),sum=dice.reduce((a,b)=>a+b,0),shards=dice.length?postBattleShards(sum):0,sold=Math.min(Math.max(0,Number(p.soldShards||0)),shards);if(!dice.length){toast(siteLanguage==='en'?'Select at least one die':'Renseigne au moins un dé');return}const income= sold>0?postBattleIncomeMatrix(Math.max(1,r.fighters.length),sold).value:0;if(p.incomeApplied){toast(siteLanguage==='en'?'Income has already been applied for this result':'Le revenu a déjà été appliqué pour ce résultat');return}r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)+(shards-sold));r.gold=Math.max(0,Number(r.gold||0)+income);p.shards=shards;p.soldShards=sold;p.income=income;p.incomeApplied=true;save(true);render('builder');toast(siteLanguage==='en'?`Income applied: +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} kept`:`Income appliqué : +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} conservé${shards-sold!==1?'s':''}`)}
+function applyPostBattleIncome(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);const dice=postBattleSelectedDice(p),sum=dice.reduce((a,b)=>a+b,0),shards=dice.length?postBattleShards(sum):0,sold=Math.min(Math.max(0,Number(p.soldShards||0)),shards);if(!dice.length){toast(siteLanguage==='en'?'Select at least one die':'Renseigne au moins un dé');return}const income= sold>0?postBattleIncomeMatrix(Math.max(1,postBattleWarriorCount(r)),sold).value:0;if(p.incomeApplied){toast(siteLanguage==='en'?'Income has already been applied for this result':'Le revenu a déjà été appliqué pour ce résultat');return}r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)+(shards-sold));r.gold=Math.max(0,Number(r.gold||0)+income);p.shards=shards;p.soldShards=sold;p.income=income;p.incomeApplied=true;save(true);render('builder');toast(siteLanguage==='en'?`Income applied: +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} kept`:`Income appliqué : +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} conservé${shards-sold!==1?'s':''}`)}
 const EXPLORATION_LORE={
  doubles:{
   1:'The public wells, of which there were several in Mordheim, were covered by rooves raised up on pillars and adorned with carvings and fountains. The city was proud of its water system. Unfortunately, like all the other wells, this one is in a parlous state and undoubtedly polluted with wyrdstone.',
@@ -10039,14 +10279,14 @@ function applyExplorationReward(){
 }
 function clearExplorationReward(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r),e=p.exploration||{};r.gold=Math.max(0,Number(r.gold||0)-Number(e.gold||0));r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)-Number(e.wyrdstone||0));(e.rewards||[]).forEach(x=>{const hit=(r.reserve||[]).find(q=>q.name===x.name&&q.explorationReward);if(hit){hit.quantity=Math.max(0,Number(hit.quantity||1)-Number(x.quantity||1));if(hit.quantity===0)r.reserve.splice(r.reserve.indexOf(hit),1)}});(e.bonuses||[]).forEach(b=>{const stillUsed=(r.postBattle?.explorationBonuses||[]).some(q=>q.id===b.id);if(stillUsed)removeExplorationBonus(b.id)});p.exploration={resolved:false,rewards:[],notes:[],rolls:[],bonuses:[],stragglerChoice:null};save(true);render('builder')}
 function cashPostBattleWyrdstone(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r),dice=postBattleSelectedDice(p),sum=dice.reduce((a,b)=>a+b,0),shards=dice.length?postBattleShards(sum):0;if(!shards){toast(siteLanguage==='en'?'No wyrdstone result to put in reserve':'Aucun résultat de wyrdstone à mettre en réserve');return}r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)+shards);p.shards=shards;p.shardsCashed=false;p.soldShards=Math.min(Number(p.soldShards||0),r.wyrdstone);p.incomeApplied=false;save(true);render('builder');toast(siteLanguage==='en'?`+${shards} wyrdstone added to the stash`:`+${shards} wyrdstone ajouté à la réserve`)}
-function sellPostBattleWyrdstone(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r),sold=Math.max(0,Math.min(Math.floor(Number(p.soldShards||0)),Number(r.wyrdstone||0)));if(!sold){toast(siteLanguage==='en'?'Enter at least 1 shard to sell':'Indique au moins 1 shard à vendre');return}const income=postBattleIncomeMatrix(Math.max(1,r.fighters.length),sold).value;r.wyrdstone-=sold;r.gold+=income;p.income=income;p.incomeApplied=true;p.soldShards=sold;save(true);render('builder');toast(siteLanguage==='en'?`Sale: ${sold} shard${sold!==1?'s':''} · +${income} GC`:`Vente : ${sold} shard${sold!==1?'s':''} · +${income} GC`)}
+function sellPostBattleWyrdstone(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r),sold=Math.max(0,Math.min(Math.floor(Number(p.soldShards||0)),Number(r.wyrdstone||0)));if(!sold){toast(siteLanguage==='en'?'Enter at least 1 shard to sell':'Indique au moins 1 shard à vendre');return}const income=postBattleIncomeMatrix(Math.max(1,postBattleWarriorCount(r)),sold).value;r.wyrdstone-=sold;r.gold+=income;p.income=income;p.incomeApplied=true;p.soldShards=sold;save(true);render('builder');toast(siteLanguage==='en'?`Sale: ${sold} shard${sold!==1?'s':''} · +${income} GC`:`Vente : ${sold} shard${sold!==1?'s':''} · +${income} GC`)}
 // Step 3's three blocks (Exploration dice, Exploration, Selling wyrdstone)
 // fold like Steps 4/5 to save space. Open/closed is remembered per block;
 // clicks on a control inside the header don't fold it.
 let pbSubState=(()=>{try{return JSON.parse(restoreUiState('pbSubOpen','{}'))||{}}catch(e){return {}}})();
 function pbSubOpen(n){return pbSubState[n]!==false}
 function togglePbSub(n,e){if(e&&e.target?.closest?.('button,input,select,textarea,a,label'))return;pbSubState[n]=!pbSubOpen(n);try{persistUiState('pbSubOpen',JSON.stringify(pbSubState))}catch(err){}const el=document.querySelector(`[data-pb-sub="${n}"]`);if(el){el.classList.toggle('pb-collapsed',!pbSubOpen(n));el.querySelector('.pb-sub-head')?.setAttribute('aria-expanded',String(pbSubOpen(n)))}}
-function postBattleIncomeView(r,f){const en=siteLanguage==='en';const p=ensurePostBattleData(r),dice=postBattleDieRows(),selected=postBattleSelectedDice(p),sum=selected.reduce((a,b)=>a+b,0),shards=selected.length?postBattleShards(sum):0,warriors=Math.max(1,r.fighters.length),available=Number(r.wyrdstone||0),sold=Math.min(Number(p.soldShards||0),available),income=sold>0?postBattleIncomeMatrix(warriors,sold):null,exploration=postBattleExploration(p),allRolls=dice.filter(d=>Number.isInteger(Number(d.value))).map(d=>Number(d.value)),selectedCount=dice.filter(d=>d.selected).length,heroes=postBattleEligibleHeroes(r),stragglerChoice=p.exploration?.stragglerChoice||'',bonuses=explorationBonusList(r);return `<div class="postbattle-shell"><div class="postbattle-toolbar"><div><div class="eyebrow">POST-BATTLE / STEP 3</div><h3>Income & Exploration</h3><p>${en?'One die per Hero validated as a survivor, +1 die on a win, plus any extra dice allowed. Six dice maximum are kept.':'Un dé pour chaque Hero validé comme survivant, +1 dé en cas de victoire, puis les dés supplémentaires autorisés. Six dés maximum sont retenus.'}</p></div><button type="button" class="button danger-outline" onclick="resetPostBattle()">${en?'Reset':'Réinitialiser'}</button></div><div class="postbattle-grid"><section class="sheet-block postbattle-panel pb-sub${pbSubOpen('1')?'':' pb-collapsed'}" data-pb-sub="1"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('1')}" onclick="togglePbSub('1',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('1',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">1</b>${en?'Exploration Dice':'Dés d’Exploration'}</h4><small>${en?'Check exactly the Heroes who survived the battle. Henchmen don’t roll a die.':'Coche précisément les Heroes qui ont survécu à la bataille. Les Henchmen ne lancent pas de dé.'}</small></div><span class="postbattle-counter">${selectedCount}/6 ${en?'kept':'retenus'}</span></div><div class="postbattle-income-layout"><div class="postbattle-heroes-column"><div class="postbattle-hero-validation"><span class="postbattle-field-title">${en?'Heroes who survived':'Heroes ayant survécu'}</span>${heroes.length?heroes.map(x=>{const checked=p.survivingHeroIds.includes(x.instance);return `<label class="postbattle-hero-check"><input type="checkbox" ${checked?'checked':''} onchange="togglePostBattleHero('${x.instance}',this.checked)"><span><b>${esc(x.name)}</b><small>${esc(x.type||'Hero')}</small></span><em>✓</em></label>`}).join(''):`<div class="empty compact">${en?'No eligible Hero in the warband.':'Aucun Hero éligible dans la bande.'}</div>`}<small class="postbattle-help">${p.heroCount} Hero${p.heroCount!==1?'s':''} ${en?'validated':`validé${p.heroCount!==1?'s':''}`} → ${p.heroCount} ${en?`di${p.heroCount!==1?'ce':'e'}`:`dé${p.heroCount!==1?'s':''}`}.</small></div></div><div class="postbattle-roll-column"><div class="postbattle-dice-head"><span>${en?'Each die can be rolled or entered manually.':'Chaque dé peut être lancé ou saisi manuellement.'}</span></div><div class="postbattle-dice-list">${dice.length?dice.map((d,i)=>`<div class="postbattle-die ${d.selected?'selected':''} ${d.value?'rolled':''}"><button type="button" class="postbattle-select" title="${d.selected?(en?'Remove from the 6 kept dice':'Retirer des 6 dés retenus'):(en?'Keep this die':'Retenir ce dé')}" onclick="togglePostBattleDie(${i})">${d.selected?'✓':'○'}</button><span class="postbattle-die-source">${esc(d.source||(en?'Die':'Dé'))}</span><input class="postbattle-die-input" type="number" min="1" max="6" placeholder="–" value="${d.value??''}" onchange="editPostBattleDie(${i},this.value)"><button type="button" class="button secondary small" onclick="rollPostBattleDie(${i})">🎲 ${d.value?(en?'Reroll':'Relancer'):(en?'Roll':'Lancer')}</button></div>`).join(''):`<div class="empty compact">${en?'Check at least one surviving Hero to generate the dice.':'Coche au moins un Hero survivant pour générer les dés.'}</div>`}</div></div><div class="postbattle-bonus-controls"><label class="postbattle-check"><input type="checkbox" ${p.winner?'checked':''} onchange="setPostBattleWinner(this.checked)"><span>${en?'Won the last battle':'Victoire de la dernière bataille'} <b>+1 ${en?'die':'dé'}</b></span></label><label><span>${en?'Extra dice':'Dés supplémentaires'}</span><input type="number" min="0" max="20" value="${p.extraDice}" onchange="setPostBattleNumber('extraDice',this.value)"><small>${en?'Skills, equipment or any other allowed bonus':'Compétences, équipement ou autre bonus autorisé'}</small></label></div></div><div class="postbattle-summary"><div><span>${en?'Dice generated':'Dés générés'}</span><strong>${dice.length}</strong></div><div><span>${en?'Dice filled in':'Dés renseignés'}</span><strong>${allRolls.length}</strong></div><div><span>${en?'Dice kept':'Dés retenus'}</span><strong>${selected.length}</strong></div><div><span>${en?'Total':'Total'}</span><strong>${selected.length?sum:'—'}</strong></div><div><span>${en?'Shards found':'Shards trouvés'}</span><strong>${selected.length?shards:'—'}</strong></div></div></section><section class="sheet-block postbattle-panel pb-sub${pbSubOpen('2')?'':' pb-collapsed'}" data-pb-sub="2"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('2')}" onclick="togglePbSub('2',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('2',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">2</b>${en?'Exploration':'Exploration'}</h4><small>${en?'The most numerous multiple wins; ties keep the highest result.':'Le multiple le plus nombreux prime ; à égalité, le résultat le plus élevé est retenu.'}</small></div></div>${exploration?`<div class="exploration-result"><div class="exploration-badge">${exploration.count===2?'DOUBLE':exploration.count===3?'TRIPLE':exploration.count===4?(en?'QUADRUPLE':'QUATRE'):exploration.count===5?(en?'QUINTUPLE':'CINQ'):(en?'SEXTUPLE':'SIX')} · ${exploration.face}</div><h3>${esc(exploration.result.name)}</h3><p class="exploration-lore"><em>${esc(frData(`explore-lore:${exploration.tier}:${exploration.face}`,EXPLORATION_LORE[exploration.tier][exploration.face]))}</em></p><div class="exploration-effect"><strong>${en?'Rules / resolution':'Règles / résolution'}</strong><p>${esc(frData(`explore:${exploration.tier}:${exploration.face}`,exploration.result.text))}</p></div>${exploration.tier==='doubles'&&exploration.face===4&&explorationIsUndead(r)?`<div class="exploration-choice"><strong>${en?'Straggler — Undead warband choice':'Straggler — choix de la bande Undead'}</strong><div><button class="button secondary ${stragglerChoice==='skeleton'?'active':''}" onclick="setStragglerChoice('skeleton')">☠ Skeleton Warrior</button><button class="button secondary ${stragglerChoice==='zombie'?'active':''}" onclick="setStragglerChoice('zombie')">🧟 Zombie Warrior</button></div></div>`:''}${exploration.tier==='triples'&&exploration.face===3&&explorationIsUndead(r)?`<div class="exploration-choice"><strong>${en?'Prisoners — Undead warband choice':'Prisonniers — choix de la bande Undead'}</strong><div><button class="button secondary ${stragglerChoice==='skeleton'?'active':''}" onclick="setStragglerChoice('skeleton')">☠ Skeleton Warrior</button><button class="button secondary ${stragglerChoice==='zombie'?'active':''}" onclick="setStragglerChoice('zombie')">🧟 Zombie Warrior</button></div></div>`:''}<button type="button" class="button primary" onclick="applyExplorationReward()">🎲 ${en?`Automatically resolve ${esc(exploration.result.name)}’s rewards`:`Résoudre automatiquement les récompenses de ${esc(exploration.result.name)}`}</button><small class="exploration-repeat-help">${en?'This result stays available: you can reroll the rewards or pick a new option without undoing the previous one.':'Cette résolution reste disponible : tu peux relancer les récompenses ou choisir une nouvelle option sans annuler la précédente.'}</small></div>`:`<div class="empty compact"><strong>${en?'No unusual location detected.':'Aucun lieu inhabituel détecté.'}</strong><span>${en?'Fill in at least two matching dice to display the matching entry.':'Renseigne au moins deux dés identiques pour afficher l’entrée correspondante.'}</span></div>`}${selected.length?`<div class="shard-result"><span>${en?'Table result':'Résultat de la table'}</span><strong>${shards} ${en?`wyrdstone shard${shards!==1?'s':''}`:`shard${shards!==1?'s':''} de wyrdstone`}</strong><button type="button" class="button primary small" onclick="cashPostBattleWyrdstone()">＋ ${en?'Put this wyrdstone in stock':'Mettre ces wyrdstone en réserve'}</button><small>${en?'Adds this result to the warband’s Wyrdstone stock. You can click again to add the pool again.':'Ajoute ce résultat à la réserve Wyrdstone de la bande. Tu peux recliquer pour ajouter à nouveau la pool.'}</small></div>`:''}${bonuses.length?`<div class="exploration-bonus-strip"><div class="exploration-bonus-title"><span>${en?'UNLOCKED EXPLORATION EFFECTS':'EFFETS D’EXPLORATION DÉBLOQUÉS'}</span><small>${en?'These effects stay tied to the warband until removed.':'Ces effets restent liés à la bande jusqu’à leur suppression.'}</small></div>${bonuses.map(b=>`<div class="exploration-bonus"><span class="exploration-bonus-icon">${b.icon}</span><div><strong>${esc(b.label)}</strong><small>${esc(b.description)}</small></div><button type="button" class="equipment-action remove" title="${en?'Remove this bonus':'Supprimer ce bonus'}" onclick="removeExplorationBonus('${b.id}')">🗑</button></div>`).join('')}</div>`:''}</section></div><section class="sheet-block postbattle-panel pb-sub${pbSubOpen('3')?'':' pb-collapsed'}" data-pb-sub="3"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('3')}" onclick="togglePbSub('3',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('3',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">3</b>${en?'Selling wyrdstone':'Vente de wyrdstone'}</h4><small>${en?'The table uses the number of warriors and the number of shards sold.':'Le tableau utilise le nombre de guerriers et le nombre de shards vendus.'}</small></div><span class="postbattle-counter">${available} shard${available!==1?'s':''} ${en?'available':'disponibles'}</span></div><div class="postbattle-controls income-controls"><div class="postbattle-readonly"><span>${en?'Warriors in the warband':'Guerriers dans la bande'}</span><strong>${warriors}</strong><small>${en?'Calculated automatically from the roster.':'Calculé automatiquement depuis le roster.'}</small></div><label><span>${en?'Shards sold':'Shards vendus'}</span><input type="number" min="0" max="${available}" value="${sold}" onchange="setPostBattleNumber('soldShards',this.value)" ${available?'':'disabled'}><small>${en?'The sale uses the Wyrdstone currently in stock.':'La vente utilise le Wyrdstone actuellement en réserve.'}</small></label><div class="income-total"><span>${en?'Calculated profit':'Profit calculé'}</span><strong>${income?income.value:0} GC</strong></div></div><div class="income-apply-row"><button type="button" class="button primary" onclick="sellPostBattleWyrdstone()" ${sold>0&&!p.incomeApplied?'':'disabled'}>${p.incomeApplied?(en?'✓ Sale applied':'✓ Vente appliquée'):(en?'💰 Sell the selected shards':'💰 Vendre les shards sélectionnés')}</button><span>${p.incomeApplied?(en?`Last sale: ${p.soldShards} shard${p.soldShards!==1?'s':''} · +${p.income} GC.`:`Dernière vente : ${p.soldShards} shard${p.soldShards!==1?'s':''} · +${p.income} GC.`):(en?'The amount will be removed from the Wyrdstone stock and added to the Treasury.':'Le montant sera retiré de la réserve Wyrdstone et ajouté au Trésor.')}</span></div><div class="income-table-wrap"><table class="postbattle-income-table"><thead><tr><th>${en?'Warriors':'Guerriers'}</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8+</th></tr></thead><tbody>${[['1–3',45,60,75,90,110,120,145,155],['4–6',40,55,70,80,100,110,130,140],['7–9',35,50,65,70,90,100,120,130],['10–12',30,45,60,65,80,90,110,120],['13–15',30,40,55,60,70,80,100,110],['16+',25,35,50,55,65,70,90,100]].map((row,i)=>`<tr class="${warriors>=1&&((i===0&&warriors<=3)||(i===1&&warriors>=4&&warriors<=6)||(i===2&&warriors>=7&&warriors<=9)||(i===3&&warriors>=10&&warriors<=12)||(i===4&&warriors>=13&&warriors<=15)||(i===5&&warriors>=16))?'current':''}">${row.map((v,j)=>j===0?`<th>${v}</th>`:`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section></div>`}
+function postBattleIncomeView(r,f){const en=siteLanguage==='en';const p=ensurePostBattleData(r),dice=postBattleDieRows(),selected=postBattleSelectedDice(p),sum=selected.reduce((a,b)=>a+b,0),shards=selected.length?postBattleShards(sum):0,warriors=Math.max(1,postBattleWarriorCount(r)),available=Number(r.wyrdstone||0),sold=Math.min(Number(p.soldShards||0),available),income=sold>0?postBattleIncomeMatrix(warriors,sold):null,exploration=postBattleExploration(p),allRolls=dice.filter(d=>Number.isInteger(Number(d.value))).map(d=>Number(d.value)),selectedCount=dice.filter(d=>d.selected).length,heroes=postBattleEligibleHeroes(r),stragglerChoice=p.exploration?.stragglerChoice||'',bonuses=explorationBonusList(r);return `<div class="postbattle-shell"><div class="postbattle-toolbar"><div><div class="eyebrow">POST-BATTLE / STEP 3</div><h3>Income & Exploration</h3><p>${en?'One die per Hero validated as a survivor, +1 die on a win, plus any extra dice allowed. Six dice maximum are kept.':'Un dé pour chaque Hero validé comme survivant, +1 dé en cas de victoire, puis les dés supplémentaires autorisés. Six dés maximum sont retenus.'}</p></div><button type="button" class="button danger-outline" onclick="resetPostBattle()">${en?'Reset':'Réinitialiser'}</button></div><div class="postbattle-grid"><section class="sheet-block postbattle-panel pb-sub${pbSubOpen('1')?'':' pb-collapsed'}" data-pb-sub="1"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('1')}" onclick="togglePbSub('1',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('1',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">1</b>${en?'Exploration Dice':'Dés d’Exploration'}</h4><small>${en?'Check exactly the Heroes who survived the battle. Henchmen don’t roll a die.':'Coche précisément les Heroes qui ont survécu à la bataille. Les Henchmen ne lancent pas de dé.'}</small></div><span class="postbattle-counter">${selectedCount}/6 ${en?'kept':'retenus'}</span></div><div class="postbattle-income-layout"><div class="postbattle-heroes-column"><div class="postbattle-hero-validation"><span class="postbattle-field-title">${en?'Heroes who survived':'Heroes ayant survécu'}</span>${heroes.length?heroes.map(x=>{const checked=p.survivingHeroIds.includes(x.instance);return `<label class="postbattle-hero-check"><input type="checkbox" ${checked?'checked':''} onchange="togglePostBattleHero('${x.instance}',this.checked)"><span><b>${esc(x.name)}</b><small>${esc(x.type||'Hero')}</small></span><em>✓</em></label>`}).join(''):`<div class="empty compact">${en?'No eligible Hero in the warband.':'Aucun Hero éligible dans la bande.'}</div>`}<small class="postbattle-help">${p.heroCount} Hero${p.heroCount!==1?'s':''} ${en?'validated':`validé${p.heroCount!==1?'s':''}`} → ${p.heroCount} ${en?`di${p.heroCount!==1?'ce':'e'}`:`dé${p.heroCount!==1?'s':''}`}.</small></div></div><div class="postbattle-roll-column"><div class="postbattle-dice-head"><span>${en?'Each die can be rolled or entered manually.':'Chaque dé peut être lancé ou saisi manuellement.'}</span></div><div class="postbattle-dice-list">${dice.length?dice.map((d,i)=>`<div class="postbattle-die ${d.selected?'selected':''} ${d.value?'rolled':''}"><button type="button" class="postbattle-select" title="${d.selected?(en?'Remove from the 6 kept dice':'Retirer des 6 dés retenus'):(en?'Keep this die':'Retenir ce dé')}" onclick="togglePostBattleDie(${i})">${d.selected?'✓':'○'}</button><span class="postbattle-die-source">${esc(d.source||(en?'Die':'Dé'))}</span><input class="postbattle-die-input" type="number" min="1" max="6" placeholder="–" value="${d.value??''}" onchange="editPostBattleDie(${i},this.value)"><button type="button" class="button secondary small" onclick="rollPostBattleDie(${i})">🎲 ${d.value?(en?'Reroll':'Relancer'):(en?'Roll':'Lancer')}</button></div>`).join(''):`<div class="empty compact">${en?'Check at least one surviving Hero to generate the dice.':'Coche au moins un Hero survivant pour générer les dés.'}</div>`}</div></div><div class="postbattle-bonus-controls"><label class="postbattle-check"><input type="checkbox" ${p.winner?'checked':''} onchange="setPostBattleWinner(this.checked)"><span>${en?'Won the last battle':'Victoire de la dernière bataille'} <b>+1 ${en?'die':'dé'}</b></span></label><label><span>${en?'Extra dice':'Dés supplémentaires'}</span><input type="number" min="0" max="20" value="${p.extraDice}" onchange="setPostBattleNumber('extraDice',this.value)"><small>${en?'Skills, equipment or any other allowed bonus':'Compétences, équipement ou autre bonus autorisé'}</small></label></div></div><div class="postbattle-summary"><div><span>${en?'Dice generated':'Dés générés'}</span><strong>${dice.length}</strong></div><div><span>${en?'Dice filled in':'Dés renseignés'}</span><strong>${allRolls.length}</strong></div><div><span>${en?'Dice kept':'Dés retenus'}</span><strong>${selected.length}</strong></div><div><span>${en?'Total':'Total'}</span><strong>${selected.length?sum:'—'}</strong></div><div><span>${en?'Shards found':'Shards trouvés'}</span><strong>${selected.length?shards:'—'}</strong></div></div></section><section class="sheet-block postbattle-panel pb-sub${pbSubOpen('2')?'':' pb-collapsed'}" data-pb-sub="2"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('2')}" onclick="togglePbSub('2',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('2',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">2</b>${en?'Exploration':'Exploration'}</h4><small>${en?'The most numerous multiple wins; ties keep the highest result.':'Le multiple le plus nombreux prime ; à égalité, le résultat le plus élevé est retenu.'}</small></div></div>${exploration?`<div class="exploration-result"><div class="exploration-badge">${exploration.count===2?'DOUBLE':exploration.count===3?'TRIPLE':exploration.count===4?(en?'QUADRUPLE':'QUATRE'):exploration.count===5?(en?'QUINTUPLE':'CINQ'):(en?'SEXTUPLE':'SIX')} · ${exploration.face}</div><h3>${esc(exploration.result.name)}</h3><p class="exploration-lore"><em>${esc(frData(`explore-lore:${exploration.tier}:${exploration.face}`,EXPLORATION_LORE[exploration.tier][exploration.face]))}</em></p><div class="exploration-effect"><strong>${en?'Rules / resolution':'Règles / résolution'}</strong><p>${esc(frData(`explore:${exploration.tier}:${exploration.face}`,exploration.result.text))}</p></div>${exploration.tier==='doubles'&&exploration.face===4&&explorationIsUndead(r)?`<div class="exploration-choice"><strong>${en?'Straggler — Undead warband choice':'Straggler — choix de la bande Undead'}</strong><div><button class="button secondary ${stragglerChoice==='skeleton'?'active':''}" onclick="setStragglerChoice('skeleton')">☠ Skeleton Warrior</button><button class="button secondary ${stragglerChoice==='zombie'?'active':''}" onclick="setStragglerChoice('zombie')">🧟 Zombie Warrior</button></div></div>`:''}${exploration.tier==='triples'&&exploration.face===3&&explorationIsUndead(r)?`<div class="exploration-choice"><strong>${en?'Prisoners — Undead warband choice':'Prisonniers — choix de la bande Undead'}</strong><div><button class="button secondary ${stragglerChoice==='skeleton'?'active':''}" onclick="setStragglerChoice('skeleton')">☠ Skeleton Warrior</button><button class="button secondary ${stragglerChoice==='zombie'?'active':''}" onclick="setStragglerChoice('zombie')">🧟 Zombie Warrior</button></div></div>`:''}<button type="button" class="button primary" onclick="applyExplorationReward()">🎲 ${en?`Automatically resolve ${esc(exploration.result.name)}’s rewards`:`Résoudre automatiquement les récompenses de ${esc(exploration.result.name)}`}</button><small class="exploration-repeat-help">${en?'This result stays available: you can reroll the rewards or pick a new option without undoing the previous one.':'Cette résolution reste disponible : tu peux relancer les récompenses ou choisir une nouvelle option sans annuler la précédente.'}</small></div>`:`<div class="empty compact"><strong>${en?'No unusual location detected.':'Aucun lieu inhabituel détecté.'}</strong><span>${en?'Fill in at least two matching dice to display the matching entry.':'Renseigne au moins deux dés identiques pour afficher l’entrée correspondante.'}</span></div>`}${selected.length?`<div class="shard-result"><span>${en?'Table result':'Résultat de la table'}</span><strong>${shards} ${en?`wyrdstone shard${shards!==1?'s':''}`:`shard${shards!==1?'s':''} de wyrdstone`}</strong><button type="button" class="button primary small" onclick="cashPostBattleWyrdstone()">＋ ${en?'Put this wyrdstone in stock':'Mettre ces wyrdstone en réserve'}</button><small>${en?'Adds this result to the warband’s Wyrdstone stock. You can click again to add the pool again.':'Ajoute ce résultat à la réserve Wyrdstone de la bande. Tu peux recliquer pour ajouter à nouveau la pool.'}</small></div>`:''}${bonuses.length?`<div class="exploration-bonus-strip"><div class="exploration-bonus-title"><span>${en?'UNLOCKED EXPLORATION EFFECTS':'EFFETS D’EXPLORATION DÉBLOQUÉS'}</span><small>${en?'These effects stay tied to the warband until removed.':'Ces effets restent liés à la bande jusqu’à leur suppression.'}</small></div>${bonuses.map(b=>`<div class="exploration-bonus"><span class="exploration-bonus-icon">${b.icon}</span><div><strong>${esc(b.label)}</strong><small>${esc(b.description)}</small></div><button type="button" class="equipment-action remove" title="${en?'Remove this bonus':'Supprimer ce bonus'}" onclick="removeExplorationBonus('${b.id}')">🗑</button></div>`).join('')}</div>`:''}</section></div><section class="sheet-block postbattle-panel pb-sub${pbSubOpen('3')?'':' pb-collapsed'}" data-pb-sub="3"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('3')}" onclick="togglePbSub('3',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('3',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">3</b>${en?'Selling wyrdstone':'Vente de wyrdstone'}</h4><small>${en?'The table uses the number of warriors and the number of shards sold.':'Le tableau utilise le nombre de guerriers et le nombre de shards vendus.'}</small></div><span class="postbattle-counter">${available} shard${available!==1?'s':''} ${en?'available':'disponibles'}</span></div><div class="postbattle-controls income-controls"><div class="postbattle-readonly"><span>${en?'Warriors in the warband':'Guerriers dans la bande'}</span><strong>${warriors}</strong><small>${en?'Calculated automatically from the roster.':'Calculé automatiquement depuis le roster.'}</small></div><label><span>${en?'Shards sold':'Shards vendus'}</span><input type="number" min="0" max="${available}" value="${sold}" onchange="setPostBattleNumber('soldShards',this.value)" ${available?'':'disabled'}><small>${en?'The sale uses the Wyrdstone currently in stock.':'La vente utilise le Wyrdstone actuellement en réserve.'}</small></label><div class="income-total"><span>${en?'Calculated profit':'Profit calculé'}</span><strong>${income?income.value:0} GC</strong></div></div><div class="income-apply-row"><button type="button" class="button primary" onclick="sellPostBattleWyrdstone()" ${sold>0&&!p.incomeApplied?'':'disabled'}>${p.incomeApplied?(en?'✓ Sale applied':'✓ Vente appliquée'):(en?'💰 Sell the selected shards':'💰 Vendre les shards sélectionnés')}</button><span>${p.incomeApplied?(en?`Last sale: ${p.soldShards} shard${p.soldShards!==1?'s':''} · +${p.income} GC.`:`Dernière vente : ${p.soldShards} shard${p.soldShards!==1?'s':''} · +${p.income} GC.`):(en?'The amount will be removed from the Wyrdstone stock and added to the Treasury.':'Le montant sera retiré de la réserve Wyrdstone et ajouté au Trésor.')}</span></div><div class="income-table-wrap"><table class="postbattle-income-table"><thead><tr><th>${en?'Warriors':'Guerriers'}</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8+</th></tr></thead><tbody>${[['1–3',45,60,75,90,110,120,145,155],['4–6',40,55,70,80,100,110,130,140],['7–9',35,50,65,70,90,100,120,130],['10–12',30,45,60,65,80,90,110,120],['13–15',30,40,55,60,70,80,100,110],['16+',25,35,50,55,65,70,90,100]].map((row,i)=>`<tr class="${warriors>=1&&((i===0&&warriors<=3)||(i===1&&warriors>=4&&warriors<=6)||(i===2&&warriors>=7&&warriors<=9)||(i===3&&warriors>=10&&warriors<=12)||(i===4&&warriors>=13&&warriors<=15)||(i===5&&warriors>=16))?'current':''}">${row.map((v,j)=>j===0?`<th>${v}</th>`:`<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>${hiredSwordUpkeepPanelMarkup(r)}</div>`}
 // ===== Step 4: post-battle actions (V-PBACTIONS) =====
 // Each Leader/Champion not In Recovery, Captured, Critical or dead picks one
 // action. Choices live in r.postBattle.actions (keyed by fighter instance)
@@ -10308,7 +10548,7 @@ function championLimitForRoster(r){return 2+Math.floor(Math.max(0,Number(r?.repu
 // section on the roster page (that's a presentation grouping, not a rules
 // category) and is still excluded from Experience/advances (separately
 // handled by advancementEligible, since War Beasts "never gain experience").
-function compositionCounts(r){const fighters=Array.isArray(r?.fighters)?r.fighters:[];return {champions:fighters.filter(x=>advancementRole(x)==='Champion'||x.type==='Champion').length,henchmen:fighters.filter(x=>fighterSourceType(x)==='Henchman'||x.type==='Henchman'||x.type==='Animal').length,other:fighters.filter(x=>{const role=advancementRole(x);return role!=='Henchman'&&role!=='Champion'&&x.type!=='Henchman'&&x.type!=='Champion'&&x.type!=='Animal'}).length};}
+function compositionCounts(r){const fighters=(Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x));return {champions:fighters.filter(x=>advancementRole(x)==='Champion'||x.type==='Champion').length,henchmen:fighters.filter(x=>fighterSourceType(x)==='Henchman'||x.type==='Henchman'||x.type==='Animal').length,other:fighters.filter(x=>{const role=advancementRole(x);return role!=='Henchman'&&role!=='Champion'&&x.type!=='Henchman'&&x.type!=='Champion'&&x.type!=='Animal'}).length};}
 function recruitmentRestriction(r,w){const en=siteLanguage==='en';if(!r||!w)return null;const counts=compositionCounts(r);const role=w.type==='Raw Recruit'?'Juves':(w.type==='Animal'?'Henchman':w.type);const limit=championLimitForRoster(r);if(role==='Champion'&&counts.champions>=limit)return en?`Champion limit reached: ${counts.champions}/${limit} (Reputation ${Number(r.reputation||0)})`:`Limite de Champions atteinte : ${counts.champions}/${limit} (Réputation ${Number(r.reputation||0)})`;if(role!=='Henchman'&&role!=='Champion'&&counts.henchmen<counts.other+1&&r.fighters.length>0)return en?`You need at least as many Henchmen as other warriors (${counts.henchmen} Henchmen / ${counts.other} others)`:`Il faut au moins autant de Henchmen que d'autres guerriers (${counts.henchmen} Henchmen / ${counts.other} autres)`;if(role==='Champion'&&counts.henchmen<counts.other+1&&r.fighters.length>0)return en?`You need at least as many Henchmen as other warriors (${counts.henchmen} Henchmen / ${counts.other} others)`:`Il faut au moins autant de Henchmen que d'autres guerriers (${counts.henchmen} Henchmen / ${counts.other} autres)`;return null;}
 function recruitmentCompositionNotice(r){const en=siteLanguage==='en';const c=compositionCounts(r),limit=championLimitForRoster(r),valid=c.henchmen>=c.other;return `<div class="recruit-composition-notice ${valid?'valid':'warning'}"><div><strong>${en?'COMPOSITION · REPUTATION':'COMPOSITION · RÉPUTATION'} ${Number(r.reputation||0)}</strong><small>Champions : ${c.champions}/${limit} · Henchmen : ${c.henchmen} · ${en?'Others':'Autres'} : ${c.other}</small></div>${valid?`<span>✓ ${en?'Valid composition':'Composition valide'}</span>`:`<span>⚠ ${en?`Missing ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''}`:`Il manque ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''}`}</span>`}</div>`;}
 // V-LEGALWARBANDPOPUP: recruiting/removing a fighter used to be hard-blocked
@@ -10369,7 +10609,165 @@ function historyView(r){
   return `<div class="roster-toolbar"><div><div class="eyebrow">HISTORIQUE</div><h3>Historique de la bande</h3><p>Journal de toutes les modifications apportées à cette bande — recrutement, trésorerie, équipement, paramètres.</p></div></div>${chips}<div class="hist-body">${body}</div>`;
 }
 function campaignView(r){const en=siteLanguage==='en';return `<div class="roster-toolbar"><div><div class="eyebrow">${en?'CAMPAIGN':'CAMPAGNE'}</div><h3>${en?'Campaign':'Campagne'}</h3><p>${en?'Track the warband within a campaign (standings, territories, rivalries).':'Suivi de la bande au sein d’une campagne (classement, territoires, rivalités).'}</p></div></div><div class="empty large"><strong>${en?'No campaign linked to this warband yet.':'Aucune campagne liée à cette bande pour l’instant.'}</strong><span>${en?'Campaign management (standings between warbands, territories, rivalries) is coming in a future update.':'La gestion de campagne (classement entre bandes, territoires, rivalités) arrive dans une prochaine mise à jour.'}</span></div>`}
-function recruitmentView(f){const en=siteLanguage==='en';const r=activeRoster();return `<div class="recruit-head"><div><div class="eyebrow">${en?'RECRUITMENT':'RECRUTEMENT'} / ${esc(f.displayName)}</div><h3>${en?'Recruit a fighter':'Recruter un combattant'}</h3><p>${en?'Recruiting adds the fighter to the warband without opening their sheet. Open their card afterward from the roster.':'Le recrutement ajoute le combattant à la bande sans ouvrir sa fiche. Ouvre ensuite sa carte depuis le roster.'}</p></div></div>${recruitmentCompositionNotice(r)}<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label></div><div class="fighter-pool" id="fighterPool">${fighterPool(f)}</div>`}
+/* ================= HIRED SWORDS (V-HIREDSWORDS) ============================
+   Built in Custom → 🗡 Hired Swords (customFighterForm in HS mode), hired
+   from Recruitment → Hired Swords by the warbands it's assigned to
+   (hsFactions, empty = every warband), one copy per warband.
+   - Neither hero nor henchman: own "Hired Sword" category, left out of the
+     warband composition counts; gains XP/advances on the Heroes' table with
+     its own skill trees.
+   - Hire cost paid once (fixed equipment and hire choices included), upkeep
+     paid at each post-battle Income step. Unpaid → it leaves: kept greyed in
+     the roster (stats/XP kept), rehireable at its base price.
+   - No value of its own (it and its gear count 0); while in the warband it
+     adds half its hire cost to the warband value.
+   - Fixed equipment: can't be removed, sold, given or added to; only the
+     hire choices can be changed. No Market access.
+   Published (☆) like any custom fighter — attach it to "No warband" so every
+   player gets it; the published copy is read from any official warband. */
+let recruitPoolTab='fighters';
+function isHiredSword(x){return !!x&&(x.hiredSword===true||x.type==='Hired Sword')}
+function hiredSwordRatingShare(x){return isHiredSword(x)&&!x.hsLeft&&!fighterStatus(x).dead?Math.floor(Number(x.cost||0)/2):0}
+function postBattleWarriorCount(r){return (r?.fighters||[]).filter(x=>!(isHiredSword(x)&&x.hsLeft)).length}
+// Every Hired Sword profile: this account's Custom ones first, then the
+// published ones (any official warband or the shared pool).
+function hiredSwordRawList(){
+  const out=[],ids=new Set(),names=new Set();
+  const add=w=>{if(!w||!isHiredSword(w)||w.archived)return;const id=w.customFighterId||w.id;if(id&&ids.has(id))return;if(names.has(normName(w.name)))return;if(id)ids.add(id);names.add(normName(w.name));out.push(w)};
+  customFighterList().forEach(add);
+  (D.factions||[]).forEach(f=>{if(f.__official)(f.warriors||[]).forEach(add)});
+  return out;
+}
+function hiredSwordRawById(id){if(!id)return null;return customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w))||hiredSwordRawList().find(w=>(w.customFighterId||w.id)===id)||null}
+function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
+function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId);return w?hiredSwordAsWarrior(w):null}
+function hiredSwordAvailableFor(w,f,r){
+  const list=Array.isArray(w?.hsFactions)?w.hsFactions:[];if(!list.length)return true;
+  const ids=new Set([f?.id,f?.displayName,f?.baseFactionId,r?.factionId,r?.customWarbandId?'custom-warband-'+r.customWarbandId:null].filter(Boolean).map(normName));
+  return list.some(id=>ids.has(normName(id)));
+}
+function hiredSwordsFor(f,r){return hiredSwordRawList().filter(w=>hiredSwordAvailableFor(w,f,r)).map(hiredSwordAsWarrior)}
+function hiredSwordInRoster(r,id){return (r?.fighters||[]).find(x=>isHiredSword(x)&&(x.customFighterId===id||x.wid===id))||null}
+function hiredSwordRecruitTabsMarkup(r,f){
+  const en=siteLanguage==='en';const n=hiredSwordsFor(f,r).length;
+  return `<div class="custom-top-tabs recruit-pool-tabs"><button type="button" class="custom-top-tab ${recruitPoolTab!=='hs'?'active':''}" onclick="setRecruitPoolTab('fighters')">${en?'Fighters':'Combattants'}</button><button type="button" class="custom-top-tab ${recruitPoolTab==='hs'?'active':''}" onclick="setRecruitPoolTab('hs')">🗡 Hired Swords · ${n}</button></div>`;
+}
+function setRecruitPoolTab(v){recruitPoolTab=v==='hs'?'hs':'fighters';render('builder')}
+function hiredSwordCostBoxes(hire,upkeep){const en=siteLanguage==='en';return `<div class="hs-cost-boxes"><div class="hs-cost-box"><small>${en?'HIRE':'EMBAUCHE'}</small><strong class="hs-gold">${Number(hire||0)} GC</strong></div><div class="hs-cost-box"><small>${en?'UPKEEP':'ENTRETIEN'}</small><strong class="hs-upkeep">${Number(upkeep||0)} GC</strong></div></div>`}
+function hiredSwordChoicesSummary(w){const en=siteLanguage==='en';return (w.hsChoices||[]).map(g=>`<span class="hs-choice-chip">+ ${g.label?esc(g.label)+' — ':''}${Number(g.count||1)} ${en?'of':'parmi'} ${(g.options||[]).map(esc).join(' / ')}</span>`).join('')}
+function hiredSwordPoolMarkup(r,f){
+  const en=siteLanguage==='en';const list=hiredSwordsFor(f,r);
+  const intro=`<p class="sheet-help">${en?`Only the Hired Swords assigned to <b>${esc(f.displayName)}</b> appear here. One copy of each per warband. They are neither Heroes nor Henchmen.`:`Seuls les Hired Swords attribués à <b>${esc(f.displayName)}</b> apparaissent ici. Un seul exemplaire de chacun par bande. Ils ne sont ni Heroes ni Henchmen.`}</p>`;
+  if(!list.length)return intro+`<div class="empty compact">${en?'No Hired Sword available for this warband yet.':'Aucun Hired Sword disponible pour cette bande pour l’instant.'}</div>`;
+  return intro+`<div class="fighter-pool"><div class="pool-grid">${list.map(w=>{
+    const owned=hiredSwordInRoster(r,w.customFighterId);const left=owned&&owned.hsLeft;
+    const fixed=(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('');
+    const btn=owned&&!left?`<button class="button secondary recruit-btn-full" type="button" disabled>${en?'Already in the warband':'Déjà dans la bande'}</button>`:left?`<button class="button primary recruit-btn-full hs-btn" type="button" onclick="rehireHiredSword('${esc(owned.instance)}')">${en?`Rehire — ${Number(w.cost||0)} GC`:`Réembaucher — ${Number(w.cost||0)} GC`}</button>`:`<button class="button primary recruit-btn-full hs-btn" type="button" onclick="hireHiredSword('${esc(w.customFighterId)}')">${en?`Hire — ${Number(w.cost||0)} GC`:`Embaucher — ${Number(w.cost||0)} GC`}</button>`;
+    return `<article class="fighter-card-v4 fighter-row hs-card ${owned&&!left?'maxed':''}"><div class="fighter-top"><div class="fighter-ident"><div class="fighter-sigil">🗡</div><div><div class="fighter-name-line"><h4>${esc(w.name)}</h4><span class="role-badge role-hired-sword">HIRED SWORD</span>${owned&&!left?`<span class="custom-armory-badge">${en?'IN THE WARBAND':'DANS LA BANDE'}</span>`:''}${left?`<span class="custom-armory-badge hs-left-badge">${en?'LEFT':'PARTI'}</span>`:''}</div><div class="fighter-subline">${esc(fighterRace(w,null))} · ${en?'1 per warband':'1 par bande'}</div></div></div>${hiredSwordCostBoxes(w.cost,w.upkeep)}</div>${profileMarkup(effectiveFighterProfile(w,f),0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">${en?'RULES':'RÈGLES'}</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')||'—'}</p></div>${fixed||(w.hsChoices||[]).length?`<div><span class="micro-label">${en?'EQUIPMENT (FIXED)':'ÉQUIPEMENT (FIXE)'}</span><p class="hs-gear-row">${fixed}${hiredSwordChoicesSummary(w)}</p></div>`:''}</div>${btn}</article>`;
+  }).join('')}</div></div>`;
+}
+// What a hire-choice option is: an item, a spell, or else a skill.
+function hiredSwordOptionKind(name,f){
+  if(D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name))return 'equipment';
+  const domains=customMergedMagicDomains(f);if(Object.values(domains||{}).some(list=>(list||[]).some(sp=>normName(typeof sp==='string'?sp:sp?.name)===normName(name))))return 'spell';
+  return 'skill';
+}
+function hiredSwordGearItem(name,extra){const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),hsFixed:true,...(extra||{})}}
+let hiredSwordPickTarget=null;
+function hiredSwordChoiceModal(w,current,onConfirm,title){
+  const en=siteLanguage==='en';
+  openModal(`<div class="wc-dialog"><div class="eyebrow">${esc(title)} · ${esc(w.name)}</div><h2>${en?'Choices at hire':'Choix à l’embauche'}</h2><p class="sheet-help">${en?'Included in the hire cost.':'Compris dans le coût d’embauche.'}</p>${(w.hsChoices||[]).map((g,gi)=>{const cur=new Set(((current||{})[gi]||[]).map(normName));const count=Math.max(1,Number(g.count||1));return `<div class="hs-choice-pick" data-g="${gi}" data-count="${count}"><div class="micro-label">${g.label?esc(g.label)+' · ':''}${en?`choose ${count}`:`en choisir ${count}`}</div>${(g.options||[]).map((o,oi)=>`<label class="custom-check"><input type="checkbox" class="hsPick" data-g="${gi}" value="${esc(o)}" ${cur.has(normName(o))||(!current&&count>=(g.options||[]).length)?'checked':''} onchange="hiredSwordLimitPick(this)"> <span>${esc(o)}</span></label>`).join('')}</div>`}).join('')}<div class="custom-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="${onConfirm}">${en?'Confirm':'Valider'}</button></div></div>`);
+}
+function hiredSwordLimitPick(el){const box=el.closest('.hs-choice-pick');const max=Number(box?.dataset.count||1);const checked=[...box.querySelectorAll('.hsPick:checked')];if(checked.length>max){checked.filter(c=>c!==el).slice(0,checked.length-max).forEach(c=>c.checked=false)}}
+function hiredSwordReadPicks(w){const out={};let ok=true;(w.hsChoices||[]).forEach((g,gi)=>{const vals=[...document.querySelectorAll(`.hsPick[data-g="${gi}"]:checked`)].map(x=>x.value);if(vals.length!==Math.min(Math.max(1,Number(g.count||1)),(g.options||[]).length))ok=false;out[gi]=vals});return ok?out:null}
+function hiredSwordApplyPicks(x,w,picks,f){
+  // Remove what earlier picks granted, then grant the new ones.
+  const prev=x.hsPicks||{};const prevNames=Object.values(prev).flat().map(normName);
+  x.equipmentSelected=(x.equipmentSelected||[]).filter(e=>!(e?.hsChoice&&prevNames.includes(normName(e.name))));
+  x.skills=(x.skills||[]).filter(n=>!(prevNames.includes(normName(n))&&(x.hsPickSkills||[]).map(normName).includes(normName(n))));
+  x.spells=(x.spells||[]).filter(n=>!(prevNames.includes(normName(n))&&(x.hsPickSpells||[]).map(normName).includes(normName(n))));
+  x.hsPickSkills=[];x.hsPickSpells=[];
+  Object.values(picks||{}).flat().forEach(n=>{const k=hiredSwordOptionKind(n,f);if(k==='equipment'){const it=hiredSwordGearItem(n,{hsChoice:true});if(it)x.equipmentSelected.push(it)}else if(k==='spell'){if(!(x.spells||[]).some(s=>normName(s)===normName(n))){x.spells.push(n);x.hsPickSpells.push(n)}}else{if(!(x.skills||[]).some(s=>normName(s)===normName(n))){x.skills.push(n);x.hsPickSkills.push(n)}}});
+  x.hsPicks=JSON.parse(JSON.stringify(picks||{}));
+}
+function hireHiredSword(id){
+  const en=siteLanguage==='en';const r=activeRoster(),f=faction(r);if(!r)return;
+  const raw=hiredSwordRawById(id);if(!raw){toast(en?'Hired Sword not found':'Hired Sword introuvable');return}const w=hiredSwordAsWarrior(raw);
+  if(!hiredSwordAvailableFor(w,f,r)){toast(en?'Not available for this warband':'Non disponible pour cette bande');return}
+  if(hiredSwordInRoster(r,w.customFighterId)){toast(en?'Only one copy per warband':'Un seul exemplaire par bande');return}
+  if(Number(r.gold||0)<Number(w.cost||0)){toast(en?'Insufficient treasury':'Trésor insuffisant');return}
+  if((w.hsChoices||[]).some(g=>(g.options||[]).length)){hiredSwordPickTarget=id;hiredSwordChoiceModal(w,null,`confirmHireHiredSword()`,en?'HIRE':'EMBAUCHER');return}
+  hiredSwordDoHire(w,{});
+}
+function confirmHireHiredSword(){const en=siteLanguage==='en';const raw=hiredSwordRawById(hiredSwordPickTarget);if(!raw)return closeModal();const w=hiredSwordAsWarrior(raw);const picks=hiredSwordReadPicks(w);if(!picks){toast(en?'Complete every choice':'Complète chaque choix');return}closeModal();hiredSwordDoHire(w,picks)}
+function hiredSwordDoHire(w,picks){
+  const en=siteLanguage==='en';const r=activeRoster(),f=faction(r);const cost=Number(w.cost||0);
+  const fixed=(w.defaultEquipment||[]).map(n=>hiredSwordGearItem(n,{intrinsic:true})).filter(Boolean);
+  const prof=effectiveFighterProfile(w,f);
+  const x={...w,profile:prof.slice(),baseProfile:prof.slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,type:'Hired Sword',hiredSword:true,hsLeft:false,xp:0,defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:fixed,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],advancements:[],injuries:[],spells:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId};
+  ['hsChoices','hsFactions','officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>delete x[k]);
+  hiredSwordApplyPicks(x,w,picks,f);
+  r.fighters.push(x);syncCustomEquipmentEffects(x);r.gold=Number(r.gold||0)-cost;
+  logHistory(r,'recruit',en?`<b>${esc(w.name)}</b> hired — Hired Sword, ${cost} GC (upkeep ${Number(w.upkeep||0)} GC)`:`<b>${esc(w.name)}</b> embauché — Hired Sword, ${cost} GC (entretien ${Number(w.upkeep||0)} GC)`);
+  save(true);render('builder');toast(en?`✓ ${w.name} hired — ${cost} GC`:`✓ ${w.name} embauché — ${cost} GC`);
+}
+function rehireHiredSword(instance){
+  const en=siteLanguage==='en';const r=activeRoster();const x=(r?.fighters||[]).find(q=>q.instance===instance);if(!x||!x.hsLeft)return;
+  const src=hiredSwordSourceWarrior(x);const cost=Number(src?.cost??x.cost??0);
+  if(Number(r.gold||0)<cost){toast(en?'Insufficient treasury':'Trésor insuffisant');return}
+  r.gold=Number(r.gold||0)-cost;x.hsLeft=false;x.cost=cost;
+  logHistory(r,'recruit',en?`<b>${esc(x.name)}</b> rehired — ${cost} GC`:`<b>${esc(x.name)}</b> réembauché — ${cost} GC`);
+  save(true);render(parseAppRoute().view==='fighter'?'fighter':'builder');toast(en?`✓ ${x.name} rehired — ${cost} GC`:`✓ ${x.name} réembauché — ${cost} GC`);
+}
+function changeHiredSwordChoices(){
+  const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;const w=hiredSwordSourceWarrior(x);if(!w||!(w.hsChoices||[]).length)return;
+  hiredSwordChoiceModal(w,x.hsPicks||{},`confirmChangeHiredSwordChoices()`,en?'CHANGE':'CHANGER');
+}
+function confirmChangeHiredSwordChoices(){const en=siteLanguage==='en';const r=activeRoster(),x=r?.fighters[editingIndex];if(!x)return closeModal();const w=hiredSwordSourceWarrior(x);const picks=w&&hiredSwordReadPicks(w);if(!picks){toast(en?'Complete every choice':'Complète chaque choix');return}hiredSwordApplyPicks(x,w,picks,faction(r));syncCustomEquipmentEffects(x);save(true);closeModal();render('fighter');toast(en?'Choices updated':'Choix modifiés')}
+function hiredSwordUpkeepBadge(x){const en=siteLanguage==='en';return `<div class="hs-cost-boxes small"><div class="hs-cost-box"><small>${en?'UPKEEP':'ENTRETIEN'}</small><strong class="hs-upkeep">${Number(hiredSwordSourceWarrior(x)?.upkeep??x.upkeep??0)} GC</strong></div></div>`}
+function hiredSwordHeaderBadges(x){return ''}
+function hiredSwordSheetCosts(x){const en=siteLanguage==='en';const w=hiredSwordSourceWarrior(x);return `<div class="hs-cost-boxes small"><div class="hs-cost-box"><small>${en?'HIRED FOR':'EMBAUCHÉ POUR'}</small><strong class="hs-gold">${Number(x.cost||0)} GC</strong></div><div class="hs-cost-box"><small>${en?'UPKEEP':'ENTRETIEN'}</small><strong class="hs-upkeep">${Number(w?.upkeep??x.upkeep??0)} GC</strong></div></div>`}
+function hiredSwordSheetNotice(x){const en=siteLanguage==='en';return `<div class="hs-notice">${x.hsLeft?`<b>${en?'LEFT — UPKEEP NOT PAID':'PARTI — ENTRETIEN NON PAYÉ'}</b> · ${en?'No longer counts for the warband (value, upkeep, battle). Keeps its stats and XP.':'Ne compte plus dans la bande (valeur, entretien, bataille). Garde ses stats et son XP.'} <button type="button" class="button primary small hs-btn" onclick="rehireHiredSword('${esc(x.instance)}')">${en?`Rehire — ${Number(hiredSwordSourceWarrior(x)?.cost??x.cost??0)} GC`:`Réembaucher — ${Number(hiredSwordSourceWarrior(x)?.cost??x.cost??0)} GC`}</button>`:`${hiredSwordSheetCosts(x)}<span class="role-badge role-hired-sword">HIRED SWORD</span> <span class="hs-novalue">${en?'NO VALUE':'SANS VALEUR'}</span> ${en?`Adds ${hiredSwordRatingShare(x)} GC (half its hire cost) to the warband value. Paid ${Number(hiredSwordSourceWarrior(x)?.upkeep??x.upkeep??0)} GC upkeep at each Income step.`:`Ajoute ${hiredSwordRatingShare(x)} GC (la moitié de son coût d’embauche) à la valeur de bande. Entretien de ${Number(hiredSwordSourceWarrior(x)?.upkeep??x.upkeep??0)} GC à chaque étape Income.`}`}</div>`}
+function hiredSwordEquipmentMarkup(x){
+  const en=siteLanguage==='en';const w=hiredSwordSourceWarrior(x);const canChange=!!(w&&(w.hsChoices||[]).length);
+  const eq=x.equipmentSelected||[];
+  return `<div class="hs-notice small">${en?'Its equipment is its own: it can’t be removed, sold or given, and nothing can be added. It doesn’t count in the value.':'Son équipement est le sien : il ne peut être ni retiré, ni vendu, ni donné, et on ne peut rien lui ajouter. Il ne compte pas dans la valeur.'}</div><div class="equipped-management-list">${eq.length?eq.map(e=>`<div class="hs-gear-row-item"><span><b>${refLink('equipment',e.name,e.name)}</b>${e.hsChoice?` <small class="muted">· ${en?'hire choice':'choix à l’embauche'}</small>`:''}</span></div>`).join(''):`<div class="empty compact">${en?'No equipment.':'Aucun équipement.'}</div>`}</div>${canChange?`<button type="button" class="button secondary small hs-change" onclick="changeHiredSwordChoices()">⇄ ${en?'Change hire choices':'Changer les choix d’embauche'}</button>`:''}`;
+}
+function hiredSwordLeftCardMarkup(x,i,f){
+  const en=siteLanguage==='en';const instance=x.instance||`legacy-${i}`;const cost=Number(hiredSwordSourceWarrior(x)?.cost??x.cost??0);
+  return `<article class="fighter-card-v5 owned-card draggable-fighter hs-left-card" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><div><h4>${esc(x.name)}</h4><div class="fighter-badge-row"><span class="role-badge hs-left-badge">${en?'LEFT · UPKEEP NOT PAID':'PARTI · ENTRETIEN NON PAYÉ'}</span></div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div></div><p class="hs-left-text">${en?'No longer counts for the warband (value, upkeep, battle). Keeps its stats and XP.':'Ne compte plus dans la bande (valeur, entretien, bataille). Garde ses stats et son XP.'}</p><button type="button" class="button primary recruit-btn-full hs-btn" onclick="event.stopPropagation();rehireHiredSword('${esc(x.instance)}')">${en?`Rehire — ${cost} GC (base price)`:`Réembaucher — ${cost} GC (prix de base)`}</button></article>`;
+}
+// Post-battle Income: upkeep of every Hired Sword still in the warband.
+function hiredSwordUpkeepRows(r){return (r?.fighters||[]).filter(x=>isHiredSword(x)&&!x.hsLeft&&!fighterStatus(x).dead).map(x=>({x,upkeep:Number(hiredSwordSourceWarrior(x)?.upkeep??x.upkeep??0)}))}
+function hiredSwordUpkeepPanelMarkup(r){
+  const en=siteLanguage==='en';const p=ensurePostBattleData(r);const done=p.hsUpkeepApplied;
+  const rows=done?(done.rows||[]):hiredSwordUpkeepRows(r).map(o=>({instance:o.x.instance,name:o.x.name,upkeep:o.upkeep,pay:(p.hsUpkeepPay||{})[o.x.instance]!==false}));
+  if(!rows.length)return '';
+  const due=rows.filter(o=>o.pay).reduce((n,o)=>n+o.upkeep,0);
+  return `<section class="sheet-block postbattle-panel pb-sub${pbSubOpen('4')?'':' pb-collapsed'}" data-pb-sub="4"><div class="sheet-block-head prominent-section pb-sub-head" role="button" tabindex="0" aria-expanded="${pbSubOpen('4')}" onclick="togglePbSub('4',event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePbSub('4',event)}"><span class="pb-sub-chevron" aria-hidden="true">⌄</span><div><h4><b class="pb-sub-num">4</b>${en?'Hired Swords upkeep':'Entretien des Hired Swords'}</h4><small>${en?'Paid by default. An unpaid Hired Sword leaves the warband (kept greyed, rehireable at its base price).':'Payé par défaut. Un Hired Sword non payé quitte la bande (gardé en grisé, réembauchable au prix de base).'}</small></div><span class="postbattle-counter">−${due} GC</span></div>
+   <div class="hs-upkeep-list">${rows.map(o=>`<div class="hs-upkeep-row"><div><b>${esc(o.name)}</b><small>${en?'Upkeep':'Entretien'} ${o.upkeep} GC</small></div><div class="hs-upkeep-actions"><div class="hs-toggle"><button type="button" class="${o.pay?'on':''}" ${done?'disabled':''} onclick="setHiredSwordUpkeepPay('${esc(o.instance)}',true)">${en?'PAY':'PAYER'}</button><button type="button" class="${o.pay?'':'off'}" ${done?'disabled':''} onclick="setHiredSwordUpkeepPay('${esc(o.instance)}',false)">${en?'DON’T PAY':'NE PAS PAYER'}</button></div><b class="${o.pay?'hs-minus':'muted'}">${o.pay?`−${o.upkeep} GC`:'0 GC'}</b></div></div>`).join('')}
+   ${rows.filter(o=>!o.pay).map(o=>`<p class="hs-leave-warn">${en?`${esc(o.name)} will leave the warband (greyed, rehireable later at its base price).`:`${esc(o.name)} passera en grisé « Parti », réembauchable plus tard au prix de base.`}</p>`).join('')}</div>
+   <div class="income-apply-row">${done?`<button type="button" class="button secondary" onclick="undoHiredSwordUpkeep()">↶ ${en?'Undo upkeep':'Annuler l’entretien'}</button><span>${en?`Applied: −${done.total} GC`:`Appliqué : −${done.total} GC`}${done.left?.length?` · ${done.left.length} ${en?'left':'parti(s)'}`:''}</span>`:`<button type="button" class="button primary" onclick="applyHiredSwordUpkeep()">${en?'Apply upkeep':'Appliquer l’entretien'} — ${due} GC</button><span>${en?'Treasury':'Trésor'} ${Number(r.gold||0)} → ${Number(r.gold||0)-due} GC</span>`}</div></section>`;
+}
+function setHiredSwordUpkeepPay(instance,pay){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);if(p.hsUpkeepApplied)return;p.hsUpkeepPay=p.hsUpkeepPay||{};p.hsUpkeepPay[instance]=!!pay;save(true);render('builder')}
+function applyHiredSwordUpkeep(){
+  const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);if(p.hsUpkeepApplied)return;
+  const rows=hiredSwordUpkeepRows(r).map(o=>({instance:o.x.instance,name:o.x.name,upkeep:o.upkeep,pay:(p.hsUpkeepPay||{})[o.x.instance]!==false}));
+  const total=rows.filter(o=>o.pay).reduce((n,o)=>n+o.upkeep,0);
+  if(Number(r.gold||0)<total){toast(en?'Insufficient treasury — untick a Hired Sword':'Trésor insuffisant — ne paie pas un des Hired Swords');return}
+  r.gold=Number(r.gold||0)-total;const left=[];
+  rows.forEach(o=>{if(o.pay)return;const x=r.fighters.find(q=>q.instance===o.instance);if(x){x.hsLeft=true;left.push(o.instance)}});
+  p.hsUpkeepApplied={rows,total,left};
+  logHistory(r,'treasury',en?`Hired Swords upkeep: −${total} GC${left.length?` · ${rows.filter(o=>!o.pay).map(o=>esc(o.name)).join(', ')} left`:''}`:`Entretien des Hired Swords : −${total} GC${left.length?` · ${rows.filter(o=>!o.pay).map(o=>esc(o.name)).join(', ')} parti(s)`:''}`);
+  save(true);render('builder');toast(en?`Upkeep paid: −${total} GC`:`Entretien payé : −${total} GC`);
+}
+function undoHiredSwordUpkeep(){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);const d=p.hsUpkeepApplied;if(!d)return;r.gold=Number(r.gold||0)+Number(d.total||0);(d.left||[]).forEach(id=>{const x=r.fighters.find(q=>q.instance===id);if(x)x.hsLeft=false});p.hsUpkeepApplied=null;save(true);render('builder');toast(en?'Upkeep undone':'Entretien annulé')}
+// Rules: Warbands — the Hired Swords this warband can hire.
+function hiredSwordRulesMarkup(f){
+  const en=siteLanguage==='en';const list=hiredSwordsFor(f,null);if(!list.length)return '';
+  return `<div class="role-head">Hired Swords</div>${list.map(w=>`<div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,f)}`).join('')}`;
+}
+function recruitmentView(f){const en=siteLanguage==='en';const r=activeRoster();return `<div class="recruit-head"><div><div class="eyebrow">${en?'RECRUITMENT':'RECRUTEMENT'} / ${esc(f.displayName)}</div><h3>${en?'Recruit a fighter':'Recruter un combattant'}</h3><p>${en?'Recruiting adds the fighter to the warband without opening their sheet. Open their card afterward from the roster.':'Le recrutement ajoute le combattant à la bande sans ouvrir sa fiche. Ouvre ensuite sa carte depuis le roster.'}</p></div></div>${recruitmentCompositionNotice(r)}${hiredSwordRecruitTabsMarkup(r,f)}${recruitPoolTab==='hs'?hiredSwordPoolMarkup(r,f):`<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label></div><div class="fighter-pool" id="fighterPool">${fighterPool(f)}</div>`}`}
 function chosenRow(x,i){return `<button class="chosen-v4" onclick="openFighterCard(${i})"><span class="chosen-sigil">${factionSigils[faction(activeRoster()).id]||'◆'}</span><span class="chosen-info"><b>${esc(x.name)}</b><small>${esc(x.type)} · ${fighterValue(x,faction(activeRoster()))} GC</small></span><span class="chosen-open">›</span></button>`}
 var ARMOUR_SUITS=['Light armour','Light armor','Heavy armour','Heavy armor','Full plate armour','Full plate armor','Gromril plate','Gromril plate armour','Gromril plate armor','Ithilmar','Ithilmar mail','Ithilmar armour','Ithilmar armor','Sigmarite armour','Sigmarite armor','Chaos armour','Chaos armor'];
 var FUR_CLOAKS=['Fur cloak','Wolf cloak'];
@@ -10389,7 +10787,7 @@ function transferReserveEquipment(i){const en=siteLanguage==='en';const r=active
   // the transfer dialog permanently empty — exactly the reported bug. The
   // faction link for custom equipment is still worth honoring, so that one
   // check is kept via isCustomEquipment, without the rest of the gate.
-  const eligible=r.fighters.map((x,idx)=>{const access=isCustomEquipment(e)?!!customEquipmentForFaction(e,faction(r)?.id):true;const check=fighterUsesLoadouts(x)?{ok:true,msg:''}:canEquip(x,e);return {x,idx,ok:check.ok&&access,reason:!access?(en?'Equipment not allowed for this profile':'Équipement non autorisé pour ce profil'):check.msg}}).filter(a=>a.ok);openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'STASH · TRANSFER':'RÉSERVE · TRANSFERT'}</div><h2>${esc(e.name)}</h2><p>${en?'Choose which fighter to assign this equipment to. Weapon limits, profile access and armour rules are checked.':'Choisis le combattant auquel attribuer cet équipement. Les limites d’armes, l’accès au profil et les règles d’armure sont vérifiés.'}</p><div class="reserve-transfer-list">${eligible.length?eligible.map(a=>`<button type="button" class="skill-modal-skill" onclick="confirmTransferReserve(${i},${a.idx})"><span>${esc(a.x.name)}</span><small>${esc(a.x.type)} · ${currentWeaponSlots(a.x)}/3</small></button>`).join(''):`<div class="empty compact">${en?'No fighter can currently equip this item.':'Aucun combattant ne peut actuellement équiper cet objet.'}</div>`}</div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
+  const eligible=r.fighters.map((x,idx)=>{if(isHiredSword(x))return {ok:false};const access=isCustomEquipment(e)?!!customEquipmentForFaction(e,faction(r)?.id):true;const check=fighterUsesLoadouts(x)?{ok:true,msg:''}:canEquip(x,e);return {x,idx,ok:check.ok&&access,reason:!access?(en?'Equipment not allowed for this profile':'Équipement non autorisé pour ce profil'):check.msg}}).filter(a=>a.ok);openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'STASH · TRANSFER':'RÉSERVE · TRANSFERT'}</div><h2>${esc(e.name)}</h2><p>${en?'Choose which fighter to assign this equipment to. Weapon limits, profile access and armour rules are checked.':'Choisis le combattant auquel attribuer cet équipement. Les limites d’armes, l’accès au profil et les règles d’armure sont vérifiés.'}</p><div class="reserve-transfer-list">${eligible.length?eligible.map(a=>`<button type="button" class="skill-modal-skill" onclick="confirmTransferReserve(${i},${a.idx})"><span>${esc(a.x.name)}</span><small>${esc(a.x.type)} · ${currentWeaponSlots(a.x)}/3</small></button>`).join(''):`<div class="empty compact">${en?'No fighter can currently equip this item.':'Aucun combattant ne peut actuellement équiper cet objet.'}</div>`}</div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
 function confirmTransferReserve(ri,fi){const r=activeRoster(),e=r?.reserve?.[ri],x=r?.fighters?.[fi];if(!r||!e||!x)return;
   // V-STASHTRANSFER-FIX: mirror the eligibility check in transferReserveEquipment above.
   const access=isCustomEquipment(e)?!!customEquipmentForFaction(e,faction(r)?.id):true,check=fighterUsesLoadouts(x)?{ok:true,msg:''}:canEquip(x,e);if(!access||!check.ok){toast(!access?(siteLanguage==='en'?'Equipment not allowed for this profile':'Équipement non autorisé pour ce profil'):check.msg);return}const copy={...JSON.parse(JSON.stringify(e)),stashId:crypto.randomUUID(),paid:0};if(fighterUsesLoadouts(x)){ensureFighterLoadouts(x);x.equipmentStash=x.equipmentStash||[];x.equipmentStash.push(copy);syncLoadoutProjection(x);}else{x.equipmentSelected=x.equipmentSelected||[];x.equipmentSelected.push(copy);}syncCustomEquipmentEffects(x);r.reserve.splice(ri,1);logHistory(r,'equipment',siteLanguage==='en'?`<b>${esc(e.name)}</b> transferred from the <b>Stash</b> to <b>${esc(x.name)}</b>`:`<b>${esc(e.name)}</b> transféré de la <b>Réserve</b> vers <b>${esc(x.name)}</b>`);save(true);closeModal();gangTab='reserve';render('builder');toast(siteLanguage==='en'?`${e.name} placed in ${x.name}'s kit`:`${e.name} placé dans le coffre de ${x.name}`)}
@@ -10458,7 +10856,8 @@ function resolveFighterSource(x,f){
  // never reassigns it to a different value) — so when it matches, it's never
  // a false positive, only a safety net for the id/name match failing.
  const inWarband=f?.warriors?.find(w=>w.id===x?.wid||w.name===x?.sourceName||w.name===x?.name||(x?.customFighterId&&w.customFighterId&&w.customFighterId===x.customFighterId));
- if(inWarband)return inWarband;
+ if(inWarband&&!isHiredSword(x))return inWarband;
+ if(isHiredSword(x))return hiredSwordRawById(x.customFighterId)||null;
  return x?.customFighterId?customFighterById(x.customFighterId):null;
 }
 function fighterSourceType(x){
@@ -10466,6 +10865,7 @@ function fighterSourceType(x){
  return source?.type||null;
 }
 function advancementRole(x){
+ if(isHiredSword(x))return 'Champion';
  const sourceType=fighterSourceType(x);
  // A source Henchman uses the Henchman table unless it has explicitly
  // been promoted to Veteran. This repairs stale saved types as well.
@@ -10514,6 +10914,12 @@ function maxProfileFor(x){
   const mods=(f?.packRuleModifiers||[]).filter(m=>(!m.target||m.target===source?.name||m.target===source?.id||m.target==='all')&&(!m.targetType||m.targetType==='unit')&&(!m.rule||(Array.isArray(source?.ruleNames)&&source.ruleNames.some(n=>normName(n)===normName(m.rule)))));
   const defaultBonus=[1,3,3,1,1,2,3,3,2,2,2,2];
   for(let i=0;i<max.length;i++)max[i]=Number(max[i]||0)+defaultBonus[i];
+  // V-RACEMAX: racial maximums set in Admin → Racial maximums replace the
+  // automatic cap stat by stat (an empty cell keeps it). Never below the
+  // fighter's own current permanent value, so a legit rule bonus is never
+  // flagged OVER.
+  const rm=raceMaximumsFor(fighterRace(x,f));
+  if(rm)for(let i=0;i<max.length;i++){if(rm[i]!==null&&rm[i]!==undefined&&rm[i]!=='')max[i]=Math.max(Number(rm[i]),Number(base[i]||0));}
   mods.forEach(m=>{const i=P.indexOf(m.stat);if(i>=0)max[i]=Number(max[i]||0)+Number(m.amount||0);});
   return max;
 }
@@ -10558,18 +10964,25 @@ function buyAdvancement(id){const x=activeRoster()?.fighters[editingIndex],e=ADV
 // still showed its old name here even though every other page had already
 // picked up the rename.
 function treeOrDomainDisplayName(name,kind){return kind==='magic'?domainDisplayName(name):skillTreeDisplayName(name);}
+// V-ADVANCEALLTREES: every tree/domain the fighter has access to — book,
+// custom and published ones (customMergedSkillSets/MagicDomains), matched by
+// name case-insensitively — not only the book's D.skillSets/MAGIC_DOMAINS.
+// A fighter's spell domains count as Primary skill choices.
 function eligibleSkillTreesForAdvancement(x,levels){
- const access=skillAccessFor(x),ownedSkills=new Set(x.skills||[]),ownedSpells=new Set(x.spells||[]),trees=[];
- Object.keys(access).filter(set=>levels.includes(access[set])&&Array.isArray(D.skillSets?.[set])).forEach(set=>{
-  const skills=(D.skillSets[set]||[]).filter(skill=>!ownedSkills.has(skill));
-  if(skills.length)trees.push({set,level:access[set],skills,kind:'skill'});
+ const f=faction(activeRoster());const sets=customMergedSkillSets(f),domains=customMergedMagicDomains(f);
+ const access=skillAccessFor(x),ownedSkills=new Set((x.skills||[]).map(normName)),ownedSpells=new Set((x.spells||[]).map(normName)),trees=[];
+ Object.keys(access).filter(set=>levels.includes(access[set])).forEach(set=>{
+  const key=sets[set]?set:Object.keys(sets).find(k=>normName(k)===normName(set));if(!key)return;
+  const skills=(sets[key]||[]).filter(skill=>!ownedSkills.has(normName(skill)));
+  if(skills.length&&!trees.some(t=>t.kind==='skill'&&t.set===key))trees.push({set:key,level:access[set],skills,kind:'skill'});
  });
  if(levels.includes('Primary')) magicAccessFor(x).forEach(domain=>{
-  const skills=(MAGIC_DOMAINS[domain]||[]).filter(spell=>!ownedSpells.has(spell));
+  const skills=(domains[domain]||[]).filter(spell=>!ownedSpells.has(normName(spell)));
   if(skills.length)trees.push({set:domain,level:'Primary',skills,kind:'magic'});
  });
  return trees;
 }
+function advancementGroupList(set,kind){const f=faction(activeRoster());return kind==='magic'?(customMergedMagicDomains(f)[set]||[]):(customMergedSkillSets(f)[set]||[])}
 function openRandomSkillTreePicker(id,levels){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id);if(!x||!e)return;
  const trees=eligibleSkillTreesForAdvancement(x,levels);
@@ -10579,7 +10992,7 @@ function showRandomSkillTree(id,encodedSet,kind){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),set=decodeURIComponent(encodedSet);if(!x||!e)return;
  const tree=eligibleSkillTreesForAdvancement(x,e.kind==='skillRandomSecondary'?['Secondary']:e.kind==='skillRandomPrimary'||e.kind==='veteranPromote'?['Primary']:['Primary','Secondary']).find(o=>o.set===set&&o.kind===kind);
  if(!tree){toast(siteLanguage==='en'?'This tree isn’t allowed or has no skill left available':'Cet arbre n’est pas autorisé ou ne contient plus de compétence disponible');return}
- openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>${esc(tree.level)} · Voici les compétences encore disponibles dans cet arbre. Le choix reste aléatoire : le bouton ci-dessous tire une seule compétence parmi cette liste.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]).map(skill=>`<div class="skill-modal-skill"><span>${esc(numberedSkillName(skill, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort disponible':'Compétence disponible'}</small></div>`).join('')}</div><div class="purchase-actions"><button type="button" class="button primary" onclick="rollRandomSkillFromTree('${e.id}','${encodeURIComponent(set)}','${kind}')">🎲 Tirer une compétence aléatoire</button><button type="button" class="button secondary" onclick="openRandomSkillTreePicker('${e.id}',${JSON.stringify(e.kind==='skillRandomSecondary'?['Secondary']:e.kind==='skillRandomPrimary'||e.kind==='veteranPromote'?['Primary']:['Primary','Secondary'])})">← Changer d’arbre</button></div></div>`);
+ openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>${esc(tree.level)} · Voici les compétences encore disponibles dans cet arbre. Le choix reste aléatoire : le bouton ci-dessous tire une seule compétence parmi cette liste.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, advancementGroupList(set,kind)).map(skill=>`<div class="skill-modal-skill"><span>${esc(numberedSkillName(skill, advancementGroupList(set,kind)))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort disponible':'Compétence disponible'}</small></div>`).join('')}</div><div class="purchase-actions"><button type="button" class="button primary" onclick="rollRandomSkillFromTree('${e.id}','${encodeURIComponent(set)}','${kind}')">🎲 Tirer une compétence aléatoire</button><button type="button" class="button secondary" onclick="openRandomSkillTreePicker('${e.id}',${JSON.stringify(e.kind==='skillRandomSecondary'?['Secondary']:e.kind==='skillRandomPrimary'||e.kind==='veteranPromote'?['Primary']:['Primary','Secondary'])})">← Changer d’arbre</button></div></div>`);
 }
 function rollRandomSkillFromTree(id,encodedSet,kind){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),set=decodeURIComponent(encodedSet);if(!x||!e)return;
@@ -10605,7 +11018,7 @@ function openAdvancementSkillPicker(id,level){
 function showChosenSkillTree(id,encodedSet,kind){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),set=decodeURIComponent(encodedSet);if(!x||!e)return;
  const tree=eligibleSkillTreesForAdvancement(x,['Primary','Secondary']).find(o=>o.set===set&&o.kind===kind);if(!tree){toast(siteLanguage==='en'?'This tree is no longer available':'Cet arbre n’est plus disponible');return}
- openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>Choisis la compétence à acquérir.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]).map(skill=>`<button type="button" class="skill-modal-skill" onclick="confirmAdvancementSkill('${e.id}','${encodeURIComponent(skill)}','${encodeURIComponent(set)}','${kind}')"><span>${esc(numberedSkillName(skill, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort · Primary':'Compétence · '+esc(tree.level)}</small></button>`).join('')}</div><div class="purchase-actions"><button type="button" class="button secondary" onclick="openAdvancementSkillPicker('${e.id}','${levelForSkillPicker(e.id)}')">← Changer d’arbre</button></div></div>`);
+ openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>Choisis la compétence à acquérir.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, advancementGroupList(set,kind)).map(skill=>`<button type="button" class="skill-modal-skill" onclick="confirmAdvancementSkill('${e.id}','${encodeURIComponent(skill)}','${encodeURIComponent(set)}','${kind}')"><span>${esc(numberedSkillName(skill, advancementGroupList(set,kind)))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort · Primary':'Compétence · '+esc(tree.level)}</small></button>`).join('')}</div><div class="purchase-actions"><button type="button" class="button secondary" onclick="openAdvancementSkillPicker('${e.id}','${levelForSkillPicker(e.id)}')">← Changer d’arbre</button></div></div>`);
 }
 function levelForSkillPicker(id){const e=ADVANCEMENT_MAIN.find(a=>a.id===id);return e?.kind==='skillPickPrimary'?'Primary':'Primary'}
 function confirmAdvancementSkill(id,encoded,setEncoded,kind='skill'){const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),skill=decodeURIComponent(encoded),set=decodeURIComponent(setEncoded);if(!x||!e)return;if(kind==='magic'){if(Number(x.xp||0)<e.xp){toast(siteLanguage==='en'?'Insufficient XP':'XP insuffisant');return}x.xp-=e.xp;x.spells=x.spells||[];x.spells.push(skill);x.advancements=x.advancements||[];x.advancements.push({id:crypto.randomUUID(),sourceId:e.id,kind:'skill',skill,detail:siteLanguage==='en'?`${set} · chosen`:`${set} · choisi`,xp:e.xp,value:e.value});save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${skill} acquired`:`${skill} acquis`);return}if(buySkillAdvancement(x,e,skill,siteLanguage==='en'?`${set} · chosen`:`${set} · choisi`)){save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${skill} acquired`:`${skill} acquis`)} }
@@ -10631,7 +11044,7 @@ function fighterPageMarkup(x){
  else if(fighterTab==='progression') tabContent=progressionMarkup(x);
  else if(fighterTab==='magic') tabContent=`<section class="sheet-block fighter-tab-block magic-block"><div class="sheet-block-head"><div><h4>${en?'Magic':'Magie'}</h4><small>${en?'Domains and spells allowed by the profile':'Domaines et sorts autorisés par le profil'}</small></div></div>${magicMarkup(x)}</section>`;
  else tabContent=lastingInjuriesMarkup(x);
- return `<div class="fighter-page"><div class="fighter-page-top"><button class="button secondary" onclick="backToGang()">${en?'← Back to warband':'← Retour à la bande'}</button><div class="fighter-page-actions"><button class="button secondary" onclick="openDuplicateFighterConfirm()">✦ ${en?'Duplicate':'Dupliquer'}</button><button class="button danger-outline" onclick="removeEditingFighter()">${en?'Delete fighter':'Supprimer le combattant'}</button></div></div><div class="fighter-page-header"><div><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'} · ${esc(f.displayName)}</div><div class="fighter-title-row"><input id="fighterName" class="sheet-name" value="${esc(x.name)}" onchange="updateFighterField('name',this.value)"><span class="role-badge role-${esc(x.type.toLowerCase().replace(/\s+/g,'-'))}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span></div>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="sheet-sub">${en?`Base profile · ${liveFighterCost(x,f)} GC · changes saved automatically`:`Profil de base · ${liveFighterCost(x,f)} GC · modifications enregistrées automatiquement`}</div></div><div class="fighter-header-visuals"><div class="fighter-avatar-wrap">${fighterStatus(x).recovery?`<span class="fighter-recovery-icon" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${fighterStatus(x).captured?`<span class="fighter-captured-icon" title="${en?'Captured':'Capturé'}">⛓</span>`:''}<button type="button" class="fighter-avatar fighter-avatar-hero" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="pickImage('fighter',${editingIndex})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}<span class="image-edit-badge">✎</span></button></div><div class="fighter-hero-value"><span>${en?'VALUE':'VALEUR'}</span><strong>${fighterValue(x,f)}</strong><em>GC</em></div><button type="button" class="image-remove-button" onclick="removeImage('fighter',${editingIndex})" ${x.image?'':'disabled'}>× ${en?'Remove':'Retirer'}</button></div></div>${fighterStatusControlsMarkup(x)+fighterChoicesMarkup(x)}${profileMarkup(x.profile,x.xp,x,{showMax:true})}${fighterMountMarkup(x,equip)}<div class="fighter-detail-grid"><section class="sheet-block weapons-block"><div class="sheet-block-head loadout-section-head"><div><h4>${en?'Weapons & Equipment':'Armes & équipement'}</h4><small>${fighterUsesLoadouts(x)?(en?'Stash + equipment loadouts':'Coffre + configurations d’équipement'):(en?'Equipped Equipment':'Équipement équipé')}</small></div><div class="loadout-header-right">${fighterUsesLoadouts(x)?loadoutControlsMarkup(x):`<span>${currentWeaponSlots(x)} / 3 ${en?'slots':'emplacements'}</span>`}</div></div>${fighterUsesLoadouts(x)?loadoutEquipmentMarkup(x):(equip.length?`<div class="equipped-management-list">${equip.map((e,i)=>equippedItemRow(e,i)).join('')}</div>`:`<div class="empty compact">${en?'No equipment equipped.':'Aucun équipement équipé.'}</div>`)}</section><section class="sheet-block equipment-add-block ${equipmentOpen?'is-open':'is-collapsed'}"><button type="button" class="equipment-collapse-head" onclick="toggleEquipmentPanel()"><span><span class="equipment-collapse-icon">＋</span><strong>${en?'Add Equipment':'Ajouter de l’équipement'}</strong></span><span>${equipmentOpen?(en?'Collapse':'Réduire'):(en?'Open':'Ouvrir')} · 3 ${en?'lists':'listes'}</span></button>${equipmentOpen?`<div class="equipment-collapse-body"><p class="sheet-help">${en?'Band List strictly follows the profile\'s "WEAPONS AND EQUIPMENT" and the warband list.':'Band List respecte exclusivement « WEAPONS AND EQUIPMENT » du profil et la liste de la bande.'}</p>${equipmentPicker(x,equip)}</div>`:''}</section>${statsTabMarkup(x)}${tabs}${tabContent}<section class="sheet-block"><div class="sheet-block-head prominent-section"><h4>Wargear</h4></div><div class="wargear-summary">${equip.filter(e=>!e.profile).length?equip.filter(e=>!e.profile).map(e=>`<span>${refLink('equipment',e.name)}</span>`).join(''):`<small>${en?'No wargear equipped.':'Aucun wargear équipé.'}</small>`}</div></section><section class="sheet-block"><div class="sheet-block-head prominent-section"><h4>${en?'Special Rules':'Règles spéciales'}</h4></div><div class="rule-name-tags">${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}</div><details class="rule-details"><summary>${en?'View / edit the summary stored in the database':'Voir / modifier le résumé conservé dans la base'}</summary><textarea id="fighterRules" class="wide-textarea" rows="5" placeholder="${en?'Special rules summary…':'Résumé des règles spéciales…'}" onchange="updateFighterField('rules',this.value)">${esc(x.rules||'')}</textarea></details></section><section class="sheet-block"><div class="sheet-block-head"><h4>${en?'Campaign Notes':'Notes de campagne'}</h4></div><textarea id="fighterNotes" class="wide-textarea" rows="5" placeholder="${en?'Notes…':'Notes…'}" onchange="updateFighterField('notes',this.value)">${esc(x.notes||'')}</textarea></section></div></div>`;
+ return `<div class="fighter-page"><div class="fighter-page-top"><button class="button secondary" onclick="backToGang()">${en?'← Back to warband':'← Retour à la bande'}</button><div class="fighter-page-actions">${isHiredSword(x)?'':`<button class="button secondary" onclick="openDuplicateFighterConfirm()">✦ ${en?'Duplicate':'Dupliquer'}</button>`}<button class="button danger-outline" onclick="removeEditingFighter()">${en?'Delete fighter':'Supprimer le combattant'}</button></div></div><div class="fighter-page-header"><div><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'} · ${esc(f.displayName)}</div><div class="fighter-title-row"><input id="fighterName" class="sheet-name" value="${esc(x.name)}" onchange="updateFighterField('name',this.value)"><span class="role-badge role-${esc(x.type.toLowerCase().replace(/\s+/g,'-'))}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span></div>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="sheet-sub">${en?`Base profile · ${liveFighterCost(x,f)} GC · changes saved automatically`:`Profil de base · ${liveFighterCost(x,f)} GC · modifications enregistrées automatiquement`}</div></div><div class="fighter-header-visuals"><div class="fighter-avatar-wrap">${fighterStatus(x).recovery?`<span class="fighter-recovery-icon" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${fighterStatus(x).captured?`<span class="fighter-captured-icon" title="${en?'Captured':'Capturé'}">⛓</span>`:''}<button type="button" class="fighter-avatar fighter-avatar-hero" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="pickImage('fighter',${editingIndex})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}<span class="image-edit-badge">✎</span></button></div>${isHiredSword(x)?hiredSwordHeaderBadges(x):`<div class="fighter-hero-value"><span>${en?'VALUE':'VALEUR'}</span><strong>${fighterValue(x,f)}</strong><em>GC</em></div>`}<button type="button" class="image-remove-button" onclick="removeImage('fighter',${editingIndex})" ${x.image?'':'disabled'}>× ${en?'Remove':'Retirer'}</button></div></div>${isHiredSword(x)?hiredSwordSheetNotice(x):''}${fighterStatusControlsMarkup(x)+fighterChoicesMarkup(x)}${profileMarkup(x.profile,x.xp,x,{showMax:true})}${fighterMountMarkup(x,equip)}<div class="fighter-detail-grid"><section class="sheet-block weapons-block"><div class="sheet-block-head loadout-section-head"><div><h4>${en?'Weapons & Equipment':'Armes & équipement'}</h4><small>${fighterUsesLoadouts(x)?(en?'Stash + equipment loadouts':'Coffre + configurations d’équipement'):(en?'Equipped Equipment':'Équipement équipé')}</small></div><div class="loadout-header-right">${fighterUsesLoadouts(x)?loadoutControlsMarkup(x):`<span>${currentWeaponSlots(x)} / 3 ${en?'slots':'emplacements'}</span>`}</div></div>${isHiredSword(x)?hiredSwordEquipmentMarkup(x):fighterUsesLoadouts(x)?loadoutEquipmentMarkup(x):(equip.length?`<div class="equipped-management-list">${equip.map((e,i)=>equippedItemRow(e,i)).join('')}</div>`:`<div class="empty compact">${en?'No equipment equipped.':'Aucun équipement équipé.'}</div>`)}</section>${isHiredSword(x)?'':`<section class="sheet-block equipment-add-block ${equipmentOpen?'is-open':'is-collapsed'}"><button type="button" class="equipment-collapse-head" onclick="toggleEquipmentPanel()"><span><span class="equipment-collapse-icon">＋</span><strong>${en?'Add Equipment':'Ajouter de l’équipement'}</strong></span><span>${equipmentOpen?(en?'Collapse':'Réduire'):(en?'Open':'Ouvrir')} · 3 ${en?'lists':'listes'}</span></button>${equipmentOpen?`<div class="equipment-collapse-body"><p class="sheet-help">${en?'Band List strictly follows the profile\'s "WEAPONS AND EQUIPMENT" and the warband list.':'Band List respecte exclusivement « WEAPONS AND EQUIPMENT » du profil et la liste de la bande.'}</p>${equipmentPicker(x,equip)}</div>`:''}</section>`}${statsTabMarkup(x)}${tabs}${tabContent}<section class="sheet-block"><div class="sheet-block-head prominent-section"><h4>Wargear</h4></div><div class="wargear-summary">${equip.filter(e=>!e.profile).length?equip.filter(e=>!e.profile).map(e=>`<span>${refLink('equipment',e.name)}</span>`).join(''):`<small>${en?'No wargear equipped.':'Aucun wargear équipé.'}</small>`}</div></section><section class="sheet-block"><div class="sheet-block-head prominent-section"><h4>${en?'Special Rules':'Règles spéciales'}</h4></div><div class="rule-name-tags">${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}</div><details class="rule-details"><summary>${en?'View / edit the summary stored in the database':'Voir / modifier le résumé conservé dans la base'}</summary><textarea id="fighterRules" class="wide-textarea" rows="5" placeholder="${en?'Special rules summary…':'Résumé des règles spéciales…'}" onchange="updateFighterField('rules',this.value)">${esc(x.rules||'')}</textarea></details></section><section class="sheet-block"><div class="sheet-block-head"><h4>${en?'Campaign Notes':'Notes de campagne'}</h4></div><textarea id="fighterNotes" class="wide-textarea" rows="5" placeholder="${en?'Notes…':'Notes…'}" onchange="updateFighterField('notes',this.value)">${esc(x.notes||'')}</textarea></section></div></div>`;
 }
 
 var ARMOUR_SUITS=['Light armour','Light armor','Heavy armour','Heavy armor','Full plate armour','Full plate armor','Gromril plate','Gromril plate armour','Gromril plate armor','Ithilmar','Ithilmar mail','Ithilmar armour','Ithilmar armor','Sigmarite armour','Sigmarite armor','Chaos armour','Chaos armor'];
@@ -10955,7 +11368,7 @@ function fighterSpellsCardMarkup(x){
  const spells=Array.isArray(x.spells)?x.spells:[];
  return spells.length?`<div><span class="micro-label">${en?'SPELLS':'SORTS'}</span><p>${spells.map(s=>refLink('spells',s)).join(' · ')}</p></div>`:'';
 }
-function ownedFighterCard(x,i,f){const en=siteLanguage==='en';const weapons=[...(x.equipmentSelected||[]).filter(e=>e.profile).map(liveEquipmentView),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div><div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div></div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!e.profile).map(e=>refLink('equipment',e.name)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div></article>`}
+function ownedFighterCard(x,i,f){const en=siteLanguage==='en';if(isHiredSword(x)&&x.hsLeft)return hiredSwordLeftCardMarkup(x,i,f);const weapons=[...(x.equipmentSelected||[]).filter(e=>e.profile).map(liveEquipmentView),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div>${isHiredSword(x)?hiredSwordUpkeepBadge(x):`<div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div>`}</div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!e.profile).map(e=>refLink('equipment',e.name)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div></article>`}
 function filterFighters(){const q=($('#fighterSearch')?.value||'').toLowerCase(),t=$('#typeFilter')?.value||'';document.querySelectorAll('.fighter-row').forEach(x=>x.style.display=(!q||x.dataset.name.includes(q))&&(!t||x.dataset.type===t)?'block':'none')}
 function openFighterCard(index){const r=activeRoster();if(!r||!r.fighters[index])return;editingIndex=index;equipmentTab='band';equipmentCategoryFilter='all';equipmentSearch='';equipmentOpen=false;loadoutView='loadout';fighterTab='skills';statsOpen=false;progressionOpen=false;progressionSubtab='stats';skillPickerOpen=false;injuryPickerOpen=false;lastInjuryRoll=null;magicDomainAddOpen=false;magicDomainAddSearch='';render('fighter')}
 function weaponSlots(e){if(e?.weaponSlotCost!=null)return Number(e.weaponSlotCost);const t=(e?.profile?.traits||'').toLowerCase();if(/two[- ]handed/.test(t))return 2;if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return 1;if(/paired/.test(t))return 2;if(['Unarmed','Natural Weapons','Tail Blade'].includes(e?.name))return 0;return e?.profile?1:0}
@@ -11403,8 +11816,13 @@ function skillAccessFor(x){
   const source=w||custom;
   const access={...(source?.skillAccess||{})};
   if(x.type==='Leader')access.Leadership='Primary';else if(x.type==='Champion')access.Leadership='Secondary';
+  // V-UNIVERSALTREES: trees every fighter may take skills from as
+  // "Authorized" (Access) unless their profile already gives better.
+  UNIVERSAL_AUTHORIZED_TREES.forEach(t=>{const sets=customMergedSkillSets(f);const key=Object.keys(sets).find(k=>normName(k)===normName(t))||t;if(!Object.keys(access).some(k=>normName(k)===normName(key)&&access[k]))access[key]='Access'});
   return access
 }
+const UNIVERSAL_AUTHORIZED_TREES=['Ride'];
+function skillAccessLabel(v){const en=siteLanguage==='en';return v==='Access'?(en?'Authorized':'Autorisé'):v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(v||(en?'Allowed':'Autorisé'))}
 function gangSkillTrees(){const f=faction(activeRoster());const trees={};const factionAccess=D.skillAccess?.[f?.id]||{};Object.values(factionAccess).forEach(a=>Object.keys(a||{}).forEach(cat=>trees[cat]=true));if(f?.id)trees.Leadership=true;return trees}
 function skillAccessGrid(x){const f=faction(activeRoster()),mergedSets=customMergedSkillSets(f),personal=skillAccessFor(x),allowed=gangSkillTrees();
   // V-TREESLEAK: this card is only ever showing ONE warband's fighter, so a
@@ -11419,9 +11837,9 @@ function skillAccessGrid(x){const f=faction(activeRoster()),mergedSets=customMer
   // an unrelated Undead warband's fighters), custom trees were already
   // excluded this way; book/pack trees now follow the same rule.
   const all=[...new Set([...Object.keys(mergedSets),...Object.keys(personal)])].filter(cat=>personal[cat]||allowed[cat]);
-  const regular=all.map(cat=>{const p=personal[cat];const a=allowed[cat]||!!p;const status=p|| (a?'Autorisé':'Non autorisé');const cls=p?p.toLowerCase().replace(/\s/g,'-'):a?'authorized':'locked';return `<div class="skill-access-card ${cls}"><div><strong>${esc(skillTreeDisplayName(cat))}</strong><small>${status}</small></div><span>${a?`${(mergedSets[cat]||[]).length} compétences`:'Arbre indisponible'}</span></div>`}).join('');const mergedDomains=customMergedMagicDomains(f);const magic=magicAccessFor(x).map(d=>`<div class="skill-access-card primary magic-skill-tree"><div><strong>${esc(domainDisplayName(d))}</strong><small>Primary</small></div><span>${(mergedDomains[d]||[]).length} sorts</span></div>`).join('');return `<div class="skill-access-heading">Arbres de compétences</div><div class="skill-access-grid">${regular}</div>${magic?`<div class="skill-access-heading magic-skill-heading">Domaines de magie comptés comme arbres Primary</div><div class="skill-access-grid">${magic}</div>`:''}`}
-function openSkillModal(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;skillCategory='all';const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),cats=[...new Set([...Object.keys(mergedSets).filter(c=>allowed[c]),...Object.keys(personal).filter(c=>personal[c])])];const catRows=cats.map(c=>`<button type="button" class="skill-modal-category" data-cat="${esc(c)}" onclick="chooseSkillModalCategory('${encodeURIComponent(c)}')"><span>${esc(skillTreeDisplayName(c))}</span><small>${personal[c]||(en?'Allowed':'Autorisé')}</small></button>`).join('');const magicRows=magicAccessFor(x).map(d=>`<button type="button" class="skill-modal-category magic-category" onclick="openMagicModal('${encodeURIComponent(d)}')"><span>${esc(domainDisplayName(d))}</span><small>${en?'Primary · magic domain':'Primary · domaine de magie'}</small></button>`).join('');openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'ADD A SKILL':'AJOUT D’UNE COMPÉTENCE'}</div><h2>${en?'Choose a skill':'Choisir une compétence'}</h2><p>${en?'Normal skills are free. The magic domain available to this fighter is treated as a Primary tree; its spells remain recorded under Magic.':'Les compétences normales sont gratuites. Le domaine de magie accessible à ce combattant est traité comme un arbre Primary ; ses sorts restent enregistrés dans Magie.'}</p><div class="skill-modal-grid">${catRows}${magicRows}</div><div id="skillModalChoices" class="skill-modal-choices"><div class="empty compact">${en?'Choose a category.':'Choisis une catégorie.'}</div></div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
-function chooseSkillModalCategory(encoded){const en=siteLanguage==='en';skillCategory=decodeURIComponent(encoded);const x=activeRoster()?.fighters[editingIndex];if(!x)return;const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),owned=new Set(x.skills||[]),available=(mergedSets[skillCategory]||[]).filter(s=>!owned.has(s));const box=$('#skillModalChoices');if(!box)return;box.innerHTML=`<div class="skill-modal-choice-head"><strong>${esc(skillTreeDisplayName(skillCategory))}</strong><span>${personal[skillCategory]||(en?'Allowed':'Autorisé')}</span></div><div class="skill-modal-list">${available.length?orderedChoiceNames(available,mergedSets[skillCategory]).map(s=>`<button type="button" class="skill-modal-skill" onclick="addSkillFromModal('${encodeURIComponent(s)}')"><span>${refLink('skills',s,numberedSkillName(s,mergedSets[skillCategory]))}</span><small>${en?'Add':'Ajouter'}</small></button>`).join(''):`<div class="empty compact">${en?'All skills in this tree have already been acquired.':'Toutes les compétences de cet arbre sont déjà acquises.'}</div>`}</div>`;document.querySelectorAll('.skill-modal-category').forEach(b=>b.classList.toggle('active',b.dataset.cat===skillCategory))}
+  const regular=all.map(cat=>{const p=personal[cat];const a=allowed[cat]||!!p;const status=p?skillAccessLabel(p):(a?'Autorisé':'Non autorisé');const cls=p?p.toLowerCase().replace(/\s/g,'-'):a?'authorized':'locked';return `<div class="skill-access-card ${cls}"><div><strong>${esc(skillTreeDisplayName(cat))}</strong><small>${status}</small></div><span>${a?`${(mergedSets[cat]||[]).length} compétences`:'Arbre indisponible'}</span></div>`}).join('');const mergedDomains=customMergedMagicDomains(f);const magic=magicAccessFor(x).map(d=>`<div class="skill-access-card primary magic-skill-tree"><div><strong>${esc(domainDisplayName(d))}</strong><small>Primary</small></div><span>${(mergedDomains[d]||[]).length} sorts</span></div>`).join('');return `<div class="skill-access-heading">Arbres de compétences</div><div class="skill-access-grid">${regular}</div>${magic?`<div class="skill-access-heading magic-skill-heading">Domaines de magie comptés comme arbres Primary</div><div class="skill-access-grid">${magic}</div>`:''}`}
+function openSkillModal(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;skillCategory='all';const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),cats=[...new Set([...Object.keys(mergedSets).filter(c=>allowed[c]),...Object.keys(personal).filter(c=>personal[c])])];const catRows=cats.map(c=>`<button type="button" class="skill-modal-category" data-cat="${esc(c)}" onclick="chooseSkillModalCategory('${encodeURIComponent(c)}')"><span>${esc(skillTreeDisplayName(c))}</span><small>${skillAccessLabel(personal[c])}</small></button>`).join('');const magicRows=magicAccessFor(x).map(d=>`<button type="button" class="skill-modal-category magic-category" onclick="openMagicModal('${encodeURIComponent(d)}')"><span>${esc(domainDisplayName(d))}</span><small>${en?'Primary · magic domain':'Primary · domaine de magie'}</small></button>`).join('');openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'ADD A SKILL':'AJOUT D’UNE COMPÉTENCE'}</div><h2>${en?'Choose a skill':'Choisir une compétence'}</h2><p>${en?'Normal skills are free. The magic domain available to this fighter is treated as a Primary tree; its spells remain recorded under Magic.':'Les compétences normales sont gratuites. Le domaine de magie accessible à ce combattant est traité comme un arbre Primary ; ses sorts restent enregistrés dans Magie.'}</p><div class="skill-modal-grid">${catRows}${magicRows}</div><div id="skillModalChoices" class="skill-modal-choices"><div class="empty compact">${en?'Choose a category.':'Choisis une catégorie.'}</div></div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
+function chooseSkillModalCategory(encoded){const en=siteLanguage==='en';skillCategory=decodeURIComponent(encoded);const x=activeRoster()?.fighters[editingIndex];if(!x)return;const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),owned=new Set(x.skills||[]),available=(mergedSets[skillCategory]||[]).filter(s=>!owned.has(s));const box=$('#skillModalChoices');if(!box)return;box.innerHTML=`<div class="skill-modal-choice-head"><strong>${esc(skillTreeDisplayName(skillCategory))}</strong><span>${skillAccessLabel(personal[skillCategory])}</span></div><div class="skill-modal-list">${available.length?orderedChoiceNames(available,mergedSets[skillCategory]).map(s=>`<button type="button" class="skill-modal-skill" onclick="addSkillFromModal('${encodeURIComponent(s)}')"><span>${refLink('skills',s,numberedSkillName(s,mergedSets[skillCategory]))}</span><small>${en?'Add':'Ajouter'}</small></button>`).join(''):`<div class="empty compact">${en?'All skills in this tree have already been acquired.':'Toutes les compétences de cet arbre sont déjà acquises.'}</div>`}</div>`;document.querySelectorAll('.skill-modal-category').forEach(b=>b.classList.toggle('active',b.dataset.cat===skillCategory))}
 function addSkillFromModal(encoded){const x=activeRoster()?.fighters[editingIndex],v=decodeURIComponent(encoded);if(!x||!v)return;x.skills=x.skills||[];if(!x.skills.includes(v)){x.skills.push(v);save(true);toast(siteLanguage==='en'?`${v} added`:`${v} ajoutée`)}closeModal();render('fighter')}
 function setSkillCategory(c){skillCategory=c;render('fighter')}
 function toggleStatsPanel(){statsOpen=!statsOpen;render('fighter')}
@@ -11699,6 +12117,7 @@ function saveCustomEquipment(){
   // being re-tagged here — this form has no field for that) unless we're
   // creating fresh from inside a warband's Équipement section right now.
   item.exclusiveWarbandId=customWarbandCreateContextId||(idx>=0?(state.customEquipment[idx].exclusiveWarbandId||null):null);
+  if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(state.customEquipment[idx][k]!==undefined)item[k]=state.customEquipment[idx][k]});
   if(idx>=0)state.customEquipment[idx]=item;else state.customEquipment.push(item);
   if(customWarbandCreateContextId){
     const cw=customWarbandById(customWarbandCreateContextId);
@@ -11713,6 +12132,7 @@ function saveCustomEquipment(){
     }
   }
   customEquipmentEditId=item.customEquipmentId;save(true);
+  if(idx>=0)autoPushPublishedEdit('equipment',item.customEquipmentId);
   if(returnToWarbandEditor('equipment')){toast(idx>=0?(en?'Exclusive equipment updated':'Équipement exclusif modifié'):(en?'Exclusive equipment created — checked for this warband':'Équipement exclusif créé — coché pour cette warband'));return;}
   render('custom');toast(idx>=0?(en?'Custom equipment updated':'Équipement custom modifié'):(en?'Custom equipment created':'Équipement custom créé'));
 }
@@ -13260,8 +13680,8 @@ function customFighterAllEquipment(){
   // regardless of source, with no change to which copy wins a collision.
   return deduped.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
 }
-function newCustomFighter(){customFighterEditId=null;customFighterRuleDraft=[];customFighterSkillDraft=[];customFighterDefaultEquipmentDraft=[];customFighterEquipmentAccessDraft=[];customFighterMagicAccessDraft={};render('custom');setTimeout(()=>$('#cfName')?.focus(),30)}
-function editCustomFighter(id){const w=customFighterById(id);if(!w)return;customFighterEditId=id;customFighterRuleDraft=(w.ruleNames||[]).slice();customFighterSkillDraft=(w.defaultSkills||[]).slice();customFighterDefaultEquipmentDraft=(w.defaultEquipment||[]).slice();customFighterEquipmentAccessDraft=(w.equipmentAccess||[]).slice();customFighterMagicAccessDraft=JSON.parse(JSON.stringify(w.magicAccess||{}));render('custom')}
+function newCustomFighter(){customFighterEditId=null;customFighterHsChoicesDraft=null;customFighterRuleDraft=[];customFighterSkillDraft=[];customFighterDefaultEquipmentDraft=[];customFighterEquipmentAccessDraft=[];customFighterMagicAccessDraft={};render('custom');setTimeout(()=>$('#cfName')?.focus(),30)}
+function editCustomFighter(id){const w=customFighterById(id);if(!w)return;customFighterEditId=id;customFighterHsChoicesDraft=null;customFighterHSMode=!!w.hiredSword;customFighterRuleDraft=(w.ruleNames||[]).slice();customFighterSkillDraft=(w.defaultSkills||[]).slice();customFighterDefaultEquipmentDraft=(w.defaultEquipment||[]).slice();customFighterEquipmentAccessDraft=(w.equipmentAccess||[]).slice();customFighterMagicAccessDraft=JSON.parse(JSON.stringify(w.magicAccess||{}));render('custom')}
 // V-WARBANDROSTER: entry points reached from a warband's own Combattants
 // section — mirrors newExclusiveCustomEquipment/editExclusiveCustomEquipment.
 // customWarbandCreateContextId makes saveCustomFighter jump back into the
@@ -13320,10 +13740,57 @@ function removeAdminWarriorRule(i){adminRuleDraft.splice(i,1);refreshAdminWarrio
 function addCustomFighterSkill(v){v=(v||'').trim();if(!v)return;if(!customFighterSkillDraft.some(x=>normName(x)===normName(v)))customFighterSkillDraft.push(v);const select=$('#cfSkillSelect');if(select)select.value='';refreshCustomFighterTags('skill')}
 function removeCustomFighterSkill(i){customFighterSkillDraft.splice(i,1);refreshCustomFighterTags('skill')}
 function customFighterReadChecks(cls){return [...document.querySelectorAll('.'+cls+':checked')].map(x=>x.dataset.name)}
+/* V-HIREDSWORDS: Custom → 🗡 Hired Swords reuses the fighter builder
+   (customFighterForm) in "Hired Sword" mode: no subcategory / warband / limit
+   (always 1 per warband), a hire cost + upkeep, the list of warbands allowed
+   to hire it (hsFactions, empty = all), its fixed equipment (defaultEquipment)
+   and optional choice groups made at hire (hsChoices: [{label,count,options}]
+   — options are equipment, spell or skill names). */
+let customFighterHsChoicesDraft=null;
+function hiredSwordScopeMarkup(w){
+  const en=siteLanguage==='en';const sel=Array.isArray(w?.hsFactions)?w.hsFactions:[];const some=sel.length>0;const opts=creatureScopeFactionOptions().filter(o=>o.id!=='hired-swords');
+  return `<details class="custom-collapse" open><summary><span>${en?'HIRED BY':'EMBAUCHÉ PAR'}</span><small>${some?`${sel.length} ${en?'warband'+(sel.length>1?'s':''):'bande'+(sel.length>1?'s':'')}`:(en?'All warbands':'Toutes les bandes')}</small></summary>
+    <p class="custom-field-help">${en?'Only these warbands see it in their Recruitment → Hired Swords tab. One copy per warband.':'Seules ces bandes le voient dans leur onglet Recrutement → Hired Swords. Un seul exemplaire par bande.'}</p>
+    <label class="custom-check"><input type="radio" name="hsScope" value="all" ${some?'':'checked'} onchange="this.closest('details').querySelector('.hs-faction-grid').style.display='none'"> <span><b>${en?'All warbands':'Toutes les bandes'}</b><small>${en?'Hireable by every warband.':'Embauchable par toutes les bandes.'}</small></span></label>
+    <label class="custom-check"><input type="radio" name="hsScope" value="some" ${some?'checked':''} onchange="this.closest('details').querySelector('.hs-faction-grid').style.display=''"> <span><b>${en?'Only the warbands ticked below':'Seulement les bandes cochées ci-dessous'}</b><small>${en?'Only they can hire it.':'Seules elles peuvent l’embaucher.'}</small></span></label>
+    <div class="custom-faction-grid hs-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="hsFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div>
+  </details>`;
+}
+function hiredSwordReadScope(){const scope=document.querySelector('input[name="hsScope"]:checked')?.value||'all';return scope==='some'?[...document.querySelectorAll('.hsFaction:checked')].map(x=>x.dataset.faction):[]}
+function hiredSwordChoicesDraft(w){if(!customFighterHsChoicesDraft)customFighterHsChoicesDraft=JSON.parse(JSON.stringify(Array.isArray(w?.hsChoices)?w.hsChoices:[]));return customFighterHsChoicesDraft}
+function hiredSwordChoiceNameOptions(){
+  const names=new Set();
+  (D.weapons||[]).forEach(e=>e?.name&&names.add(e.name));allCustomEquipmentList().forEach(e=>e?.name&&names.add(e.name));
+  Object.values(customMergedMagicDomains()||{}).forEach(list=>(list||[]).forEach(sp=>{const n=typeof sp==='string'?sp:sp?.name;if(n)names.add(n)}));
+  customFighterSkillNames().forEach(n=>names.add(n));
+  return [...names].sort((a,b)=>a.localeCompare(b));
+}
+function hiredSwordChoiceGroupsMarkup(list){
+  const en=siteLanguage==='en';
+  return list.map((g,i)=>`<div class="hs-choice-group" data-i="${i}"><div class="hs-choice-head"><input class="hsChLabel" value="${esc(g.label||'')}" placeholder="${en?'E.g. Main weapon':'Ex. Arme principale'}"><span>${en?'choose':'choisir'}</span><input class="hsChCount" type="number" min="1" step="1" value="${Math.max(1,Number(g.count||1))}"><span>${en?'among':'parmi'}</span><button type="button" class="equipment-action remove" title="${en?'Remove this group':'Supprimer ce groupe'}" onclick="hiredSwordRemoveChoice(${i})">🗑</button></div><input class="hsChOptions custom-wide-select" list="hsChoiceNames" value="${esc((g.options||[]).join(', '))}" placeholder="${en?'Items, spells or skills, comma-separated: Flail, Morning Star…':'Objets, sorts ou compétences, séparés par des virgules : Flail, Morning Star…'}"></div>`).join('')||`<span class="custom-trait-empty">${en?'No choice at hire.':'Aucun choix à l’embauche.'}</span>`;
+}
+function hiredSwordChoicesEditorMarkup(w){
+  const en=siteLanguage==='en';const list=hiredSwordChoicesDraft(w);
+  return `<details class="custom-collapse" open><summary><span>${en?'CHOICES AT HIRE':'CHOIX À L’EMBAUCHE'}</span><small>${list.length} ${en?'group'+(list.length!==1?'s':''):'groupe'+(list.length!==1?'s':'')}</small></summary>
+    <p class="custom-field-help">${en?'Optional: equipment, spells or skills the player picks when hiring (included in the hire cost). It has no Market access and its fixed equipment can’t be removed, sold or given.':'Optionnel : équipement, sorts ou compétences choisis par le joueur à l’embauche (compris dans le coût d’embauche). Il n’a pas accès au Marché et son équipement fixe ne peut être ni retiré, ni vendu, ni donné.'}</p>
+    <div id="hsChoiceGroups" class="hs-choice-groups">${hiredSwordChoiceGroupsMarkup(list)}</div>
+    <datalist id="hsChoiceNames">${hiredSwordChoiceNameOptions().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    <button type="button" class="button secondary" onclick="hiredSwordAddChoice()">＋ ${en?'Add a choice group':'Ajouter un groupe de choix'}</button>
+  </details>`;
+}
+function hiredSwordReadChoices(){
+  const el=$('#hsChoiceGroups');if(!el)return (customFighterHsChoicesDraft||[]).slice();
+  return [...el.querySelectorAll('.hs-choice-group')].map(g=>({label:(g.querySelector('.hsChLabel')?.value||'').trim(),count:Math.max(1,Number(g.querySelector('.hsChCount')?.value||1)||1),options:String(g.querySelector('.hsChOptions')?.value||'').split(',').map(x=>x.trim()).filter(Boolean)})).filter(g=>g.options.length);
+}
+function hiredSwordSyncChoicesDraft(){const el=$('#hsChoiceGroups');if(!el)return;customFighterHsChoicesDraft=[...el.querySelectorAll('.hs-choice-group')].map(g=>({label:(g.querySelector('.hsChLabel')?.value||'').trim(),count:Math.max(1,Number(g.querySelector('.hsChCount')?.value||1)||1),options:String(g.querySelector('.hsChOptions')?.value||'').split(',').map(x=>x.trim()).filter(Boolean)}))}
+function hiredSwordRefreshChoices(){const el=$('#hsChoiceGroups');if(!el)return;el.innerHTML=hiredSwordChoiceGroupsMarkup(customFighterHsChoicesDraft||[]);const small=el.closest('details')?.querySelector('summary small');const n=(customFighterHsChoicesDraft||[]).length;if(small)small.textContent=siteLanguage==='en'?`${n} group${n!==1?'s':''}`:`${n} groupe${n!==1?'s':''}`}
+function hiredSwordAddChoice(){hiredSwordSyncChoicesDraft();(customFighterHsChoicesDraft=customFighterHsChoicesDraft||[]).push({label:'',count:1,options:[]});hiredSwordRefreshChoices();const groups=document.querySelectorAll('#hsChoiceGroups .hsChLabel');groups[groups.length-1]?.focus()}
+function hiredSwordRemoveChoice(i){hiredSwordSyncChoicesDraft();(customFighterHsChoicesDraft||[]).splice(i,1);hiredSwordRefreshChoices()}
 function saveCustomFighter(){
   const en=siteLanguage==='en';
   const name=($('#cfName')?.value||'').trim(),type=$('#cfType')?.value||'Henchman',factionId=$('#cfFaction')?.value||'',cost=Math.max(0,Number($('#cfCost')?.value||0));
   if(!name){toast(en?'Give the fighter a name':'Donne un nom au combattant');return} if(!factionId){toast(en?'Choose a band':'Choisis une bande');return} if(!Number.isFinite(cost)){toast(en?'Invalid base cost':'Valeur de base invalide');return}
+  const isHS=factionId==='hired-swords';
   const maxMode=$('#cfMaxMode')?.value||'auto';const maxRaw=($('#cfMax')?.value||'').trim();const max=maxRaw===''?null:Math.max(0,Number(maxRaw));if(max!==null&&!Number.isFinite(max)){toast(en?'Invalid limit':'Limite invalide');return}
   const profile=P.map((_,i)=>{const n=Number($('#cfStat'+i)?.value);return Number.isFinite(n)?n:0});
   const manualMaxProfile=maxMode==='manual'?P.map((_,i)=>{const n=Number($('#cfMaxStat'+i)?.value);return Number.isFinite(n)?n:profile[i]||0}):null;
@@ -13335,8 +13802,11 @@ function saveCustomFighter(){
   const ruleNames=[`Race (${race})`,...customFighterRuleDraft.filter(n=>!/^Race\s*\(/i.test(String(n)))];
   const isCustomWarband=String(factionId).startsWith('custom-warband-');
   const customWarbandId=isCustomWarband?String(factionId).replace('custom-warband-',''):null;
-  const item={customFighterId:customFighterEditId||crypto.randomUUID(),name,type,factionId:isCustomWarband?'':factionId,customWarbandId,cost,max,maxMode,manualMaxProfile,profile,race,ruleNames,rules:ruleNames.join(', '),skillAccess,magicAccess,defaultSkills:customFighterSkillDraft.slice(),defaultEquipment,equipmentAccess,description:($('#cfDescription')?.value||'').trim()};
+  const item={customFighterId:customFighterEditId||crypto.randomUUID(),name,type,factionId:(isCustomWarband||isHS)?'':factionId,customWarbandId,cost,max:isHS?1:max,maxMode,manualMaxProfile,profile,race,ruleNames,rules:ruleNames.join(', '),skillAccess,magicAccess,defaultSkills:customFighterSkillDraft.slice(),defaultEquipment,equipmentAccess,description:($('#cfDescription')?.value||'').trim()};
   const existing=customFighterById(item.customFighterId);const previousCustomWarbandId=existing?.customWarbandId||null;item.archived=existing?.archived||false;
+  // Keep the publication links of an already officialized profile.
+  ['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(existing&&existing[k]!==undefined)item[k]=existing[k]});
+  if(isHS){item.hiredSword=true;item.type='Hired Sword';item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;item.hsFactions=hiredSwordReadScope();item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];}
   const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0)state.customFighters[idx]=item;else state.customFighters.push(item);
   const ref=`custom:${item.customFighterId}`;
   if(previousCustomWarbandId && previousCustomWarbandId!==customWarbandId){
@@ -13357,6 +13827,7 @@ function saveCustomFighter(){
     }
   }
   customFighterEditId=item.customFighterId;save(true);
+  if(idx>=0)autoPushPublishedEdit('fighters',item.customFighterId);
   customFighterPresetWarbandId=null;
   if(returnToWarbandEditor('fighters')){toast(idx>=0?(en?'Profile updated':'Profil modifié'):(en?'Profile created — added to this warband':'Profil créé — ajouté à cette warband'));return;}
   render('custom');toast(idx>=0?(en?'Custom profile updated':'Profil custom modifié'):(en?'Custom profile created':'Profil custom créé'));
@@ -13486,6 +13957,7 @@ function saveCustomCreature(){
   if(idx>=0)state.customCreatures[idx]={...existing,...item};else state.customCreatures.push(item);
   customCreatureEditId=item.customCreatureId;save(true);
   render('custom');toast(idx>=0?(en?'Profile updated':'Profil modifié'):(en?'Profile created':'Profil créé'));
+  if(idx>=0)autoPushPublishedEdit('creatures',item.customCreatureId);
 }
 function customCreatureForm(w){
   const en=siteLanguage==='en';
@@ -13687,20 +14159,23 @@ function customFighterForm(w){
   const p=w?.profile||P.map(()=>1);
   const factionId=w?.customWarbandId?`custom-warband-${w.customWarbandId}`:(w?.factionId||(!w&&customFighterPresetWarbandId?`custom-warband-${customFighterPresetWarbandId}`:'')||D.factions.find(f=>!f.packId)?.id||'');
   const types=['Leader','Champion','Raw Recruit','Henchman'];
+  const hs=customFighterHSMode||!!w?.hiredSword;
   const officialFactions=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f));
   const customWarbands=customWarbandList();
   return `<div class="custom-form-head"><div><div class="eyebrow">${w?(en?'EDIT':'MODIFICATION'):(en?'NEW PROFILE':'NOUVEAU PROFIL')}</div><h3>${esc(w?.name||(en?'Build a fighter':'Construire un combattant'))}</h3></div>${w?`<button type="button" class="button secondary" onclick="newCustomFighter()">＋ ${en?'New':'Nouveau'}</button>`:''}</div>
   <div class="custom-form-grid">
     <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="cfName" value="${esc(w?.name||'')}" placeholder="${en?'E.g. Warlord':'Ex. Maître de guerre'}"></label>
-    <label class="custom-field"><span>${en?'Subcategory':'Sous-catégorie'}</span><select id="cfType">${types.map(t=>`<option value="${esc(t)}" ${t===(w?.type||'Henchman')?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
-    <label class="custom-field"><span>Warband</span><select id="cfFaction"><optgroup label="${en?'Main warbands':'Warbands principales'}">${officialFactions.map(f=>`<option value="${esc(f.id)}" ${f.id===factionId?'selected':''}>${esc(f.displayName)}</option>`).join('')}</optgroup>${customWarbands.length?`<optgroup label="${en?'Custom warbands':'Warbands custom'}">${customWarbands.map(cw=>{const id=`custom-warband-${cw.id}`;return `<option value="${id}" ${id===factionId?'selected':''}>⚔ ${esc(cw.name)}${cw.officialId?'':' · CUSTOM'}</option>`}).join('')}</optgroup>`:''}</select></label>
-    <label class="custom-field"><span>${en?'Base cost (GC)':'Valeur de base (GC)'}</span><input id="cfCost" type="number" min="0" step="1" value="${Number(w?.cost||0)}"></label>
+    ${hs?`<input type="hidden" id="cfType" value="Hired Sword"><input type="hidden" id="cfFaction" value="hired-swords">`:''}${hs?'':`<label class="custom-field"><span>${en?'Subcategory':'Sous-catégorie'}</span><select id="cfType">${types.map(t=>`<option value="${esc(t)}" ${t===(w?.type||'Henchman')?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+    <label class="custom-field"><span>Warband</span><select id="cfFaction"><optgroup label="${en?'Main warbands':'Warbands principales'}">${officialFactions.map(f=>`<option value="${esc(f.id)}" ${f.id===factionId?'selected':''}>${esc(f.displayName)}</option>`).join('')}</optgroup>${customWarbands.length?`<optgroup label="${en?'Custom warbands':'Warbands custom'}">${customWarbands.map(cw=>{const id=`custom-warband-${cw.id}`;return `<option value="${id}" ${id===factionId?'selected':''}>⚔ ${esc(cw.name)}${cw.officialId?'':' · CUSTOM'}</option>`}).join('')}</optgroup>`:''}</select></label>`}
+    <label class="custom-field"><span>${hs?(en?'Hire cost (GC)':'Coût d’embauche (GC)'):(en?'Base cost (GC)':'Valeur de base (GC)')}</span><input id="cfCost" type="number" min="0" step="1" value="${Number(w?.cost||0)}"></label>
+    ${hs?`<label class="custom-field"><span>${en?'Upkeep per battle (GC)':'Entretien par bataille (GC)'}</span><input id="cfUpkeep" type="number" min="0" step="1" value="${Number(w?.upkeep||0)}"></label>`:''}
     <label class="custom-field"><span>${en?'Race':'Race'}</span><input id="cfRace" value="${esc(w?.race||'Human')}" placeholder="${en?'E.g. Human, Skaven, Vampire…':'Ex. Human, Skaven, Vampire…'}"></label>
     <label class="custom-field"><span>${en?'Maximum mode':'Mode des maximums'}</span><select id="cfMaxMode"><option value="auto" ${(w?.maxMode||'auto')==='auto'?'selected':''}>${en?'Automatic (race + modifiers)':'Automatique (race + modificateurs)'}</option><option value="manual" ${(w?.maxMode||'auto')==='manual'?'selected':''}>${en?'Manual':'Manuel'}</option></select></label>
-    <label class="custom-field"><span>${en?'Limit':'Limite'}</span><input id="cfMax" type="number" min="0" step="1" value="${w?.max===null||w?.max===undefined?'':Number(w.max)}" placeholder="${en?'Empty = no limit':'Vide = aucune limite'}"></label>
+    ${hs?`<input type="hidden" id="cfMax" value="1">`:`<label class="custom-field"><span>${en?'Limit':'Limite'}</span><input id="cfMax" type="number" min="0" step="1" value="${w?.max===null||w?.max===undefined?'':Number(w.max)}" placeholder="${en?'Empty = no limit':'Vide = aucune limite'}"></label>`}
   </div>
   <details class="custom-collapse" open><summary><span>${en?'CHARACTERISTICS':'CARACTÉRISTIQUES'}</span><small>${en?'12 profile values':'12 valeurs de profil'}</small></summary><table class="custom-stat-bar"><tr>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}</tr><tr>${P.map((n,i)=>`<td><input id="cfStat${i}" type="number" step="1" value="${esc(p[i]??'')}"></td>`).join('')}</tr></table></details>
   <details class="custom-collapse" open><summary><span>${en?'MANUAL MAXIMUMS':'MAXIMUMS MANUELS'}</span><small>${en?'Used if manual mode':'Utilisés si mode manuel'}</small></summary><table class="custom-stat-bar"><tr>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}</tr><tr>${P.map((n,i)=>`<td><input id="cfMaxStat${i}" type="number" min="0" step="1" value="${esc((w?.manualMaxProfile?.[i]??p[i]??0))}"></td>`).join('')}</tr></table></details>
+  ${hs?hiredSwordScopeMarkup(w):''}
   <details class="custom-collapse" open><summary><span>${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><small>${rules.length} ${en?(rules.length!==1?'linked':'linked'):('liée'+(rules.length!==1?'s':''))}</small></summary><div class="custom-tag-editor"><div id="cfRuleTags" class="custom-trait-tags">${rules.map((s,i)=>`<span class="custom-trait-tag">${refLink('special',s,s)}${isEditableParamTag('fighter',s)?`<button type="button" title="${en?'Edit value':'Modifier la valeur'}" class="trait-tag-edit" onclick="editTraitParamValue('fighter',${i})">✎</button>`:''}<button type="button" onclick="removeCustomFighterRule(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No special rules.':'Aucune règle spéciale.'}</span>`}</div><div class="custom-trait-add"><input id="cfRuleInput" list="cfRuleDatalist" placeholder="${en?'Search a special rule…':'Rechercher une règle spéciale…'}" onkeydown="handleCustomFighterRuleKey(event)"><datalist id="cfRuleDatalist">${referenceEntries('special').filter(s=>!/^Race\s*\(/i.test(s.name)).map(s=>`<option value="${esc(s.name)}">`).join('')}</datalist><button type="button" class="button secondary" onclick="addCustomFighterRule()">＋ ${en?'Add':'Ajouter'}</button></div></div></details>
   <details class="custom-collapse" open><summary><span>${en?'SKILL TREE':'ARBRE DE COMPÉTENCES'}</span><small>${en?'Not allowed / Allowed / Primary / Secondary':'Non autorisé / Autorisé / Primary / Secondary'}</small></summary><div class="custom-skill-access-grid">${(()=>{
     // Custom skill trees are global (state.customSkillTrees isn't scoped to
@@ -13716,8 +14191,8 @@ function customFighterForm(w){
   })().map(set=>{const val=skillAccess[set]??skillAccessNorm[normName(set)]??'';return `<label><span>${esc(set)}</span><select class="cfSkillAccess" data-set="${esc(set)}"><option value="">${en?'Not allowed':'Non autorisé'}</option><option value="Access" ${val==='Access'?'selected':''}>${en?'Allowed':'Autorisé'}</option><option value="Primary" ${val==='Primary'?'selected':''}>Primary</option><option value="Secondary" ${val==='Secondary'?'selected':''}>Secondary</option></select></label>`}).join('')}</div></details>
   <details class="custom-collapse"><summary><span>${en?'SPELLS / MAGIC DOMAINS':'SORTS / DOMAINES DE MAGIE'}</span><small>${en?'Not allowed / Primary / Secondary':'Non autorisé / Primary / Secondary'}</small></summary><div class="custom-skill-access-grid">${Object.keys(customMergedMagicDomains()).map(domain=>{const mv=customFighterMagicAccessDraft?.[domain]||w?.magicAccess?.[domain]||magicAccessNorm[normName(domain)]||'';return `<label><span>${esc(domain)}</span><select class="cfMagicAccess" data-domain="${esc(domain)}"><option value="">${en?'Not allowed':'Non autorisé'}</option><option value="Primary" ${mv==='Primary'?'selected':''}>Primary</option><option value="Secondary" ${mv==='Secondary'?'selected':''}>Secondary</option></select></label>`}).join('')}</div></details>
   <details class="custom-collapse"><summary><span>${en?'DEFAULT SKILLS':'COMPÉTENCES PAR DÉFAUT'}</span><small>${skills.length} ${en?'skill'+(skills.length!==1?'s':''):'compétence'+(skills.length!==1?'s':'')}</small></summary><div class="custom-choice-list"><div id="cfSkillTags" class="custom-trait-tags">${skills.map((s,i)=>`<span class="custom-trait-tag">${refLink('skills',s,s)}<button type="button" onclick="removeCustomFighterSkill(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No default skills.':'Aucune compétence par défaut.'}</span>`}</div><select id="cfSkillSelect" onchange="addCustomFighterSkill(this.value);this.value=''" class="custom-wide-select"><option value="">＋ ${en?'Add a skill…':'Ajouter une compétence…'}</option>${customFighterSkillNames().map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select></div></details>
-  <details class="custom-collapse"><summary><span>${en?'DEFAULT EQUIPMENT':'ÉQUIPEMENT PAR DÉFAUT'}</span><small>${defaults.length} ${en?'item'+(defaults.length!==1?'s':''):'objet'+(defaults.length!==1?'s':'')}</small></summary>${customFighterEquipmentChooser('cfDefaultEquipment',defaults,'default')}</details>
-  <details class="custom-collapse"><summary><span>${en?'EQUIPMENT ACCESS':'ACCÈS À L’ÉQUIPEMENT'}</span><small>${access.length} ${en?'item'+(access.length!==1?'s':''):'objet'+(access.length!==1?'s':'')}</small></summary>${customFighterEquipmentChooser('cfEquipmentAccess',access,'access')}</details>
+  <details class="custom-collapse"${hs?' open':''}><summary><span>${hs?(en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'):(en?'DEFAULT EQUIPMENT':'ÉQUIPEMENT PAR DÉFAUT')}</span><small>${defaults.length} ${en?'item'+(defaults.length!==1?'s':''):'objet'+(defaults.length!==1?'s':'')}</small></summary>${customFighterEquipmentChooser('cfDefaultEquipment',defaults,'default')}</details>
+  ${hs?hiredSwordChoicesEditorMarkup(w):`<details class="custom-collapse"><summary><span>${en?'EQUIPMENT ACCESS':'ACCÈS À L’ÉQUIPEMENT'}</span><small>${access.length} ${en?'item'+(access.length!==1?'s':''):'objet'+(access.length!==1?'s':'')}</small></summary>${customFighterEquipmentChooser('cfEquipmentAccess',access,'access')}</details>`}
   <details class="custom-collapse"><summary><span>${en?'DESCRIPTION':'DESCRIPTION'}</span><small>${en?'Profile text':'Texte du profil'}</small></summary>${customTextToolbarMarkup('cfDescription')}<textarea id="cfDescription" class="wide-textarea" rows="5" placeholder="${en?'Fighter description…':'Description du combattant…'}">${esc(w?.description||'')}</textarea></details>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomFighterForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomFighter()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create profile':'Créer le profil')}</button></div>`;
 }
@@ -13814,7 +14289,7 @@ function fighterPool(f){
   // form, same as Mounts) — see customCreatureAsWarrior/animalCreatureList
   // — so every warband's Recruitment pool offers the same animal roster.
   const animalEntries=animalCreatureList(f).filter(w=>!seenIds.has(w.id));
-  const all=[...base,...customFighterEntries,...animalEntries];
+  const all=[...base,...customFighterEntries,...animalEntries].filter(w=>!isHiredSword(w));
   const r=activeRoster();return `<div class="pool-grid">${all.map(w=>{const owned=(r?.fighters||[]).filter(x=>x.wid===w.id).length;const maxed=w.max!==null&&owned>=w.max;const rc=fighterRecruitCost(w,r?faction(r):f);return `<article class="fighter-card-v4 fighter-row ${maxed?'maxed':''}" data-name="${esc(w.name.toLowerCase())}" data-type="${esc(w.type)}"><div class="fighter-top"><div class="fighter-ident"><div class="fighter-sigil">${w.custom?'✦':(factionSigils[f.id]||'◆')}</div><div><div class="fighter-name-line"><h4>${esc(w.name)}</h4><span class="role-badge role-${esc(w.type.toLowerCase().replace(/\s+/g,'-'))}">${esc(w.type)}</span>${w.custom?'<span class="custom-armory-badge">CUSTOM</span>':''}</div><div class="fighter-subline">${w.max!==null?'Maximum '+w.max:'Aucune limite'} · ${owned} recrutée${owned!==1?'s':''}</div></div></div><span class="fc-cost">${rc} GC${rc!==Number(w.cost||0)?`<small class="muted" title="${siteLanguage==='en'?'Profile + default equipment':'Profil + équipement par défaut'}"> (${Number(w.cost||0)}+${rc-Number(w.cost||0)})</small>`:''}</span></div>${profileMarkup(effectiveFighterProfile(w,f),0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">RÈGLES / ACCÈS</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')}</p></div></div><button class="button primary recruit-btn recruit-btn-full" type="button" data-recruit-fighter="${esc(w.id)}" ${maxed?'disabled':''}>${maxed?'Limite atteinte':`Recruter — ${rc} GC`}</button></article>`}).join('')}</div>`}
 window.addFighter=addFighter;
 window.setGangTab=setGangTab;
@@ -13973,7 +14448,26 @@ function customMergedSkillSets(f){
   customSkillTreeList().forEach(t=>{if(!out[t.name])out[t.name]=[]});
   customContentList('skills').forEach(s=>{if(s.tree){if(!out[s.tree])out[s.tree]=[];if(!out[s.tree].includes(s.name))out[s.tree].push(s.name)}});
   if(f?.exclusiveSkillSets)Object.entries(f.exclusiveSkillSets).forEach(([k,v])=>{if(!out[k])out[k]=[];(Array.isArray(v)?v:[]).forEach(n=>{if(!out[k].includes(n))out[k].push(n)})});
+  addPublishedGroups(out,'exclusiveSkillSets');
   return out;
+}
+// V-PUBLISHEDTREESEVERYWHERE: a custom skill tree / magic domain published
+// with ONE official warband is merged only onto that warband
+// (exclusiveSkillSets/exclusiveMagicDomains). Any other warband whose
+// fighters list it in their skillAccess/magicAccess used to resolve it only
+// through the admin's own local Custom copy — so once that copy was gone
+// (deleted by a cleanup, or on any other account) the tree went empty and
+// its skills (e.g. Ride) vanished from "available skills". Fill in, for
+// every tree/domain name not already known here, the published content of
+// any official warband. Access itself still comes from the fighter's own
+// skillAccess/magicAccess, so nothing is granted to fighters who don't
+// list the tree.
+function addPublishedGroups(out,field){
+  const keyByNorm={};Object.keys(out).forEach(k=>{keyByNorm[normName(k)]=k});
+  (D.factions||[]).forEach(of=>{if(!of?.__official||!of[field])return;
+    Object.entries(of[field]).forEach(([k,v])=>{const key=keyByNorm[normName(k)]||k;if(!out[key]){out[key]=[];keyByNorm[normName(k)]=key}
+      (Array.isArray(v)?v:[]).forEach(n=>{if(!out[key].some(x=>normName(x)===normName(n)))out[key].push(n)})});
+  });
 }
 function customMergedMagicDomains(f){
   const out={};Object.entries(MAGIC_DOMAINS||{}).forEach(([k,v])=>out[k]=Array.isArray(v)?v.slice():[]);
@@ -13998,6 +14492,7 @@ function customMergedMagicDomains(f){
     if(!out[key].includes(s.name))out[key].push(s.name);
   });
   if(f?.exclusiveMagicDomains)Object.entries(f.exclusiveMagicDomains).forEach(([k,v])=>{if(!out[k])out[k]=[];(Array.isArray(v)?v:[]).forEach(n=>{if(!out[k].includes(n))out[k].push(n)})});
+  addPublishedGroups(out,'exclusiveMagicDomains');
   return out;
 }
 function customSkillTreeList(){if(!Array.isArray(state.customSkillTrees))state.customSkillTrees=[];return state.customSkillTrees}
@@ -14201,7 +14696,7 @@ function saveCustomContent(kind){
   if(kind==='skills'&&item.tree&&customSkillTreeList().some(t=>t.name===item.tree)){const cur=customContentList('skills').find(x=>x.customContentId===item.customContentId);const count=customContentList('skills').filter(x=>x.tree===item.tree&&x.customContentId!==item.customContentId).length;if(count>=6){toast(en?'This custom tree already has 6 skills':'Cet arbre custom contient déjà 6 compétences');return}}
   // V-DOMAINSPELLCAP: no longer refuses past a 6th spell in a custom domain
   // — see the matching comment on adminAddSpellToDomain for why.
-  const map={traits:'customTraits',skills:'customSkills',spells:'customSpells',special:'customSpecialRules'},key=map[kind],arr=customContentList(kind),idx=arr.findIndex(x=>x.customContentId===item.customContentId);const oldName=idx>=0?arr[idx].name:null;item.archived=idx>=0?!!arr[idx].archived:false;const prevExclusiveWarbandId=idx>=0?(arr[idx].exclusiveWarbandId||null):null;if(idx>=0)state[key][idx]=item;else state[key].push(item);
+  const map={traits:'customTraits',skills:'customSkills',spells:'customSpells',special:'customSpecialRules'},key=map[kind],arr=customContentList(kind),idx=arr.findIndex(x=>x.customContentId===item.customContentId);const oldName=idx>=0?arr[idx].name:null;item.archived=idx>=0?!!arr[idx].archived:false;const prevExclusiveWarbandId=idx>=0?(arr[idx].exclusiveWarbandId||null):null;if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(arr[idx][k]!==undefined)item[k]=arr[idx][k]});if(idx>=0)state[key][idx]=item;else state[key].push(item);
   // V-CUSTOMSKILLRENAME: renaming an entry HERE (typing a new name in the
   // Custom-tab form) changes the entry's own .name directly — unlike the
   // Référentiel's ✎ Title button, which only overlays a display title and
@@ -14224,6 +14719,7 @@ function saveCustomContent(kind){
     if(cw){const key2=kind==='special'?'specialRuleIds':'traitIds';cw[key2]=Array.isArray(cw[key2])?cw[key2]:[];if(!cw[key2].includes(item.customContentId))cw[key2].push(item.customContentId);}
   }
   customContentEditId=item.customContentId;save(true);
+  if(idx>=0&&!(oldName&&oldName!==name))autoPushPublishedEdit(kind,item.customContentId);
   if((kind==='special'||kind==='traits')&&returnToWarbandEditor(kind)){toast(idx>=0?(en?'Entry updated':'Entrée modifiée'):(en?(kind==='special'?'Exclusive rule created — checked for this warband':'Trait created — checked for this warband'):(kind==='special'?'Règle exclusive créée — cochée pour cette warband':'Trait créé — coché pour cette warband')));return;}
   render('custom');toast(idx>=0?(en?'Entry updated':'Entrée modifiée'):(en?'Entry created':'Entrée créée'))
 }
@@ -14311,8 +14807,10 @@ function customBuilderSaveItem(kind,parentId,itemId){
   }
   const map={skills:'customSkills',spells:'customSpells'},key=map[kind],idx=arr.findIndex(x=>x.customContentId===item.customContentId);
   item.archived=idx>=0?!!arr[idx].archived:false;
+  if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(arr[idx][k]!==undefined)item[k]=arr[idx][k]});
+  const renamed=idx>=0&&arr[idx].name!==item.name;
   if(idx>=0)state[key][idx]=item; else state[key].push(item);
-  customBuilderResetComposer(); save(true); render('custom'); toast(idx>=0?(kind==='skills'?(en?'Skill updated':'Compétence modifiée'):(en?'Spell updated':'Sort modifié')):(kind==='skills'?(en?'Skill created':'Compétence créée'):(en?'Spell created':'Sort créé')))
+  customBuilderResetComposer(); save(true); render('custom');if(idx>=0&&!renamed)autoPushPublishedEdit(kind,item.customContentId); toast(idx>=0?(kind==='skills'?(en?'Skill updated':'Compétence modifiée'):(en?'Spell updated':'Sort modifié')):(kind==='skills'?(en?'Skill created':'Compétence créée'):(en?'Spell created':'Sort créé')))
 }
 function customBuilderComposerMarkup(kind,parent,item){
   const en=siteLanguage==='en';
@@ -14470,7 +14968,7 @@ function custom(){
     if(page){$('#content').innerHTML=page;return}
   }
   const inWarbandArea=customArea==='warband';
-  const tabs=inWarbandArea?[]:(en?[['traits','◆ Traits'],['skills','★ Skills'],['spells','✦ Spells'],['special','✚ Special Rules'],['fighters','⚔ Fighters'],['creatures','🐾 Animals & Mounts'],['equipment','◇ Equipment']]:[['traits','◆ Traits'],['skills','★ Compétences'],['spells','✦ Sorts'],['special','✚ Règles spéciales'],['fighters','⚔ Combattants'],['creatures','🐾 Animaux & Montures'],['equipment','◇ Équipements']]);
+  const tabs=inWarbandArea?[]:(en?[['traits','◆ Traits'],['skills','★ Skills'],['spells','✦ Spells'],['special','✚ Special Rules'],['fighters','⚔ Fighters'],['hiredswords','🗡 Hired Swords'],['creatures','🐾 Animals & Mounts'],['equipment','◇ Equipment']]:[['traits','◆ Traits'],['skills','★ Compétences'],['spells','✦ Sorts'],['special','✚ Règles spéciales'],['fighters','⚔ Combattants'],['hiredswords','🗡 Hired Swords'],['creatures','🐾 Animaux & Montures'],['equipment','◇ Équipements']]);
   let title,createLabel,action,editor,library;
   if(customContentTab==='warband'){
     const list=customWarbandList(); title=en?'Create a Warband':'Créer une Warband'; createLabel=en?'New Warband':'Nouvelle Warband'; action='newCustomWarband()'; editor=customWarbandEditorPanel();
@@ -14508,7 +15006,7 @@ function custom(){
     action='newCustomCreature()';
     library=`<aside class="card custom-library"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${esc(title)}</h3></div><span>${filtered.length}</span></div><input class="search" value="${esc(customContentSearch)}" placeholder="${en?'Search…':'Rechercher…'}" oninput="customContentSearch=this.value;render('custom')"><div class="custom-item-list">${active.length?active.map(customCreatureRow).join(''):(archived.length?'':`<div class="empty large"><strong>${en?'No custom entry.':'Aucune entrée custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`)}</div>${archived.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'ARCHIVED':'ARCHIVÉES'}</span><small>${archived.length}</small></summary><div class="custom-item-list">${archived.map(customCreatureRow).join('')}</div></details>`:''}</aside>`;
   }else{
-    const rawList=customContentTab==='fighters'?customFighterList():customContentTab==='equipment'?customEquipmentList():customContentList(customContentTab);
+    const rawList=customContentTab==='fighters'?customFighterList().filter(w=>!!w.hiredSword===!!customFighterHSMode):customContentTab==='equipment'?customEquipmentList():customContentList(customContentTab);
     // V-WARBANDEXCLUSIVE: equipment/special rules created from inside a
     // warband's own setup are exclusive to it — see saveCustomEquipment /
     // saveCustomContent — so Custom Générique's own library no longer lists
@@ -14550,8 +15048,8 @@ function custom(){
     const archived=shown.filter(w=>w.archived);
     const rowFn=w=>customContentTab==='fighters'?customFighterRow(w,false):customContentTab==='equipment'?customEquipmentRow(w):customContentLibraryRow(customContentTab,w);
     if(customContentTab==='fighters'){const editingF=customFighterEditId?customFighterById(customFighterEditId):null;editor=customFighterForm(editingF)} else if(customContentTab==='equipment'){const editingEq=customEquipmentEditId?state.customEquipment.find(x=>x.customEquipmentId===customEquipmentEditId):null;editor=customEquipmentForm(editingEq)} else {const editing=customContentEditId?customContentById(customContentTab,customContentEditId):null;editor=customContentForm(customContentTab,editing)}
-    title=en?(customContentTab==='fighters'?'Fighter profiles':customContentTab==='equipment'?'Custom equipment':'Custom '+customContentTypeLabel(customContentTab).toLowerCase()+'s'):(customContentTab==='fighters'?'Profils de combattants':customContentTab==='equipment'?'Équipements personnalisés':customContentTypeLabel(customContentTab)+'s personnalisés');
-    createLabel=en?(customContentTab==='fighters'?'New fighter':customContentTab==='equipment'?'New equipment':'New '+customContentTypeLabel(customContentTab).toLowerCase()):(customContentTab==='fighters'?'Nouveau combattant':customContentTab==='equipment'?'Nouvel équipement':'Nouvelle '+customContentTypeLabel(customContentTab).toLowerCase());
+    title=en?(customContentTab==='fighters'?(customFighterHSMode?'Hired Swords':'Fighter profiles'):customContentTab==='equipment'?'Custom equipment':'Custom '+customContentTypeLabel(customContentTab).toLowerCase()+'s'):(customContentTab==='fighters'?(customFighterHSMode?'Hired Swords':'Profils de combattants'):customContentTab==='equipment'?'Équipements personnalisés':customContentTypeLabel(customContentTab)+'s personnalisés');
+    createLabel=en?(customContentTab==='fighters'?(customFighterHSMode?'New Hired Sword':'New fighter'):customContentTab==='equipment'?'New equipment':'New '+customContentTypeLabel(customContentTab).toLowerCase()):(customContentTab==='fighters'?(customFighterHSMode?'Nouveau Hired Sword':'Nouveau combattant'):customContentTab==='equipment'?'Nouvel équipement':'Nouvelle '+customContentTypeLabel(customContentTab).toLowerCase());
     action=customContentTab==='fighters'?'newCustomFighter()':customContentTab==='equipment'?'newCustomEquipment()':`newCustomContent('${customContentTab}')`;
     library=`<aside class="card custom-library"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${esc(title)}</h3></div><span>${shown.length}</span></div><input class="search" value="${esc(customContentSearch)}" placeholder="${en?'Search…':'Rechercher…'}" oninput="customContentSearch=this.value;render('custom')"><div class="custom-item-list">${active.length?active.map(rowFn).join(''):(archived.length?'':`<div class="empty large"><strong>${en?'No custom entry.':'Aucune entrée custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`)}</div>${archived.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'ARCHIVED':'ARCHIVÉES'}</span><small>${archived.length}</small></summary><div class="custom-item-list">${archived.map(rowFn).join('')}</div></details>`:''}${official.length?`<details class="custom-collapse custom-item-archive"${q?' open':''}><summary><span>${en?'OFFICIALIZED':'OFFICIALISÉES'}</span><small>${official.length}</small></summary><p class="muted" style="font-size:10.5px;margin:0 0 8px">${en?'Already published — live for every player. Click ★ again to re-push after editing, or to pick up a fix.':'Déjà publiées — visibles par tous les joueurs. Reclique sur ★ pour republier après une modification, ou pour appliquer un correctif.'}</p><div class="custom-item-list">${official.map(rowFn).join('')}</div></details>`:''}</aside>`;
   }
@@ -14571,7 +15069,7 @@ function custom(){
   // banner is the person's own way back — nothing auto-returns them here.
   const warbandReturnCw=(customContentTab==='skills'||customContentTab==='spells')&&customWarbandCreateContextId?customWarbandById(customWarbandCreateContextId):null;
   const warbandReturnBanner=warbandReturnCw?`<div class="official-draft-notice"><span class="official-draft-tag">WARBAND</span><p>${en?`You came from <b>${esc(warbandReturnCw.name)}</b>.`:`Tu es venu·e depuis <b>${esc(warbandReturnCw.name)}</b>.`} <a href="#" onclick="returnToWarbandEditor('skills');return false;">← ${en?'Back to the warband':'Retour à la warband'}</a></p></div>`:'';
-  const tabBar=tabs.length?`<div class="custom-top-tabs">${tabs.map(([id,label])=>`<button type="button" class="custom-top-tab ${customContentTab===id?'active':''}" onclick="setCustomTab('${id}')">${label}</button>`).join('')}</div>`:'';
+  const tabBar=tabs.length?`<div class="custom-top-tabs">${tabs.map(([id,label])=>`<button type="button" class="custom-top-tab ${(id==='hiredswords'?(customContentTab==='fighters'&&customFighterHSMode):(customContentTab===id&&!(id==='fighters'&&customFighterHSMode)))?'active':''}" onclick="setCustomTab('${id}')">${label}</button>`).join('')}</div>`:'';
   $('#content').innerHTML=`<div class="custom-page">${backLink}${warbandReturnBanner}<div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${esc(title)}</h2><p>${description}</p></div>${introButton}</div>${tabBar}<div class="custom-workspace"><section class="card custom-editor">${editor}</section>${library}</div></div>`;
 }
 function customWarbandEditorPanel(){
@@ -14580,7 +15078,10 @@ function customWarbandEditorPanel(){
   if(customWarbandEditId){const cw=customWarbandById(customWarbandEditId);if(cw)return customWarbandEditor(cw);customWarbandEditId=null;}
   return `<div class="custom-warband-empty"><div class="eyebrow">${en?'CUSTOM WARBAND':'WARBAND CUSTOM'}</div><h3>${en?'Forge your own Warband':'Forge ta propre Warband'}</h3><p>${en?'First create its name and description. Once saved, use <b>Edit</b> in the library to link fighters, equipment, special rules and traits.':'Crée d’abord son nom et sa description. Une fois sauvegardée, utilise <b>Modifier</b> dans la bibliothèque pour associer les combattants, l’équipement, les règles spéciales et les traits.'}</p><button type="button" class="button primary" onclick="newCustomWarband()">＋ ${en?'New Warband':'Nouvelle Warband'}</button></div>`;
 }
-function setCustomTab(v){customContentTab=v;customContentSearch='';customBuilderResetComposer();customWarbandCreateContextId=null;if(v==='warband'){customWarbandEditId=null;customWarbandCreating=false;customWarbandSection='fighters'}else if(v==='fighters'){customFighterEditId=null}else if(v==='equipment'){customEquipmentEditId=null}else if(v==='creatures'){customCreatureEditId=null;customCreatureRuleDraft=[]}else{customContentEditId=null;customContentDraftItems=[]}render('custom')}
+// V-HIREDSWORDS: Hired Swords are custom fighter profiles flagged
+// hiredSword, edited with the same builder in a "Hired Swords" mode.
+let customFighterHSMode=false;
+function setCustomTab(v){if(v==='hiredswords'){customFighterHSMode=true;v='fighters'}else if(v==='fighters')customFighterHSMode=false;customContentTab=v;customContentSearch='';customBuilderResetComposer();customWarbandCreateContextId=null;if(v==='warband'){customWarbandEditId=null;customWarbandCreating=false;customWarbandSection='fighters'}else if(v==='fighters'){customFighterEditId=null}else if(v==='equipment'){customEquipmentEditId=null}else if(v==='creatures'){customCreatureEditId=null;customCreatureRuleDraft=[]}else{customContentEditId=null;customContentDraftItems=[]}render('custom')}
 
 /* ================= CUSTOM WARBANDS ================= */
 let customWarbandEditId=null;
@@ -15302,7 +15803,7 @@ function customCleanupButtonsMarkup(){
   try{const p=customPublishedPlan();pub=p.cws.length+p.items.length+p.parents.length}catch(e){}
   let unused=0;try{const p=customUnusedPlan();unused=p.items.length+p.parents.length}catch(e){}
   let missing=0;try{missing=officialMissingLocal().length}catch(e){}
-  return (missing?`<button class="button secondary" type="button" onclick="openRestoreOfficial()">↺ ${en?`Restore ${missing} published item${missing>1?'s':''} to edit`:`Récupérer ${missing} élément${missing>1?'s':''} publié${missing>1?'s':''} pour les modifier`}</button>`:'')+`<button class="button secondary" type="button" onclick="openCustomCompare()">🔍 ${en?'Compare with online':'Comparer avec le publié'}</button>`+(dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
+  return (missing?`<button class="button secondary" type="button" onclick="openRestoreOfficial()">↺ ${en?`Restore ${missing} published item${missing>1?'s':''} to edit`:`Récupérer ${missing} élément${missing>1?'s':''} publié${missing>1?'s':''} pour les modifier`}</button>`:'')+`<button class="button secondary" type="button" onclick="openCustomCompare()">🔍 ${en?'Compare with online':'Comparer avec le publié'}</button>`+(isAdminEditUI()?`<button class="button secondary" type="button" onclick="openPublishEdits()">⇪ ${en?'Publish my edits':'Publier mes modifications'}</button>`:'')+(dup?`<button class="button secondary" type="button" onclick="cleanupCustomDuplicates()">🧹 ${en?`Remove ${dup} duplicate${dup>1?'s':''}`:`Supprimer ${dup} doublon${dup>1?'s':''}`}</button>`:'')
     +(pub?`<button class="button secondary" type="button" onclick="cleanupCustomPublished()">🧹 ${en?`Remove ${pub} published local cop${pub>1?'ies':'y'}`:`Supprimer ${pub} copie${pub>1?'s':''} locale${pub>1?'s':''} officialisée${pub>1?'s':''}`}</button>`:'')
     +(unused?`<button class="button secondary" type="button" onclick="cleanupCustomUnused()">🧹 ${en?`Remove unused items (${unused})`:`Supprimer les éléments inutilisés (${unused})`}</button>`:'');
 }
@@ -15461,7 +15962,8 @@ function customWarbandEditor(cw){
    // belongs to another (official or custom) warband as-is.
    const exclusive=customFighterList().filter(w=>w.customWarbandId===cw.id);
    const roster=exclusive.length?`<div class="custom-item-list">${exclusive.map(w=>customFighterRow(w,false,`editWarbandFighter('${esc(w.customFighterId)}','${esc(cw.id)}')`)).join('')}</div>`:`<div class="empty compact">${en?'No fighter profile created for this warband.':'Aucun profil de combattant créé pour cette warband.'}</div>`;
-   const createBtn=`<button type="button" class="button secondary" onclick="newWarbandFighter('${esc(cw.id)}')">＋ ${en?'Add a fighter profile':'Ajouter un profil de combattant'}</button>`;
+   const withDesc=exclusive.filter(w=>String(w.description||'').trim()).length;
+   const createBtn=`<button type="button" class="button secondary" onclick="newWarbandFighter('${esc(cw.id)}')">＋ ${en?'Add a fighter profile':'Ajouter un profil de combattant'}</button>${withDesc?`<button type="button" class="button secondary" onclick="clearWarbandFighterDescriptions('${esc(cw.id)}')">🧹 ${en?`Clear the description of ${withDesc} profile${withDesc>1?'s':''}`:`Effacer la description de ${withDesc} profil${withDesc>1?'s':''}`}</button>`:''}`;
    const sel=new Set(customWarbandFighterRefs(cw));
    const allItems=customWarbandFighterEntries().filter(e=>!(e.custom&&e.warrior.customWarbandId===cw.id));
    const items=allItems.filter(e=>e.custom||sel.has(e.key)||!customWarbandHideOfficial);
@@ -15644,5 +16146,5 @@ if(hasStoredAccountSession){
 }else{
   Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();bootstrapAccountSession();});
 }
-loadRaceTags().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
+loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());

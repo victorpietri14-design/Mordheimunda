@@ -277,6 +277,18 @@ CREATE TABLE IF NOT EXISTS faction_race_tags (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Racial stat maximums (V-RACEMAX): one row per race name, `maxima` is a
+-- JSON array of 12 numbers (or null = keep the automatic cap for that stat),
+-- in profile order M WS BS S T W I A Ld Cl Wil Int. Applies to every fighter
+-- of that race whose stat maximums are in Automatic mode. Readable by
+-- everyone, writable by admins only.
+CREATE TABLE IF NOT EXISTS race_stat_maximums (
+  race TEXT PRIMARY KEY,
+  maxima JSONB NOT NULL,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Warband categories (V-WBCATEGORIES). "créer des catégir qui
 -- ressemlberait a une warband pour en mettre des warband officielle en sous
 -- warband. Mais la grande serait vide" — an empty, race-scoped grouping
