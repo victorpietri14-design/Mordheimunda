@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0529.0';
+const APP_BUILD='110.0531.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14734,6 +14734,21 @@ function customFighterForm(w){
   <details class="custom-collapse"><summary><span>${en?'DESCRIPTION':'DESCRIPTION'}</span><small>${en?'Profile text':'Texte du profil'}</small></summary>${customTextToolbarMarkup('cfDescription')}<textarea id="cfDescription" class="wide-textarea" rows="5" placeholder="${en?'Fighter description…':'Description du combattant…'}">${esc(w?.description||'')}</textarea></details>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomFighterForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomFighter()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create profile':'Créer le profil')}</button></div>`;
 }
+// A fighter's Band List (what it can buy), for any warband — shared by the
+// buying screen (equipmentPool) and every card that lists its equipment.
+function bandListItemsFor(x,f){
+  const globalCustoms=allCustomEquipmentList();
+  const embeddedByName=new Map();
+  (f?.equipment||[]).forEach(e=>{if(e&&typeof e==='object'&&isCustomEquipment(e)){const key=normName(e.name);if(!embeddedByName.has(key))embeddedByName.set(key,e);}});
+  const customs=globalCustoms.map(w=>embeddedByName.get(normName(w.name))||w);
+  embeddedByName.forEach((w,name)=>{if(!customs.some(c=>normName(c.name)===name))customs.push(w);});
+  const customBand=customs.filter(w=>warriorBandAllowed(w,x,f));
+  const customBandNames=new Set(customBand.map(w=>normName(w.name)));
+  const ws=D.weapons.filter(w=>!w.hidden&&warriorBandAllowed(w,x,f)&&!customBandNames.has(normName(w.name)));
+  ws.push(...customBand);
+  if(Array.isArray(x?.equipmentAccessGroups)&&x.equipmentAccessGroups.includes('Natural Weapons')&&!ws.some(w=>w.name==='Natural Weapons'))ws.push({name:'Natural Weapons',category:'Armes de corps à corps',availability:'Inné',price:0,band:true,profile:{range:'Melee 2',strength:'S',ap:'-',damage:'1',traits:'Natural weapon — ne prend pas d’emplacement'},bandOnlyIntrinsic:true});
+  return ws.filter(w=>bookItemFactionAllowed(w,f));
+}
 function equipmentPool(tab,x){
   if(tab!=='band'&&henchmanBandListOnly(x))return [];
   const f=faction(activeRoster());let ws=[];
@@ -14760,30 +14775,7 @@ function equipmentPool(tab,x){
   const customs=globalCustoms.map(w=>embeddedByName.get(normName(w.name))||w);
   embeddedByName.forEach((w,name)=>{if(!customs.some(c=>normName(c.name)===name))customs.push(w);});
   if(tab==='band'){
-    // V-PERFIGHTERBAND: the Band List is driven purely by THIS fighter's own
-    // equipment access (equipmentAccess / equipmentAccessGroups) — never by
-    // also requiring the item to be separately re-listed in the band's own
-    // shared equipment array. Each fighter manages its own list (explicit
-    // design decision) — this now applies identically whether the fighter
-    // comes from a custom profile or a book/officialized one, so an
-    // admin-set-up warband whose band-wide equipment array is thin or empty
-    // still shows every fighter exactly what they've been individually
-    // granted. Embedded custom-equipment objects a fighter is allowed still
-    // resolve their `factions` link correctly via warriorBandAllowed →
-    // customEquipmentForFaction, since that reads the object handed to it.
-    // V-MOUNTSHADOW: a custom item (a Mount-kind Custom Creature especially)
-    // sharing its name with a plain book entry — the stock "Warhorse" has
-    // no creatureProfile at all — is the user's deliberate enrichment of
-    // it, so it must replace the book row here, not just sit alongside it
-    // under the same name where whichever one the player happens to click
-    // might be the blank book version (that's what was happening: a
-    // custom "Warhorse" mount never showed its stats on the fighter sheet
-    // because the bare book Warhorse — still present — was the one bought).
-    const customBand=customs.filter(w=>warriorBandAllowed(w,x));
-    const customBandNames=new Set(customBand.map(w=>normName(w.name)));
-    ws=D.weapons.filter(w=>!w.hidden&&warriorBandAllowed(w,x)&&!customBandNames.has(normName(w.name)));
-    ws.push(...customBand);
-    if(Array.isArray(x?.equipmentAccessGroups)&&x.equipmentAccessGroups.includes('Natural Weapons')&&!ws.some(w=>w.name==='Natural Weapons'))ws.push({name:'Natural Weapons',category:'Armes de corps à corps',availability:'Inné',price:0,band:true,profile:{range:'Melee 2',strength:'S',ap:'-',damage:'1',traits:'Natural weapon — ne prend pas d’emplacement'},bandOnlyIntrinsic:true});
+    ws=bandListItemsFor(x,f);
   } else if(tab==='market'){
     const customMarket=customs.filter(w=>w.market);
     const customMarketNames=new Set(customMarket.map(w=>normName(w.name)));
@@ -15714,6 +15706,14 @@ function equipmentNamesForGroups(f,groups){
 // entry as a bare label with nothing under it. This resolves each shape
 // through the right path instead of forcing both through the official one.
 function equipmentAccessResolvedNames(w,f){
+  // V-EXACTACCESS2: for a book/official fighter, the equipment shown on its
+  // cards (Rules: Warbands…) is exactly its real Band List — the same
+  // bandListItemsFor the buying screen uses (admin exact list, book groups,
+  // admin extras, custom items linked to the warband such as Barding).
+  if(!w.customFighterId){try{return bandListItemsFor(w,f).map(e=>e.name)}catch(e){}}
+  return equipmentAccessResolvedNamesBase(w,f);
+}
+function equipmentAccessResolvedNamesBase(w,f){
   const raw=w.equipmentAccessGroups!==undefined?w.equipmentAccessGroups:(w.equipmentAccessExplicit!==undefined?w.equipmentAccessExplicit:(w.equipmentAccess!==undefined?w.equipmentAccess:[]));
   const isCustomFighter=!!w.customFighterId;
   if(equipmentGroupsMeansAll(raw)){
