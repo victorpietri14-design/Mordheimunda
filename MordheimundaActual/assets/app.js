@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0517.0';
+const APP_BUILD='110.0518.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11221,13 +11221,13 @@ function maxProfileFor(x){
   return max;
 }
 function statUpgradeCount(x,i,id){return (x.advancements||[]).filter(a=>a.kind==='stat'&&a.statIndex===i&&a.sourceId===id).length}
-// V-ADVESCALATE: the same advancement costs +2 XP for each time it was
-// already taken (stats count one by one: a 2nd WS costs base +2, a 3rd base
-// +4, while BS keeps its own count). Raw Recruits and non-Veteran Henchmen
+// V-ADVESCALATE: buying the same characteristic again costs +2 XP for each
+// earlier purchase of it (a 2nd WS costs base +2, a 3rd base +4, while BS
+// keeps its own count). Skill advancements always cost their base XP. Raw Recruits and non-Veteran Henchmen
 // take their advancements at random, so they always pay the base cost.
 function advancementEscalates(x){return ['Leader','Champion','Veteran'].includes(advancementRole(x))}
 function advancementTakeCount(x,e,i){return (x.advancements||[]).filter(a=>e.kind==='stat'?(a.kind==='stat'&&a.statIndex===i&&a.sourceId===e.id):a.sourceId===e.id).length}
-function advancementCost(x,e,i){return Number(e.xp||0)+(advancementEscalates(x)?2*advancementTakeCount(x,e,i):0)}
+function advancementCost(x,e,i){return Number(e.xp||0)+(e.kind==='stat'&&advancementEscalates(x)?2*advancementTakeCount(x,e,i):0)}
 function advancementRowCost(x,e){return e.kind==='stat'?Math.min(...(e.stats||[]).map(i=>advancementCost(x,e,i))):advancementCost(x,e)}
 function statUpgradeCost(x,entry,i){return advancementCost(x,entry,i)}
 function statLabel(i){return P_FULL[i]||P[i]||(siteLanguage==='en'?`Characteristic ${i+1}`:`Caractéristique ${i+1}`)}
