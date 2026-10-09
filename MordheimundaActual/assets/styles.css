@@ -3966,3 +3966,8 @@ a.campaign-card:hover{border-color:var(--cc,#ff8a3d)}
 .campaign-editor-page-head{display:flex;gap:6px;align-items:center}
 .campaign-editor-page-head .cePageTitle{flex:1}
 @media(max-width:700px){.campaign-member{grid-template-columns:1fr}.campaign-nav{max-width:none}}
+/* V-CONDDOT: the conditional-bonus dot is a <span> inside the stat cell, so
+   every ".profile-stat span" rule (the stat label: display:block, big font,
+   margins…) also hit it — on phones it grew into an oval over the label. */
+html body .profile-stat span.stat-conditional-dot.stat-conditional-dot.stat-conditional-dot{min-height:0!important;max-height:7px!important;flex:none!important;aspect-ratio:1/1!important;transform:none!important;position:absolute!important;top:3px!important;right:3px!important;left:auto!important;bottom:auto!important;display:block!important;width:7px!important;height:7px!important;min-width:0!important;max-width:7px!important;margin:0!important;padding:0!important;font-size:0!important;line-height:0!important;border-radius:50%!important;background:var(--wip)!important;box-shadow:0 0 4px rgba(232,197,71,.85)!important}
+.profile-stat{position:relative}
