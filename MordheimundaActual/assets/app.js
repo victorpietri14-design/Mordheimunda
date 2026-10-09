@@ -1,8 +1,12 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0502.0';
+const APP_BUILD='110.0503.0';
 const D=window.NECROHEIM_CATALOG;
+// V-MISERICORDE: free dagger handed out as default equipment (Admin →
+// Equipment for all). Not in any Band List / Market; editable like any book
+// item through Admin → Weapons & Gear.
+if(Array.isArray(D?.weapons)&&!D.weapons.some(w=>String(w?.name||'').trim().toLowerCase()==='misericorde'))D.weapons.push({name:'Misericorde',price:0,category:'Armes de corps à corps',availability:'Common',source:'Mordheimunda',market:false,band:false,profile:{range:'Melee 0',strength:'S',ap:'+1',damage:'1',traits:'Backstab'}});
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
 if(!Array.isArray(state.customEquipment))state.customEquipment=[];if(!Array.isArray(state.customWarbands))state.customWarbands=[];
@@ -4503,6 +4507,8 @@ function admin(){
       ${adminOpenCategory==='gear'?`<div class="admin-category-body">${adminWeaponCatalogCardMarkup()}</div>`:''}
       ${adminCategoryBar('racerules',en?'Manage · Rules by race':'Gestion · Règles par race',en?'Add or remove a special rule / default skill on every fighter of a race':'Ajouter ou retirer une règle spéciale / compétence par défaut sur tous les combattants d’une race',adminOpenCategory==='racerules')}
       ${adminOpenCategory==='racerules'?`<div class="admin-category-body">${adminRaceRulesCardMarkup()}</div>`:''}
+      ${adminCategoryBar('equipall',en?'Manage · Equipment for all':'Gestion · Équipement pour tous',en?'Add or remove an item in the default equipment of every profile':'Ajouter ou retirer un objet dans l’équipement par défaut de tous les profils',adminOpenCategory==='equipall')}
+      ${adminOpenCategory==='equipall'?`<div class="admin-category-body">${adminEquipAllCardMarkup()}</div>`:''}
       ${adminCategoryBar('racemax',en?'Manage · Racial maximums':'Gestion · Maximums raciaux',en?'Stat maximums for every fighter of a race (Automatic mode)':'Maximums de caractéristiques pour tous les combattants d’une race (mode Automatique)',adminOpenCategory==='racemax')}
       ${adminOpenCategory==='racemax'?`<div class="admin-category-body">${adminRaceMaxCardMarkup()}</div>`:''}
       ${adminCategoryBar('scenarios',en?'Manage · Scenarios':'Gestion · Scénarios',en?'Battle plans + deployment map library':'Plans de bataille + bibliothèque de cartes',adminOpenCategory==='scenarios')}
@@ -5463,6 +5469,88 @@ async function adminRaceRulesCollect(op){
   const customs=customFighterList().filter(w=>normName(w.race||'')===normName(op.race)).filter(w=>applyRaceRuleToWarrior(JSON.parse(JSON.stringify(w)),op));
   if(customs.length)targets.push({kind:'custom',id:'custom',label:'Custom',names:customs.map(w=>w.name),ids:customs.map(w=>w.customFighterId)});
   return targets;
+}
+/* V-EQUIPFORALL: Admin → Equipment for all — adds (or removes) one item in
+   the DEFAULT EQUIPMENT of every fighter profile (Base catalog, official
+   warbands, your Custom profiles), as if done by hand in each editor, so it
+   can be removed from a single profile later. Animals and Hired Swords are
+   always skipped; races and profiles can be excluded. Recruited fighters
+   follow their profile's default equipment. */
+let adminEquipAllOp={item:'Misericorde',mode:'add',races:[],names:''},adminEquipAllPlan=null;
+function equipAllExcluded(w,op){
+  if(!w||w.type==='Animal'||isHiredSword(w))return true;
+  if((op.races||[]).some(r=>normName(r)===normName(warriorRaceName(w)||w.race||'')))return true;
+  const names=String(op.names||'').split(',').map(x=>normName(x.trim())).filter(Boolean);
+  return names.includes(normName(w.name));
+}
+function applyEquipAllToWarrior(w,op){
+  if(equipAllExcluded(w,op))return false;
+  const list=Array.isArray(w.defaultEquipment)?w.defaultEquipment.map(String):[];const has=list.some(n=>normName(n)===normName(op.item));
+  if(op.mode==='add'&&!has){w.defaultEquipment=[...list,op.item];return true}
+  if(op.mode==='remove'&&has){w.defaultEquipment=list.filter(n=>normName(n)!==normName(op.item));return true}
+  return false;
+}
+function adminEquipAllCardMarkup(){
+  const en=siteLanguage==='en';const op=adminEquipAllOp,plan=adminEquipAllPlan;
+  const races=[...new Set([...(D.factions||[]).flatMap(f=>(f.warriors||[]).map(warriorRaceName)),...customFighterList().map(w=>w.race||'')].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const items=[...new Set([...(D.weapons||[]).map(w=>w.name),...allCustomEquipmentList().map(w=>w.name)].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const profiles=[...new Set([...(D.factions||[]).flatMap(f=>(f.warriors||[]).map(w=>w.name)),...customFighterList().map(w=>w.name)].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  return `<div class="admin-live-rosters card"><div class="eyebrow">${en?'EQUIPMENT FOR ALL':'ÉQUIPEMENT POUR TOUS'}</div>
+   <p class="muted">${en?'Adds (or removes) an item in the default equipment of every fighter profile (Base catalog, official warbands, your Custom profiles), as if done by hand in each editor — you can still remove it from one profile later. Animals and Hired Swords are always skipped. Already-recruited fighters follow their profile.':'Ajoute (ou retire) un objet dans l’équipement par défaut de chaque profil (catalogue de base, warbands officielles, tes profils Custom), comme si tu le faisais à la main dans chaque éditeur — tu peux toujours l’enlever d’un profil plus tard. Les Animaux et les Hired Swords sont toujours ignorés. Les combattants déjà recrutés suivent leur profil.'}</p>
+   <div class="custom-form-grid">
+    <label class="custom-field"><span>${en?'Item':'Objet'}</span><input id="eaItem" list="eaItemList" value="${esc(op.item||'')}"><datalist id="eaItemList">${items.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></label>
+    <label class="custom-field"><span>${en?'Action':'Action'}</span><select id="eaMode"><option value="add" ${op.mode==='add'?'selected':''}>${en?'Add to every profile':'Ajouter à tous les profils'}</option><option value="remove" ${op.mode==='remove'?'selected':''}>${en?'Remove from every profile':'Retirer de tous les profils'}</option></select></label>
+    <label class="custom-field wide"><span>${en?'Excluded profiles (comma-separated)':'Profils exclus (séparés par des virgules)'}</span><input id="eaNames" list="eaProfileList" value="${esc(op.names||'')}" placeholder="${en?'e.g. Rat Ogre, Zombie':'ex. Rat Ogre, Zombie'}"><datalist id="eaProfileList">${profiles.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></label>
+   </div>
+   <details class="custom-collapse"${(op.races||[]).length?' open':''}><summary><span>${en?'EXCLUDED RACES':'RACES EXCLUES'}</span><small>${(op.races||[]).length}</small></summary><div class="custom-faction-grid">${races.map(r=>`<label class="custom-check"><input type="checkbox" class="eaRace" value="${esc(r)}" ${(op.races||[]).some(x=>normName(x)===normName(r))?'checked':''}><span>${esc(r)}</span></label>`).join('')}</div></details>
+   <div class="custom-actions"><button type="button" class="button secondary" onclick="previewAdminEquipAll()">${en?'Preview':'Aperçu'}</button>${plan&&plan.total?`<button type="button" class="button primary" onclick="applyAdminEquipAll()">${en?`Apply to ${plan.total} profile${plan.total>1?'s':''}`:`Appliquer à ${plan.total} profil${plan.total>1?'s':''}`}</button>`:''}</div>
+   ${plan?`<div class="muted" style="margin-top:8px">${plan.total?customCleanupListMarkup(plan.rows):(en?'Nothing to change.':'Rien à changer.')}</div>`:''}
+  </div>`;
+}
+function adminEquipAllReadOp(){return {item:($('#eaItem')?.value||'').trim(),mode:$('#eaMode')?.value||'add',names:($('#eaNames')?.value||'').trim(),races:[...document.querySelectorAll('.eaRace:checked')].map(x=>x.value)}}
+async function adminEquipAllCollect(op){
+  const targets=[];
+  (D.factions||[]).filter(f=>!f.__official&&!String(f.id||'').startsWith('custom-warband-')&&(f.warriors||[]).length).forEach(f=>{
+    const d=bookCatalogDefinition(f.id);if(!d)return;const names=[];
+    d.warriors.forEach(w=>{if(applyEquipAllToWarrior(w,op))names.push(w.name)});
+    if(names.length)targets.push({kind:'book',id:f.id,label:`Base · ${f.displayName||f.id}`,names,d});
+  });
+  try{
+    const {warbands}=await window.MordheimundaAPI.adminListWarbands();
+    for(const row of (warbands||[])){
+      if(isContentPoolWarband(row))continue;
+      const res=await window.MordheimundaAPI.adminGetWarband(row.id);const full=res?.warband||res;if(!full)continue;
+      const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
+      d.warriors=d.warriors.map(w=>JSON.parse(JSON.stringify(w)));
+      const names=[];d.warriors.forEach(w=>{if(applyEquipAllToWarrior(w,op))names.push(w.name)});
+      if(names.length)targets.push({kind:'official',id:row.id,label:row.name+(row.status&&row.status!=='published'?` (${row.status})`:''),names,d});
+    }
+  }catch(e){}
+  const customs=customFighterList().filter(w=>applyEquipAllToWarrior(JSON.parse(JSON.stringify(w)),op));
+  if(customs.length)targets.push({kind:'custom',id:'custom',label:'Custom',names:customs.map(w=>w.name),ids:customs.map(w=>w.customFighterId)});
+  return targets;
+}
+async function previewAdminEquipAll(){
+  const en=siteLanguage==='en';const op=adminEquipAllReadOp();adminEquipAllOp=op;
+  if(!op.item||!(D.weapons.some(w=>normName(w.name)===normName(op.item))||customEquipmentByName(op.item))){toast(en?'Pick an existing item':'Choisis un objet existant');return}
+  const targets=await adminEquipAllCollect(op);
+  adminEquipAllPlan={op,targets,total:targets.reduce((n,t)=>n+t.names.length,0),rows:targets.map(t=>`${t.label} — ${t.names.join(', ')}`)};
+  render('admin');
+}
+async function applyAdminEquipAll(){
+  const en=siteLanguage==='en';const plan=adminEquipAllPlan;if(!plan)return;
+  const targets=await adminEquipAllCollect(plan.op);let n=0;
+  try{
+    for(const t of targets){
+      if(t.kind==='book'){const d=t.d;await window.MordheimundaAPI.adminSaveCatalogOverride(t.id,{warriors:d.warriors,equipment:d.equipment,bandRuleNames:d.bandRuleNames,traits:d.traits,specialRules:d.specialRules,skillTrees:d.skillTrees,skills:d.skills,magicDomains:d.magicDomains,spells:d.spells})}
+      else if(t.kind==='official')await window.MordheimundaAPI.adminUpdateOfficialWarband(t.id,{...t.d,viaAdminEditor:true});
+      else t.ids.forEach(id=>{const w=customFighterById(id);if(w)applyEquipAllToWarrior(w,plan.op)});
+      n+=t.names.length;
+    }
+    save(true);
+    try{await loadCatalogOverrides();adminOfficialCache=null;await loadOfficialWarbands()}catch(e){}
+    adminEquipAllPlan=null;toast(en?`${n} profile${n>1?'s':''} updated`:`${n} profil${n>1?'s':''} mis à jour`);render('admin');
+  }catch(e){toast(authError(e,en));}
 }
 function en2(a,b){return siteLanguage==='en'?a:b}
 function adminRaceRulesReadOp(){return {race:$('#rrRace')?.value||'',mode:$('#rrMode')?.value||'add',rule:($('#rrRule')?.value||'').trim(),dropSkill:($('#rrSkill')?.value||'').trim()}}
