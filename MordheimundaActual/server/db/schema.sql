@@ -382,6 +382,36 @@ CREATE TABLE IF NOT EXISTS spell_weapon_profile_overrides (
 -- without parsing JSON. status mirrors official_warbands: 'draft' stays
 -- admin-only (editable, not yet shown to players); 'published' is live.
 -- Readable by everyone once published, writable by admins only.
+-- Campaigns (V-CAMPAIGNS). A campaign is a bundle of content (optional rule
+-- pages, later equipment / income / artifacts / scenarios / locations) kept
+-- in `definition`, published by an admin and joined by players' warbands.
+-- A warband lives in its owner's account data; campaign_members only records
+-- which warband (by its roster id) of which user is in which campaign, so the
+-- standings and member list can be shown to everyone.
+CREATE TABLE IF NOT EXISTS campaigns (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#ff8a3d',
+  status TEXT NOT NULL DEFAULT 'draft',
+  join_code TEXT NOT NULL UNIQUE,
+  definition JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS campaign_members (
+  campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  roster_id TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  roster_name TEXT NOT NULL DEFAULT '',
+  faction TEXT NOT NULL DEFAULT '',
+  stats JSONB NOT NULL DEFAULT '{}'::jsonb,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  left_at TIMESTAMPTZ,
+  PRIMARY KEY (campaign_id, roster_id)
+);
+CREATE INDEX IF NOT EXISTS campaign_members_user_idx ON campaign_members(user_id);
+
 CREATE TABLE IF NOT EXISTS scenarios (
   id UUID PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
