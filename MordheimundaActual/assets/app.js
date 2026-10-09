@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0494.0';
+const APP_BUILD='110.0496.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3716,6 +3716,7 @@ function openRuleSection(id){rulesOpen=id;persistUiState('rulesOpen',id);render(
 function scrollToRuleHeading(e,id){
   if(e)e.preventDefault();
   const el=document.getElementById(id);
+  try{revealRuleAnchor(el)}catch(err){}
   if(el)el.scrollIntoView({block:'start',behavior:'smooth'});
 }
 // V151/V153/V154: a popup reachable at any viewport width, grouped by theme
@@ -3823,6 +3824,7 @@ ${rulesNavSidebarMarkup()}
 <div class="rules-main">
 ${current?`<div class="rules-crumb"><a href="#" onclick="render('dashboard');return false;">${en?'Home':'Accueil'}</a><span class="sep">›</span><span class="cur">${esc(current.title)}</span></div>
 <div class="title-row"><h1 class="rules-title">${ruleTitleMarkup(current.title)}</h1></div>
+<div class="rules-collapse-bar"><button type="button" class="button secondary small" onclick="setAllRuleSections(true)">${en?'Expand all':'Tout déplier'}</button><button type="button" class="button secondary small" onclick="setAllRuleSections(false)">${en?'Collapse all':'Tout replier'}</button></div>
 <div class="rules-article-body">${articleBodyHtml}</div>${current.id==='magic'?magicSpellGalleryMarkup(en):''}${current.id==='actions'?actionGroupsGalleryMarkup(en):''}`:`<div class="empty large"><strong>${en?'No rule found.':'Aucune règle trouvée.'}</strong><span>${en?'Try another term.':'Essaie un autre terme.'}</span></div>`}
 </div>
 ${tocMarkup}
@@ -3830,9 +3832,50 @@ ${tocMarkup}
 <button type="button" class="rules-pages-nav-fab${rulesPagesNavOpen?' open':''}" id="rulesPagesNavFab" onclick="toggleRulesPagesNav()" aria-label="${en?'Jump to a page':'Aller à une page'}">▤</button>
 ${rulesPagesNavPanelMarkup()}
 </div>`;
+setupRuleCollapsibles();
 ensureRulesScrollSpy();
 requestAnimationFrame(updateRulesScrollSpy);
 }
+// V-RULESCOLLAPSE: on Rules: The Game, every heading folds the text under it
+// (a main heading: everything up to the next main heading; an ALL-CAPS
+// sub-heading: up to the next heading). Sub-sections start folded so a page
+// reads as a list of titles; what the reader opens is remembered for the
+// session. Admin editing (✎ forms) is never folded.
+let rulesSectionState=new Map(),rulesSectionDefault=new Map(),rulesAllOpen=false;
+function setupRuleCollapsibles(){
+  const body=document.querySelector('.rules-article-body');if(!body||ruleOverridesEditKey)return;
+  const page=rulesOpen||'';
+  body.querySelectorAll('.rule-page-text').forEach((box,bi)=>{
+    const kids=[...box.children];const heads=[];
+    kids.forEach((el,i)=>{if(el.classList.contains('rule-heading'))heads.push({i,el,lvl:1});else if(el.classList.contains('rule-subheading'))heads.push({i,el,lvl:2})});
+    if(!heads.length)return;
+    heads.forEach((h,hi)=>{
+      let end=kids.length;for(let j=hi+1;j<heads.length;j++){if(heads[j].lvl<=h.lvl||h.lvl===2){end=heads[j].i;break}}
+      const items=kids.slice(h.i+1,end);if(!items.length)return;
+      const key=`${page}:${bi}:${h.el.id||hi}`;h.el.dataset.rsKey=key;h.el.classList.add('rs-toggle');h.el.setAttribute('role','button');h.el.tabIndex=0;
+      items.forEach(it=>{it.__rsCtl=(it.__rsCtl||[]).concat(key)});
+      h.el.__rsItems=items;h.el.__rsLvl=h.lvl;
+      h.el.onclick=()=>{rulesSectionState.set(key,!ruleSectionOpen(key));applyRuleCollapse()};
+      h.el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.el.onclick()}};
+      // Main headings start open; sub-sections start folded.
+      rulesSectionDefault.set(key,h.lvl===1);
+    });
+  });
+  applyRuleCollapse();
+}
+function ruleSectionOpen(key){return rulesSectionState.has(key)?rulesSectionState.get(key):!!rulesSectionDefault.get(key)}
+function applyRuleCollapse(){
+  const body=document.querySelector('.rules-article-body');if(!body)return;
+  body.querySelectorAll('.rs-toggle').forEach(h=>h.classList.toggle('rs-closed',!ruleSectionOpen(h.dataset.rsKey)));
+  body.querySelectorAll('.rule-page-text > *').forEach(el=>{if(!el.__rsCtl)return;el.style.display=el.__rsCtl.every(ruleSectionOpen)?'':'none'});
+}
+function setAllRuleSections(open){
+  const body=document.querySelector('.rules-article-body');if(!body)return;
+  body.querySelectorAll('.rs-toggle').forEach(h=>rulesSectionState.set(h.dataset.rsKey,!!open));
+  applyRuleCollapse();
+}
+// Opens every folded section around an anchor so a jump lands on visible text.
+function revealRuleAnchor(el){if(!el)return;const keys=[...(el.__rsCtl||[]),el.dataset?.rsKey].filter(Boolean);keys.forEach(k=>rulesSectionState.set(k,true));applyRuleCollapse()}
 function accountDiagLocalMarkup(en){
   const m=state?.meta||{};
   const rows=[
@@ -5525,6 +5568,19 @@ async function saveAdminWarbandRules(force){
 }
 /* ---- Warriors (fighters) section of the admin direct-edit panel ---- */
 function adminEditWarrior(idx){const d=activeAdminEditData();adminEditingWarriorIdx=idx;adminRuleDraft=(d?.warriors?.[idx]?.ruleNames||[]).slice();render('admin')}
+// The free text shown under each profile on recruitment cards (e.g. the
+// notes imported with a warband draft). Clearing it here is the same as
+// emptying each profile's DESCRIPTION field by hand.
+function clearWarbandFighterDescriptions(cwId){
+  const en=siteLanguage==='en';const list=customFighterList().filter(w=>w.customWarbandId===cwId&&String(w.description||'').trim());if(!list.length)return;
+  if(!confirm(en?`Clear the description of ${list.length} profile(s)? (Publish changes afterwards for an official warband.)`:`Effacer la description de ${list.length} profil(s) ? (Publie ensuite les modifications pour une warband officielle.)`))return;
+  list.forEach(w=>{w.description=''});save(true);render('custom');toast(en?'Descriptions cleared':'Descriptions effacées');
+}
+function adminClearWarriorDescriptions(){
+  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
+  if(!confirm(en?'Clear every fighter description of this warband? Save the warband afterwards.':'Effacer toutes les descriptions des combattants de cette bande ? Enregistre ensuite la bande.'))return;
+  (d.warriors||[]).forEach(w=>{if(w)w.description=''});render('admin');toast(en?'Descriptions cleared — save the warband':'Descriptions effacées — enregistre la bande');
+}
 function adminNewWarrior(){adminEditingWarriorIdx=-1;adminRuleDraft=[];render('admin')}
 function adminCancelWarrior(){adminEditingWarriorIdx=null;adminRuleDraft=[];render('admin')}
 function confirmAdminDeleteWarrior(idx){
@@ -5809,7 +5865,7 @@ function adminWarbandRulesPanel(){
     if(adminEditingWarriorIdx!=null){
       body=`<section class="card admin-card">${adminWarriorFormMarkup(adminEditingWarriorIdx===-1?null:d.warriors[adminEditingWarriorIdx],adminEditingWarriorIdx)}</section>`;
     }else{
-      body=`<section class="card admin-card"><p class="sheet-help">${en?'Use ▲/▼ to reorder — this is also the order fighters appear in the recruitment list.':'Utilise ▲/▼ pour réordonner — c’est aussi l’ordre d’apparition des combattants en recrutement.'}</p><div class="custom-item-list">${d.warriors.length?d.warriors.map((w,i)=>adminWarriorRow(w,i,d.warriors.length)).join(''):`<div class="empty">${en?'No fighters yet.':'Aucun combattant pour l’instant.'}</div>`}</div><div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="adminNewWarrior()">＋ ${en?'Add fighter':'Ajouter un combattant'}</button></div></section>`;
+      body=`<section class="card admin-card"><p class="sheet-help">${en?'Use ▲/▼ to reorder — this is also the order fighters appear in the recruitment list.':'Utilise ▲/▼ pour réordonner — c’est aussi l’ordre d’apparition des combattants en recrutement.'}</p><div class="custom-item-list">${d.warriors.length?d.warriors.map((w,i)=>adminWarriorRow(w,i,d.warriors.length)).join(''):`<div class="empty">${en?'No fighters yet.':'Aucun combattant pour l’instant.'}</div>`}</div><div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="adminNewWarrior()">＋ ${en?'Add fighter':'Ajouter un combattant'}</button>${(d.warriors||[]).some(w=>String(w?.description||'').trim())?`<button type="button" class="button secondary" onclick="adminClearWarriorDescriptions()">🧹 ${en?'Clear all fighter descriptions':'Effacer toutes les descriptions'}</button>`:''}</div></section>`;
     }
   }else if(adminWarbandSection==='equipment'){
     if(isCatalog){
@@ -10558,18 +10614,25 @@ function buyAdvancement(id){const x=activeRoster()?.fighters[editingIndex],e=ADV
 // still showed its old name here even though every other page had already
 // picked up the rename.
 function treeOrDomainDisplayName(name,kind){return kind==='magic'?domainDisplayName(name):skillTreeDisplayName(name);}
+// V-ADVANCEALLTREES: every tree/domain the fighter has access to — book,
+// custom and published ones (customMergedSkillSets/MagicDomains), matched by
+// name case-insensitively — not only the book's D.skillSets/MAGIC_DOMAINS.
+// A fighter's spell domains count as Primary skill choices.
 function eligibleSkillTreesForAdvancement(x,levels){
- const access=skillAccessFor(x),ownedSkills=new Set(x.skills||[]),ownedSpells=new Set(x.spells||[]),trees=[];
- Object.keys(access).filter(set=>levels.includes(access[set])&&Array.isArray(D.skillSets?.[set])).forEach(set=>{
-  const skills=(D.skillSets[set]||[]).filter(skill=>!ownedSkills.has(skill));
-  if(skills.length)trees.push({set,level:access[set],skills,kind:'skill'});
+ const f=faction(activeRoster());const sets=customMergedSkillSets(f),domains=customMergedMagicDomains(f);
+ const access=skillAccessFor(x),ownedSkills=new Set((x.skills||[]).map(normName)),ownedSpells=new Set((x.spells||[]).map(normName)),trees=[];
+ Object.keys(access).filter(set=>levels.includes(access[set])).forEach(set=>{
+  const key=sets[set]?set:Object.keys(sets).find(k=>normName(k)===normName(set));if(!key)return;
+  const skills=(sets[key]||[]).filter(skill=>!ownedSkills.has(normName(skill)));
+  if(skills.length&&!trees.some(t=>t.kind==='skill'&&t.set===key))trees.push({set:key,level:access[set],skills,kind:'skill'});
  });
  if(levels.includes('Primary')) magicAccessFor(x).forEach(domain=>{
-  const skills=(MAGIC_DOMAINS[domain]||[]).filter(spell=>!ownedSpells.has(spell));
+  const skills=(domains[domain]||[]).filter(spell=>!ownedSpells.has(normName(spell)));
   if(skills.length)trees.push({set:domain,level:'Primary',skills,kind:'magic'});
  });
  return trees;
 }
+function advancementGroupList(set,kind){const f=faction(activeRoster());return kind==='magic'?(customMergedMagicDomains(f)[set]||[]):(customMergedSkillSets(f)[set]||[])}
 function openRandomSkillTreePicker(id,levels){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id);if(!x||!e)return;
  const trees=eligibleSkillTreesForAdvancement(x,levels);
@@ -10579,7 +10642,7 @@ function showRandomSkillTree(id,encodedSet,kind){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),set=decodeURIComponent(encodedSet);if(!x||!e)return;
  const tree=eligibleSkillTreesForAdvancement(x,e.kind==='skillRandomSecondary'?['Secondary']:e.kind==='skillRandomPrimary'||e.kind==='veteranPromote'?['Primary']:['Primary','Secondary']).find(o=>o.set===set&&o.kind===kind);
  if(!tree){toast(siteLanguage==='en'?'This tree isn’t allowed or has no skill left available':'Cet arbre n’est pas autorisé ou ne contient plus de compétence disponible');return}
- openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>${esc(tree.level)} · Voici les compétences encore disponibles dans cet arbre. Le choix reste aléatoire : le bouton ci-dessous tire une seule compétence parmi cette liste.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]).map(skill=>`<div class="skill-modal-skill"><span>${esc(numberedSkillName(skill, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort disponible':'Compétence disponible'}</small></div>`).join('')}</div><div class="purchase-actions"><button type="button" class="button primary" onclick="rollRandomSkillFromTree('${e.id}','${encodeURIComponent(set)}','${kind}')">🎲 Tirer une compétence aléatoire</button><button type="button" class="button secondary" onclick="openRandomSkillTreePicker('${e.id}',${JSON.stringify(e.kind==='skillRandomSecondary'?['Secondary']:e.kind==='skillRandomPrimary'||e.kind==='veteranPromote'?['Primary']:['Primary','Secondary'])})">← Changer d’arbre</button></div></div>`);
+ openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>${esc(tree.level)} · Voici les compétences encore disponibles dans cet arbre. Le choix reste aléatoire : le bouton ci-dessous tire une seule compétence parmi cette liste.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, advancementGroupList(set,kind)).map(skill=>`<div class="skill-modal-skill"><span>${esc(numberedSkillName(skill, advancementGroupList(set,kind)))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort disponible':'Compétence disponible'}</small></div>`).join('')}</div><div class="purchase-actions"><button type="button" class="button primary" onclick="rollRandomSkillFromTree('${e.id}','${encodeURIComponent(set)}','${kind}')">🎲 Tirer une compétence aléatoire</button><button type="button" class="button secondary" onclick="openRandomSkillTreePicker('${e.id}',${JSON.stringify(e.kind==='skillRandomSecondary'?['Secondary']:e.kind==='skillRandomPrimary'||e.kind==='veteranPromote'?['Primary']:['Primary','Secondary'])})">← Changer d’arbre</button></div></div>`);
 }
 function rollRandomSkillFromTree(id,encodedSet,kind){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),set=decodeURIComponent(encodedSet);if(!x||!e)return;
@@ -10605,7 +10668,7 @@ function openAdvancementSkillPicker(id,level){
 function showChosenSkillTree(id,encodedSet,kind){
  const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),set=decodeURIComponent(encodedSet);if(!x||!e)return;
  const tree=eligibleSkillTreesForAdvancement(x,['Primary','Secondary']).find(o=>o.set===set&&o.kind===kind);if(!tree){toast(siteLanguage==='en'?'This tree is no longer available':'Cet arbre n’est plus disponible');return}
- openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>Choisis la compétence à acquérir.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]).map(skill=>`<button type="button" class="skill-modal-skill" onclick="confirmAdvancementSkill('${e.id}','${encodeURIComponent(skill)}','${encodeURIComponent(set)}','${kind}')"><span>${esc(numberedSkillName(skill, kind==='magic'?MAGIC_DOMAINS[set]:D.skillSets[set]))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort · Primary':'Compétence · '+esc(tree.level)}</small></button>`).join('')}</div><div class="purchase-actions"><button type="button" class="button secondary" onclick="openAdvancementSkillPicker('${e.id}','${levelForSkillPicker(e.id)}')">← Changer d’arbre</button></div></div>`);
+ openModal(`<div class="skill-dialog"><div class="eyebrow">ADVANCEMENT · ${e.xp} XP</div><h2>2. ${esc(treeOrDomainDisplayName(set,kind))}</h2><p>Choisis la compétence à acquérir.</p><div class="skill-modal-list">${orderedChoiceNames(tree.skills, advancementGroupList(set,kind)).map(skill=>`<button type="button" class="skill-modal-skill" onclick="confirmAdvancementSkill('${e.id}','${encodeURIComponent(skill)}','${encodeURIComponent(set)}','${kind}')"><span>${esc(numberedSkillName(skill, advancementGroupList(set,kind)))}${refInfo(kind==='magic'?'spells':'skills',skill)}</span><small>${kind==='magic'?'Sort · Primary':'Compétence · '+esc(tree.level)}</small></button>`).join('')}</div><div class="purchase-actions"><button type="button" class="button secondary" onclick="openAdvancementSkillPicker('${e.id}','${levelForSkillPicker(e.id)}')">← Changer d’arbre</button></div></div>`);
 }
 function levelForSkillPicker(id){const e=ADVANCEMENT_MAIN.find(a=>a.id===id);return e?.kind==='skillPickPrimary'?'Primary':'Primary'}
 function confirmAdvancementSkill(id,encoded,setEncoded,kind='skill'){const x=activeRoster()?.fighters[editingIndex],e=ADVANCEMENT_MAIN.find(a=>a.id===id),skill=decodeURIComponent(encoded),set=decodeURIComponent(setEncoded);if(!x||!e)return;if(kind==='magic'){if(Number(x.xp||0)<e.xp){toast(siteLanguage==='en'?'Insufficient XP':'XP insuffisant');return}x.xp-=e.xp;x.spells=x.spells||[];x.spells.push(skill);x.advancements=x.advancements||[];x.advancements.push({id:crypto.randomUUID(),sourceId:e.id,kind:'skill',skill,detail:siteLanguage==='en'?`${set} · chosen`:`${set} · choisi`,xp:e.xp,value:e.value});save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${skill} acquired`:`${skill} acquis`);return}if(buySkillAdvancement(x,e,skill,siteLanguage==='en'?`${set} · chosen`:`${set} · choisi`)){save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${skill} acquired`:`${skill} acquis`)} }
@@ -11403,8 +11466,13 @@ function skillAccessFor(x){
   const source=w||custom;
   const access={...(source?.skillAccess||{})};
   if(x.type==='Leader')access.Leadership='Primary';else if(x.type==='Champion')access.Leadership='Secondary';
+  // V-UNIVERSALTREES: trees every fighter may take skills from as
+  // "Authorized" (Access) unless their profile already gives better.
+  UNIVERSAL_AUTHORIZED_TREES.forEach(t=>{const sets=customMergedSkillSets(f);const key=Object.keys(sets).find(k=>normName(k)===normName(t))||t;if(!Object.keys(access).some(k=>normName(k)===normName(key)&&access[k]))access[key]='Access'});
   return access
 }
+const UNIVERSAL_AUTHORIZED_TREES=['Ride'];
+function skillAccessLabel(v){const en=siteLanguage==='en';return v==='Access'?(en?'Authorized':'Autorisé'):v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(v||(en?'Allowed':'Autorisé'))}
 function gangSkillTrees(){const f=faction(activeRoster());const trees={};const factionAccess=D.skillAccess?.[f?.id]||{};Object.values(factionAccess).forEach(a=>Object.keys(a||{}).forEach(cat=>trees[cat]=true));if(f?.id)trees.Leadership=true;return trees}
 function skillAccessGrid(x){const f=faction(activeRoster()),mergedSets=customMergedSkillSets(f),personal=skillAccessFor(x),allowed=gangSkillTrees();
   // V-TREESLEAK: this card is only ever showing ONE warband's fighter, so a
@@ -11419,9 +11487,9 @@ function skillAccessGrid(x){const f=faction(activeRoster()),mergedSets=customMer
   // an unrelated Undead warband's fighters), custom trees were already
   // excluded this way; book/pack trees now follow the same rule.
   const all=[...new Set([...Object.keys(mergedSets),...Object.keys(personal)])].filter(cat=>personal[cat]||allowed[cat]);
-  const regular=all.map(cat=>{const p=personal[cat];const a=allowed[cat]||!!p;const status=p|| (a?'Autorisé':'Non autorisé');const cls=p?p.toLowerCase().replace(/\s/g,'-'):a?'authorized':'locked';return `<div class="skill-access-card ${cls}"><div><strong>${esc(skillTreeDisplayName(cat))}</strong><small>${status}</small></div><span>${a?`${(mergedSets[cat]||[]).length} compétences`:'Arbre indisponible'}</span></div>`}).join('');const mergedDomains=customMergedMagicDomains(f);const magic=magicAccessFor(x).map(d=>`<div class="skill-access-card primary magic-skill-tree"><div><strong>${esc(domainDisplayName(d))}</strong><small>Primary</small></div><span>${(mergedDomains[d]||[]).length} sorts</span></div>`).join('');return `<div class="skill-access-heading">Arbres de compétences</div><div class="skill-access-grid">${regular}</div>${magic?`<div class="skill-access-heading magic-skill-heading">Domaines de magie comptés comme arbres Primary</div><div class="skill-access-grid">${magic}</div>`:''}`}
-function openSkillModal(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;skillCategory='all';const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),cats=[...new Set([...Object.keys(mergedSets).filter(c=>allowed[c]),...Object.keys(personal).filter(c=>personal[c])])];const catRows=cats.map(c=>`<button type="button" class="skill-modal-category" data-cat="${esc(c)}" onclick="chooseSkillModalCategory('${encodeURIComponent(c)}')"><span>${esc(skillTreeDisplayName(c))}</span><small>${personal[c]||(en?'Allowed':'Autorisé')}</small></button>`).join('');const magicRows=magicAccessFor(x).map(d=>`<button type="button" class="skill-modal-category magic-category" onclick="openMagicModal('${encodeURIComponent(d)}')"><span>${esc(domainDisplayName(d))}</span><small>${en?'Primary · magic domain':'Primary · domaine de magie'}</small></button>`).join('');openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'ADD A SKILL':'AJOUT D’UNE COMPÉTENCE'}</div><h2>${en?'Choose a skill':'Choisir une compétence'}</h2><p>${en?'Normal skills are free. The magic domain available to this fighter is treated as a Primary tree; its spells remain recorded under Magic.':'Les compétences normales sont gratuites. Le domaine de magie accessible à ce combattant est traité comme un arbre Primary ; ses sorts restent enregistrés dans Magie.'}</p><div class="skill-modal-grid">${catRows}${magicRows}</div><div id="skillModalChoices" class="skill-modal-choices"><div class="empty compact">${en?'Choose a category.':'Choisis une catégorie.'}</div></div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
-function chooseSkillModalCategory(encoded){const en=siteLanguage==='en';skillCategory=decodeURIComponent(encoded);const x=activeRoster()?.fighters[editingIndex];if(!x)return;const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),owned=new Set(x.skills||[]),available=(mergedSets[skillCategory]||[]).filter(s=>!owned.has(s));const box=$('#skillModalChoices');if(!box)return;box.innerHTML=`<div class="skill-modal-choice-head"><strong>${esc(skillTreeDisplayName(skillCategory))}</strong><span>${personal[skillCategory]||(en?'Allowed':'Autorisé')}</span></div><div class="skill-modal-list">${available.length?orderedChoiceNames(available,mergedSets[skillCategory]).map(s=>`<button type="button" class="skill-modal-skill" onclick="addSkillFromModal('${encodeURIComponent(s)}')"><span>${refLink('skills',s,numberedSkillName(s,mergedSets[skillCategory]))}</span><small>${en?'Add':'Ajouter'}</small></button>`).join(''):`<div class="empty compact">${en?'All skills in this tree have already been acquired.':'Toutes les compétences de cet arbre sont déjà acquises.'}</div>`}</div>`;document.querySelectorAll('.skill-modal-category').forEach(b=>b.classList.toggle('active',b.dataset.cat===skillCategory))}
+  const regular=all.map(cat=>{const p=personal[cat];const a=allowed[cat]||!!p;const status=p?skillAccessLabel(p):(a?'Autorisé':'Non autorisé');const cls=p?p.toLowerCase().replace(/\s/g,'-'):a?'authorized':'locked';return `<div class="skill-access-card ${cls}"><div><strong>${esc(skillTreeDisplayName(cat))}</strong><small>${status}</small></div><span>${a?`${(mergedSets[cat]||[]).length} compétences`:'Arbre indisponible'}</span></div>`}).join('');const mergedDomains=customMergedMagicDomains(f);const magic=magicAccessFor(x).map(d=>`<div class="skill-access-card primary magic-skill-tree"><div><strong>${esc(domainDisplayName(d))}</strong><small>Primary</small></div><span>${(mergedDomains[d]||[]).length} sorts</span></div>`).join('');return `<div class="skill-access-heading">Arbres de compétences</div><div class="skill-access-grid">${regular}</div>${magic?`<div class="skill-access-heading magic-skill-heading">Domaines de magie comptés comme arbres Primary</div><div class="skill-access-grid">${magic}</div>`:''}`}
+function openSkillModal(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;skillCategory='all';const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),cats=[...new Set([...Object.keys(mergedSets).filter(c=>allowed[c]),...Object.keys(personal).filter(c=>personal[c])])];const catRows=cats.map(c=>`<button type="button" class="skill-modal-category" data-cat="${esc(c)}" onclick="chooseSkillModalCategory('${encodeURIComponent(c)}')"><span>${esc(skillTreeDisplayName(c))}</span><small>${skillAccessLabel(personal[c])}</small></button>`).join('');const magicRows=magicAccessFor(x).map(d=>`<button type="button" class="skill-modal-category magic-category" onclick="openMagicModal('${encodeURIComponent(d)}')"><span>${esc(domainDisplayName(d))}</span><small>${en?'Primary · magic domain':'Primary · domaine de magie'}</small></button>`).join('');openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'ADD A SKILL':'AJOUT D’UNE COMPÉTENCE'}</div><h2>${en?'Choose a skill':'Choisir une compétence'}</h2><p>${en?'Normal skills are free. The magic domain available to this fighter is treated as a Primary tree; its spells remain recorded under Magic.':'Les compétences normales sont gratuites. Le domaine de magie accessible à ce combattant est traité comme un arbre Primary ; ses sorts restent enregistrés dans Magie.'}</p><div class="skill-modal-grid">${catRows}${magicRows}</div><div id="skillModalChoices" class="skill-modal-choices"><div class="empty compact">${en?'Choose a category.':'Choisis une catégorie.'}</div></div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
+function chooseSkillModalCategory(encoded){const en=siteLanguage==='en';skillCategory=decodeURIComponent(encoded);const x=activeRoster()?.fighters[editingIndex];if(!x)return;const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),owned=new Set(x.skills||[]),available=(mergedSets[skillCategory]||[]).filter(s=>!owned.has(s));const box=$('#skillModalChoices');if(!box)return;box.innerHTML=`<div class="skill-modal-choice-head"><strong>${esc(skillTreeDisplayName(skillCategory))}</strong><span>${skillAccessLabel(personal[skillCategory])}</span></div><div class="skill-modal-list">${available.length?orderedChoiceNames(available,mergedSets[skillCategory]).map(s=>`<button type="button" class="skill-modal-skill" onclick="addSkillFromModal('${encodeURIComponent(s)}')"><span>${refLink('skills',s,numberedSkillName(s,mergedSets[skillCategory]))}</span><small>${en?'Add':'Ajouter'}</small></button>`).join(''):`<div class="empty compact">${en?'All skills in this tree have already been acquired.':'Toutes les compétences de cet arbre sont déjà acquises.'}</div>`}</div>`;document.querySelectorAll('.skill-modal-category').forEach(b=>b.classList.toggle('active',b.dataset.cat===skillCategory))}
 function addSkillFromModal(encoded){const x=activeRoster()?.fighters[editingIndex],v=decodeURIComponent(encoded);if(!x||!v)return;x.skills=x.skills||[];if(!x.skills.includes(v)){x.skills.push(v);save(true);toast(siteLanguage==='en'?`${v} added`:`${v} ajoutée`)}closeModal();render('fighter')}
 function setSkillCategory(c){skillCategory=c;render('fighter')}
 function toggleStatsPanel(){statsOpen=!statsOpen;render('fighter')}
@@ -13973,7 +14041,26 @@ function customMergedSkillSets(f){
   customSkillTreeList().forEach(t=>{if(!out[t.name])out[t.name]=[]});
   customContentList('skills').forEach(s=>{if(s.tree){if(!out[s.tree])out[s.tree]=[];if(!out[s.tree].includes(s.name))out[s.tree].push(s.name)}});
   if(f?.exclusiveSkillSets)Object.entries(f.exclusiveSkillSets).forEach(([k,v])=>{if(!out[k])out[k]=[];(Array.isArray(v)?v:[]).forEach(n=>{if(!out[k].includes(n))out[k].push(n)})});
+  addPublishedGroups(out,'exclusiveSkillSets');
   return out;
+}
+// V-PUBLISHEDTREESEVERYWHERE: a custom skill tree / magic domain published
+// with ONE official warband is merged only onto that warband
+// (exclusiveSkillSets/exclusiveMagicDomains). Any other warband whose
+// fighters list it in their skillAccess/magicAccess used to resolve it only
+// through the admin's own local Custom copy — so once that copy was gone
+// (deleted by a cleanup, or on any other account) the tree went empty and
+// its skills (e.g. Ride) vanished from "available skills". Fill in, for
+// every tree/domain name not already known here, the published content of
+// any official warband. Access itself still comes from the fighter's own
+// skillAccess/magicAccess, so nothing is granted to fighters who don't
+// list the tree.
+function addPublishedGroups(out,field){
+  const keyByNorm={};Object.keys(out).forEach(k=>{keyByNorm[normName(k)]=k});
+  (D.factions||[]).forEach(of=>{if(!of?.__official||!of[field])return;
+    Object.entries(of[field]).forEach(([k,v])=>{const key=keyByNorm[normName(k)]||k;if(!out[key]){out[key]=[];keyByNorm[normName(k)]=key}
+      (Array.isArray(v)?v:[]).forEach(n=>{if(!out[key].some(x=>normName(x)===normName(n)))out[key].push(n)})});
+  });
 }
 function customMergedMagicDomains(f){
   const out={};Object.entries(MAGIC_DOMAINS||{}).forEach(([k,v])=>out[k]=Array.isArray(v)?v.slice():[]);
@@ -13998,6 +14085,7 @@ function customMergedMagicDomains(f){
     if(!out[key].includes(s.name))out[key].push(s.name);
   });
   if(f?.exclusiveMagicDomains)Object.entries(f.exclusiveMagicDomains).forEach(([k,v])=>{if(!out[k])out[k]=[];(Array.isArray(v)?v:[]).forEach(n=>{if(!out[k].includes(n))out[k].push(n)})});
+  addPublishedGroups(out,'exclusiveMagicDomains');
   return out;
 }
 function customSkillTreeList(){if(!Array.isArray(state.customSkillTrees))state.customSkillTrees=[];return state.customSkillTrees}
@@ -15461,7 +15549,8 @@ function customWarbandEditor(cw){
    // belongs to another (official or custom) warband as-is.
    const exclusive=customFighterList().filter(w=>w.customWarbandId===cw.id);
    const roster=exclusive.length?`<div class="custom-item-list">${exclusive.map(w=>customFighterRow(w,false,`editWarbandFighter('${esc(w.customFighterId)}','${esc(cw.id)}')`)).join('')}</div>`:`<div class="empty compact">${en?'No fighter profile created for this warband.':'Aucun profil de combattant créé pour cette warband.'}</div>`;
-   const createBtn=`<button type="button" class="button secondary" onclick="newWarbandFighter('${esc(cw.id)}')">＋ ${en?'Add a fighter profile':'Ajouter un profil de combattant'}</button>`;
+   const withDesc=exclusive.filter(w=>String(w.description||'').trim()).length;
+   const createBtn=`<button type="button" class="button secondary" onclick="newWarbandFighter('${esc(cw.id)}')">＋ ${en?'Add a fighter profile':'Ajouter un profil de combattant'}</button>${withDesc?`<button type="button" class="button secondary" onclick="clearWarbandFighterDescriptions('${esc(cw.id)}')">🧹 ${en?`Clear the description of ${withDesc} profile${withDesc>1?'s':''}`:`Effacer la description de ${withDesc} profil${withDesc>1?'s':''}`}</button>`:''}`;
    const sel=new Set(customWarbandFighterRefs(cw));
    const allItems=customWarbandFighterEntries().filter(e=>!(e.custom&&e.warrior.customWarbandId===cw.id));
    const items=allItems.filter(e=>e.custom||sel.has(e.key)||!customWarbandHideOfficial);
