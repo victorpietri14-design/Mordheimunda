@@ -4100,3 +4100,12 @@ html,body{overflow-x:clip}
 @media (max-width:980px){.home-top{grid-template-columns:minmax(0,1fr)}.home-side-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.home-bottom{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:640px){.home-side-col{grid-template-columns:minmax(0,1fr)}.home-spot-cover{height:180px}.home-spot-title{padding:14px 16px}.home-spot-title h2{font-size:28px}.home-spot-body{padding:14px}.home-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.home-crew{width:62px}.home-crew-pic{width:50px;height:50px}}
 @media (max-width:640px){.home-crew{width:66px}.home-crew-name{font-size:10.5px;max-width:66px;word-break:normal;overflow-wrap:normal}}
+/* V-HOMECOVER: covers follow the card width (fixed ratio) instead of a fixed
+   height, so the art isn't a thin over-zoomed strip on wide screens; the page
+   is capped so very large screens don't blow the art up past its quality. */
+.home-page{max-width:1680px;margin:0 auto;width:100%}
+.home-spot-cover{height:auto;aspect-ratio:16/7;min-height:220px;max-height:620px}
+.home-side-cover{height:auto;aspect-ratio:2/1;min-height:110px}
+.home-side{flex:0 0 auto}
+@media (max-width:980px){.home-side-cover{aspect-ratio:16/9}}
+@media (max-width:640px){.home-spot-cover{height:auto;aspect-ratio:4/3;min-height:0}}
