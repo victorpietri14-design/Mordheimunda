@@ -4109,3 +4109,6 @@ html,body{overflow-x:clip}
 .home-side{flex:0 0 auto}
 @media (max-width:980px){.home-side-cover{aspect-ratio:16/9}}
 @media (max-width:640px){.home-spot-cover{height:auto;aspect-ratio:4/3;min-height:0}}
+/* V-HOMECOVERCLIP: a zoomed picture (focus zoom = transform:scale) must stay
+   inside its cover instead of spilling over the card body below it. */
+.home-spot-cover,.home-side-cover{overflow:hidden}
