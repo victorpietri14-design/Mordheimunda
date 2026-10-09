@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0527.0';
+const APP_BUILD='110.0529.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -249,7 +249,7 @@ function warbandExclusiveSkillTrees(f){
   // f.exclusiveSkillSets) is counted — a leftover key with nothing backing
   // it is silently dropped instead of displayed as a phantom entry.
   const known=new Set([...Object.keys(D.skillSets||{}),...Object.keys(f.exclusiveSkillSets||{})].map(normName));
-  (f.warriors||[]).forEach(w=>Object.keys(w.skillAccess||{}).forEach(t=>{if(!COMMON_SKILL_TREES.includes(t)&&known.has(normName(t)))set.add(t);}));
+  (f.warriors||[]).filter(w=>!isHiredSword(w)).forEach(w=>Object.keys(w.skillAccess||{}).forEach(t=>{if(!COMMON_SKILL_TREES.includes(t)&&known.has(normName(t)))set.add(t);}));
   Object.keys(f.exclusiveSkillSets||{}).forEach(t=>set.add(t));
   return [...set];
 }
@@ -299,7 +299,7 @@ function warbandExclusiveEquipment(f){
 // field, so it can never drift out of sync with the roster picker's own
 // limits.
 function warbandCompositionLines(f,en){
-  return (f.warriors||[]).filter(w=>w.max!=null).map(w=>`• Max ${w.max} × ${w.name} (${w.type||''})`);
+  return (f.warriors||[]).filter(w=>w.max!=null&&!isHiredSword(w)).map(w=>`• Max ${w.max} × ${w.name} (${w.type||''})`);
 }
 // V-FACTIONRULESSYNC: single source of truth for a faction's "Faction Rules"
 // text — the admin-editable section on Rules: Warbands (section 0 of
@@ -2509,6 +2509,7 @@ function syncAdminManagedFighter(x,r){
   if(Object.prototype.hasOwnProperty.call(w,'skillAccess'))copy('skillAccess',w.skillAccess&&typeof w.skillAccess==='object'?JSON.parse(JSON.stringify(w.skillAccess)):{});
   if(Object.prototype.hasOwnProperty.call(w,'magicAccess'))copy('magicAccess',w.magicAccess&&typeof w.magicAccess==='object'?JSON.parse(JSON.stringify(w.magicAccess)):{});
   if(Object.prototype.hasOwnProperty.call(w,'equipmentAccess'))copy('equipmentAccess',Array.isArray(w.equipmentAccess)?w.equipmentAccess.slice():[]);
+  if(w.equipmentAccessExact||x.equipmentAccessExact)copy('equipmentAccessExact',!!w.equipmentAccessExact);
   if(Object.prototype.hasOwnProperty.call(w,'equipmentAccessGroups'))copy('equipmentAccessGroups',w.equipmentAccessGroups==='ALL'?'ALL':Array.isArray(w.equipmentAccessGroups)?w.equipmentAccessGroups.slice():[]);
   copy('packRules',Array.isArray(w.packRules)?JSON.parse(JSON.stringify(w.packRules)):[]);
   copy('packModifiers',Array.isArray(w.packModifiers)?JSON.parse(JSON.stringify(w.packModifiers)):[]);
@@ -5801,6 +5802,16 @@ function adminDuplicateWarrior(idx){
   toast(en?`“${name}” added — edit it, then save the warband`:`« ${name} » ajouté — modifie-le puis enregistre la bande`);
 }
 function adminDeleteWarrior(idx){const d=activeAdminEditData();if(!d)return;d.warriors.splice(idx,1);adminEditingWarriorIdx=null;render('admin')}
+// What the Equipment Access checklist starts from: the saved exact list, or
+// (never edited yet) everything the fighter can buy today through the book's
+// group access plus any item added explicitly.
+function adminEffectiveEquipmentAccess(w){
+  if(!w)return [];
+  if(w.customFighterId||w.equipmentAccessExact)return Array.isArray(w.equipmentAccess)?w.equipmentAccess.slice():[];
+  const fid=adminCatalogFactionId||(adminRulesEditId?'official-'+adminRulesEditId:null);
+  const fac=D.factions.find(f=>f.id===fid)||D.factions.find(f=>f.id===adminCatalogFactionId)||null;
+  try{return customFighterAllEquipment().filter(it=>warriorBandAllowed(it,w,fac)).map(it=>it.name)}catch(e){return Array.isArray(w.equipmentAccess)?w.equipmentAccess.slice():[]}
+}
 function saveAdminWarrior(idx){
   const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
   const name=($('#awName')?.value||'').trim();
@@ -5832,6 +5843,7 @@ function saveAdminWarrior(idx){
     defaultSkills:customFighterReadChecks('awDefaultSkills'),
     defaultEquipment:customFighterReadChecks('awDefaultEquipment'),
     equipmentAccess:customFighterReadChecks('awEquipmentAccess'),
+    equipmentAccessExact:true,
     skillAccess:(()=>{const o={};document.querySelectorAll('.awSkillAccess').forEach(s=>{if(s.value)o[s.dataset.set]=s.value});return o})(),
     magicAccess:(()=>{const o={};document.querySelectorAll('.awMagicAccess').forEach(s=>{if(s.value)o[s.dataset.domain]=s.value});return o})(),
     // Book fighters commonly carry this as the STRING "ALL" (see
@@ -5911,7 +5923,7 @@ function adminWarriorFormMarkup(w,idx){
   <details class="custom-collapse"><summary><span>${en?'MAGIC DOMAIN ACCESS':'SORTS / DOMAINES DE MAGIE'}</span><small>${en?'None / Primary / Secondary':'Non autorisé / Primary / Secondary'}</small></summary><div class="custom-skill-access-grid">${magicDomainNames.map(domain=>{const val=w?.magicAccess?.[domain]??magicAccessNorm[normName(domain)]??'';return `<label><span>${esc(domain)}</span><select class="awMagicAccess" data-domain="${esc(domain)}"><option value="">${en?'Not allowed':'Non autorisé'}</option><option value="Primary" ${val==='Primary'?'selected':''}>Primary</option><option value="Secondary" ${val==='Secondary'?'selected':''}>Secondary</option></select></label>`}).join('')}</div></details>
   <details class="custom-collapse"><summary><span>${en?'DEFAULT SKILLS':'COMPÉTENCES PAR DÉFAUT'}</span><small>${(w?.defaultSkills||[]).length}</small></summary><div class="custom-equipment-checks">${defaultSkillNames.map(s=>`<label><input class="awDefaultSkills" data-name="${esc(s)}" type="checkbox" ${(w?.defaultSkills||[]).some(n=>normName(n)===normName(s))?'checked':''}><span>${refLink('skills',s,s)}</span></label>`).join('')}</div></details>
   <details class="custom-collapse"><summary><span>${en?'DEFAULT EQUIPMENT':'ÉQUIPEMENT PAR DÉFAUT'}</span><small>${(w?.defaultEquipment||[]).length}</small></summary>${customFighterEquipmentChooser('awDefaultEquipment',w?.defaultEquipment||[],'default')}</details>
-  <details class="custom-collapse"><summary><span>${en?'EQUIPMENT ACCESS':'ACCÈS À L’ÉQUIPEMENT'}</span><small>${(w?.equipmentAccess||[]).length}</small></summary><p class="custom-field-help">${en?'Added on top of whatever this fighter already has via the book’s group-tag access (unaffected, and not editable here) — check an item to explicitly allow it too.':'Ajouté par-dessus l’accès par groupe déjà défini pour ce combattant dans le livre (conservé tel quel, non modifiable ici) — coche un objet pour l’autoriser explicitement en plus.'}</p>${customFighterEquipmentChooser('awEquipmentAccess',w?.equipmentAccess||[],'access')}</details>
+  ${(()=>{const acc=adminEffectiveEquipmentAccess(w);return `<details class="custom-collapse"><summary><span>${en?'EQUIPMENT ACCESS':'ACCÈS À L’ÉQUIPEMENT'}</span><small>${acc.length}</small></summary><p class="custom-field-help">${en?'The complete list of what this fighter can buy (its Band List). Ticked = allowed, unticked = not allowed — saving makes this list exact, the book’s group access is no longer added on top.':'La liste complète de ce que ce combattant peut acheter (sa Band List). Coché = autorisé, décoché = interdit — l’enregistrement rend cette liste exacte, l’accès par groupe du livre n’est plus ajouté par-dessus.'}</p>${customFighterEquipmentChooser('awEquipmentAccess',acc,'access')}</details>`})()}
   <details class="custom-collapse"><summary><span>${en?'DESCRIPTION':'DESCRIPTION'}</span></summary>${customTextToolbarMarkup('awDescription')}<textarea id="awDescription" class="wide-textarea" rows="4">${esc(w?.description||'')}</textarea></details>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminCancelWarrior()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveAdminWarrior(${idx})">${en?'Apply':'Appliquer'}</button></div>`;
 }
@@ -10098,7 +10110,7 @@ function rulesWarbandDetail(){
     const head=w.type!==lastRole?(lastRole=w.type,`<div class="role-head">${esc(w.type||(en?'Other':'Autre'))}</div>`):'';
     return head+fighterRuleCardMarkup(w,f);
   }).join('');
-  const combatantsSection=`<div class="section-block"><h2><span class="n">2</span>${en?'Fighters':'Combattants'}</h2><p style="font-size:11px;color:var(--muted2);margin:-4px 0 14px;font-style:italic">${en?'Visible without expanding: name, stats, cost and special rules. Three separate menus under each profile break down, by category, the skills, magic and equipment available at recruitment.':'Visible sans dérouler : nom, statistiques, coût et règles spéciales. Trois menus séparés sous chaque profil détaillent, par catégorie, les compétences, la magie et l’équipement disponibles à la création.'}</p>${cards||`<div class="empty">${en?'No fighter profile in this warband yet.':'Aucun profil de combattant dans cette warband pour l’instant.'}</div>`}${hiredSwordRulesMarkup(f)}</div>`;
+  const combatantsSection=`<div class="section-block"><h2><span class="n">2</span>${en?'Fighters':'Combattants'}</h2><p style="font-size:11px;color:var(--muted2);margin:-4px 0 14px;font-style:italic">${en?'Visible without expanding: name, stats, cost and special rules. Three separate menus under each profile break down, by category, the skills, magic and equipment available at recruitment.':'Visible sans dérouler : nom, statistiques, coût et règles spéciales. Trois menus séparés sous chaque profil détaillent, par catégorie, les compétences, la magie et l’équipement disponibles à la création.'}</p>${cards||`<div class="empty">${en?'No fighter profile in this warband yet.':'Aucun profil de combattant dans cette warband pour l’instant.'}</div>`}</div>`;
 
   // Section 3 — exclusive skill tree(s): each skill rendered as its own
   // full Référentiel card (referenceEntryMarkup — same name/category tag/
@@ -11199,10 +11211,6 @@ function hiredSwordsRulesPageMarkup(){
   <div class="section-block">${list.length?list.map(w=>`<div class="role-head">${esc(w.name)}</div><div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}<span class="muted">${scope(w)}</span>${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,pseudo)}`).join(''):`<div class="empty">${en?'No Hired Sword yet.':'Aucun Hired Sword pour l’instant.'}</div>`}</div></div>`;
 }
 // Rules: Warbands — the Hired Swords this warband can hire.
-function hiredSwordRulesMarkup(f){
-  const en=siteLanguage==='en';const list=hiredSwordsFor(f,null);if(!list.length)return '';
-  return `<div class="role-head">Hired Swords</div>${list.map(w=>`<div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,f)}`).join('')}`;
-}
 /* V-RECRUITPANEL: Recruitment is a foldable panel at the top of the Warband
    tab (compact one-line profiles, a click on the name unfolds the full card)
    instead of its own tab; History opens from a button next to Edit, in a
@@ -14639,9 +14647,15 @@ function fighterRuleNames(x,f){
   const equipmentRules=standardEquipmentSpecialRules(x);
   return [...new Set([raceRule,...names,...equipmentRules,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
 }
-function warriorBandAllowed(w,x){if(x?.customFighterId){return Array.isArray(x.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name))}
+function warriorBandAllowed(w,x,fac){if(x?.customFighterId){return Array.isArray(x.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name))}
+  if(!fac)fac=faction(activeRoster());
+  if(isCustomEquipment(w)&&!customEquipmentForFaction(w,fac?.id))return false;
+  // V-EXACTACCESS: once an admin has saved a book fighter's Equipment Access
+  // in Admin → Gestion, that list IS the fighter's Band List — the book's
+  // group-tag access is no longer added on top (unticking an item there used
+  // to change nothing, since its group still granted it).
+  if(x?.equipmentAccessExact&&Array.isArray(x.equipmentAccess))return x.equipmentAccess.some(n=>normName(n)===normName(w?.name));
   if(isCustomEquipment(w)){
-    if(!customEquipmentForFaction(w,faction(activeRoster())?.id))return false;
     // V-PERFIGHTERBAND: once a book/official fighter carries its own
     // `equipmentAccess` list (case-by-case management is the norm — every
     // fighter manages its own Band List, per the admin's explicit design),
@@ -14662,7 +14676,7 @@ function warriorBandAllowed(w,x){if(x?.customFighterId){return Array.isArray(x.e
   // false), so this never alters behavior for a fighter that's never been
   // through the admin panel.
   if(Array.isArray(x?.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name)))return true;
-  const groups=x?.equipmentAccessGroups;if(equipmentGroupsMeansAll(groups))return true;if(!Array.isArray(groups))return false;if(groups.includes('Natural Weapons')&&w.name==='Natural Weapons')return true;const f=faction(activeRoster());const key=Object.keys(f?.equipmentItemGroups||{}).find(k=>normName(k)===normName(w?.name));const memberships=key?(f.equipmentItemGroups[key]||[]):[];return groups.some(g=>memberships.includes(g))}
+  const groups=x?.equipmentAccessGroups;if(equipmentGroupsMeansAll(groups))return true;if(!Array.isArray(groups))return false;if(groups.includes('Natural Weapons')&&w.name==='Natural Weapons')return true;const f=fac;const key=Object.keys(f?.equipmentItemGroups||{}).find(k=>normName(k)===normName(w?.name));const memberships=key?(f.equipmentItemGroups[key]||[]):[];return groups.some(g=>memberships.includes(g))}
 
 /* Final custom-fighter integration overrides. */
 function customFighterForm(w){
