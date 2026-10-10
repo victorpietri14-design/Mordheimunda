@@ -4474,3 +4474,20 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .hub-st{font-size:11.5px}.hub-st.ok{color:var(--accent)}.hub-st.bad{color:var(--danger)}.hub-st.wait{color:var(--wip)}
 @media(max-width:900px){.hub-grid,.hub-grid-market,.hub-grid-battles{grid-template-columns:1fr}.hub-banner{height:150px}.hub-banner-over h1{font-size:22px}.hub-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.hub-side{grid-template-columns:minmax(0,1fr) auto;}.hub-battle-line{grid-template-columns:1fr}}
 .hub-panel .custom-field input,.hub-panel .custom-field textarea,.hub-panel .custom-field select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:13px/1.5 'IBM Plex Sans',system-ui,sans-serif;min-height:40px;box-sizing:border-box;width:100%}
+/* V-HUBLOC: My Campaign › Locations */
+.hub-residence{margin-bottom:16px;border-color:var(--cc,var(--accent))}
+.hub-res-name{font:700 22px 'Cinzel',serif}
+.hub-outsider{color:var(--wip);margin:0}
+.hub-loc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.hub-loc{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.hub-loc.current{border-color:var(--cc,var(--accent));box-shadow:0 0 0 1px var(--cc,var(--accent)) inset}
+.hub-loc.excluded{opacity:.7}
+.hub-loc-head{display:flex;align-items:center;gap:8px}
+.hub-loc-head h3{margin:0;flex:1;font:700 19px 'Cinzel',serif}
+.hub-loc-tag{font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:1px;color:var(--accent)}
+.hub-loc.excluded .hub-loc-tag{color:var(--danger)}
+.hub-loc-notes summary{cursor:pointer;font-size:12px;color:var(--muted);min-height:28px}
+.hub-loc-notes{font-size:12.5px;color:var(--muted)}
+.hub-loc-res{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:8px}
+.hub-loc-res small{font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:1px;color:var(--muted3);text-transform:uppercase}
+.hub-loc-res span{font-size:13px}
