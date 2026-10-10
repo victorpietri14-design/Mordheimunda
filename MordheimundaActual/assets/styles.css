@@ -4137,3 +4137,107 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 /* V-CATALOGRENAME */
 .admin-wb-name-label{display:block;font-size:11px;letter-spacing:1px;font-weight:700;color:var(--accent);margin:4px 0 2px;text-transform:uppercase}
 .admin-wb-name-label small{text-transform:none;letter-spacing:0;color:var(--muted2);font-weight:500}
+/* V-ARTIFACTS */
+.artifact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin:12px 0 24px}
+.artifact-card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--cc,var(--accent));border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;scroll-margin-top:80px}
+.artifact-head{display:flex;align-items:center;gap:10px}
+.artifact-head h3{margin:0;font:700 17px 'Cinzel',serif;flex:1}
+.artifact-roll{min-width:38px;padding:3px 7px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);font:700 12px 'IBM Plex Sans';text-align:center;color:var(--cc,var(--accent))}
+.artifact-base{font-size:12.5px;color:var(--muted)}
+.artifact-missing{color:var(--danger)}
+.artifact-lore{margin:0;font-size:13px;font-style:italic;color:var(--muted);line-height:1.5}
+.artifact-rules{font-size:13.5px}
+.artifact-summary td:first-child{white-space:nowrap;font-weight:700}
+.artifact-summary a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--muted2)}
+.artifact-summary a:hover{color:var(--cc,var(--accent))}
+/* V-CAMPAIGNPAGEEDIT / V-SCENARIOLINK */
+.campaign-page-edit{display:flex;justify-content:flex-end;margin-bottom:10px}
+.campaign-page-editor{width:min(860px,100%)}
+.rule-scenario-link{color:var(--cc,var(--accent));text-decoration:none;border-bottom:1px dotted currentColor;font-weight:600}
+/* V-SETTLEMENTS */
+.settle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:12px}
+.settle-card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--cc,var(--accent));border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.settle-effects{display:flex;flex-direction:column;gap:6px}
+.settle-effect{display:flex;gap:10px;align-items:baseline;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+.settle-tag{min-width:88px;font-size:10.5px;letter-spacing:1px}
+.settle-danger{color:var(--danger)}.settle-accent{color:var(--accent)}.settle-wip{color:#e8c547}.settle-info{color:#4ec9d8}
+.settle-excluded{font-size:12.5px;color:var(--muted)}
+.settle-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px}
+.settle-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;margin:14px 0}
+.settle-current,.settle-list{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.settle-current{border-top:3px solid var(--cc,var(--accent))}
+.settle-current h3{margin:0;font:700 22px 'Cinzel',serif}
+.settle-row{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.settle-row>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.settle-row small{color:var(--muted);font-size:12px}
+.settle-row.current{border-color:var(--cc,var(--accent))}
+.settle-row.excluded{opacity:.6}
+.settle-status{font-size:10px;letter-spacing:1px;font-weight:700;color:var(--muted2);margin-left:6px}
+.settle-row.current .settle-status{color:var(--cc,var(--accent))}.settle-row.excluded .settle-status{color:var(--danger)}
+@media (max-width:760px){.settle-panel{grid-template-columns:minmax(0,1fr)}.settle-row{flex-wrap:wrap}}
+/* V-CAMPMARKET / V-BANDTRANSIT */
+.tp-campaign-mods{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin:0 0 12px;padding:10px 14px;border:1px solid #2f5a32;border-left:4px solid #5fd36a;border-radius:10px;background:rgba(95,211,106,.07);font-size:13px}
+.tp-campaign-mods b{font-family:Cinzel,serif;color:#5fd36a}
+.tp-campaign-mods.outsider{border-color:#6a3330;border-left-color:#ff8a80;background:rgba(255,138,128,.07)}
+.tp-campaign-mods.outsider b{color:#ff8a80}
+.tp-price small{display:block;font-size:10px;font-weight:500;opacity:.7}
+.tp-transit-note{display:block;color:#e8c547}
+.reserve-transit{color:#e8c547;font-weight:600}
+.reserve-row.in-transit{opacity:.75;border-style:dashed}
+/* V-CAMPPB: campaign post-battle */
+.gold{color:#f2c94c!important}
+.eq-skin-base{opacity:.65;font-weight:500}
+.pool-refusal{align-items:center}
+.pool-refusal .button{margin-left:auto}
+.cpb-body{display:flex;flex-direction:column;gap:12px;padding-top:6px}
+.cpb-heroes{display:flex;flex-direction:column;gap:6px}
+.cpb-hero-list{display:flex;flex-wrap:wrap;gap:6px}
+.cpb-hero{min-height:40px;padding:0 12px;border-radius:8px;background:#1c1c1b;border:1px solid #33322f;color:inherit;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.cpb-hero.on{background:#1f2d1c;border-color:#5fd36a;color:#5fd36a}
+.cpb-card{background:#1c1c1b;border:1px solid #5fd36a;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.cpb-card.trap{border-color:#ff8a80}
+.cpb-card.done{border-color:#33322f}
+.cpb-card-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cpb-card-head b{font-family:Cinzel,serif;font-size:17px}
+.cpb-tier{font-size:11px;letter-spacing:1px;font-weight:700;color:#5fd36a;text-transform:uppercase}
+.cpb-text{margin:0;font-size:13px;color:#b0afac}
+.cpb-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cpb-chips span{background:#262522;border:1px solid #33322f;border-radius:7px;padding:4px 9px;font-size:12px}
+.cpb-result{background:#1f1a0a;border:1px solid #6b5517;border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.cpb-result small{color:#d8c28a}
+.cpb-artifacts{background:#191422;border:1px solid #4a3d63;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.cpb-art-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.cpb-art-head .micro-label{color:#c99bff}
+.cpb-art-head small{display:block;color:#b0afac;font-size:12px;max-width:520px}
+.cpb-art-roll{position:relative;background:#221b2e;border:1px solid #4a3d63;border-radius:10px;padding:10px 36px 10px 12px;display:flex;flex-direction:column;gap:8px}
+.cpb-art-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.cpb-art-row>div{display:flex;flex-direction:column;gap:3px}
+.cpb-art-dice{display:flex;gap:4px}
+.cpb-art-dice i{font-style:normal;width:26px;height:26px;display:grid;place-items:center;border-radius:6px;border:1px solid #c99bff;background:#2a2238;font-weight:700}
+.cpb-art-tier{font-size:10.5px;color:#c99bff;font-weight:700;letter-spacing:1px}
+.cpb-held{color:#ff8a80}
+.cpb-taken{color:#9dfa3c;font-size:12px}
+.cpb-art-x{position:absolute;top:8px;right:8px;background:none;border:0;color:#8d8c88;cursor:pointer;font-size:14px}
+/* V-CAMPMARKET2: auction house */
+.auction{margin-top:18px;background:#161514;border:1px solid #33322f;border-top:3px solid #f2c94c;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.auction-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.auction-head .micro-label{color:#f2c94c}
+.auction-head small{display:block;color:#b0afac;font-size:12.5px;max-width:640px;margin-top:4px}
+.auction-collect{display:flex;flex-direction:column;gap:6px;background:#1f1a0a;border:1px solid #6b5517;border-radius:10px;padding:10px 12px}
+.auction-collect>div{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}
+.auction-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.auction-cols h4{margin:0 0 8px;font-family:Cinzel,serif}
+.auction-cols h4 small{color:#8d8c88;font-family:'IBM Plex Sans',sans-serif}
+.auction-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;background:#1c1c1b;border:1px solid #2a2927;border-radius:10px;padding:9px 11px;margin-bottom:6px;font-size:13px}
+.auction-row>div{display:flex;flex-direction:column;min-width:0}
+.auction-row>div small{color:#8d8c88;font-size:11.5px}
+.auction-row.mine{border-color:#6b5517}
+.auction-kind{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:6px;border:1px solid #5fd36a;color:#5fd36a}
+.auction-row.request .auction-kind{border-color:#4ec9d8;color:#4ec9d8}
+.auction-forms{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.auction-form{display:flex;flex-direction:column;gap:7px;background:#1c1c1b;border:1px dashed #33322f;border-radius:10px;padding:12px}
+.auction-form select,.auction-form input{min-height:40px;background:#0c0c0c;border:1px solid #33322f;border-radius:8px;color:inherit;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif}
+@media (max-width:640px){.auction-row{grid-template-columns:minmax(0,1fr) auto}.auction-kind{grid-column:1/-1;justify-self:start}}
+.standings-pick{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#b0afac}
+.standings-pick select{min-height:40px;background:#0c0c0c;border:1px solid #33322f;border-radius:8px;color:inherit;padding:0 8px}
+.standing-val{color:var(--cc,#f2c94c)}
