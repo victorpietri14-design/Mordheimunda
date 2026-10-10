@@ -4128,3 +4128,9 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 /* V-RULEIMAGESMOBILE2: on a phone the width scales with the desktop setting
    (×2.5, capped at 100 %): width=30 → 75 %, width=40 or more → full width. */
 @media (max-width:760px){.rule-figure{max-width:min(100%,calc(var(--rw,100) * 2.5%))!important;width:100%;margin:12px auto}.rule-figure img{border-radius:6px}}
+/* V-RULEIMAGEPOPUP */
+.rule-figure a{cursor:zoom-in}
+.rule-lightbox{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;cursor:zoom-out}
+.rule-lightbox img{max-width:100%;max-height:calc(100vh - 90px);object-fit:contain;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.rule-lightbox-cap{color:#e7e6e2;font-size:13px;font-style:italic;text-align:center}
+.rule-lightbox-close{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);color:#fff;font-size:18px;cursor:pointer}

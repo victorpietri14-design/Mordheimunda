@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0534.0';
+const APP_BUILD='110.0535.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3216,7 +3216,7 @@ function ruleTextMarkup(text,opts){
     .replace(/\[IMG\s+id=([0-9a-fA-F-]{36})(?:\s+width=(\d{1,3}))?\]([\s\S]*?)\[\/IMG\]/g,(m,id,width,cap)=>{
       const w=Math.max(20,Math.min(100,Number(width)||100));const caption=cap.replace(/\s+/g,' ').trim();
       const src=`${String(window.MORDHEIMUNDA_CONFIG?.apiBaseUrl||'').replace(/\/$/,'')}/api/rule-images/${id}`;
-      imageBlocks.push(`<figure class="rule-figure" style="max-width:${w}%;--rw:${w}"><a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(caption||'')}" loading="lazy"></a>${caption?`<figcaption>${esc(caption)}</figcaption>`:''}</figure>`);
+      imageBlocks.push(`<figure class="rule-figure" style="max-width:${w}%;--rw:${w}"><a href="${esc(src)}" onclick="event.preventDefault();openRuleImageLightbox(this)"><img src="${esc(src)}" alt="${esc(caption||'')}" loading="lazy"></a>${caption?`<figcaption>${esc(caption)}</figcaption>`:''}</figure>`);
       return `\n\u0000IMAGE${imageBlocks.length-1}\u0000\n`;
     })
     .replace(/\[SUBHEAD(?:\s+color=([a-z]+))?\]([\s\S]*?)\[\/SUBHEAD\]/g,(m,color,body)=>{
@@ -3532,6 +3532,18 @@ function cancelRuleEdit(){ruleOverridesEditKey=null;rerenderOverrideHost()}
 // note callout, "• " → bullet), so admins get one-click formatting that's
 // guaranteed to render with the site's existing rule typography/colors
 // instead of guessing at the raw syntax.
+// V-RULEIMAGEPOPUP: a click on a rule picture opens it full screen over the
+// page (tap anywhere, ✕ or Esc closes) instead of a new browser tab.
+function openRuleImageLightbox(a){
+  const img=a?.querySelector('img');if(!img)return;const cap=a.closest('.rule-figure')?.querySelector('figcaption')?.textContent||'';
+  closeRuleImageLightbox();const en=siteLanguage==='en';
+  const box=document.createElement('div');box.className='rule-lightbox';box.id='ruleLightbox';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');
+  box.innerHTML=`<button type="button" class="rule-lightbox-close" aria-label="${en?'Close':'Fermer'}">✕</button><img src="${esc(img.getAttribute('src'))}" alt="${esc(cap)}">${cap?`<div class="rule-lightbox-cap">${esc(cap)}</div>`:''}`;
+  box.addEventListener('click',closeRuleImageLightbox);
+  document.body.appendChild(box);document.addEventListener('keydown',ruleLightboxKey);
+}
+function closeRuleImageLightbox(){document.getElementById('ruleLightbox')?.remove();document.removeEventListener('keydown',ruleLightboxKey)}
+function ruleLightboxKey(e){if(e.key==='Escape')closeRuleImageLightbox()}
 // V-RULEIMAGES: pick a picture, shrink it in the browser (max 1600 px wide),
 // upload it, then insert [IMG id=… width=100]Caption[/IMG] at the cursor.
 // "width" (20–100, % of the text column) and the caption can be edited in
