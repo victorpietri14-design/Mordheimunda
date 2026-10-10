@@ -4375,3 +4375,9 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .cpb-card,.cpb-artifacts,.auction,.mech-mini,.scn-roll,.cond-panel,.settle-panel,.settle-current,.settle-row,.auction-row,.auction-form,.cond-weather{border-radius:8px}
 
 .camp-nav>.rn-item{margin:2px 0}
+/* V-CAMPNAVFOLD: the campaign menu folds to the left */
+.camp-nav-toggle{display:flex;align-items:center;gap:6px;width:100%;margin:0 0 8px;padding:6px 9px;background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted2);font:700 10px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:.4px;cursor:pointer;min-height:32px}
+.camp-nav-toggle:hover{color:var(--accent);border-color:var(--chip-border)}
+.rules-nav.camp-nav.collapsed{width:48px;flex:0 0 48px;padding:16px 6px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.camp-nav.collapsed .camp-nav-toggle{width:36px;height:36px;justify-content:center;padding:0;margin:0;font-size:14px}
+.camp-nav-vlabel{writing-mode:vertical-rl;transform:rotate(180deg);font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:2px;color:var(--muted3)}

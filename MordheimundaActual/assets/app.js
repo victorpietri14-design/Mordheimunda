@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0554.0';
+const APP_BUILD='110.0555.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11425,6 +11425,8 @@ function campaignSections(c){const en=siteLanguage==='en';const d=c?.definition|
   if(admin)out.push({id:'mechanics',label:en?'⚙ Setup (admin)':'⚙ Configuration (admin)'});
   return out}
 const campaignNavOpen=new Map();
+let campaignNavCollapsed=(()=>{try{return localStorage.getItem('mordheimunda_campnav_collapsed')==='1'}catch(e){return false}})();
+function toggleCampaignNav(){campaignNavCollapsed=!campaignNavCollapsed;try{localStorage.setItem('mordheimunda_campnav_collapsed',campaignNavCollapsed?'1':'0')}catch(e){}render('campaignDetail')}
 function toggleCampaignNavGroup(key,wasOpen){campaignNavOpen.set(key,!wasOpen);render('campaignDetail')}
 function campaignDetail(){
   const en=siteLanguage==='en';const id=currentCampaignId;const c=campaignDetailCached(id);if(c&&!campaignDetailFresh.has(id))loadCampaignDetail(id,'campaignDetail');
@@ -11453,7 +11455,7 @@ function campaignDetail(){
    <div class="rules-head"><h1 class="rules-page-title">${esc(c.name)}</h1><p class="camp-head-line"><span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span>${c.status!=='published'?`<span class="campaign-tag draft">${en?'DRAFT — only admins see it':'BROUILLON — visible des admins seulement'}</span>`:''}<span>${members.length} ${en?'warband'+(members.length!==1?'s':''):'bande'+(members.length!==1?'s':'')}</span>${admin&&c.joinCode?`<span class="campaign-code">${en?'Join code':'Code'} <b>${esc(c.joinCode)}</b> <button type="button" class="equipment-action" title="${en?'New code':'Nouveau code'}" onclick="newCampaignCode('${esc(c.id)}')">↻</button></span>`:''}</p>
     <div class="camp-head-actions">${c.status==='published'?`<button type="button" class="button primary" onclick="openJoinCampaign('${esc(c.id)}')">⚑ ${en?'Enter a warband':'Inscrire une bande'}</button>`:''}${admin?`<button type="button" class="button secondary" onclick="openCampaignEditor('${esc(c.id)}')">✎ ${en?'Edit':'Modifier'}</button><button type="button" class="button secondary" onclick="setCampaignStatus('${esc(c.id)}','${c.status==='published'?'draft':'published'}')">${c.status==='published'?(en?'Unpublish':'Dépublier'):(en?'Publish':'Publier')}</button>`:''}</div></div>
    ${mobileNav}
-   <div class="rules-shell campaign-shell"><nav class="rules-nav camp-nav">${navItems}</nav>
+   <div class="rules-shell campaign-shell">${campaignNavCollapsed?`<nav class="rules-nav camp-nav collapsed"><button type="button" class="camp-nav-toggle" title="${en?'Show the menu':'Afficher le menu'}" aria-label="${en?'Show the menu':'Afficher le menu'}" onclick="toggleCampaignNav()">»</button><span class="camp-nav-vlabel">${en?'MENU':'MENU'}</span></nav>`:`<nav class="rules-nav camp-nav"><button type="button" class="camp-nav-toggle" title="${en?'Hide the menu':'Masquer le menu'}" aria-label="${en?'Hide the menu':'Masquer le menu'}" onclick="toggleCampaignNav()">« <span>${en?'Hide':'Masquer'}</span></button>${navItems}</nav>`}
     <div class="rules-main"><div class="rules-crumb"><a href="/rules/campaign" data-app-route="1" onclick="event.preventDefault();navigateApp('/rules/campaign')">${en?'Rules: Campaign':'Règles : Campagne'}</a><span class="sep">›</span><a href="#" onclick="${go('overview')}">${esc(c.name)}</a>${cur.id!=='overview'?`<span class="sep">›</span><span class="cur">${esc(curT.name)}</span>`:''}</div>
      <div class="title-row"><h1 class="rules-title">${curT.num?`<span class="rt-num">${esc(curT.num)}</span>`:''}<span class="rt-name">${esc(curT.name)}</span></h1>${editBtn}</div>
      ${pageBody}</div></div></div>`;
