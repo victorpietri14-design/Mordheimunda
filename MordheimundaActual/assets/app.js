@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0535.0';
+const APP_BUILD='110.0536.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3212,7 +3212,10 @@ function ruleTextMarkup(text,opts){
   // V-RULEIMAGES: [IMG id=<uuid> width=<20-100>]Caption[/IMG] — a picture
   // uploaded from the rule editor, served by /api/rule-images/<id>.
   const imageBlocks=[];
-  let withPlaceholders=String(text||'')
+  // V-NUMHEAD: a numbered heading split over two lines ("4." then
+  // "INFLICT DAMAGE") is joined back into one line ("4. INFLICT DAMAGE") so
+  // it's recognised as a section heading like "3. MAKE A SAVE ROLL".
+  let withPlaceholders=String(text||'').replace(/^([ \t]*\d{1,2}\.)[ \t]*\r?\n[ \t]*(?=[A-Z][A-Z0-9’'&\/ ,-]{2,}$)/gm,'$1 ')
     .replace(/\[IMG\s+id=([0-9a-fA-F-]{36})(?:\s+width=(\d{1,3}))?\]([\s\S]*?)\[\/IMG\]/g,(m,id,width,cap)=>{
       const w=Math.max(20,Math.min(100,Number(width)||100));const caption=cap.replace(/\s+/g,' ').trim();
       const src=`${String(window.MORDHEIMUNDA_CONFIG?.apiBaseUrl||'').replace(/\/$/,'')}/api/rule-images/${id}`;
