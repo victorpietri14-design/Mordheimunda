@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0559.0';
+const APP_BUILD='110.0560.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -56,7 +56,7 @@ function parseAppRoute(path=location.pathname){
   if(p==='/rules/underdog-bonus')return {view:'underdogBonus'};
   if(p==='/print')return {view:'printList'};
   if(p==='/campaigns')return {view:'myCampaigns'};
-  const chm=p.match(/^\/campaigns\/([^/]+)(?:\/(overview|market|battles))?$/);
+  const chm=p.match(/^\/campaigns\/([^/]+)(?:\/(overview|locations|market|battles))?$/);
   if(chm)return {view:'campaignHub',campaignId:decodeURIComponent(chm[1]),hubTab:chm[2]||'overview'};
   const cpm=p.match(/^\/rules\/campaign\/([^/]+)(?:\/([^/]+))?$/);
   if(cpm)return {view:'campaignDetail',campaignId:decodeURIComponent(cpm[1]),campaignPage:cpm[2]?decodeURIComponent(cpm[2]):'overview'};
@@ -10714,7 +10714,7 @@ function campaignHeldCount(cid,name){const c=campaignDetailCache.get(cid);const 
 function campaignRisePct(rarity){return !rarity?2.5:rarity<=8?5:rarity<=10?10:20}
 function rosterItemCounts(r){const out={};const add=e=>{if(!e?.name)return;const k=normName(e.name);out[k]=(out[k]||0)+Math.max(1,Number(e.quantity||1))};(r?.reserve||[]).forEach(add);(r?.fighters||[]).forEach(x=>{const seen=new Set();[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].forEach(e=>{const id=e?.stashId||e;if(seen.has(id))return;seen.add(id);add(e)})});return out}
 function hubHeader(c,tab){
-  const en=siteLanguage==='en';const col=campaignColor(c);const tabs=[['overview',en?'Overview':'Aperçu'],['market',en?'Market & trades':'Marché & échanges'],['battles',en?'Battles':'Batailles']];
+  const en=siteLanguage==='en';const col=campaignColor(c);const tabs=[['overview',en?'Overview':'Aperçu'],['locations',en?'Locations':'Lieux'],['market',en?'Market & trades':'Marché & échanges'],['battles',en?'Battles':'Batailles']];
   return `<div class="hub-banner" style="--cc:${col}">${campaignCoverMarkup(c,'hub-banner-img')}<div class="hub-banner-over"><div><span class="hub-kicker">${en?'MY CAMPAIGN':'MA CAMPAGNE'}</span><h1>${esc(c.name)}</h1></div><a class="button secondary" href="/rules/campaign/${encodeURIComponent(c.id)}" data-app-route="1" onclick="event.preventDefault();navigateApp('/rules/campaign/${encodeURIComponent(c.id)}')">${en?'Rules':'Règles'}</a></div></div>
    <nav class="gang-tabs hub-tabs" style="--cc:${col}">${tabs.map(([id,l])=>`<button type="button" class="gang-tab${tab===id?' active':''}" onclick="setHubTab('${id}')"><span class="gt-lbl">${esc(l)}</span></button>`).join('')}</nav>`;
 }
@@ -10725,8 +10725,8 @@ function campaignHub(){
   if(!c){loadCampaignDetail(id,'campaignHub');$('#content').innerHTML=`<div class="empty large">${en?'Loading…':'Chargement…'}</div>`;return}
   if(c.missing){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Campaign not found.':'Campagne introuvable.'}</strong></div>`;return}
   if(!campaignBattlesCache.has(id))loadCampaignBattles(id,'campaignHub');
-  const tab=['overview','market','battles'].includes(currentHubTab)?currentHubTab:'overview';
-  const body=tab==='market'?hubMarketMarkup(c):tab==='battles'?hubBattlesMarkup(c):hubOverviewMarkup(c);
+  const tab=['overview','locations','market','battles'].includes(currentHubTab)?currentHubTab:'overview';
+  const body=tab==='locations'?hubLocationsMarkup(c):tab==='market'?hubMarketMarkup(c):tab==='battles'?hubBattlesMarkup(c):hubOverviewMarkup(c);
   $('#content').innerHTML=`<div class="ref-page campaign-hub-page" style="--cc:${campaignColor(c)}">${hubHeader(c,tab)}${hubRosterPicker(c)}${body}</div>`;
   const r=hubRoster(c);if(r)pushCampaignEntryStats(r);
 }
@@ -10758,6 +10758,19 @@ function openHubFavoredEditor(cid){
   openModal(`<div class="wc-dialog"><div class="eyebrow">${esc(c.name)}</div><h2>${en?'Favoured scenario':'Scénario favori'}</h2><label class="custom-field"><span>${en?'Scenario':'Scénario'}</span><select id="favId"><option value="">${en?'— none —':'— aucun —'}</option>${(SCENARIOS_CACHE||[]).map(s=>`<option value="${esc(s.id)}" ${s.id===f.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label><label class="custom-field"><span>${en?'Note (bonus, why…)':'Note (bonus, pourquoi…)'}</span><input id="favNote" value="${esc(f.note||'')}"></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveHubFavored('${esc(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 async function saveHubFavored(cid){const id=$('#favId').value;const s=(SCENARIOS_CACHE||[]).find(x=>x.id===id);if(await saveCampaignDefinition(cid,def=>{if(!id)delete def.favoredScenario;else def.favoredScenario={id,name:s?.name||'',note:($('#favNote').value||'').trim()}})){closeModal();render('campaignHub')}}
+// --- locations: the campaign's settlements; a warband picks where it resides
+// and that settlement's bonuses apply (market, tithe, Hired Sword upkeep).
+function hubSetResidence(sid){const c=campaignDetailCache.get(currentHubId);const r=c&&hubRoster(c);if(!r)return;state.active=r.id;const en=siteLanguage==='en';const st=(c.definition?.settlements||[]).find(x=>x.id===sid);if(!st)return;if(!settlementAllows(st,rosterCampaignFactionId(r))){toast(en?'This warband may not reside here':'Cette bande ne peut pas résider ici');return}r.campaignResidence=sid;logHistory(r,'settings',en?`Moved to <b>${esc(st.name)}</b>`:`S’installe à <b>${esc(st.name)}</b>`);save(true);pushCampaignEntryStats(r,true);toast(en?`${r.name} now resides in ${st.name}`:`${r.name} réside maintenant à ${st.name}`);render('campaignHub')}
+function hubLeaveResidence(){const c=campaignDetailCache.get(currentHubId);const r=c&&hubRoster(c);if(!r)return;r.campaignResidence=null;save(true);pushCampaignEntryStats(r,true);render('campaignHub')}
+function hubLocationsMarkup(c){
+  const en=siteLanguage==='en';const admin=isAdminEditUI();const list=c.definition?.settlements||[];const r=hubRoster(c);const fid=r?rosterCampaignFactionId(r):'';const pen=campaignOutsiderPenalty(c);
+  if(!list.length)return `<section class="hub-panel"><p class="muted">${en?'This campaign has no locations.':'Cette campagne n’a pas de lieux.'}</p>${admin?`<button type="button" class="button secondary" onclick="navigateApp('/rules/campaign/${encodeURIComponent(c.id)}/settlements')">⚙ ${en?'Set up the settlements':'Configurer les colonies'}</button>`:''}</section>`;
+  const members=(c.members||[]).filter(m=>!m.leftAt);const cur=r?list.find(x=>x.id===r.campaignResidence&&settlementAllows(x,fid)):null;const allowedAny=r?list.some(st=>settlementAllows(st,fid)):true;
+  const mine=r?`<section class="hub-panel hub-residence"><div class="hub-panel-head"><h2>${en?'Residence of':'Résidence de'} ${esc(r.name)}</h2>${cur?`<button type="button" class="button secondary small" onclick="hubLeaveResidence()">${en?'Leave':'Quitter'}</button>`:''}</div>${cur?`<b class="hub-res-name">${esc(cur.name)}</b>${settlementEffectsMarkup(cur,en)}<small class="muted">${en?'These bonuses apply now: Trading Post prices and finds, the tithe on Treasure sales, Hired Sword upkeep.':'Ces bonus s’appliquent maintenant : prix et recherche au Trading Post, dîme sur les ventes de Treasure, entretien des Hired Swords.'}</small>`:allowedAny?`<p class="muted">${en?'No residence: choose a location below to get its bonuses. Moving is free.':'Pas de résidence : choisis un lieu ci-dessous pour profiter de ses bonus. Déménager est gratuit.'}</p>`:`<p class="hub-outsider">${en?`No location accepts this warband: it buys with Rarity +${pen.rarity} (Common counts as Rare 4) and prices +${pen.pricePct}%.`:`Aucun lieu n’accepte cette bande : elle achète avec rareté +${pen.rarity} (Common compte comme Rare 4) et prix +${pen.pricePct} %.`}</p>`}</section>`:'';
+  const cards=list.map(st=>{const ok=r?settlementAllows(st,fid):true;const isCur=cur&&cur.id===st.id;const residents=members.filter(m=>{const own=(state.rosters||[]).find(x=>x.id===m.rosterId);return (own?own.campaignResidence:m.stats?.residence)===st.id});const ex=(st.excluded||[]).map(id=>campaignFactionOptions().find(o=>o.id===id)?.name||id);
+    return `<article class="hub-loc${isCur?' current':''}${ok?'':' excluded'}"><div class="hub-loc-head"><h3>${esc(st.name)}</h3><span class="hub-loc-tag">${isCur?(en?'YOUR RESIDENCE':'TA RÉSIDENCE'):r?(ok?(en?'OPEN TO YOU':'OUVERT'):(en?'CLOSED TO YOU':'FERMÉ')):''}</span>${admin?`<button type="button" class="rule-edit-btn" onclick="openSettlementEditor('${esc(c.id)}','${esc(st.id)}')">✎</button>`:''}</div>${settlementEffectsMarkup(st,en)}${st.notes?`<details class="hub-loc-notes"><summary>${en?'Local rules':'Règles locales'}</summary>${ruleTextMarkup(st.notes,{noTitle:true})}</details>`:''}<div class="hub-loc-res"><small>${en?'Residents':'Résidents'} · ${residents.length}</small><span>${residents.length?residents.map(m=>esc(m.rosterName)).join(', '):'—'}</span></div>${ex.length?`<small class="muted">${en?'Cannot reside here':'Ne peuvent pas résider ici'}: ${ex.map(esc).join(', ')}</small>`:''}${r&&!isCur?(ok?`<button type="button" class="button primary" onclick="hubSetResidence('${esc(st.id)}')">${en?'Reside here':'S’installer ici'}</button>`:''):''}</article>`}).join('');
+  return `${mine}<div class="hub-loc-grid">${cards}</div>`;
+}
 // --- market
 function setHubMarketCat(c){hubMarketCat=c;render('campaignHub')}
 function filterHubMarket(q){hubMarketSearch=q;const t=normName(q||'');document.querySelectorAll('.hub-market-row').forEach(el=>{el.hidden=!!t&&!normName(el.dataset.name||'').includes(t)})}
@@ -12047,7 +12060,7 @@ function campaignStandingUnit(k){return {points:'pts',wins:'',rating:'GC',gold:'
 function campaignStandingValue(m,k){const st=m?.stats||{};return k==='artifacts'?(Array.isArray(st.artifacts)?st.artifacts.length:0):Number(st[k]||0)}
 async function setCampaignStandings(cid,k){if(!CAMPAIGN_STANDING_KEYS.includes(k))return;await saveCampaignDefinition(cid,def=>{def.standings=k})}
 // The warband's public line in the campaign (name, value, reputation…).
-function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),items:rosterItemCounts(r)};const sig=JSON.stringify([r.name,stats]);if(!force&&r.campaignStatsSent===sig)return;r.campaignStatsSent=sig;window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{});try{save(true)}catch(e){}}
+function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),items:rosterItemCounts(r),residence:r.campaignResidence||null};const sig=JSON.stringify([r.name,stats]);if(!force&&r.campaignStatsSent===sig)return;r.campaignStatsSent=sig;window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{});try{save(true)}catch(e){}}
 // Warband → Campaign tab.
 function campaignView(r){
   const en=siteLanguage==='en';
