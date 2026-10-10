@@ -4607,3 +4607,5 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .pc-go{font:700 11px 'IBM Plex Sans';letter-spacing:.7px;text-transform:uppercase;min-height:44px;padding:0 24px}
 .pc-rules{border-color:var(--line)}.pc-rules .hub-panel-head h2{color:var(--accent)}
 .mc-wait{background:var(--panel)}.mc-wait-head{font:800 8px 'IBM Plex Sans';letter-spacing:2px}
+/* V-MISERICORDIA */
+.carried-list{margin-top:6px}.equipped-row.carried{border-style:dashed}.carried-traits{color:var(--muted);font-size:11.5px}
