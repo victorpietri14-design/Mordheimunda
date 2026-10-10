@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0555.0';
+const APP_BUILD='110.0556.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3895,7 +3895,9 @@ function rulesNavSidebarMarkup(){
     return `<div class="rn-group${active?' active':''}"><button type="button" class="rn-head${open?' open':''}" aria-expanded="${open}" onclick="toggleRulesNavGroup('${esc(g.id)}',${open})"><span class="chev">${open?'▾':'▸'}</span><span>${esc(en?g.en:g.fr)}</span></button>${open?`<div class="rn-items">${subItems}</div>`:''}</div>`;
   }).join('')||`<div class="empty compact">${en?'No themes yet.':'Aucun thème pour l’instant.'}</div>`;
   const adminBtn=isAdminEditUI()?`<button type="button" class="button secondary" style="width:100%;margin-top:14px" onclick="openRuleGroupsEditor()">✎ ${en?'Edit categories':'Éditer les catégories'}</button>`:'';
-  return `<nav class="rules-nav" id="rulesNavSidebar">${groups}${adminBtn}</nav>`;
+  // V-NAVFOLD: the whole menu folds to the left (same choice as the campaign pages).
+  if(campaignNavCollapsed)return `<nav class="rules-nav camp-nav collapsed" id="rulesNavSidebar"><button type="button" class="camp-nav-toggle" title="${en?'Show the menu':'Afficher le menu'}" aria-label="${en?'Show the menu':'Afficher le menu'}" onclick="toggleCampaignNav()">»</button><span class="camp-nav-vlabel">MENU</span></nav>`;
+  return `<nav class="rules-nav" id="rulesNavSidebar"><button type="button" class="camp-nav-toggle" title="${en?'Hide the menu':'Masquer le menu'}" aria-label="${en?'Hide the menu':'Masquer le menu'}" onclick="toggleCampaignNav()">« <span>${en?'Hide':'Masquer'}</span></button>${groups}${adminBtn}</nav>`;
 }let rulesScrollSpyInstalled=false;
 function ensureRulesScrollSpy(){
   if(rulesScrollSpyInstalled)return;
@@ -11409,13 +11411,22 @@ function loadMyCampaignEntries(view){campaignLoad('mine',async()=>{try{const r=a
   let changed=false;(state.rosters||[]).forEach(r=>{const e=myCampaignEntriesCache.find(x=>x.rosterId===r.id&&!x.leftAt);const want=e?e.campaignId:null;if((r.campaignId||null)!==want){r.campaignId=want;r.campaignName=e?.campaignName||null;r.campaignColor=e?.campaignColor||null;changed=true}});
   if(changed)save(true);campaignRerender(view)})}
 function campaignListAll(){const pub=campaignsCache||[];const adm=isAdminEditUI()?(adminCampaignsCache||[]):[];const ids=new Set(pub.map(c=>c.id));return [...pub,...adm.filter(c=>!ids.has(c.id))]}
-function campaignCardMarkup(c){const en=siteLanguage==='en';const col=campaignColor(c);return `<a class="campaign-card" href="/rules/campaign/${encodeURIComponent(c.id)}" onclick="event.preventDefault();navigateApp('/rules/campaign/${encodeURIComponent(c.id)}')" style="--cc:${col}"><div class="campaign-card-top"><b>${esc(c.name)}</b>${c.status!=='published'?`<span class="campaign-tag draft">${en?'DRAFT':'BROUILLON'}</span>`:`<span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span>`}</div><small>${c.memberCount!=null?`${c.memberCount} ${en?'warband'+(c.memberCount!==1?'s':''):'bande'+(c.memberCount!==1?'s':'')}`:''}</small><p>${esc(String(c.definition?.description||'').split('\n')[0].slice(0,160))}</p></a>`}
+// V-CAMPCARD (mockup A): the featured campaign is a wide banner — its
+// picture (definition.cover {id,pos}) with the title on it — and the others
+// are smaller picture cards. Featured = definition.featured, else the first.
+function campaignCoverUrl(c){const id=c?.definition?.cover?.id;return id?`/api/rule-images/${encodeURIComponent(id)}`:''}
+function campaignExcerpt(c,n){const lines=String(c?.definition?.description||'').split('\n').map(l=>l.trim()).filter(l=>l&&!/^\[(SUBHEAD|TABLE|\/TABLE|ITEMS|\/ITEMS|IMG|CHART)/i.test(l)&&!/^[A-Z0-9’'&\/ ,()—-]{4,}$/.test(l));const t=lines.join(' ').replace(/\[[^\]]+\]/g,'');return t.length>n?t.slice(0,n).replace(/\s+\S*$/,'')+'…':t}
+function campaignMembersLabel(c){const en=siteLanguage==='en';const n=c.memberCount??(c.members||[]).filter(m=>!m.leftAt).length;return n!=null?`${n} ${en?'warband'+(n!==1?'s':''):'bande'+(n!==1?'s':'')}`:''}
+function campaignCoverMarkup(c,cls){const url=campaignCoverUrl(c);const pos=Number(c?.definition?.cover?.pos??50);return url?`<img class="${cls}" src="${url}" alt="" loading="lazy" style="object-position:50% ${pos}%">`:`<div class="${cls} camp-cover-empty" aria-hidden="true"></div>`}
+function campaignTagMarkup(c){const en=siteLanguage==='en';return c.status!=='published'?`<span class="campaign-tag draft">${en?'DRAFT':'BROUILLON'}</span>`:`<span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span>`}
+function campaignBannerMarkup(c){const en=siteLanguage==='en';const col=campaignColor(c);const href=`/rules/campaign/${encodeURIComponent(c.id)}`;return `<a class="camp-banner" href="${href}" onclick="event.preventDefault();navigateApp('${href}')" style="--cc:${col}"><div class="camp-banner-pic">${campaignCoverMarkup(c,'camp-banner-img')}<div class="camp-banner-over"><div class="camp-banner-title">${campaignTagMarkup(c)}<h2>${esc(c.name)}</h2></div><span class="camp-banner-count">${esc(campaignMembersLabel(c))}</span></div></div><div class="camp-banner-foot"><p>${esc(campaignExcerpt(c,260))}</p><span class="button primary camp-banner-btn">${en?'Read the rules':'Lire les règles'}</span></div></a>`}
+function campaignCardMarkup(c){const col=campaignColor(c);const href=`/rules/campaign/${encodeURIComponent(c.id)}`;return `<a class="camp-card" href="${href}" onclick="event.preventDefault();navigateApp('${href}')" style="--cc:${col}"><div class="camp-card-pic">${campaignCoverMarkup(c,'camp-card-img')}</div><div class="camp-card-body"><div class="camp-card-top"><b>${esc(c.name)}</b>${campaignTagMarkup(c)}</div><small>${esc(campaignMembersLabel(c))}</small></div></a>`}
 function rulesCampaign(){
   const en=siteLanguage==='en';if(campaignsCache===null||campaignListStale)loadCampaignList('rulesCampaign');
   const list=campaignListAll();const admin=isAdminEditUI();
   $('#content').innerHTML=`<div class="ref-page"><div class="rules-head"><h1 class="rules-page-title">${en?'Rules: Campaign':'Règles : Campagne'}</h1><p>${en?'Every campaign, with its optional rules and what changes for the warbands that join it.':'Toutes les campagnes, avec leurs règles optionnelles et ce qui change pour les bandes qui les rejoignent.'}</p></div>
    ${admin?`<div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button></div>`:''}
-   ${campaignsCache===null?`<div class="empty">${en?'Loading…':'Chargement…'}</div>`:list.length?`<div class="campaign-grid">${list.map(campaignCardMarkup).join('')}</div>`:`<div class="empty large"><strong>${en?'No campaign yet.':'Aucune campagne pour l’instant.'}</strong></div>`}</div>`;
+   ${campaignsCache===null?`<div class="empty">${en?'Loading…':'Chargement…'}</div>`:list.length?(()=>{const pub=list.filter(c=>c.status==='published');const feat=pub.find(c=>c.definition?.featured)||pub[0]||list[0];const rest=list.filter(c=>c!==feat);return `${campaignBannerMarkup(feat)}${rest.length?`<div class="camp-card-grid">${rest.map(campaignCardMarkup).join('')}</div>`:''}`})():`<div class="empty large"><strong>${en?'No campaign yet.':'Aucune campagne pour l’instant.'}</strong></div>`}</div>`;
 }
 function campaignSections(c){const en=siteLanguage==='en';const d=c?.definition||{};const pages=(Array.isArray(d.pages)?d.pages:[]).map((p,i)=>({p,i})).sort((a,b)=>cmpCampaignPages(a.p,b.p));const arts=Array.isArray(d.artifacts)?d.artifacts:[];const st=d.settlements||[];const admin=isAdminEditUI();
   const out=[{id:'overview',label:en?'Presentation':'Présentation'}];let artsDone=false,stDone=false;
@@ -11426,7 +11437,7 @@ function campaignSections(c){const en=siteLanguage==='en';const d=c?.definition|
   return out}
 const campaignNavOpen=new Map();
 let campaignNavCollapsed=(()=>{try{return localStorage.getItem('mordheimunda_campnav_collapsed')==='1'}catch(e){return false}})();
-function toggleCampaignNav(){campaignNavCollapsed=!campaignNavCollapsed;try{localStorage.setItem('mordheimunda_campnav_collapsed',campaignNavCollapsed?'1':'0')}catch(e){}render('campaignDetail')}
+function toggleCampaignNav(){campaignNavCollapsed=!campaignNavCollapsed;try{localStorage.setItem('mordheimunda_campnav_collapsed',campaignNavCollapsed?'1':'0')}catch(e){}const nav=document.getElementById('rulesNavSidebar');if(nav&&typeof rulesNavSidebarMarkup==='function'&&parseAppRoute().view!=='campaignDetail'){nav.outerHTML=rulesNavSidebarMarkup()}else render('campaignDetail')}
 function toggleCampaignNavGroup(key,wasOpen){campaignNavOpen.set(key,!wasOpen);render('campaignDetail')}
 function campaignDetail(){
   const en=siteLanguage==='en';const id=currentCampaignId;const c=campaignDetailCached(id);if(c&&!campaignDetailFresh.has(id))loadCampaignDetail(id,'campaignDetail');
@@ -11941,6 +11952,7 @@ async function openCampaignEditor(id){
   campaignEditorDraft={id:c?.id||null,pages:JSON.parse(JSON.stringify(Array.isArray(c?.definition?.pages)?c.definition.pages:[])),definition:c?.definition||{}};
   openModal(`<div class="admin-live-editor campaign-editor"><div class="eyebrow">${id?(en?'EDIT CAMPAIGN':'MODIFIER LA CAMPAGNE'):(en?'NEW CAMPAIGN':'NOUVELLE CAMPAGNE')}</div>
    <div class="custom-form-grid"><label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="ceName" value="${esc(c?.name||'')}"></label><label class="custom-field"><span>${en?'Campaign colour':'Couleur de campagne'}</span><input id="ceColor" type="color" value="${esc(campaignColor(c))}"></label></div>
+   <div class="camp-cover-edit"><div class="camp-cover-preview" id="ceCoverPreview">${campaignCoverEditPreview()}</div><div class="camp-cover-tools"><span class="micro-label">${en?'CAMPAIGN PICTURE · shown on Rules: Campaign':'IMAGE DE LA CAMPAGNE · affichée dans Règles : Campagne'}</span><div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button secondary" onclick="pickCampaignCover()">🖼 ${en?'Choose a picture':'Choisir une image'}</button><button type="button" class="button secondary" onclick="clearCampaignCover()">${en?'Remove':'Retirer'}</button></div><label class="custom-field"><span>${en?'Part of the picture shown (top ↔ bottom)':'Partie de l’image affichée (haut ↔ bas)'}</span><input id="ceCoverPos" type="range" min="0" max="100" value="${Number(c?.definition?.cover?.pos??50)}" oninput="campaignCoverSetPos(this.value)"></label><label class="custom-check"><input type="checkbox" id="ceFeatured" ${c?.definition?.featured?'checked':''}><span>${en?'Feature it as the big card on Rules: Campaign':'La mettre en avant en grande carte dans Règles : Campagne'}</span></label></div></div>
    <label class="custom-field wide"><span>${en?'Presentation (overview page)':'Présentation (page d’accueil)'}</span><textarea id="ceDesc" class="wide-textarea" rows="5">${esc(c?.definition?.description||'')}</textarea></label>
    <div class="eyebrow" style="margin-top:12px">${en?'1 · OPTIONAL RULES — one page each':'1 · RÈGLES OPTIONNELLES — une page chacune'}</div><div id="cePages">${campaignEditorPagesMarkup()}</div>
    <button type="button" class="button secondary" onclick="campaignEditorAddPage()">＋ ${en?'Add a page':'Ajouter une page'}</button>
@@ -11953,10 +11965,19 @@ function campaignEditorRefresh(){const box=$('#cePages');if(box)box.innerHTML=ca
 function campaignEditorAddPage(){campaignEditorSync();campaignEditorDraft.pages.push({id:crypto.randomUUID().slice(0,8),title:'',text:''});campaignEditorRefresh()}
 function campaignEditorRemovePage(i){campaignEditorSync();campaignEditorDraft.pages.splice(i,1);campaignEditorRefresh()}
 function campaignEditorMovePage(i,d){campaignEditorSync();const a=campaignEditorDraft.pages,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];campaignEditorRefresh()}
+function campaignCoverEditPreview(){const cv=campaignEditorDraft?.definition?.cover;return cv?.id?`<img src="/api/rule-images/${encodeURIComponent(cv.id)}" alt="" style="object-position:50% ${Number(cv.pos??50)}%">`:`<span>${siteLanguage==='en'?'No picture':'Pas d’image'}</span>`}
+function refreshCampaignCoverPreview(){const el=$('#ceCoverPreview');if(el)el.innerHTML=campaignCoverEditPreview()}
+function campaignCoverSetPos(v){const d=campaignEditorDraft;if(!d?.definition?.cover)return;d.definition.cover.pos=Math.max(0,Math.min(100,Number(v)||0));const img=document.querySelector('#ceCoverPreview img');if(img)img.style.objectPosition=`50% ${d.definition.cover.pos}%`}
+function clearCampaignCover(){const d=campaignEditorDraft;if(!d)return;d.definition={...(d.definition||{})};delete d.definition.cover;refreshCampaignCoverPreview()}
+function pickCampaignCover(){
+  const en=siteLanguage==='en';const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';
+  input.onchange=async()=>{const file=input.files&&input.files[0];if(!file)return;try{toast(en?'Uploading the picture…':'Envoi de l’image…');const dataUrl=await ruleImageDataUrl(file);const r=await window.MordheimundaAPI.adminUploadRuleImage(dataUrl);if(!r?.id)throw new Error('UPLOAD_FAILED');const d=campaignEditorDraft;d.definition={...(d.definition||{}),cover:{id:r.id,pos:Number($('#ceCoverPos')?.value??50)}};refreshCampaignCoverPreview();toast(en?'Picture ready — save the campaign to keep it':'Image prête — enregistre la campagne pour la garder')}catch(e){toast((en?'Picture not uploaded: ':'Image non envoyée : ')+(e?.message==='IMAGE_TOO_LARGE'?(en?'too large':'trop lourde'):(e?.message||e)))}};
+  input.click();
+}
 async function saveCampaignEditor(){
   const en=siteLanguage==='en';campaignEditorSync();const d=campaignEditorDraft;if(!d)return;
   const name=($('#ceName')?.value||'').trim();if(!name){toast(en?'Give the campaign a name':'Donne un nom à la campagne');return}
-  const definition={...(d.definition||{}),description:$('#ceDesc')?.value||'',pages:d.pages.filter(p=>(p.title||'').trim()||(p.text||'').trim()).map(p=>({id:p.id||crypto.randomUUID().slice(0,8),title:(p.title||'').trim(),text:p.text||''}))};
+  const definition={...(d.definition||{}),featured:!!$('#ceFeatured')?.checked,description:$('#ceDesc')?.value||'',pages:d.pages.filter(p=>(p.title||'').trim()||(p.text||'').trim()).map(p=>({id:p.id||crypto.randomUUID().slice(0,8),title:(p.title||'').trim(),text:p.text||''}))};
   const payload={name,color:$('#ceColor')?.value||'#ff8a3d',definition};
   try{const res=d.id?await window.MordheimundaAPI.adminUpdateCampaign(d.id,payload):await window.MordheimundaAPI.adminCreateCampaign(payload);const c=res?.campaign;closeModal();campaignsCache=null;campaignListStale=true;adminCampaignsCache=null;if(c){campaignDetailCache.delete(c.id);navigateApp('/rules/campaign/'+encodeURIComponent(c.id))}toast(en?'Campaign saved':'Campagne enregistrée')}catch(e){toast(authError(e,en))}
 }

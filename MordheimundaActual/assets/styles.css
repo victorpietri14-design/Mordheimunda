@@ -4381,3 +4381,32 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .rules-nav.camp-nav.collapsed{width:48px;flex:0 0 48px;padding:16px 6px;display:flex;flex-direction:column;align-items:center;gap:12px}
 .camp-nav.collapsed .camp-nav-toggle{width:36px;height:36px;justify-content:center;padding:0;margin:0;font-size:14px}
 .camp-nav-vlabel{writing-mode:vertical-rl;transform:rotate(180deg);font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:2px;color:var(--muted3)}
+/* V-CAMPCARD: Rules: Campaign banner (mockup A) */
+.camp-banner{display:flex;flex-direction:column;margin:16px 0 18px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);color:var(--text);text-decoration:none;transition:border-color .15s ease,transform .15s ease}
+.camp-banner:hover{border-color:var(--cc,var(--accent));transform:translateY(-2px)}
+.camp-banner-pic{position:relative;aspect-ratio:16/7;max-height:460px;border-bottom:3px solid var(--cc,var(--accent));overflow:hidden;background:var(--panel2)}
+.camp-banner-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.camp-cover-empty{background:radial-gradient(120% 90% at 70% 20%,color-mix(in srgb,var(--cc,#99d65d) 22%,transparent),transparent 60%),var(--panel2)}
+.camp-banner-over{position:absolute;left:0;right:0;bottom:0;padding:28px 32px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;background:linear-gradient(0deg,rgba(10,10,9,.92),rgba(10,10,9,0))}
+.camp-banner-title{display:flex;flex-direction:column;gap:10px;min-width:0}
+.camp-banner-title .campaign-tag{align-self:flex-start;border-color:var(--cc,var(--accent));color:var(--cc,var(--accent));background:rgba(10,10,9,.6)}
+.camp-banner-title h2{margin:0;font:900 46px/1.05 'Cinzel',serif;color:#f2f2ee;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+.camp-banner-count{font-size:13px;color:#dcdbd7;white-space:nowrap}
+.camp-banner-foot{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;padding:20px 32px 24px}
+.camp-banner-foot p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.6}
+.camp-banner-btn{pointer-events:none;background:var(--cc,var(--accent));border-color:var(--cc,var(--accent))}
+.camp-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:22px}
+.camp-card{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);color:var(--text);text-decoration:none;transition:border-color .15s ease}
+.camp-card:hover{border-color:var(--cc,var(--accent))}
+.camp-card-pic{position:relative;height:120px;border-bottom:3px solid var(--cc,var(--accent));overflow:hidden;background:var(--panel2)}
+.camp-card-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.camp-card-body{padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.camp-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.camp-card-top b{font:700 17px 'Cinzel',serif}
+.camp-card-body small{color:var(--muted)}
+.camp-cover-edit{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;align-items:start;margin:10px 0}
+.camp-cover-preview{aspect-ratio:16/7;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2);display:grid;place-items:center;color:var(--muted3);font-size:12px}
+.camp-cover-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.camp-cover-tools{display:flex;flex-direction:column;gap:8px}
+@media(max-width:700px){.camp-banner-pic{aspect-ratio:3/2}.camp-banner-over{padding:16px}.camp-banner-title h2{font-size:26px}.camp-banner-foot{grid-template-columns:1fr;padding:14px 16px 16px}.camp-banner-btn{justify-content:center}.camp-cover-edit{grid-template-columns:1fr}}
+.camp-banner-btn{display:inline-flex;align-items:center;justify-content:center}
