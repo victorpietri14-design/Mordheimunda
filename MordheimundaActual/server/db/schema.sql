@@ -201,6 +201,8 @@ CREATE TABLE IF NOT EXISTS catalog_overrides (
 ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS band_rule_names JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS traits JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS special_rules JSONB NOT NULL DEFAULT '[]';
+-- V-CATALOGRENAME: admin-chosen name for a base (book) warband; NULL = book name.
+ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS skill_trees JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS skills JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE catalog_overrides ADD COLUMN IF NOT EXISTS magic_domains JSONB NOT NULL DEFAULT '[]';

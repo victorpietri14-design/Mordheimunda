@@ -4134,3 +4134,6 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .rule-lightbox img{max-width:100%;max-height:calc(100vh - 90px);object-fit:contain;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .rule-lightbox-cap{color:#e7e6e2;font-size:13px;font-style:italic;text-align:center}
 .rule-lightbox-close{position:absolute;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.5);color:#fff;font-size:18px;cursor:pointer}
+/* V-CATALOGRENAME */
+.admin-wb-name-label{display:block;font-size:11px;letter-spacing:1px;font-weight:700;color:var(--accent);margin:4px 0 2px;text-transform:uppercase}
+.admin-wb-name-label small{text-transform:none;letter-spacing:0;color:var(--muted2);font-weight:500}
