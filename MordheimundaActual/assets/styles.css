@@ -4669,3 +4669,4 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
   .ref-page>.rules-head{margin-bottom:8px}.ref-page>.rules-head .rules-page-title{font-size:24px;margin:0}
   .ref-main>.ref-search{min-height:44px;margin-bottom:10px}
 }
+.ref-sidebar-item .rsi-fold{font-size:10px;margin-left:6px;color:var(--accent)}
