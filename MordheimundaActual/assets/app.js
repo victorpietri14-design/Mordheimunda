@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0572.0';
+const APP_BUILD='110.0573.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1787,7 +1787,7 @@ function refRaceOpenState(cat,id){const k=cat+':'+id;if(k in refRaceOpen)return 
 function refTreeGroups(cat){
   const en=siteLanguage==='en';const all=[...new Set(referenceEntries(cat).map(e=>e.category).filter(Boolean))];
   const byRace=new Map(RACE_CATEGORIES.map(r=>[r,new Set()]));
-  (D.factions||[]).forEach(f=>{const race=raceTagMap.get(f.id);if(!race||!byRace.has(race))return;let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}list.forEach(t=>{const k=all.find(a=>normName(a)===normName(t));if(k)byRace.get(race).add(k)})});
+  (D.factions||[]).forEach(f=>{const race=refFactionRace(f);if(!race||!byRace.has(race))return;let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}list.forEach(t=>{const k=all.find(a=>normName(a)===normName(t));if(k)byRace.get(race).add(k)})});
   const groups=[];const placed=new Set();
   if(cat==='skills'){const base=all.filter(k=>COMMON_SKILL_TREES.some(c=>normName(c)===normName(k))||/ride|riding/i.test(k));base.sort((a,b)=>{const ra=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(a)),rb=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(b));return (ra<0?99:ra)-(rb<0?99:rb)});base.forEach(k=>placed.add(k));groups.push({id:'base',label:en?'Base Skills':'Compétences de base',trees:base})}
   RACE_CATEGORIES.forEach(r=>{const ks=[...byRace.get(r)].filter(k=>!(cat==='skills'&&placed.has(k)&&groups[0]?.trees.includes(k))).sort((a,b)=>a.localeCompare(b));ks.forEach(k=>placed.add(k));if(ks.length)groups.push({id:r,label:r==='Humain'&&en?'Human':r,trees:ks})});
@@ -1804,6 +1804,10 @@ function refPhonePickerMarkup(cat,groups,cur){const lbl=k=>cat==='spells'?domain
     return `<div class="rpp-group"><button type="button" class="rpp-head" ${g.id==='base'?'':`onclick="toggleRefRace('${cat}','${esc(g.id)}')"`}>${col?`<i style="color:${col}">${raceIcon(g.id)}</i>`:''}<span>${esc(g.label)}</span><small>${ks.length}${g.id==='base'?'':` ${open?'▾':'▸'}`}</small></button>${open?`<div class="rpp-tiles">${ks.map(k=>`<button type="button" class="${k===cur?'on':''}" onclick="refPickerOpen=false;pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')">${esc(lbl(k))} <small>${groups.get(k).length}</small></button>`).join('')}</div>`:''}</div>`}).join('')}</div>`}
 function refOpenAll(){const cards=[...document.querySelectorAll('.ref-fold .spell-card')];const all=cards.every(c=>c.classList.contains('open'));cards.forEach(c=>c.classList.toggle('open',!all))}
 document.addEventListener('click',ev=>{const h=ev.target.closest?.('.ref-fold .spell-card .sc-head');if(!h||!window.matchMedia('(max-width:900px)').matches)return;h.closest('.spell-card').classList.toggle('open')});
+// A sub-faction (Supplement) goes where its parent warband goes: the race of
+// the top parent wins over the sub-faction's own tag; a warband with no
+// parent keeps its own.
+function refFactionRace(f){const chain=[];let cur=f;const seen=new Set();while(cur&&!seen.has(cur.id)){seen.add(cur.id);chain.push(cur.id);const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(x=>x.id===pid)||{id:pid}}for(let i=chain.length-1;i>=0;i--){const r=raceTagMap.get(chain[i]);if(r)return r}return ''}
 function refTreeOrder(cat){const out=[];refTreeGroups(cat).forEach(g=>g.trees.forEach(k=>{if(!out.includes(k))out.push(k)}));return out}
 function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.includes(cur)?cur:order[0]}
 function refTreeSidebarMarkup(cat){
