@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0537.0';
+const APP_BUILD='110.0538.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4901,7 +4901,8 @@ async function saveAdminCatalogEdit(){
   const en=siteLanguage==='en';const d=adminCatalogEditData;if(!d||!adminCatalogFactionId)return;
   if(!d.warriors.length){toast(en?'A faction needs at least one fighter':'Une faction a besoin d’au moins un combattant');return}
   try{
-    await window.MordheimundaAPI.adminSaveCatalogOverride(adminCatalogFactionId,{warriors:d.warriors,equipment:Array.isArray(d.equipment)?d.equipment:[],bandRuleNames:arr2(d.bandRuleNames),traits:arr2(d.traits),specialRules:arr2(d.specialRules),skillTrees:arr2(d.skillTrees),skills:arr2(d.skills),magicDomains:arr2(d.magicDomains),spells:arr2(d.spells)});
+    const bookName=D.factions.find(f=>f.id===adminCatalogFactionId)?.__catalogBookName||'';const newName=String(d.name||'').trim();
+    await window.MordheimundaAPI.adminSaveCatalogOverride(adminCatalogFactionId,{displayName:newName&&newName!==bookName?newName:'',warriors:d.warriors,equipment:Array.isArray(d.equipment)?d.equipment:[],bandRuleNames:arr2(d.bandRuleNames),traits:arr2(d.traits),specialRules:arr2(d.specialRules),skillTrees:arr2(d.skillTrees),skills:arr2(d.skills),magicDomains:arr2(d.magicDomains),spells:arr2(d.spells)});
     await loadCatalogOverrides();
     toast(en?'Base catalog updated':'Catalogue de base mis à jour');
     // V-ADMINSAVESTAY: stay in the same editor instead of bouncing back to
@@ -5035,7 +5036,10 @@ function applyCatalogOverrides(){
   (D.factions||[]).forEach(f=>{
     if(f.__official)return;
     if(!f.__catalogBaseline)f.__catalogBaseline={warriors:f.warriors,equipment:f.equipment};
+    if(f.__catalogBookName===undefined)f.__catalogBookName=f.displayName||f.name||'';
     const o=catalogOverrideMap.get(f.id);
+    // V-CATALOGRENAME: an admin-chosen name replaces the book name.
+    f.displayName=o?.displayName||f.__catalogBookName;
     // V151: re-derive the rules/traits/skills/magic extras from scratch every
     // time (unmerge then, if an override exists, re-merge) — cheap, and
     // avoids any drift between what's actually merged into D.skillSets/
@@ -6174,7 +6178,7 @@ function adminWarbandRulesPanel(){
     :(en?'Edits the published warband directly — no draft or copy is ever created, and nothing shows up in your Custom tab. Saving pushes the whole definition back to the live warband at once.':'Modifie directement la bande publiée — aucun brouillon ni copie n’est jamais créé, et rien n’apparaît dans ton onglet Custom. Enregistrer renvoie la fiche complète vers la bande en ligne en une fois.');
   const supplementCard=isCatalog?'':adminSupplementControlMarkup(d);
   return `<div class="admin-page">
-    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div>${isCatalog?`<h2>${esc(d.name)}</h2>`:`<h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="adminRulesEditData.name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2>`}<p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
+    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div><label class="admin-wb-name-label" for="adminWbNameInput">✎ ${en?'Warband name':'Nom de la bande'}${isCatalog?` <small>(${en?'empty = book name':'vide = nom du livre'})</small>`:''}</label><h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="activeAdminEditData().name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2><p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
     ${supplementCard}
     ${tabs}
     ${body}

@@ -1231,8 +1231,8 @@ app.delete('/api/admin/rules/overrides/:sectionId/:page',requireDb,requireSameOr
 // server-side, only to store and hand back.
 app.get('/api/catalog/overrides',requireDb,async(req,res,next)=>{
   try{
-    const q=await pool.query('SELECT faction_id,warriors,equipment,band_rule_names,traits,special_rules,skill_trees,skills,magic_domains,spells,updated_at FROM catalog_overrides');
-    res.json({overrides:q.rows.map(r=>({factionId:r.faction_id,warriors:r.warriors,equipment:r.equipment,bandRuleNames:r.band_rule_names,traits:r.traits,specialRules:r.special_rules,skillTrees:r.skill_trees,skills:r.skills,magicDomains:r.magic_domains,spells:r.spells,updatedAt:r.updated_at}))});
+    const q=await pool.query('SELECT faction_id,warriors,equipment,band_rule_names,traits,special_rules,skill_trees,skills,magic_domains,spells,updated_at,display_name FROM catalog_overrides');
+    res.json({overrides:q.rows.map(r=>({factionId:r.faction_id,displayName:r.display_name||null,warriors:r.warriors,equipment:r.equipment,bandRuleNames:r.band_rule_names,traits:r.traits,specialRules:r.special_rules,skillTrees:r.skill_trees,skills:r.skills,magicDomains:r.magic_domains,spells:r.spells,updatedAt:r.updated_at}))});
   }catch(e){next(e)}
 });
 app.put('/api/admin/catalog/overrides/:factionId',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
@@ -1248,6 +1248,7 @@ app.put('/api/admin/catalog/overrides/:factionId',requireDb,requireSameOrigin,au
   const skills=Array.isArray(req.body?.skills)?req.body.skills:[];
   const magicDomains=Array.isArray(req.body?.magicDomains)?req.body.magicDomains:[];
   const spells=Array.isArray(req.body?.spells)?req.body.spells:[];
+  const displayName=String(req.body?.displayName||'').trim().slice(0,80)||null;
   if(!factionId||!warriors||!warriors.length||warriors.length>80||!equipment||equipment.length>400)return res.status(400).json({error:'INVALID_OVERRIDE'});
   if(bandRuleNames.length>200||traits.length>200||specialRules.length>200||skillTrees.length>40||skills.length>400||magicDomains.length>40||spells.length>400)return res.status(400).json({error:'INVALID_OVERRIDE'});
   const wPayload=JSON.stringify(warriors),ePayload=JSON.stringify(equipment);
@@ -1256,9 +1257,9 @@ app.put('/api/admin/catalog/overrides/:factionId',requireDb,requireSameOrigin,au
   const totalBytes=[wPayload,ePayload,brnPayload,trPayload,srPayload,stPayload,skPayload,mdPayload,spPayload].reduce((s,p)=>s+Buffer.byteLength(p),0);
   if(totalBytes>2*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
   try{
-    await pool.query(`INSERT INTO catalog_overrides(faction_id,warriors,equipment,band_rule_names,traits,special_rules,skill_trees,skills,magic_domains,spells,updated_by,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
-      ON CONFLICT (faction_id) DO UPDATE SET warriors=EXCLUDED.warriors,equipment=EXCLUDED.equipment,band_rule_names=EXCLUDED.band_rule_names,traits=EXCLUDED.traits,special_rules=EXCLUDED.special_rules,skill_trees=EXCLUDED.skill_trees,skills=EXCLUDED.skills,magic_domains=EXCLUDED.magic_domains,spells=EXCLUDED.spells,updated_by=EXCLUDED.updated_by,updated_at=NOW()`,
-      [factionId,wPayload,ePayload,brnPayload,trPayload,srPayload,stPayload,skPayload,mdPayload,spPayload,req.user.user_id]);
+    await pool.query(`INSERT INTO catalog_overrides(faction_id,warriors,equipment,band_rule_names,traits,special_rules,skill_trees,skills,magic_domains,spells,updated_by,updated_at,display_name) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),$12)
+      ON CONFLICT (faction_id) DO UPDATE SET warriors=EXCLUDED.warriors,equipment=EXCLUDED.equipment,band_rule_names=EXCLUDED.band_rule_names,traits=EXCLUDED.traits,special_rules=EXCLUDED.special_rules,skill_trees=EXCLUDED.skill_trees,skills=EXCLUDED.skills,magic_domains=EXCLUDED.magic_domains,spells=EXCLUDED.spells,updated_by=EXCLUDED.updated_by,updated_at=NOW(),display_name=EXCLUDED.display_name`,
+      [factionId,wPayload,ePayload,brnPayload,trPayload,srPayload,stPayload,skPayload,mdPayload,spPayload,req.user.user_id,displayName]);
     res.json({ok:true});
   }catch(e){next(e)}
 });
