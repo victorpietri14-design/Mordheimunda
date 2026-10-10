@@ -413,6 +413,38 @@ CREATE TABLE IF NOT EXISTS campaign_members (
   PRIMARY KEY (campaign_id, roster_id)
 );
 CREATE INDEX IF NOT EXISTS campaign_members_user_idx ON campaign_members(user_id);
+-- V-CAMPMARKET2: one shared market per campaign. stock/initial map an item
+-- key (normalized name) to a count; initial is what the admin stocked, so the
+-- price rise per copy taken can be computed. campaign_trades is the auction
+-- house between players: an 'offer' sells an item (held in `item` while
+-- open), a 'request' asks for one (the gold is held by the client while
+-- open). The other side fills it; the poster then collects once.
+CREATE TABLE IF NOT EXISTS campaign_markets (
+  campaign_id UUID PRIMARY KEY REFERENCES campaigns(id) ON DELETE CASCADE,
+  stock JSONB NOT NULL DEFAULT '{}'::jsonb,
+  initial JSONB NOT NULL DEFAULT '{}'::jsonb,
+  stocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS campaign_trades (
+  id UUID PRIMARY KEY,
+  campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  roster_id TEXT NOT NULL,
+  roster_name TEXT NOT NULL DEFAULT '',
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_name TEXT NOT NULL DEFAULT '',
+  item JSONB,
+  price INTEGER NOT NULL DEFAULT 0,
+  note TEXT NOT NULL DEFAULT '',
+  other_roster_id TEXT,
+  other_roster_name TEXT,
+  other_user_id UUID,
+  collected BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS campaign_trades_campaign_idx ON campaign_trades(campaign_id,status);
 
 CREATE TABLE IF NOT EXISTS scenarios (
   id UUID PRIMARY KEY,

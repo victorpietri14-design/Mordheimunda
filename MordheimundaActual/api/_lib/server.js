@@ -951,6 +951,46 @@ app.post('/api/campaigns/join-code',requireDb,requireSameOrigin,auth,async(req,r
 app.post('/api/campaigns/:id/leave',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{const rosterId=String(req.body?.rosterId||'');const q=await pool.query('UPDATE campaign_members SET left_at=NOW() WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 AND left_at IS NULL',[req.params.id,rosterId,req.user.user_id]);res.json({ok:true,left:q.rowCount})}catch(e){next(e)}
 });
+// V-CAMPMARKET2: shared campaign market + auction house (see schema.sql).
+const toTrade=r=>({id:r.id,kind:r.kind,status:r.status,rosterId:r.roster_id,rosterName:r.roster_name,mine:false,userId:r.user_id,itemName:r.item_name,item:r.item||null,price:r.price,note:r.note,otherRosterId:r.other_roster_id,otherRosterName:r.other_roster_name,otherUserId:r.other_user_id,collected:r.collected,createdAt:r.created_at,updatedAt:r.updated_at});
+async function campaignMemberOk(cid,rosterId,userId){const q=await pool.query('SELECT 1 FROM campaign_members WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 AND left_at IS NULL',[cid,String(rosterId||''),userId]);return q.rowCount>0}
+const marketKey=k=>String(k||'').trim().toLowerCase().slice(0,120);
+app.get('/api/campaigns/:id/market',requireDb,async(req,res,next)=>{
+  try{const m=await pool.query('SELECT * FROM campaign_markets WHERE campaign_id=$1',[req.params.id]);const t=await pool.query("SELECT * FROM campaign_trades WHERE campaign_id=$1 AND (status='open' OR (status='done' AND (collected=FALSE OR updated_at>NOW()-INTERVAL '30 days'))) ORDER BY created_at DESC LIMIT 300",[req.params.id]);
+    res.json({stock:m.rows[0]?.stock||null,initial:m.rows[0]?.initial||null,stockedAt:m.rows[0]?.stocked_at||null,trades:t.rows.map(toTrade)})}catch(e){next(e)}
+});
+app.put('/api/admin/campaigns/:id/market',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const stock=req.body?.stock&&typeof req.body.stock==='object'?req.body.stock:{};const clean={};Object.entries(stock).slice(0,3000).forEach(([k,v])=>{const n=Math.max(0,Math.min(999,Math.floor(Number(v)||0)));clean[marketKey(k)]=n});
+    await pool.query(`INSERT INTO campaign_markets(campaign_id,stock,initial,stocked_at) VALUES($1,$2,$2,NOW()) ON CONFLICT (campaign_id) DO UPDATE SET stock=EXCLUDED.stock,initial=EXCLUDED.initial,stocked_at=NOW()`,[req.params.id,JSON.stringify(clean)]);res.json({ok:true,stock:clean})}catch(e){next(e)}
+});
+app.post('/api/campaigns/:id/market/take',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{if(!await campaignMemberOk(req.params.id,req.body?.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const k=marketKey(req.body?.key);
+    const q=await pool.query(`UPDATE campaign_markets SET stock=jsonb_set(stock,ARRAY[$2::text],to_jsonb((stock->>$2::text)::int-1)) WHERE campaign_id=$1 AND COALESCE((stock->>$2::text)::int,0)>0 RETURNING stock`,[req.params.id,k]);
+    if(!q.rowCount)return res.status(409).json({error:'SOLD_OUT'});res.json({ok:true,stock:q.rows[0].stock})}catch(e){next(e)}
+});
+app.post('/api/campaigns/:id/market/give',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{if(!await campaignMemberOk(req.params.id,req.body?.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const k=marketKey(req.body?.key);
+    const q=await pool.query(`UPDATE campaign_markets SET stock=jsonb_set(stock,ARRAY[$2::text],to_jsonb(COALESCE((stock->>$2::text)::int,0)+1)) WHERE campaign_id=$1 AND stock ? $2::text RETURNING stock`,[req.params.id,k]);
+    res.json({ok:true,stock:q.rows[0]?.stock||null})}catch(e){next(e)}
+});
+app.post('/api/campaigns/:id/trades',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const b=req.body||{};if(!await campaignMemberOk(req.params.id,b.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const kind=b.kind==='request'?'request':'offer';const price=Math.max(0,Math.min(100000,Math.floor(Number(b.price)||0)));const itemName=String(b.itemName||'').trim().slice(0,120);if(!itemName)return res.status(400).json({error:'INVALID_ITEM'});
+    const item=kind==='offer'&&b.item&&typeof b.item==='object'?b.item:null;if(item&&Buffer.byteLength(JSON.stringify(item))>20000)return res.status(413).json({error:'DATA_TOO_LARGE'});
+    const q=await pool.query('INSERT INTO campaign_trades(id,campaign_id,kind,roster_id,roster_name,user_id,item_name,item,price,note) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',[crypto.randomUUID(),req.params.id,kind,String(b.rosterId),String(b.rosterName||'').slice(0,80),req.user.user_id,itemName,item?JSON.stringify(item):null,price,String(b.note||'').slice(0,300)]);res.json({trade:toTrade(q.rows[0])})}catch(e){next(e)}
+});
+// The other side fills an open trade: buys an offer, or answers a request with an item.
+app.post('/api/campaigns/:id/trades/:tid/accept',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const b=req.body||{};if(!await campaignMemberOk(req.params.id,b.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const item=b.item&&typeof b.item==='object'?b.item:null;if(item&&Buffer.byteLength(JSON.stringify(item))>20000)return res.status(413).json({error:'DATA_TOO_LARGE'});
+    const q=await pool.query(`UPDATE campaign_trades SET status='done',other_roster_id=$3,other_roster_name=$4,other_user_id=$5,item=CASE WHEN kind='request' THEN $6::jsonb ELSE item END,updated_at=NOW() WHERE id=$2 AND campaign_id=$1 AND status='open' AND roster_id<>$3 AND (kind='offer' OR $6::jsonb IS NOT NULL) RETURNING *`,[req.params.id,req.params.tid,String(b.rosterId),String(b.rosterName||'').slice(0,80),req.user.user_id,item?JSON.stringify(item):null]);
+    if(!q.rowCount)return res.status(409).json({error:'TRADE_GONE'});res.json({trade:toTrade(q.rows[0])})}catch(e){next(e)}
+});
+app.post('/api/campaigns/:id/trades/:tid/cancel',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const q=await pool.query(`UPDATE campaign_trades SET status='cancelled',updated_at=NOW() WHERE id=$2 AND campaign_id=$1 AND status='open' AND user_id=$3 RETURNING *`,[req.params.id,req.params.tid,req.user.user_id]);if(!q.rowCount)return res.status(409).json({error:'TRADE_GONE'});res.json({trade:toTrade(q.rows[0])})}catch(e){next(e)}
+});
+// The poster collects a filled trade once (gold for an offer, the item for a request).
+app.post('/api/campaigns/:id/trades/:tid/collect',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const q=await pool.query(`UPDATE campaign_trades SET collected=TRUE,updated_at=NOW() WHERE id=$2 AND campaign_id=$1 AND status='done' AND collected=FALSE AND user_id=$3 RETURNING *`,[req.params.id,req.params.tid,req.user.user_id]);if(!q.rowCount)return res.status(409).json({error:'TRADE_GONE'});res.json({trade:toTrade(q.rows[0])})}catch(e){next(e)}
+});
 // Updates the public line of the player's own entry (name, rating…).
 app.put('/api/campaigns/:id/entry',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{const rosterId=String(req.body?.rosterId||'');const stats=req.body?.stats&&typeof req.body.stats==='object'?req.body.stats:{};if(Buffer.byteLength(JSON.stringify(stats))>20000)return res.status(413).json({error:'DATA_TOO_LARGE'});
