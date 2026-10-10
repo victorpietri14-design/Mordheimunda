@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0569.0';
+const APP_BUILD='110.0570.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -720,7 +720,7 @@ function cancelHideRulePeek(){clearTimeout(rulePeekTimer)}
 // event bookkeeping got confused) and stand down if so.
 function scheduleHideRulePeek(){if(window.matchMedia?.('(hover: none)').matches)return;clearTimeout(rulePeekTimer);rulePeekTimer=setTimeout(()=>{const pop=$('#rulePeek');if(pop&&pop.matches(':hover'))return;if(pop)pop.classList.remove('visible');activeRulePeek=null},180)}
 function openReferenceFromPeek(event){event?.stopPropagation();const el=activeRulePeek;if(!el)return;openReference(el.dataset.refCategory,el.dataset.refId);}
-function openReference(category='skills',id=''){referenceCategory=category;persistUiState('refCat',category);referenceSearch='';const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
+function openReference(category='skills',id=''){referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
 // Lightweight inline formatting for the Custom tab's own text fields (fighter
 // / warband descriptions, custom skill·spell·special-rule text, custom
 // equipment rules text): a small **bold**/*italic*/size/color syntax, with a
@@ -1302,6 +1302,13 @@ function referenceGroupedBodyMarkup(cat,q){
   // First index that isn't one of the 10 common trees — where the
   // "Warband Skills" divider goes; -1 (never found) means every tree shown
   // is a common one, so no second divider is needed at all.
+  // V-REFTREES: without a search, only the chosen tree / domain is shown
+  // (picked in the side menu, grouped Base Skills → races); a search still
+  // looks through every tree.
+  let treeNav='';
+  if(!q){const order=refTreeOrder(cat).filter(k=>groups.has(k));keys.forEach(k=>{if(!order.includes(k))order.push(k)});const cur=refTreeCurrent(cat,order);const i=order.indexOf(cur);keys.splice(0,keys.length,cur);
+    const prev=order[i-1],next=order[i+1];const lbl=k=>cat==='spells'?domainDisplayName(k):skillTreeDisplayName(k);
+    treeNav=`<div class="ref-tree-nav"><label class="ref-tree-select"><span>${cat==='spells'?(en?'Domain':'Domaine'):(en?'Tree':'Arbre')}</span><select onchange="pickRefTree('${cat}',this.value)">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>groups.has(k));return ks.length?`<optgroup label="${esc(g.label)}">${ks.map(k=>`<option value="${esc(k)}" ${k===cur?'selected':''}>${esc(lbl(k))} · ${groups.get(k).length}</option>`).join('')}</optgroup>`:''}).join('')}</select></label><span class="ref-tree-step">${prev?`<button type="button" onclick="pickRefTree('${cat}','${esc(prev).replace(/'/g,"\\'")}')">‹ ${esc(lbl(prev))}</button>`:''}${next?`<button type="button" onclick="pickRefTree('${cat}','${esc(next).replace(/'/g,"\\'")}')">${esc(lbl(next))} ›</button>`:''}</span></div>`;}
   const firstWarbandIdx=cat==='skills'?keys.findIndex(k=>COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(k))===-1):-1;
   // V-DOMAINOVERRIDE (Task #56): grouping itself stays keyed on the raw
   // book domain name (k) — only the label shown to the person reads
@@ -1315,7 +1322,7 @@ function referenceGroupedBodyMarkup(cat,q){
     // "Warband Skills" right before the first non-common one. Purely a
     // visual label; it doesn't touch grouping/sorting, which is already
     // settled above.
-    const divider=cat!=='skills'?'':(ki===0?`<div class="ref-skill-section-divider">${en?'Base Skills':'Compétences de base'}</div>`:(ki===firstWarbandIdx?`<div class="ref-skill-section-divider">${en?'Warband Skills':'Compétences de warband'}</div>`:''));
+    const divider=!q&&(cat==='skills'||cat==='spells')?`<div class="ref-skill-section-divider">${esc(refTreeGroups(cat).find(g=>g.trees.includes(k))?.label||'')}</div>`:cat!=='skills'?'':(ki===0?`<div class="ref-skill-section-divider">${en?'Base Skills':'Compétences de base'}</div>`:(ki===firstWarbandIdx?`<div class="ref-skill-section-divider">${en?'Warband Skills':'Compétences de warband'}</div>`:''));
     // Spells/prayers sort by their in-book number (the small "1." shown next
     // to the name) within each domain, e.g. Chaos Rituals 1→6, then the next
     // domain restarts at 1 — not alphabetically, per product-owner feedback.
@@ -1349,7 +1356,7 @@ function referenceGroupedBodyMarkup(cat,q){
     const skillTreeEditBtn=(cat==='skills'&&isAdminEditUI())?`<button type="button" class="rule-edit-btn" title="${en?'Rename tree (admin)':'Renommer l’arbre (admin)'}" onclick="openSkillTreeOverrideEditor('${esc(k).replace(/'/g,"\\'")}')">✎</button>`:'';
     return `${divider}<section class="ref-group" id="ref-grp-${refSlug(cat)}-${refSlug(k)}"><div class="tc-head ref-group-head"><h3>${esc(displayName(k))}</h3><span class="tc-count">${items.length}</span>${domainEditBtn}${skillTreeEditBtn}</div>${body}</section>`;
   }).join('');
-  return `<nav class="ref-pillnav">${pills}</nav>${cat==='spells'?spellGridModeToggleMarkup():''}${sections}`;
+  return `${q?`<nav class="ref-pillnav">${pills}</nav>`:treeNav}${cat==='spells'?spellGridModeToggleMarkup():''}${sections}`;
 }
 // Traits/Special rules: alphabetical A→Z with a retractable glossary
 // sidebar (letter jump links).
@@ -1760,10 +1767,40 @@ function referenceSidebarMarkup(){
     const count=c==='equipment'?referenceEquipmentPool().length:referenceEntries(c).length;
     const active=referenceCategory===c;
     const label=REFERENCE_NAV_LABELS_EN[c]||c;
-    return `<button type="button" class="ref-sidebar-item${active?' active':''}" title="${esc(label)} (${count})" onclick="setReferenceCategory('${c}')"><span class="rsi-icon">${rulePeekIcon(c)}</span><span class="rsi-label">${esc(label)}</span><span class="rsi-count">${count}</span></button>`;
+    return `<button type="button" class="ref-sidebar-item${active?' active':''}" title="${esc(label)} (${count})" onclick="setReferenceCategory('${c}')"><span class="rsi-icon">${rulePeekIcon(c)}</span><span class="rsi-label">${esc(label)}</span><span class="rsi-count">${count}</span></button>${active&&!collapsed&&(c==='skills'||c==='spells')?refTreeSidebarMarkup(c):''}`;
   }).join('');
   const toggleLabel=collapsed?(en?'Expand categories':'Agrandir les catégories'):(en?'Collapse categories':'Réduire les catégories');
   return `<aside class="ref-sidebar${collapsed?' collapsed':''}" id="refSidebar"><div class="ref-sidebar-head"><span class="ref-sidebar-label">${en?'Categories':'Catégories'}</span><button type="button" class="ref-sidebar-toggle" onclick="toggleReferenceSidebar()" aria-label="${esc(toggleLabel)}" title="${esc(toggleLabel)}">${collapsed?'›':'‹'}</button></div><div class="ref-sidebar-items">${items}</div></aside>`;
+}
+// ===== V-REFTREES: Skills / Spells side menu — Base Skills, then one folding
+// group per warband race (the races of Admin → race tags), each listing the
+// trees / domains of that race's warbands; a tree used by several races is
+// listed under each. One tree is shown at a time.
+let refTreeState=(()=>{try{return JSON.parse(restoreUiState('refTree','{}'))||{}}catch(e){return {}}})();
+let refRaceOpen=(()=>{try{return JSON.parse(restoreUiState('refRaceOpen','{}'))||{}}catch(e){return {}}})();
+function setRefTreeState(cat,k){refTreeState[cat]=k;persistUiState('refTree',JSON.stringify(refTreeState))}
+function pickRefTree(cat,k){setRefTreeState(cat,k);const g=refTreeGroups(cat).find(x=>x.trees.includes(k));if(g){refRaceOpen[cat+':'+g.id]=true;persistUiState('refRaceOpen',JSON.stringify(refRaceOpen))}render('references');const b=document.getElementById('referenceBody');if(b&&b.getBoundingClientRect().top<0)b.scrollIntoView({block:'start'})}
+function toggleRefRace(cat,id){const k=cat+':'+id;refRaceOpen[k]=!refRaceOpenState(cat,id);persistUiState('refRaceOpen',JSON.stringify(refRaceOpen));render('references')}
+function refRaceOpenState(cat,id){const k=cat+':'+id;if(k in refRaceOpen)return !!refRaceOpen[k];const cur=refTreeCurrent(cat,refTreeOrder(cat));return !!refTreeGroups(cat).find(g=>g.id===id)?.trees.includes(cur)}
+function refTreeGroups(cat){
+  const en=siteLanguage==='en';const all=[...new Set(referenceEntries(cat).map(e=>e.category).filter(Boolean))];
+  const byRace=new Map(RACE_CATEGORIES.map(r=>[r,new Set()]));
+  (D.factions||[]).forEach(f=>{const race=raceTagMap.get(f.id);if(!race||!byRace.has(race))return;let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}list.forEach(t=>{const k=all.find(a=>normName(a)===normName(t));if(k)byRace.get(race).add(k)})});
+  const groups=[];const placed=new Set();
+  if(cat==='skills'){const base=all.filter(k=>COMMON_SKILL_TREES.some(c=>normName(c)===normName(k))||/ride|riding/i.test(k));base.sort((a,b)=>{const ra=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(a)),rb=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(b));return (ra<0?99:ra)-(rb<0?99:rb)});base.forEach(k=>placed.add(k));groups.push({id:'base',label:en?'Base Skills':'Compétences de base',trees:base})}
+  RACE_CATEGORIES.forEach(r=>{const ks=[...byRace.get(r)].filter(k=>!(cat==='skills'&&placed.has(k)&&groups[0]?.trees.includes(k))).sort((a,b)=>a.localeCompare(b));ks.forEach(k=>placed.add(k));if(ks.length)groups.push({id:r,label:r==='Humain'&&en?'Human':r,trees:ks})});
+  // Spells: every domain no warband owns (Lesser Magic, and any base domain
+  // added later) is Base Magic, listed first.
+  const rest=all.filter(k=>!placed.has(k)).sort((a,b)=>a.localeCompare(b));if(rest.length){if(cat==='spells')groups.unshift({id:'base',label:en?'Base Magic':'Magie de base',trees:rest});else groups.push({id:'other',label:en?'Other':'Autres',trees:rest})}
+  return groups;
+}
+function refTreeOrder(cat){const out=[];refTreeGroups(cat).forEach(g=>g.trees.forEach(k=>{if(!out.includes(k))out.push(k)}));return out}
+function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.includes(cur)?cur:order[0]}
+function refTreeSidebarMarkup(cat){
+  const en=siteLanguage==='en';const counts=new Map();referenceFilteredList(cat,'',referenceSourceFilter).forEach(e=>counts.set(e.category,(counts.get(e.category)||0)+1));
+  const order=refTreeOrder(cat).filter(k=>counts.has(k));const cur=refTreeCurrent(cat,order);const lbl=k=>cat==='spells'?domainDisplayName(k):skillTreeDisplayName(k);
+  return `<div class="ref-tree-menu">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>counts.has(k));if(!ks.length)return '';const open=g.id==='base'||refRaceOpenState(cat,g.id);const icon=g.id==='base'||g.id==='other'?'':`<i style="color:${RACE_COLORS[g.id]||'var(--muted3)'}">${raceIcon(g.id)}</i>`;
+    return `<div class="ref-tree-group${open?' open':''}"><button type="button" class="ref-tree-group-head" onclick="${g.id==='base'?'':`toggleRefRace('${cat}','${esc(g.id)}')`}" aria-expanded="${open}">${icon}<span>${esc(g.label)}</span><small>${ks.length}</small>${g.id==='base'?'':`<b>${open?'▾':'▸'}</b>`}</button>${open?ks.map(k=>`<button type="button" class="ref-tree-item${k===cur?' on':''}" onclick="pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')"><span>${esc(lbl(k))}</span><small>${counts.get(k)}</small></button>`).join(''):''}</div>`}).join('')}</div>`;
 }
 function setReferenceCategory(c){referenceCategory=c;persistUiState('refCat',c);referenceSearch='';render('references')}
 let referenceSearchDebounce=null;

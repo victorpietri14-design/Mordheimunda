@@ -4609,3 +4609,21 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .mc-wait{background:var(--panel)}.mc-wait-head{font:800 8px 'IBM Plex Sans';letter-spacing:2px}
 /* V-MISERICORDIA */
 .carried-list{margin-top:6px}.equipped-row.carried{border-style:dashed}.carried-traits{color:var(--muted);font-size:11.5px}
+/* V-REFTREES: skill trees / magic domains in the Reference side menu */
+.ref-tree-menu{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px 12px;padding-left:8px;border-left:1px solid var(--line)}
+.ref-tree-group-head{display:flex;align-items:center;gap:7px;width:100%;min-height:32px;padding:6px 8px;border:0;background:transparent;color:var(--muted3);font:800 8.5px 'IBM Plex Sans';letter-spacing:1.6px;text-transform:uppercase;text-align:left;cursor:pointer}
+.ref-tree-group-head span{flex:1}.ref-tree-group-head small{font-size:10px;letter-spacing:0;color:var(--muted3)}.ref-tree-group-head b{font-size:10px;color:var(--muted)}
+.ref-tree-group-head i{font-style:normal;font-size:12px;letter-spacing:0}
+.ref-tree-group-head:hover{color:var(--text)}
+.ref-tree-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:32px;padding:4px 10px 4px 14px;border:0;border-left:2px solid transparent;background:transparent;color:var(--muted);font:500 12.5px 'IBM Plex Sans';text-align:left;cursor:pointer}
+.ref-tree-item small{font-size:11px;color:var(--muted3)}
+.ref-tree-item:hover{color:var(--text)}
+.ref-tree-item.on{border-left-color:var(--accent);background:var(--chip-bg);color:var(--accent);font-weight:700}
+.ref-tree-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+.ref-tree-select{display:none;flex-direction:column;gap:4px;font:800 8px 'IBM Plex Sans';letter-spacing:2px;text-transform:uppercase;color:var(--muted3);flex:1;min-width:220px}
+.ref-tree-select select{min-height:44px;background:var(--panel);border:1px solid var(--chip-border);color:var(--text);padding:0 10px;font:700 14px 'Cinzel'}
+.ref-tree-step{display:flex;gap:8px;margin-left:auto}
+.ref-tree-step button{min-height:34px;padding:0 12px;border:1px solid var(--line);background:var(--panel);color:var(--text-dim);font:600 12px 'IBM Plex Sans';cursor:pointer}
+.ref-tree-step button:hover{border-color:var(--chip-border);color:var(--accent)}
+.ref-sidebar.collapsed~* .ref-tree-select{display:flex}
+@media(max-width:900px){.ref-tree-select{display:flex}.ref-tree-step{margin-left:0}}
