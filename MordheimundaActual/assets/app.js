@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0570.0';
+const APP_BUILD='110.0572.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1308,7 +1308,9 @@ function referenceGroupedBodyMarkup(cat,q){
   let treeNav='';
   if(!q){const order=refTreeOrder(cat).filter(k=>groups.has(k));keys.forEach(k=>{if(!order.includes(k))order.push(k)});const cur=refTreeCurrent(cat,order);const i=order.indexOf(cur);keys.splice(0,keys.length,cur);
     const prev=order[i-1],next=order[i+1];const lbl=k=>cat==='spells'?domainDisplayName(k):skillTreeDisplayName(k);
-    treeNav=`<div class="ref-tree-nav"><label class="ref-tree-select"><span>${cat==='spells'?(en?'Domain':'Domaine'):(en?'Tree':'Arbre')}</span><select onchange="pickRefTree('${cat}',this.value)">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>groups.has(k));return ks.length?`<optgroup label="${esc(g.label)}">${ks.map(k=>`<option value="${esc(k)}" ${k===cur?'selected':''}>${esc(lbl(k))} · ${groups.get(k).length}</option>`).join('')}</optgroup>`:''}).join('')}</select></label><span class="ref-tree-step">${prev?`<button type="button" onclick="pickRefTree('${cat}','${esc(prev).replace(/'/g,"\\'")}')">‹ ${esc(lbl(prev))}</button>`:''}${next?`<button type="button" onclick="pickRefTree('${cat}','${esc(next).replace(/'/g,"\\'")}')">${esc(lbl(next))} ›</button>`:''}</span></div>`;}
+    const grp=refTreeGroups(cat).find(g=>g.trees.includes(cur));const unit=cat==='spells'?(en?'spells':'sorts'):(en?'skills':'compétences');
+    const phone=`<div class="ref-phone-head"><button type="button" class="rph-step" aria-label="${en?'Previous':'Précédent'}" ${prev?`onclick="pickRefTree('${cat}','${esc(prev).replace(/'/g,"\\'")}')"`:'disabled'}>‹</button><button type="button" class="rph-title" onclick="toggleRefPicker()" aria-expanded="${refPickerOpen}"><span style="${grp&&RACE_COLORS[grp.id]?`color:${RACE_COLORS[grp.id]}`:''}">${grp&&RACE_COLORS[grp.id]?raceIcon(grp.id)+' ':''}${esc(grp?.label||'')}</span><b>${esc(lbl(cur))} ${refPickerOpen?'▴':'▾'}</b></button><button type="button" class="rph-step" aria-label="${en?'Next':'Suivant'}" ${next?`onclick="pickRefTree('${cat}','${esc(next).replace(/'/g,"\\'")}')"`:'disabled'}>›</button></div>${refPickerOpen?refPhonePickerMarkup(cat,groups,cur):''}<div class="ref-phone-sub"><span>${groups.get(cur).length} ${unit} · ${en?'tap one to read it':'touche pour lire'}</span><button type="button" onclick="refOpenAll()">${en?'Open all':'Tout ouvrir'}</button></div>`;
+    treeNav=phone+`<div class="ref-tree-nav"><label class="ref-tree-select"><span>${cat==='spells'?(en?'Domain':'Domaine'):(en?'Tree':'Arbre')}</span><select onchange="pickRefTree('${cat}',this.value)">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>groups.has(k));return ks.length?`<optgroup label="${esc(g.label)}">${ks.map(k=>`<option value="${esc(k)}" ${k===cur?'selected':''}>${esc(lbl(k))} · ${groups.get(k).length}</option>`).join('')}</optgroup>`:''}).join('')}</select></label><span class="ref-tree-step">${prev?`<button type="button" onclick="pickRefTree('${cat}','${esc(prev).replace(/'/g,"\\'")}')">‹ ${esc(lbl(prev))}</button>`:''}${next?`<button type="button" onclick="pickRefTree('${cat}','${esc(next).replace(/'/g,"\\'")}')">${esc(lbl(next))} ›</button>`:''}</span></div>`;}
   const firstWarbandIdx=cat==='skills'?keys.findIndex(k=>COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(k))===-1):-1;
   // V-DOMAINOVERRIDE (Task #56): grouping itself stays keyed on the raw
   // book domain name (k) — only the label shown to the person reads
@@ -1356,7 +1358,7 @@ function referenceGroupedBodyMarkup(cat,q){
     const skillTreeEditBtn=(cat==='skills'&&isAdminEditUI())?`<button type="button" class="rule-edit-btn" title="${en?'Rename tree (admin)':'Renommer l’arbre (admin)'}" onclick="openSkillTreeOverrideEditor('${esc(k).replace(/'/g,"\\'")}')">✎</button>`:'';
     return `${divider}<section class="ref-group" id="ref-grp-${refSlug(cat)}-${refSlug(k)}"><div class="tc-head ref-group-head"><h3>${esc(displayName(k))}</h3><span class="tc-count">${items.length}</span>${domainEditBtn}${skillTreeEditBtn}</div>${body}</section>`;
   }).join('');
-  return `${q?`<nav class="ref-pillnav">${pills}</nav>`:treeNav}${cat==='spells'?spellGridModeToggleMarkup():''}${sections}`;
+  return `${q?`<nav class="ref-pillnav">${pills}</nav>`:treeNav}${cat==='spells'?spellGridModeToggleMarkup():''}<div class="${q?'':'ref-fold'}">${sections}</div>`;
 }
 // Traits/Special rules: alphabetical A→Z with a retractable glossary
 // sidebar (letter jump links).
@@ -1794,6 +1796,14 @@ function refTreeGroups(cat){
   const rest=all.filter(k=>!placed.has(k)).sort((a,b)=>a.localeCompare(b));if(rest.length){if(cat==='spells')groups.unshift({id:'base',label:en?'Base Magic':'Magie de base',trees:rest});else groups.push({id:'other',label:en?'Other':'Autres',trees:rest})}
   return groups;
 }
+// Phone: the tree picker under the title, and folded cards (tap a name).
+let refPickerOpen=false;
+function toggleRefPicker(){refPickerOpen=!refPickerOpen;render('references')}
+function refPhonePickerMarkup(cat,groups,cur){const lbl=k=>cat==='spells'?domainDisplayName(k):skillTreeDisplayName(k);
+  return `<div class="ref-phone-picker">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>groups.has(k));if(!ks.length)return '';const open=g.id==='base'||refRaceOpenState(cat,g.id);const col=RACE_COLORS[g.id];
+    return `<div class="rpp-group"><button type="button" class="rpp-head" ${g.id==='base'?'':`onclick="toggleRefRace('${cat}','${esc(g.id)}')"`}>${col?`<i style="color:${col}">${raceIcon(g.id)}</i>`:''}<span>${esc(g.label)}</span><small>${ks.length}${g.id==='base'?'':` ${open?'▾':'▸'}`}</small></button>${open?`<div class="rpp-tiles">${ks.map(k=>`<button type="button" class="${k===cur?'on':''}" onclick="refPickerOpen=false;pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')">${esc(lbl(k))} <small>${groups.get(k).length}</small></button>`).join('')}</div>`:''}</div>`}).join('')}</div>`}
+function refOpenAll(){const cards=[...document.querySelectorAll('.ref-fold .spell-card')];const all=cards.every(c=>c.classList.contains('open'));cards.forEach(c=>c.classList.toggle('open',!all))}
+document.addEventListener('click',ev=>{const h=ev.target.closest?.('.ref-fold .spell-card .sc-head');if(!h||!window.matchMedia('(max-width:900px)').matches)return;h.closest('.spell-card').classList.toggle('open')});
 function refTreeOrder(cat){const out=[];refTreeGroups(cat).forEach(g=>g.trees.forEach(k=>{if(!out.includes(k))out.push(k)}));return out}
 function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.includes(cur)?cur:order[0]}
 function refTreeSidebarMarkup(cat){

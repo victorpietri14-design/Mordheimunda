@@ -4627,3 +4627,45 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .ref-tree-step button:hover{border-color:var(--chip-border);color:var(--accent)}
 .ref-sidebar.collapsed~* .ref-tree-select{display:flex}
 @media(max-width:900px){.ref-tree-select{display:flex}.ref-tree-step{margin-left:0}}
+/* V-REFPHONE: Reference skills/spells on phones — header with ‹ ›, tree
+   picker, and folded cards (tap the name to open) */
+.ref-phone-head,.ref-phone-picker,.ref-phone-sub{display:none}
+@media(max-width:900px){
+  .ref-tree-nav,.ref-tree-select{display:none!important}
+  .ref-phone-head{display:flex;align-items:center;gap:8px;margin:4px 0 6px}
+  .rph-step{width:44px;height:44px;flex:none;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:18px;cursor:pointer}
+  .rph-step[disabled]{opacity:.3}
+  .rph-title{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;border:0;background:transparent;color:var(--text);cursor:pointer}
+  .rph-title span{font:800 8px 'IBM Plex Sans';letter-spacing:2px;text-transform:uppercase;color:var(--muted3)}
+  .rph-title b{font:700 19px 'Cinzel';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .ref-phone-picker{display:flex;flex-direction:column;border:1px solid var(--chip-border);border-radius:8px;background:var(--panel);padding:4px 0;margin-bottom:8px;box-shadow:var(--shadow)}
+  .rpp-head{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 14px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--muted3);font:800 8.5px 'IBM Plex Sans';letter-spacing:1.6px;text-transform:uppercase;text-align:left}
+  .rpp-group:first-child .rpp-head{border-top:0}
+  .rpp-head span{flex:1}.rpp-head i{font-style:normal;font-size:13px;letter-spacing:0}.rpp-head small{font-size:11px;letter-spacing:0}
+  .rpp-tiles{display:flex;flex-wrap:wrap;gap:6px;padding:2px 14px 12px}
+  .rpp-tiles button{min-height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--line);background:var(--bg);color:var(--text-dim);font:500 12.5px 'IBM Plex Sans'}
+  .rpp-tiles button small{color:var(--muted3)}
+  .rpp-tiles button.on{border-color:var(--chip-border);background:var(--chip-bg);color:var(--accent);font-weight:700}
+  .ref-phone-sub{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted3);margin-bottom:8px}
+  .ref-phone-sub button{border:0;background:none;color:var(--accent);font:600 12px 'IBM Plex Sans';cursor:pointer;min-height:32px}
+  .ref-fold .ref-skill-section-divider,.ref-fold .ref-group-head{display:none}
+  .ref-fold .spell-cards{display:flex!important;flex-direction:column;gap:8px}
+  .ref-fold .spell-card{min-height:0!important;padding:0!important}
+  .ref-fold .spell-card>*:not(.sc-head):not(.sc-corner){display:none}
+  .ref-fold .spell-card.open>*:not(.sc-head):not(.sc-corner){display:block}
+  .ref-fold .spell-card.open>.sc-meta{display:flex}
+  .ref-fold .spell-card .sc-head{display:flex;align-items:center;min-height:48px;padding:0 40px 0 14px;cursor:pointer;position:relative}
+  .ref-fold .spell-card .sc-head:after{content:'▸';position:absolute;right:14px;color:var(--muted3)}
+  .ref-fold .spell-card.open .sc-head:after{content:'▾';color:var(--sc,var(--accent))}
+  .ref-fold .spell-card.open .sc-head{border-bottom:1px solid var(--line)}
+  .ref-fold .spell-card.open>*:not(.sc-head):not(.sc-corner){padding-left:14px;padding-right:14px}
+  .ref-fold .spell-card.open>*:last-child{padding-bottom:14px}
+  .ref-fold .spell-card .sc-corner{right:34px!important;top:12px!important}
+  .ref-fold+.spell-grid-mode-toggle,.ref-page .spell-grid-mode-toggle{display:none}
+}
+/* V-REFPHONETOP: phones — no intro text, the search bar first; sections stay in the ▤ pop-up */
+@media(max-width:900px){
+  .ref-page>.rules-head p,.ref-page>.ref-intro,.ref-main>.ref-source-filters{display:none!important}
+  .ref-page>.rules-head{margin-bottom:8px}.ref-page>.rules-head .rules-page-title{font-size:24px;margin:0}
+  .ref-main>.ref-search{min-height:44px;margin-bottom:10px}
+}
