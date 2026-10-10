@@ -4537,3 +4537,5 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
   .hub-tabs .gang-tab .gt-lbl{display:block;font-size:9.5px;letter-spacing:.6px;line-height:1.2;white-space:normal}
 }
 .hub-banner-over .button{white-space:nowrap;flex:none}
+.mc-hero,.mc-row{cursor:pointer}.mc-hero:hover .mc-hero-img,.mc-row:hover .mc-row-img{filter:brightness(1.12)}
+.mc-hero-img,.mc-row-img{transition:filter .2s}
