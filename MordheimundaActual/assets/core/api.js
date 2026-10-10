@@ -127,5 +127,7 @@
   home:()=>request('/api/home'),
   adminSetHomeEvent:p=>request('/api/admin/home/event',{method:'PUT',body:JSON.stringify(p)}),
   adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),
-  adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'})};
+  adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'}),
+  /* V-RULEIMAGES: pictures in rule text. */
+  adminUploadRuleImage:dataUrl=>request('/api/admin/rule-images',{method:'POST',body:JSON.stringify({dataUrl})})};
 })();

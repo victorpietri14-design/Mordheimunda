@@ -1196,6 +1196,22 @@ app.put('/api/admin/rules/overrides',requireDb,requireSameOrigin,auth,requireAdm
     res.json({ok:true});
   }catch(e){next(e)}
 });
+// V-RULEIMAGES: an admin uploads a picture (data URL, already downscaled
+// client-side), gets an id, and the rule text carries [IMG id=…]. Served
+// publicly with a long cache: an id never changes content.
+const RULE_IMAGE_TYPES=['image/png','image/jpeg','image/webp','image/gif'];
+app.post('/api/admin/rule-images',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const m=String(req.body?.dataUrl||'').match(/^data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+)$/);
+  if(!m||!RULE_IMAGE_TYPES.includes(m[1]))return res.status(400).json({error:'INVALID_IMAGE'});
+  const buf=Buffer.from(m[2],'base64');
+  if(!buf.length||buf.length>3*1024*1024)return res.status(413).json({error:'IMAGE_TOO_LARGE'});
+  try{const id=crypto.randomUUID();await pool.query('INSERT INTO rule_images(id,mime,data,created_by) VALUES($1,$2,$3,$4)',[id,m[1],buf,req.user.user_id]);res.status(201).json({id})}catch(e){next(e)}
+});
+app.get('/api/rule-images/:id',requireDb,async(req,res,next)=>{
+  if(!/^[0-9a-f-]{36}$/i.test(req.params.id))return res.status(404).end();
+  try{const q=await pool.query('SELECT mime,data FROM rule_images WHERE id=$1',[req.params.id]);if(!q.rowCount)return res.status(404).end();
+    res.setHeader('Content-Type',q.rows[0].mime);res.setHeader('Cache-Control','public, max-age=31536000, immutable');res.send(q.rows[0].data)}catch(e){next(e)}
+});
 app.delete('/api/admin/rules/overrides/:sectionId/:page',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const page=Number(req.params.page);
   if(!req.params.sectionId||!Number.isInteger(page))return res.status(400).json({error:'INVALID_OVERRIDE'});
