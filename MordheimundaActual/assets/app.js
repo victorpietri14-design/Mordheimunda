@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0565.0';
+const APP_BUILD='110.0566.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8034,7 +8034,7 @@ function playSlotSetFriendWarband(i,wid){
 // deployment (table edges/zones) without saying which warband they're
 // bringing — mainly for a quick 1v1 where nobody wants to commit to picking
 // a roster first. Such a slot is always ready, same as a fully-picked one.
-function playSlotReady(sl){return sl.source==='blank'?true:(sl.source==='own'?!!sl.rosterId:!!(sl.friendId&&sl.friendWarbandId))}
+function playSlotReady(sl){return sl.source==='blank'?true:sl.source==='campaign'?!!sl.rosterId:(sl.source==='own'?!!sl.rosterId:!!(sl.friendId&&sl.friendWarbandId))}
 function playAllReady(ps){return ps.slots.length>0&&ps.slots.every(playSlotReady)}
 function playGroupNumbers(ps){return [...new Set(ps.slots.map(s=>s.group))].sort((a,b)=>a-b)}
 function playGroupColor(ps,g){
@@ -8280,7 +8280,7 @@ function playPickerMarkup(){
   const cats=['all','1v1','multiplayers','campaign','event','history'];
   const list=SCENARIOS_CACHE.filter(s=>playPickerCategoryFilter==='all'||scenarioCategoriesOf(s).includes(playPickerCategoryFilter));
   return `<div class="rules-shell-wrap">
-    <div class="page-intro"><div><div class="eyebrow">${en?'PLAY MODE':'MODE DE JEU'}</div><h2>${en?'Choose a game':'Choisis une partie'}</h2><p>${en?'Pick the scenario you’re about to play — its full sheet shows below, then warband/alliance assignment, then the generated deployment.':'Sélectionne le scénario que vous allez jouer — sa fiche complète s’affiche ensuite, suivie de l’assignation des bandes et alliances, puis du déploiement généré.'}</p></div></div>
+    <div class="page-intro"><div><div class="eyebrow">PLAY MODE</div><h2>${en?'Choose a game':'Choisis une partie'}</h2><p>${en?'Pick the scenario you’re about to play — its full sheet shows below, then warband/alliance assignment, then the generated deployment.':'Sélectionne le scénario que vous allez jouer — sa fiche complète s’affiche ensuite, suivie de l’assignation des bandes et alliances, puis du déploiement généré.'}</p></div></div>
     <div class="scn-filters">${cats.map(c=>`<button type="button" class="scn-filter ${playPickerCategoryFilter===c?'active':''}" onclick="setPlayPickerCategoryFilter('${c}')">${c==='all'?(en?'All':'Tous'):scenarioCategoryLabel(c,en)}</button>`).join('')}</div>
     ${list.length?`<div class="scn-grid">${list.map(s=>playPickerCardMarkup(s,en)).join('')}</div>`:`<div class="empty compact">${en?'No scenarios published yet.':'Aucun scénario publié pour l’instant.'}</div>`}
   </div>`;
@@ -8300,7 +8300,7 @@ function playSlotCardMarkup(ps,sl,i,en){
   return `<div style="${PM_CARD};display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
     <div style="width:38px;height:38px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;background:${gc}22;color:${gc}">J${i+1}</div>
     <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:9px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${ps.campaignId?playCampaignSlotSelect(ps,sl,i,en):`<div style="display:flex;gap:6px;flex-wrap:wrap">
         <button type="button" style="${PM_PILL}${sl.source==='own'?PM_PILL_ON:''}" onclick="playSlotSetSource(${i},'own')">${en?'My warbands':'Mes bandes'}</button>
         <button type="button" style="${PM_PILL}${sl.source==='friend'?PM_PILL_ON:''}" onclick="playSlotSetSource(${i},'friend')">${en?'A friend':'Un ami'}</button>
         <button type="button" style="${PM_PILL}${sl.source==='blank'?PM_PILL_ON:''}" onclick="playSlotSetSource(${i},'blank')" title="${en?'Generate a deployment without picking a warband':'Générer un déploiement sans choisir de bande'}">${en?'No warband':'Sans bande'}</button>
@@ -8309,7 +8309,7 @@ function playSlotCardMarkup(ps,sl,i,en){
         ?`<span class="muted" style="font-size:12px">${en?'No warband picked — this slot only needs a group/edge for the deployment.':'Aucune bande choisie — ce joueur n’a besoin que d’un groupe/bord pour le déploiement.'}</span>`
         :sl.source==='own'
         ?`<select style="${PM_SELECT}" onchange="playSlotSetRoster(${i},this.value)"><option value="">${en?'— pick a warband —':'— choisir une bande —'}</option>${ownOptions}</select>`
-        :`<div style="display:flex;gap:8px;flex-wrap:wrap"><select style="${PM_SELECT};flex:1;min-width:150px" onchange="playSlotSetFriend(${i},this.value)"><option value="">${en?'— pick a friend —':'— choisir un ami —'}</option>${friendOptions}</select><div style="flex:1;min-width:150px;display:flex;align-items:center">${friendWarbandField}</div></div>`}
+        :`<div style="display:flex;gap:8px;flex-wrap:wrap"><select style="${PM_SELECT};flex:1;min-width:150px" onchange="playSlotSetFriend(${i},this.value)"><option value="">${en?'— pick a friend —':'— choisir un ami —'}</option>${friendOptions}</select><div style="flex:1;min-width:150px;display:flex;align-items:center">${friendWarbandField}</div></div>`}`}
     </div>
     <div style="width:140px">
       <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:6px;font-weight:700">${en?'Group (alliance)':'Groupe (alliance)'}</div>
@@ -8393,7 +8393,7 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
 // replaced by the live Play mode block above instead of the static
 // preview+"Generate a map" button that page shows.
 function playSessionMarkup(){
-  const html=playSessionMarkupBase();const ps=state.playSession;const camp=ps&&playConditionsCampaign(ps);if(!camp)return html;
+  const ps=state.playSession;const html=playCampaignStripInject(playSessionMarkupBase(),ps);const camp=ps&&playConditionsCampaign(ps);if(!camp)return html;
   const en=siteLanguage==='en';const cut=html.indexOf('<section class="scn-sec">');if(cut<0)return html;
   const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${playCondTab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button><button type="button" role="tab" class="${playCondTab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button></div>`;
   if(playCondTab!=='conditions')return html.slice(0,cut)+tabs+html.slice(cut);
@@ -8458,7 +8458,7 @@ function playSessionMarkupBase(){
   </div>`;
 }
 function playMode(){
-  $('#content').innerHTML=state.playSession?playSessionMarkup():playPickerMarkup();
+  $('#content').innerHTML=state.playSession?playSessionMarkup():playKind==='skirmish'?playSkirmishMarkup():playKind==='campaign'?playCampaignSetupMarkup():playChoiceMarkup();
 }
 function underdogBonus(){wipPage('Underdogs Bonus','Underdog Bonus')}
 
@@ -10828,6 +10828,91 @@ function hubBattlesMarkup(c){
     return `<article class="hub-battle"><div class="hub-battle-head"><b>${esc(b.scenario||(en?'Battle':'Bataille'))}</b><span class="hub-date">${esc(String(b.playedOn||b.createdAt||'').slice(0,10))}</span></div><div class="chart-chips">${(b.sides||[]).map(s=>`<span class="${s.result==='win'?'win':''}">${esc(s.rosterName)} · ${s.result==='win'?(en?'win':'victoire'):s.result==='loss'?(en?'loss':'défaite'):(en?'draw':'nul')}${s.points?` · ${s.points} pts`:''}</span>`).join('')}</div>${b.report?`<div class="hub-report">${ruleTextMarkup(b.report,{noTitle:true})}</div>`:''}${b.hero||b.conditions?`<small class="muted">${b.hero?`${en?'Hero':'Héros'}: ${esc(b.hero)}`:''}${b.hero&&b.conditions?' · ':''}${b.conditions?esc(b.conditions):''}</small>`:''}<div class="hub-battle-foot">${st}<div class="hub-actions">${mineUnconf.length?`<button type="button" class="button primary small" onclick="hubConfirmBattle('${esc(b.id)}',true)">✓ ${en?'Confirm':'Confirmer'}</button><button type="button" class="button secondary small" onclick="hubConfirmBattle('${esc(b.id)}',false)">${en?'Dispute':'Contester'}</button>`:''}${admin&&b.status!=='confirmed'?`<button type="button" class="button secondary small" onclick="hubAdminConfirm('${esc(b.id)}')">${en?'Validate (admin)':'Valider (admin)'}</button>`:''}${admin||b.createdBy===(accountSession()?.id||'')?`<button type="button" class="equipment-action remove" aria-label="${en?'Delete':'Supprimer'}" onclick="hubDeleteBattle('${esc(b.id)}')">🗑</button>`:''}</div></div></article>`}).join(''):`<p class="muted">${en?'No battle recorded yet.':'Aucune bataille enregistrée.'}</p>`}</section>`;
   return `<div class="hub-grid hub-grid-battles"><div class="hub-col">${form}</div><div class="hub-col">${chron}</div></div>`;
 }
+// ===== V-PLAYKIND: Play Mode starts with a choice — Campaign or Skirmish =====
+// Skirmish = the scenario picker as before. Campaign = pick one of your
+// campaigns, its warbands, a scenario (favoured / 2D6 table / any); the
+// game then carries ps.campaignId so the campaign's conditions (weather,
+// hazards) apply and are rolled at the start, and the result goes to the
+// campaign's Battles.
+let playKind=null,playCampDraft=null;
+function setPlayKind(k){playKind=k;if(k==='campaign'&&!playCampDraft)playCampDraft={cid:null,picks:[],scenarioId:null,roll:null};render('playMode')}
+function playMyCampaigns(){const by=new Map();(state.rosters||[]).filter(r=>r.campaignId).forEach(r=>{if(!by.has(r.campaignId))by.set(r.campaignId,{id:r.campaignId,name:r.campaignName||'',color:r.campaignColor,rosters:[]});by.get(r.campaignId).rosters.push(r)});return [...by.values()]}
+function playChoiceMarkup(){
+  const en=siteLanguage==='en';const camps=playMyCampaigns();const c0=camps[0]?campaignDetailCached(camps[0].id):null;
+  const li=t=>`<li>${esc(t)}</li>`;
+  return `<div class="ref-page play-choice"><div class="rules-head"><div class="eyebrow">${en?'WARBAND MANAGER':'GESTION DE BANDE'}</div><h1 class="rules-page-title">Play Mode</h1><p>${en?'What kind of game are you setting up?':'Quel type de partie prépares-tu ?'}</p></div>
+   <div class="pk-grid">
+    <button type="button" class="pk-card camp" style="--cc:${campaignColor(c0||camps[0]||null)}" onclick="setPlayKind('campaign')">${c0&&!c0.missing?campaignCoverMarkup(c0,'pk-img'):`<div class="pk-img camp-cover-empty" aria-hidden="true"></div>`}<div class="pk-over">${camps.length?`<span class="pk-flag">${camps.length} ${en?(camps.length>1?'CAMPAIGNS':'CAMPAIGN'):(camps.length>1?'CAMPAGNES':'CAMPAGNE')}</span>`:''}<span class="pk-kicker">${en?'PLAY FOR':'JOUER EN'}</span><h2>${en?'Campaign':'Campagne'}</h2></div>
+     <div class="pk-body"><p>${en?'A game that counts. Pick the campaign — its rules switch on by themselves:':'Une partie qui compte. Choisis la campagne — ses règles s’activent toutes seules :'}</p><ul>${[en?'Only that campaign’s warbands':'Seulement les bandes de cette campagne',en?'Scenario: favoured one, or roll on the campaign table':'Scénario : le favori, ou 2D6 sur la table de la campagne',en?'Weather and hazards rolled at the start':'Météo et dangers lancés au début',en?'Exploration chart and Treasure in post-battle':'Table d’exploration et Trésor en post-bataille',en?'The result is sent to the campaign’s Battles':'Le résultat part dans les Batailles de la campagne'].map(li).join('')}</ul><span class="button primary pk-btn">${en?'Play a campaign game':'Jouer une partie de campagne'} ▸</span></div></button>
+    <button type="button" class="pk-card" onclick="setPlayKind('skirmish')"><div class="pk-img pk-img-sk" aria-hidden="true"></div><div class="pk-over"><span class="pk-kicker">${en?'PLAY FOR':'JOUER EN'}</span><h2>${en?'Skirmish':'Escarmouche'}</h2></div>
+     <div class="pk-body"><p>${en?'A one-off game with any warbands — the Play Mode you know:':'Une partie isolée avec n’importe quelles bandes — le Play Mode habituel :'}</p><ul>${[en?'Any of your warbands, or friends’':'Tes bandes ou celles d’amis',en?'Any scenario':'N’importe quel scénario',en?'Basic market and post-battle':'Marché et post-bataille de base',en?'Nothing is recorded in a campaign':'Rien n’est enregistré en campagne'].map(li).join('')}</ul><span class="button secondary pk-btn">${en?'Play a skirmish':'Jouer une escarmouche'} ▸</span></div></button>
+   </div></div>`;
+}
+function playBackToChoice(){playKind=null;render('playMode')}
+function playSkirmishMarkup(){const en=siteLanguage==='en';return `<div class="pk-back"><a href="#" onclick="playBackToChoice();return false;">← Play Mode</a></div>`+playPickerMarkup()}
+// --- campaign setup
+function playCampPick(cid){const d=playCampDraft;d.cid=cid;d.picks=(state.rosters||[]).filter(r=>r.campaignId===cid).slice(0,1).map(r=>r.id);d.scenarioId=null;d.roll=null;render('playMode')}
+function playCampToggle(rid){const d=playCampDraft;const i=d.picks.indexOf(rid);if(i>=0)d.picks.splice(i,1);else d.picks.push(rid);render('playMode')}
+function playCampScenario(sid){playCampDraft.scenarioId=sid;render('playMode')}
+function playCampRoll(){const d=playCampDraft;const c=campaignDetailCache.get(d.cid);if(!campaignFeatureOn(c,'scenarioTable'))return;const kind=d.picks.length>2?'multi':'two';const t=c.definition.scenarioTable[kind];if(!t)return;const dice=[postBattleRoll(),postBattleRoll()];const name=t[dice[0]+dice[1]]||'—';d.roll={kind,dice,total:dice[0]+dice[1],name};const m=campaignScenarioMatches(name);d.scenarioId=m[0]?.id||d.scenarioId;render('playMode')}
+function playCampaignSetupMarkup(){
+  const en=siteLanguage==='en';const d=playCampDraft;const camps=playMyCampaigns();
+  if(!d.cid&&camps.length===1)d.cid=camps[0].id,d.picks=camps[0].rosters.slice(0,1).map(r=>r.id);
+  const head=`<div class="pk-back"><a href="#" onclick="playBackToChoice();return false;">← Play Mode</a></div><div class="rules-head"><div class="eyebrow">${en?'PLAY FOR CAMPAIGN':'JOUER EN CAMPAGNE'}</div><h1 class="rules-page-title">${en?'New campaign game':'Nouvelle partie de campagne'}</h1></div>`;
+  if(!camps.length)return `<div class="ref-page">${head}<div class="mc-none"><strong>${en?'None of your warbands is in a campaign yet.':'Aucune de tes bandes n’est encore en campagne.'}</strong><p>${en?'Join one from My Campaigns, or play a skirmish.':'Rejoins-en une depuis Mes campagnes, ou joue une escarmouche.'}</p><div class="custom-actions" style="justify-content:center"><button type="button" class="button primary" onclick="navigateApp('/campaigns')">${en?'My Campaigns':'Mes campagnes'}</button><button type="button" class="button secondary" onclick="setPlayKind('skirmish')">${en?'Play a skirmish':'Jouer une escarmouche'}</button></div></div></div>`;
+  const campCards=camps.map(c=>{const det=campaignDetailCached(c.id);if(!det)loadCampaignDetail(c.id,'playMode');const full=det&&!det.missing?det:c;const on=d.cid===c.id;const feats=det&&!det.missing?[campaignFeatureOn(det,'conditions')&&(en?'weather & hazards':'météo & dangers'),campaignFeatureOn(det,'exploration')&&(en?'exploration':'exploration'),det.definition?.settlements?.length&&(en?'residences':'résidences')].filter(Boolean).join(' · '):'';
+    return `<button type="button" class="pc-camp${on?' on':''}" style="--cc:${campaignColor(full)}" onclick="playCampPick('${esc(c.id)}')">${campaignCoverMarkup(full,'pc-camp-img')}<span class="pc-camp-body"><b>${esc(full.name||c.name)}</b><small>${esc(campaignMembersLabel(full))}${feats?` · ${esc(feats)}`:''}</small>${on?`<span class="pc-on">✓ ${en?'CHOSEN':'CHOISIE'}</span>`:''}</span></button>`}).join('');
+  let rest='';
+  if(d.cid){
+    const c=campaignDetailCached(d.cid);const col=campaignColor(c||camps.find(x=>x.id===d.cid));
+    if(!c||c.missing)rest=`<p class="muted">${en?'Loading the campaign…':'Chargement de la campagne…'}</p>`;
+    else{
+      const mineIds=new Set((state.rosters||[]).filter(r=>r.campaignId===c.id).map(r=>r.id));
+      const members=(c.members||[]).filter(m=>!m.leftAt);(state.rosters||[]).filter(r=>r.campaignId===c.id&&!members.some(m=>m.rosterId===r.id)).forEach(r=>members.unshift({rosterId:r.id,rosterName:r.name,faction:faction(r)?.name||''}));
+      const setts=c.definition?.settlements||[];
+      const bands=members.map(m=>{const on=d.picks.includes(m.rosterId);const r=(state.rosters||[]).find(x=>x.id===m.rosterId);const resId=r?.campaignResidence||m.stats?.residence;const res=setts.find(x=>x.id===resId);return `<button type="button" class="pc-band${on?' on':''}" onclick="playCampToggle('${esc(m.rosterId)}')" aria-pressed="${on}"><i aria-hidden="true">${on?'✓':''}</i><span><b>${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${mineIds.has(m.rosterId)?` · ${en?'you':'toi'}`:m.username?` · ${esc(m.username)}`:''}</small></span><em>${res?esc(res.name):(en?'no residence':'sans résidence')}</em></button>`}).join('');
+      const fav=c.definition?.favoredScenario;const favS=fav?.id?SCENARIOS_CACHE.find(x=>x.id===fav.id):fav?.name?campaignScenarioMatches(fav.name)[0]:null;
+      const sel=SCENARIOS_CACHE.find(x=>x.id===d.scenarioId);const tableOn=campaignFeatureOn(c,'scenarioTable');
+      const scn=`${favS?`<button type="button" class="pc-fav${d.scenarioId===favS.id?' on':''}" onclick="playCampScenario('${esc(favS.id)}')"><span class="micro-label">★ ${en?'FAVOURED THIS ROUND':'FAVORI DE LA MANCHE'}</span><b>${esc(favS.name)}</b>${fav.note?`<small>${esc(fav.note)}</small>`:''}</button>`:''}
+        ${tableOn?`<div class="pc-roll"><button type="button" class="button secondary" onclick="playCampRoll()">🎲 ${en?'Roll 2D6 on the campaign table':'Lancer 2D6 sur la table de la campagne'}</button>${d.roll?`<span class="pc-roll-res"><span class="cpb-art-dice">${d.roll.dice.map(v=>`<i>${v}</i>`).join('')}</span><b>${d.roll.total} · ${esc(d.roll.name)}</b></span>`:''}</div><small class="muted">${en?'2 warbands use the “two players” table, 3 or more the “multiplayer” one.':'2 bandes : table « deux joueurs », 3 ou plus : table « multijoueur ».'}</small>`:''}
+        <label class="custom-field"><span>${en?'Or choose any scenario':'Ou choisis n’importe quel scénario'}</span><select onchange="playCampScenario(this.value)"><option value="">—</option>${SCENARIOS_CACHE.map(x=>`<option value="${esc(x.id)}" ${x.id===d.scenarioId?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+        ${sel?`<div class="pc-chosen">${en?'Scenario':'Scénario'} : <b>${esc(sel.name)}</b></div>`:''}`;
+      const condOn=campaignFeatureOn(c,'conditions'),explOn=campaignFeatureOn(c,'exploration');
+      const rules=[[en?'Weather':'Météo',condOn,en?'START · 2D6':'DÉBUT · 2D6',en?'Rolled once on the campaign weather chart; shown on the game screen.':'Lancée une fois sur la table météo de la campagne ; affichée pendant la partie.'],[en?'Hazards':'Dangers',condOn,en?'START · D6 EACH':'DÉBUT · D6 CHACUN',en?'One D6 per Hero and per Henchman group: every 1 is a hazard (3D6).':'Un D6 par Héros et par groupe de Henchmen : chaque 1 est un danger (3D6).'],[en?'Residence':'Résidence',setts.length>0,en?'ALWAYS':'TOUJOURS',en?'Each warband’s settlement bonuses apply to its fighters and its market.':'Les bonus de la colonie de chaque bande s’appliquent à ses combattants et à son marché.'],[en?'Exploration':'Exploration',explOn,en?'POST-BATTLE':'POST-BATAILLE',en?'The campaign’s exploration chart replaces the basic one.':'La table d’exploration de la campagne remplace celle de base.'],[en?'Market':'Marché',true,en?'POST-BATTLE':'POST-BATAILLE',en?'Shared campaign stock; Band List purchases arrive after the next game.':'Stock partagé de la campagne ; les achats Band List arrivent après la partie suivante.'],[en?'Result':'Résultat',true,en?'END':'FIN',en?'Recorded in the campaign’s Battles for the other players to confirm.':'Enregistré dans les Batailles de la campagne, à confirmer par les autres joueurs.']];
+      const ready=d.picks.length>=2&&sel;
+      rest=`<div class="pc-two"><section class="hub-panel"><div class="hub-panel-head"><h2>2 · ${en?'Warbands':'Bandes'}</h2><small>${d.picks.length} ${en?'chosen':'choisie(s)'}</small></div><small class="muted">${en?'Only the warbands entered in this campaign.':'Seulement les bandes inscrites dans cette campagne.'}</small>${bands}</section>
+        <section class="hub-panel"><div class="hub-panel-head"><h2>3 · ${en?'Scenario':'Scénario'}</h2></div>${scn}</section></div>
+        <section class="hub-panel pc-rules" style="--cc:${col}"><div class="hub-panel-head"><h2>4 · ${en?'Campaign rules for this game':'Règles de campagne pour cette partie'}</h2><small>${en?'switched on by the campaign':'activées par la campagne'}</small></div><div class="pc-rules-grid">${rules.map(([t,on,when,txt])=>`<div class="pc-rule${on?'':' off'}"><div><b>${esc(t)}</b><span>${on?esc(when):(en?'OFF':'INACTIF')}</span></div><small>${esc(txt)}</small></div>`).join('')}</div></section>
+        <div class="pc-start"><small class="muted">${ready?'':(en?'Choose at least 2 warbands and a scenario.':'Choisis au moins 2 bandes et un scénario.')}</small><button type="button" class="button primary pc-go" ${ready?'':'disabled'} onclick="playCampStart()">${en?'Start the game':'Lancer la partie'} ▸</button></div>`;
+    }
+  }
+  return `<div class="ref-page play-camp">${head}<section class="hub-panel"><div class="hub-panel-head"><h2>1 · ${en?'Campaign':'Campagne'}</h2></div><div class="pc-camps">${campCards}</div></section>${rest}</div>`;
+}
+function playCampStart(){
+  const d=playCampDraft;const c=campaignDetailCache.get(d.cid);const s=SCENARIOS_CACHE.find(x=>x.id===d.scenarioId);if(!c||!s||d.picks.length<2)return;
+  const ps=blankPlaySession();ps.scenarioId=s.id;ps.campaignId=c.id;const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];ps.tableSize=sizes[0];ps.numBands=d.picks.length;
+  const members=c.members||[];ps.slots=d.picks.map((rid,i)=>{const r=(state.rosters||[]).find(x=>x.id===rid);if(r)return {...playSlotDefault(i),source:'own',rosterId:r.id,rosterName:r.name};const m=members.find(x=>x.rosterId===rid)||{};return {...playSlotDefault(i),source:'campaign',rosterId:rid,friendWarbandName:m.rosterName||'',friendUsername:m.username||''}});
+  state.playSession=ps;playCondTab=campaignFeatureOn(c,'conditions')?'conditions':'scenario';save();
+  // Weather is rolled at once; hazards too when every warband's fighters are known here (other players' warbands need their Hero/Henchman count typed in first).
+  if(campaignFeatureOn(c,'conditions')){rollPlayWeather();if(ps.slots.every(sl=>playSlotRoster(sl)))rollPlayHazards()}
+  render('playMode');
+}
+// In a campaign game, each player slot picks among the campaign's warbands.
+function playCampaignSlotSelect(ps,sl,i,en){const c=campaignDetailCache.get(ps.campaignId);const members=(c?.members||[]).filter(m=>!m.leftAt);(state.rosters||[]).filter(r=>r.campaignId===ps.campaignId&&!members.some(m=>m.rosterId===r.id)).forEach(r=>members.unshift({rosterId:r.id,rosterName:r.name}));return `<select style="${PM_SELECT}" onchange="playCampSlotSet(${i},this.value)"><option value="">${en?'— campaign warband —':'— bande de la campagne —'}</option>${members.map(m=>`<option value="${esc(m.rosterId)}" ${String(sl.rosterId)===String(m.rosterId)?'selected':''}>${esc(m.rosterName||'—')}${m.username?` (${esc(m.username)})`:''}</option>`).join('')}</select>`}
+function playCampSlotSet(i,rid){playUpdate(ps=>{const c=campaignDetailCache.get(ps.campaignId);const r=(state.rosters||[]).find(x=>x.id===rid);const m=(c?.members||[]).find(x=>x.rosterId===rid)||{};ps.slots[i]=r?{...ps.slots[i],source:'own',rosterId:r.id,rosterName:r.name,friendWarbandName:'',friendUsername:''}:{...ps.slots[i],source:'campaign',rosterId:rid||null,rosterName:'',friendWarbandName:m.rosterName||'',friendUsername:m.username||''}})}
+// The game screen of a campaign game: a strip naming the campaign, with the
+// way to record the result in its Battles.
+function playCampaignStripInject(html,ps){
+  if(!ps?.campaignId)return html;const en=siteLanguage==='en';const c=campaignDetailCache.get(ps.campaignId);if(!c){loadCampaignDetail(ps.campaignId,'playMode');return html}if(c.missing)return html;
+  const strip=`<div class="pc-strip" style="--cc:${campaignColor(c)}"><span><span class="micro-label">${en?'CAMPAIGN GAME':'PARTIE DE CAMPAGNE'}</span><b>${esc(c.name)}</b></span><button type="button" class="button primary small" onclick="playRecordCampaignResult()">${en?'Record the result':'Enregistrer le résultat'} ▸</button></div>`;
+  const i=html.indexOf('<div class="page-intro">');return i<0?strip+html:html.slice(0,i)+strip+html.slice(i);
+}
+function playRecordCampaignResult(){
+  const ps=state.playSession;const c=ps&&campaignDetailCache.get(ps.campaignId);if(!c)return;const s=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId);
+  hubBattleDraft={cid:c.id,date:new Date().toISOString().slice(0,10),scenario:s?.name||'',sides:ps.slots.filter(sl=>sl.rosterId).map((sl,i)=>({rosterId:sl.rosterId,result:i===0?'win':'loss',points:0})),report:'',hero:'',conditions:hubConditionsText(c)};
+  const mine=ps.slots.find(sl=>sl.source==='own'&&sl.rosterId);if(mine)hubRosterId=mine.rosterId;
+  navigateApp(`/campaigns/${encodeURIComponent(c.id)}/battles`);
+}
 // ===== V-CONDITIONS: campaign game conditions in Play (Lustria) =====
 // A campaign can carry random conditions (definition.conditions: weather 2D6
 // + hazards 3D6). When a Play game includes a warband of that campaign, a
@@ -10870,6 +10955,7 @@ async function disableCampaignConditions(cid){const en=siteLanguage==='en';if(!c
 // --- which campaign a Play game belongs to
 function playSlotRoster(sl){return sl?.source==='own'?(state.rosters||[]).find(x=>String(x.id)===String(sl.rosterId))||null:null}
 function playConditionsCampaign(ps){
+  if(ps?.campaignId){const c=campaignDetailCache.get(ps.campaignId);if(!c){loadCampaignDetail(ps.campaignId,'playMode');return null}return !c.missing&&campaignFeatureOn(c,'conditions')?c:null}
   for(const sl of ps?.slots||[]){const r=playSlotRoster(sl);if(!r?.campaignId)continue;const c=campaignDetailCache.get(r.campaignId);if(!c){loadCampaignDetail(r.campaignId,'playMode');continue}if(!c.missing&&campaignFeatureOn(c,'conditions'))return c}
   return null;
 }
