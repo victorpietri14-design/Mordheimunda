@@ -445,6 +445,26 @@ CREATE TABLE IF NOT EXISTS campaign_trades (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS campaign_trades_campaign_idx ON campaign_trades(campaign_id,status);
+-- V-CAMPBATTLES: games played between the warbands of a campaign. `sides` is
+-- [{rosterId,rosterName,userId,result:'win'|'draw'|'loss',points}]; each side's
+-- owner confirms (`confirmations` {rosterId:true}); a disputed battle is
+-- settled by an admin (status 'confirmed' / 'disputed').
+CREATE TABLE IF NOT EXISTS campaign_battles (
+  id UUID PRIMARY KEY,
+  campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  played_on DATE,
+  scenario TEXT NOT NULL DEFAULT '',
+  sides JSONB NOT NULL DEFAULT '[]'::jsonb,
+  report TEXT NOT NULL DEFAULT '',
+  hero TEXT NOT NULL DEFAULT '',
+  conditions TEXT NOT NULL DEFAULT '',
+  confirmations JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS campaign_battles_campaign_idx ON campaign_battles(campaign_id,created_at);
 
 CREATE TABLE IF NOT EXISTS scenarios (
   id UUID PRIMARY KEY,

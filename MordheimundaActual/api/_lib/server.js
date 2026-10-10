@@ -966,6 +966,17 @@ app.put('/api/admin/campaigns/:id/market',requireDb,requireSameOrigin,auth,requi
   try{const stock=req.body?.stock&&typeof req.body.stock==='object'?req.body.stock:{};const clean={};Object.entries(stock).slice(0,3000).forEach(([k,v])=>{const n=Math.max(0,Math.min(999,Math.floor(Number(v)||0)));clean[marketKey(k)]=n});
     await pool.query(`INSERT INTO campaign_markets(campaign_id,stock,initial,stocked_at) VALUES($1,$2,$2,NOW()) ON CONFLICT (campaign_id) DO UPDATE SET stock=EXCLUDED.stock,initial=EXCLUDED.initial,stocked_at=NOW()`,[req.params.id,JSON.stringify(clean)]);res.json({ok:true,stock:clean})}catch(e){next(e)}
 });
+// Admin top-up of the shared stock: refill a % of each item's stocked quantity,
+// add N to every item, or set one item's quantity. No ceiling.
+app.post('/api/admin/campaigns/:id/market/adjust',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const b=req.body||{};const q=await pool.query('SELECT stock,initial FROM campaign_markets WHERE campaign_id=$1',[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_STOCKED'});
+    const stock={...(q.rows[0].stock||{})},initial=q.rows[0].initial||{};const clamp=n=>Math.max(0,Math.min(9999,Math.floor(n)));
+    if(b.mode==='percent'){const pct=Math.max(0,Math.min(1000,Number(b.value)||0));Object.keys(initial).forEach(k=>{stock[k]=clamp(Number(stock[k]||0)+Math.ceil(Number(initial[k]||0)*pct/100))})}
+    else if(b.mode==='add'){const n=Math.max(-999,Math.min(999,Math.round(Number(b.value)||0)));Object.keys(stock).forEach(k=>{stock[k]=clamp(Number(stock[k]||0)+n)})}
+    else if(b.mode==='set'){const k=marketKey(b.key);if(!k)return res.status(400).json({error:'INVALID_ITEM'});stock[k]=clamp(Number(b.value)||0)}
+    else return res.status(400).json({error:'INVALID_MODE'});
+    await pool.query('UPDATE campaign_markets SET stock=$2 WHERE campaign_id=$1',[req.params.id,JSON.stringify(stock)]);res.json({ok:true,stock})}catch(e){next(e)}
+});
 app.post('/api/campaigns/:id/market/take',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{if(!await campaignMemberOk(req.params.id,req.body?.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const k=marketKey(req.body?.key);
     const q=await pool.query(`UPDATE campaign_markets SET stock=jsonb_set(stock,ARRAY[$2::text],to_jsonb((stock->>$2::text)::int-1)) WHERE campaign_id=$1 AND COALESCE((stock->>$2::text)::int,0)>0 RETURNING stock`,[req.params.id,k]);
@@ -993,6 +1004,37 @@ app.post('/api/campaigns/:id/trades/:tid/cancel',requireDb,requireSameOrigin,aut
 // The poster collects a filled trade once (gold for an offer, the item for a request).
 app.post('/api/campaigns/:id/trades/:tid/collect',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{const q=await pool.query(`UPDATE campaign_trades SET collected=TRUE,updated_at=NOW() WHERE id=$2 AND campaign_id=$1 AND status='done' AND collected=FALSE AND user_id=$3 RETURNING *`,[req.params.id,req.params.tid,req.user.user_id]);if(!q.rowCount)return res.status(409).json({error:'TRADE_GONE'});res.json({trade:toTrade(q.rows[0])})}catch(e){next(e)}
+});
+// V-CAMPBATTLES: battle log of a campaign (see schema.sql).
+const toBattle=r=>({id:r.id,createdBy:r.created_by,playedOn:r.played_on,scenario:r.scenario,sides:r.sides||[],report:r.report,hero:r.hero,conditions:r.conditions,confirmations:r.confirmations||{},status:r.status,createdAt:r.created_at});
+function cleanBattleSides(raw){return (Array.isArray(raw)?raw:[]).slice(0,8).map(s=>({rosterId:String(s?.rosterId||'').slice(0,120),rosterName:String(s?.rosterName||'').slice(0,80),result:['win','draw','loss'].includes(s?.result)?s.result:'draw',points:Math.max(-999,Math.min(999,Math.round(Number(s?.points)||0)))})).filter(s=>s.rosterId)}
+app.get('/api/campaigns/:id/battles',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT * FROM campaign_battles WHERE campaign_id=$1 ORDER BY COALESCE(played_on,created_at::date) DESC, created_at DESC LIMIT 300',[req.params.id]);res.json({battles:q.rows.map(toBattle)})}catch(e){next(e)}
+});
+app.post('/api/campaigns/:id/battles',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const b=req.body||{};const sides=cleanBattleSides(b.sides);if(sides.length<2)return res.status(400).json({error:'TWO_WARBANDS_NEEDED'});
+    const mem=await pool.query('SELECT roster_id,user_id FROM campaign_members WHERE campaign_id=$1 AND left_at IS NULL',[req.params.id]);const owner=new Map(mem.rows.map(r=>[r.roster_id,r.user_id]));
+    if(!sides.every(s=>owner.has(s.rosterId)))return res.status(400).json({error:'NOT_A_MEMBER'});
+    if(!req.user.is_admin&&!sides.some(s=>owner.get(s.rosterId)===req.user.user_id))return res.status(403).json({error:'NOT_YOUR_BATTLE'});
+    const conf={};sides.forEach(s=>{if(owner.get(s.rosterId)===req.user.user_id)conf[s.rosterId]=true});const status=sides.every(s=>conf[s.rosterId])?'confirmed':'pending';
+    const d=/^\d{4}-\d{2}-\d{2}$/.test(String(b.playedOn||''))?b.playedOn:null;
+    const q=await pool.query('INSERT INTO campaign_battles(id,campaign_id,created_by,played_on,scenario,sides,report,hero,conditions,confirmations,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',[crypto.randomUUID(),req.params.id,req.user.user_id,d,String(b.scenario||'').slice(0,160),JSON.stringify(sides),String(b.report||'').slice(0,8000),String(b.hero||'').slice(0,120),String(b.conditions||'').slice(0,300),JSON.stringify(conf),status]);
+    res.json({battle:toBattle(q.rows[0])})}catch(e){next(e)}
+});
+// A side's owner confirms (or disputes) the result.
+app.post('/api/campaigns/:id/battles/:bid/confirm',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const agree=req.body?.agree!==false;const q=await pool.query('SELECT * FROM campaign_battles WHERE id=$1 AND campaign_id=$2',[req.params.bid,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    const bt=q.rows[0];const mem=await pool.query('SELECT roster_id FROM campaign_members WHERE campaign_id=$1 AND user_id=$2 AND left_at IS NULL',[req.params.id,req.user.user_id]);const mine=new Set(mem.rows.map(r=>r.roster_id));
+    const sides=bt.sides||[];const conf={...(bt.confirmations||{})};let touched=false;sides.forEach(s=>{if(mine.has(s.rosterId)){conf[s.rosterId]=agree;touched=true}});if(!touched)return res.status(403).json({error:'NOT_YOUR_BATTLE'});
+    const status=sides.some(s=>conf[s.rosterId]===false)?'disputed':sides.every(s=>conf[s.rosterId]===true)?'confirmed':'pending';
+    const u=await pool.query('UPDATE campaign_battles SET confirmations=$2,status=$3,updated_at=NOW() WHERE id=$1 RETURNING *',[bt.id,JSON.stringify(conf),status]);res.json({battle:toBattle(u.rows[0])})}catch(e){next(e)}
+});
+app.put('/api/admin/campaigns/:id/battles/:bid',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const b=req.body||{};const sides=cleanBattleSides(b.sides);const status=['confirmed','pending','disputed'].includes(b.status)?b.status:'confirmed';const d=/^\d{4}-\d{2}-\d{2}$/.test(String(b.playedOn||''))?b.playedOn:null;
+    const q=await pool.query('UPDATE campaign_battles SET played_on=$3,scenario=$4,sides=$5,report=$6,hero=$7,conditions=$8,status=$9,updated_at=NOW() WHERE id=$1 AND campaign_id=$2 RETURNING *',[req.params.bid,req.params.id,d,String(b.scenario||'').slice(0,160),JSON.stringify(sides),String(b.report||'').slice(0,8000),String(b.hero||'').slice(0,120),String(b.conditions||'').slice(0,300),status]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});res.json({battle:toBattle(q.rows[0])})}catch(e){next(e)}
+});
+app.delete('/api/campaigns/:id/battles/:bid',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const q=await pool.query('DELETE FROM campaign_battles WHERE id=$1 AND campaign_id=$2 AND (created_by=$3 OR $4::boolean) RETURNING id',[req.params.bid,req.params.id,req.user.user_id,!!req.user.is_admin]);if(!q.rowCount)return res.status(403).json({error:'NOT_ALLOWED'});res.json({ok:true})}catch(e){next(e)}
 });
 // Updates the public line of the player's own entry (name, rating…).
 app.put('/api/campaigns/:id/entry',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
