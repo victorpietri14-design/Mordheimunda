@@ -4663,3 +4663,9 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
   .ref-fold .spell-card .sc-corner{right:34px!important;top:12px!important}
   .ref-fold+.spell-grid-mode-toggle,.ref-page .spell-grid-mode-toggle{display:none}
 }
+/* V-REFPHONETOP: phones — no intro text, the search bar first; sections stay in the ▤ pop-up */
+@media(max-width:900px){
+  .ref-page>.rules-head p,.ref-page>.ref-intro,.ref-main>.ref-source-filters{display:none!important}
+  .ref-page>.rules-head{margin-bottom:8px}.ref-page>.rules-head .rules-page-title{font-size:24px;margin:0}
+  .ref-main>.ref-search{min-height:44px;margin-bottom:10px}
+}
