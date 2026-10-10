@@ -4175,3 +4175,12 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .settle-status{font-size:10px;letter-spacing:1px;font-weight:700;color:var(--muted2);margin-left:6px}
 .settle-row.current .settle-status{color:var(--cc,var(--accent))}.settle-row.excluded .settle-status{color:var(--danger)}
 @media (max-width:760px){.settle-panel{grid-template-columns:minmax(0,1fr)}.settle-row{flex-wrap:wrap}}
+/* V-CAMPMARKET / V-BANDTRANSIT */
+.tp-campaign-mods{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin:0 0 12px;padding:10px 14px;border:1px solid #2f5a32;border-left:4px solid #5fd36a;border-radius:10px;background:rgba(95,211,106,.07);font-size:13px}
+.tp-campaign-mods b{font-family:Cinzel,serif;color:#5fd36a}
+.tp-campaign-mods.outsider{border-color:#6a3330;border-left-color:#ff8a80;background:rgba(255,138,128,.07)}
+.tp-campaign-mods.outsider b{color:#ff8a80}
+.tp-price small{display:block;font-size:10px;font-weight:500;opacity:.7}
+.tp-transit-note{display:block;color:#e8c547}
+.reserve-transit{color:#e8c547;font-weight:600}
+.reserve-row.in-transit{opacity:.75;border-style:dashed}
