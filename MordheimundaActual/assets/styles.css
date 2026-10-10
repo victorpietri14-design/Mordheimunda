@@ -4323,3 +4323,7 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .setup-select{min-height:36px;background:#0c0c0c;border:1px solid #33322f;border-radius:8px;color:inherit;padding:0 8px}
 @media (max-width:640px){.setup-row{grid-template-columns:28px minmax(0,1fr)}.setup-btns{grid-column:1/-1;justify-content:flex-start}}
 .setup-cta{margin:0 0 14px;min-height:44px}
+.mech-mini{background:#161514;border:1px solid #33322f;border-left:4px solid var(--cc,#5fd36a);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.mech-mini summary{cursor:pointer;display:flex;align-items:center;gap:10px;min-height:32px}
+.mech-mini summary b{color:var(--cc,#5fd36a)}
+.mech-mini .mech-grid{margin:10px 0 4px}

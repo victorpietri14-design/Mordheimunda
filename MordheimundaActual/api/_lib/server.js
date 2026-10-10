@@ -907,7 +907,10 @@ app.delete('/api/admin/scenarios/:id',requireDb,requireSameOrigin,auth,requireAd
 // Admins create and edit campaigns; players read the published ones and
 // enter / withdraw their own warbands (one campaign per warband at a time).
 const CAMPAIGN_COLOR=/^#[0-9a-f]{6}$/i;
-const campaignCode=()=>crypto.randomBytes(5).toString('base64url').replace(/[^A-Za-z0-9]/g,'').slice(0,6).toUpperCase().padEnd(6,'X');
+// Join codes avoid look-alike characters (no O/0, I/1/L); lookups also treat
+// O as 0 and I/L as 1, so older codes typed either way still match.
+const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const campaignCode=()=>Array.from(crypto.randomBytes(6),b=>CODE_ALPHABET[b%CODE_ALPHABET.length]).join('');
 function validateCampaign(body){
   const name=String(body?.name||'').trim();
   if(!name||name.length>80)return {error:'INVALID_NAME'};
@@ -946,7 +949,7 @@ app.post('/api/campaigns/:id/join',requireDb,requireSameOrigin,auth,async(req,re
   try{const q=await pool.query("SELECT * FROM campaigns WHERE id=$1 AND status='published'",[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});await joinCampaign(req,res,q.rows[0])}catch(e){next(e)}
 });
 app.post('/api/campaigns/join-code',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
-  try{const code=String(req.body?.code||'').trim().toUpperCase();const q=await pool.query("SELECT * FROM campaigns WHERE join_code=$1 AND status='published'",[code]);if(!q.rowCount)return res.status(404).json({error:'CODE_NOT_FOUND'});await joinCampaign(req,res,q.rows[0])}catch(e){next(e)}
+  try{const code=String(req.body?.code||'').replace(/\s+/g,'').toUpperCase();const q=await pool.query("SELECT * FROM campaigns WHERE translate(upper(join_code),'OIL','011')=translate($1,'OIL','011') AND status='published'",[code]);if(!q.rowCount)return res.status(404).json({error:'CODE_NOT_FOUND'});await joinCampaign(req,res,q.rows[0])}catch(e){next(e)}
 });
 app.post('/api/campaigns/:id/leave',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{const rosterId=String(req.body?.rosterId||'');const q=await pool.query('UPDATE campaign_members SET left_at=NOW() WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 AND left_at IS NULL',[req.params.id,rosterId,req.user.user_id]);res.json({ok:true,left:q.rowCount})}catch(e){next(e)}
