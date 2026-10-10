@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0574.0';
+const APP_BUILD='110.0575.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1788,7 +1788,9 @@ function refRaceOpenState(cat,id){const k=cat+':'+id;if(k in refRaceOpen)return 
 function refTreeGroups(cat){
   const en=siteLanguage==='en';const all=[...new Set(referenceEntries(cat).map(e=>e.category).filter(Boolean))];
   const byRace=new Map(RACE_CATEGORIES.map(r=>[r,new Set()]));
-  (D.factions||[]).forEach(f=>{const race=refFactionRace(f);if(!race||!byRace.has(race))return;let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}list.forEach(t=>{const k=all.find(a=>normName(a)===normName(t));if(k)byRace.get(race).add(k)})});
+  // Trees an admin added to a book warband are tagged with it on each entry.
+  const tagged=new Map();referenceEntries(cat).forEach(e=>{if(e.__catalogFactionId&&e.category){if(!tagged.has(e.__catalogFactionId))tagged.set(e.__catalogFactionId,new Set());tagged.get(e.__catalogFactionId).add(e.category)}});
+  (D.factions||[]).forEach(f=>{const race=refFactionRace(f);if(!race||!byRace.has(race))return;let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}list=[...list,...(tagged.get(f.id)||[])];list.forEach(t=>{const k=all.find(a=>normName(a)===normName(t));if(k)byRace.get(race).add(k)})});
   const groups=[];const placed=new Set();
   if(cat==='skills'){const base=all.filter(k=>COMMON_SKILL_TREES.some(c=>normName(c)===normName(k))||/ride|riding/i.test(k));base.sort((a,b)=>{const ra=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(a)),rb=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(b));return (ra<0?99:ra)-(rb<0?99:rb)});base.forEach(k=>placed.add(k));groups.push({id:'base',label:en?'Base Skills':'Compétences de base',trees:base})}
   RACE_CATEGORIES.forEach(r=>{const ks=[...byRace.get(r)].filter(k=>!(cat==='skills'&&placed.has(k)&&groups[0]?.trees.includes(k))).sort((a,b)=>a.localeCompare(b));ks.forEach(k=>placed.add(k));if(ks.length)groups.push({id:r,label:r==='Humain'&&en?'Human':r,trees:ks})});
@@ -1810,7 +1812,7 @@ document.addEventListener('click',ev=>{const h=ev.target.closest?.('.ref-fold .s
 // A sub-faction (Supplement) goes where its parent warband goes: the race of
 // the top parent wins over the sub-faction's own tag; a warband with no
 // parent keeps its own.
-function refFactionRace(f){const chain=[];let cur=f;const seen=new Set();while(cur&&!seen.has(cur.id)){seen.add(cur.id);chain.push(cur.id);const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(x=>x.id===pid)||{id:pid}}for(let i=chain.length-1;i>=0;i--){const r=raceTagMap.get(chain[i]);if(r)return r}return ''}
+function refFactionRace(f){const chain=[];let cur=f;const seen=new Set();while(cur&&!seen.has(cur.id)){seen.add(cur.id);chain.push(cur.id);const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(x=>x.id===pid)||{id:pid}}const raceOf=id=>{const r=raceTagMap.get(id);if(r)return r;const catId=factionCategoryMemberMap.get(id);const fc=catId?factionCategories.find(c=>String(c.id)===String(catId)):null;return fc?.race||''};for(let i=chain.length-1;i>=0;i--){const r=raceOf(chain[i]);if(r)return r}return ''}
 function refTreeOrder(cat){const out=[];refTreeGroups(cat).forEach(g=>g.trees.forEach(k=>{if(!out.includes(k))out.push(k)}));return out}
 function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.includes(cur)?cur:order[0]}
 function refTreeSidebarMarkup(cat){
