@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0576.0';
+const APP_BUILD='110.0577.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8264,9 +8264,29 @@ function playPlaceZone2(d0,d1,w,h,insetPx,r,centers){
   const dm=(d0+d1)/2,p=playPerimeterPoint(dm,w,h);
   return {cx:Math.round(Math.max(r,Math.min(w-r,p.x+p.nx*insetPx))),cy:Math.round(Math.max(r,Math.min(h-r,p.y+p.ny*insetPx)))};
 }
+// V-FIXEDZONES: a coordinate needs no distance on the map when the zone
+// touches a table edge or sits exactly on a central axis.
+function playZoneFreeCoord(v,dim,r){const t=DEPLOY_SCALE*0.3;return Math.abs(v-r)<=t||Math.abs(v-(dim-r))<=t||Math.abs(v-dim/2)<=t}
 function playMakeZoneCircle(cx,cy,r,color,label,w,h){
-  return {type:'circle',cx,cy,r,color,label,noDimX:playZoneAxisSnapped(cx,w),noDimY:playZoneAxisSnapped(cy,h)};
+  return {type:'circle',cx,cy,r,color,label,noDimX:playZoneFreeCoord(cx,w,r),noDimY:playZoneFreeCoord(cy,h,r)};
 }
+// Fixed positions only, in inches: against an edge (3", the zone touching it),
+// the centre line, or 12" / 18" / 24"… from an edge. Cost = how many distances
+// a player has to measure (0: edge or centre axis; 1: a 12" step; 1.5: other
+// 6" steps). Same-warband zones stay ≥12" apart (centre to centre), other
+// warbands' zones ≥6".
+function playZoneAxisValues(dimIn){const out=new Map();const add=(v,c)=>{if(v<3||v>dimIn-3)return;const k=Math.round(v*2)/2;if(!out.has(k)||out.get(k)>c)out.set(k,c)};add(3,0);add(dimIn-3,0);add(dimIn/2,0);for(let v=6;v<=dimIn-6;v+=6){add(v,v%12===0||(dimIn-v)%12===0?1:1.5)}return [...out.entries()].map(([v,c])=>({v,c}))}
+function playZoneCandidates(wIn,hIn){const xs=playZoneAxisValues(wIn),ys=playZoneAxisValues(hIn);const out=[];xs.forEach(x=>ys.forEach(y=>out.push({x:x.v,y:y.v,cost:x.c+y.c})));return out}
+function playZoneFits(pt,mine,others){return mine.every(c=>Math.hypot(pt.x-c.x,pt.y-c.y)>=12-1e-6)&&others.every(c=>Math.hypot(pt.x-c.x,pt.y-c.y)>=6-1e-6)}
+function playPickZone(cands,mine,others){
+  const pool=cands.filter(p=>playZoneFits(p,mine,others));if(!pool.length)return null;
+  const best=Math.min(...pool.map(p=>p.cost));const top=pool.filter(p=>p.cost<=best);return top[Math.floor(Math.random()*top.length)];
+}
+// Perimeter position (px, same walk as playPerimeterPoint) of a point lying
+// against an edge, to keep Z2 zones on the warband's own edge segment.
+function playZoneOnSegment(pt,d0,d1,wIn,hIn){const S=DEPLOY_SCALE,w=wIn*S,h=hIn*S,x=pt.x*S,y=pt.y*S,r=3*S,pad=r;const ds=[];
+  if(pt.y===3)ds.push(x);if(pt.x===wIn-3)ds.push(w+y);if(pt.y===hIn-3)ds.push(w+h+(w-x));if(pt.x===3)ds.push(2*w+h+(h-y));
+  return ds.some(d=>d>=d0+pad-1&&d<=d1-pad+1)}
 function playGenerateRandom(){
   const ps=state.playSession;if(!ps||!playAllReady(ps))return;
   const en=siteLanguage==='en';
@@ -8280,21 +8300,21 @@ function playGenerateRandom(){
   // after, so in the final items array every circle paints on top of every
   // line — including a neighboring zone's boundary — instead of whichever
   // happened to come later in group order.
-  const lines=[],circles=[],groupsOut=[],centers=[];
-  const m=1*DEPLOY_SCALE,insetPx=5*DEPLOY_SCALE,rPx=3*DEPLOY_SCALE;
+  const lines=[],circles=[],groupsOut=[],placed=[];
+  const m=1*DEPLOY_SCALE,rPx=3*DEPLOY_SCALE;const cands=playZoneCandidates(ts.w,ts.h);
   order.forEach((g,idx)=>{
     const {d0,d1}=edgeZones[idx];
     const color=playGroupColor(ps,g);
     lines.push(...playBuildZoneLines(d0,d1,w,h,m,color));
-    const z1n=playRollZone1Count(),z2n=playRollZone2Count();
-    for(let i=0;i<z1n;i++){
-      const p=playPlaceZone1(w,h,rPx,centers);centers.push(p);
-      circles.push(playMakeZoneCircle(p.cx,p.cy,rPx,color,'Z1',w,h));
-    }
-    for(let i=0;i<z2n;i++){
-      const p=playPlaceZone2(d0,d1,w,h,insetPx,rPx,centers);centers.push(p);
-      circles.push(playMakeZoneCircle(p.cx,p.cy,rPx,color,'Z2',w,h));
-    }
+    const z1n=playRollZone1Count(),z2n=playRollZone2Count();const mine=[];const others=placed.slice();
+    const put=(pt,label)=>{if(!pt)return;mine.push(pt);circles.push(playMakeZoneCircle(pt.x*DEPLOY_SCALE,pt.y*DEPLOY_SCALE,rPx,color,label,w,h))};
+    // Z2 first (against the warband's own edge), then Z1 anywhere.
+    // Never against another warband's deployment edge.
+    const foreign=edgeZones.filter((z,j)=>j!==idx);const ok=cands.filter(p=>!foreign.some(z=>playZoneOnSegment(p,z.d0,z.d1,ts.w,ts.h)));
+    const edgeCands=ok.filter(p=>playZoneOnSegment(p,d0,d1,ts.w,ts.h));
+    for(let i=0;i<z2n;i++)put(playPickZone(edgeCands,mine,others),'Z2');
+    for(let i=0;i<z1n;i++)put(playPickZone(ok,mine,others)||playPickZone(ok,mine,[]),'Z1');
+    placed.push(...mine);
     const mid=playPerimeterPoint((d0+d1)/2,w,h);
     groupsOut.push({group:g,color,edge:playEdgeLabel(mid.x,mid.y,w,h,en),players:ps.slots.filter(s=>s.group===g).map(s=>({name:playSlotDisplayName(s,ps)||'—',owner:playSlotOwnerLabel(s,en)}))});
   });
