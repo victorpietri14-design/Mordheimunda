@@ -4184,3 +4184,37 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .tp-transit-note{display:block;color:#e8c547}
 .reserve-transit{color:#e8c547;font-weight:600}
 .reserve-row.in-transit{opacity:.75;border-style:dashed}
+/* V-CAMPPB: campaign post-battle */
+.gold{color:#f2c94c!important}
+.eq-skin-base{opacity:.65;font-weight:500}
+.pool-refusal{align-items:center}
+.pool-refusal .button{margin-left:auto}
+.cpb-body{display:flex;flex-direction:column;gap:12px;padding-top:6px}
+.cpb-heroes{display:flex;flex-direction:column;gap:6px}
+.cpb-hero-list{display:flex;flex-wrap:wrap;gap:6px}
+.cpb-hero{min-height:40px;padding:0 12px;border-radius:8px;background:#1c1c1b;border:1px solid #33322f;color:inherit;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.cpb-hero.on{background:#1f2d1c;border-color:#5fd36a;color:#5fd36a}
+.cpb-card{background:#1c1c1b;border:1px solid #5fd36a;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.cpb-card.trap{border-color:#ff8a80}
+.cpb-card.done{border-color:#33322f}
+.cpb-card-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cpb-card-head b{font-family:Cinzel,serif;font-size:17px}
+.cpb-tier{font-size:11px;letter-spacing:1px;font-weight:700;color:#5fd36a;text-transform:uppercase}
+.cpb-text{margin:0;font-size:13px;color:#b0afac}
+.cpb-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cpb-chips span{background:#262522;border:1px solid #33322f;border-radius:7px;padding:4px 9px;font-size:12px}
+.cpb-result{background:#1f1a0a;border:1px solid #6b5517;border-radius:10px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.cpb-result small{color:#d8c28a}
+.cpb-artifacts{background:#191422;border:1px solid #4a3d63;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.cpb-art-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.cpb-art-head .micro-label{color:#c99bff}
+.cpb-art-head small{display:block;color:#b0afac;font-size:12px;max-width:520px}
+.cpb-art-roll{position:relative;background:#221b2e;border:1px solid #4a3d63;border-radius:10px;padding:10px 36px 10px 12px;display:flex;flex-direction:column;gap:8px}
+.cpb-art-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.cpb-art-row>div{display:flex;flex-direction:column;gap:3px}
+.cpb-art-dice{display:flex;gap:4px}
+.cpb-art-dice i{font-style:normal;width:26px;height:26px;display:grid;place-items:center;border-radius:6px;border:1px solid #c99bff;background:#2a2238;font-weight:700}
+.cpb-art-tier{font-size:10.5px;color:#c99bff;font-weight:700;letter-spacing:1px}
+.cpb-held{color:#ff8a80}
+.cpb-taken{color:#9dfa3c;font-size:12px}
+.cpb-art-x{position:absolute;top:8px;right:8px;background:none;border:0;color:#8d8c88;cursor:pointer;font-size:14px}
