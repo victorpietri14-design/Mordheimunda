@@ -4530,3 +4530,12 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 @media (max-width:820px){.mc-hero{min-height:0}.mc-hero-over{grid-template-columns:1fr;padding:120px 16px 16px;gap:16px}.mc-lower{grid-template-columns:1fr}.mc-row{grid-template-columns:84px minmax(0,1fr);padding-right:0}.mc-row-img{width:84px;height:100%;min-height:96px}.mc-row-btn{grid-column:1/-1;margin:0 12px 12px}.mc-enter{flex:1}}
 .mc-wait-head.ok{color:var(--cc,var(--accent))}
 .mc-lower.solo{grid-template-columns:1fr}.mc-lower.solo .mc-side{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+/* V-HUBTABSPHONE: My Campaign tabs have no icon, so on phones they keep their labels */
+@media(max-width:700px){
+  .hub-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px}
+  .hub-tabs .gang-tab{padding:12px 4px;min-height:44px;justify-content:center;text-align:center}
+  .hub-tabs .gang-tab .gt-lbl{display:block;font-size:9.5px;letter-spacing:.6px;line-height:1.2;white-space:normal}
+}
+.hub-banner-over .button{white-space:nowrap;flex:none}
+.mc-hero,.mc-row{cursor:pointer}.mc-hero:hover .mc-hero-img,.mc-row:hover .mc-row-img{filter:brightness(1.12)}
+.mc-hero-img,.mc-row-img{transition:filter .2s}
