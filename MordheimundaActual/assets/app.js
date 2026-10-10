@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0543.0';
+const APP_BUILD='110.0544.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11024,14 +11024,14 @@ function rulesCampaign(){
    ${admin?`<div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button></div>`:''}
    ${campaignsCache===null?`<div class="empty">${en?'Loading…':'Chargement…'}</div>`:list.length?`<div class="campaign-grid">${list.map(campaignCardMarkup).join('')}</div>`:`<div class="empty large"><strong>${en?'No campaign yet.':'Aucune campagne pour l’instant.'}</strong></div>`}</div>`;
 }
-function campaignSections(c){const en=siteLanguage==='en';const pages=Array.isArray(c?.definition?.pages)?c.definition.pages:[];const arts=Array.isArray(c?.definition?.artifacts)?c.definition.artifacts:[];return [{id:'overview',label:en?'Overview':'Présentation'},...pages.map((p,i)=>({id:'rule-'+(p.id||i),label:`${i+1}. ${p.title||(en?'Untitled':'Sans titre')}`,page:p,sub:true})),...(arts.length||isAdminSession()?[{id:'artifacts',label:(en?'Artifacts':'Artefacts')+(arts.length?` · ${arts.length}`:'')}]:[])]}
+function campaignSections(c){const en=siteLanguage==='en';const pages=Array.isArray(c?.definition?.pages)?c.definition.pages:[];const arts=Array.isArray(c?.definition?.artifacts)?c.definition.artifacts:[];return [{id:'overview',label:en?'Overview':'Présentation'},...pages.map((p,i)=>({id:'rule-'+(p.id||i),label:`${i+1}. ${p.title||(en?'Untitled':'Sans titre')}`,page:p,sub:true})),...(arts.length||isAdminSession()?[{id:'artifacts',label:(en?'Artifacts':'Artefacts')+(arts.length?` · ${arts.length}`:'')}]:[]),...((c?.definition?.settlements||[]).length||isAdminSession()?[{id:'settlements',label:(en?'Settlements':'Colonies')+((c?.definition?.settlements||[]).length?` · ${c.definition.settlements.length}`:'')}]:[])]}
 function campaignDetail(){
   const en=siteLanguage==='en';const id=currentCampaignId;const c=campaignDetailCache.get(id);
   if(!c){loadCampaignDetail(id,'campaignDetail');$('#content').innerHTML=`<div class="empty large">${en?'Loading…':'Chargement…'}</div>`;return}
   if(c.missing){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Campaign not found.':'Campagne introuvable.'}</strong><span><a href="#" onclick="navigateApp('/rules/campaign');return false;">${en?'← Back to Rules: Campaign':'← Retour à Règles : Campagne'}</a></span></div>`;return}
   const col=campaignColor(c);const secs=campaignSections(c);const cur=secs.find(x=>x.id===currentCampaignPage)||secs[0];const admin=isAdminSession();
   const members=(c.members||[]).filter(m=>!m.leftAt);
-  const body=cur.id==='artifacts'?campaignArtifactsMarkup(c,admin):cur.id==='overview'?`<div class="campaign-overview">${admin?`<div class="campaign-page-edit"><button type="button" class="button secondary small" onclick="openCampaignPageEditor('${esc(c.id)}','overview')">✎ ${en?'Edit the presentation':'Modifier la présentation'}</button></div>`:''}${c.definition?.description?`<div class="rules-article-body campaign-text">${ruleTextMarkup(c.definition.description,{noTitle:true})}</div>`:`<p class="muted">${en?'No presentation yet.':'Pas encore de présentation.'}</p>`}
+  const body=cur.id==='settlements'?campaignSettlementsMarkup(c,admin):cur.id==='artifacts'?campaignArtifactsMarkup(c,admin):cur.id==='overview'?`<div class="campaign-overview">${admin?`<div class="campaign-page-edit"><button type="button" class="button secondary small" onclick="openCampaignPageEditor('${esc(c.id)}','overview')">✎ ${en?'Edit the presentation':'Modifier la présentation'}</button></div>`:''}${c.definition?.description?`<div class="rules-article-body campaign-text">${ruleTextMarkup(c.definition.description,{noTitle:true})}</div>`:`<p class="muted">${en?'No presentation yet.':'Pas encore de présentation.'}</p>`}
      <h3 class="campaign-h3">${en?'Warbands in this campaign':'Bandes dans cette campagne'} <small>${members.length}</small></h3>
      ${members.length?`<div class="campaign-members">${members.map(m=>`<div class="campaign-member"><b>${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small>${m.stats?.rating!=null?`<span>${Number(m.stats.rating)} GC</span>`:''}</div>`).join('')}</div>`:`<p class="muted">${en?'No warband has joined yet.':'Aucune bande n’a encore rejoint.'}</p>`}</div>`
     :`<div class="rules-article-body campaign-text"><h2 class="campaign-page-title">${esc(cur.page.title||'')}${admin?` <button type="button" class="rule-edit-btn" title="${en?'Edit this page':'Modifier cette page'}" onclick="openCampaignPageEditor('${esc(c.id)}','${esc(cur.page.id||'')}')">✎</button>`:''}</h2>${ruleTextMarkup(cur.page.text||'',{noTitle:true})}</div>`;
@@ -11161,6 +11161,95 @@ async function importLustriaArtifacts(cid){
   if(!confirm(en?`Add ${todo.length} Lustria artifacts to this campaign? You can edit each one afterwards.`:`Ajouter ${todo.length} artefacts de Lustria à cette campagne ? Tu pourras modifier chacun ensuite.`))return;
   if(await saveCampaignDefinition(cid,def=>{def.artifacts=[...(def.artifacts||[]),...todo.map(a=>({...a,id:crypto.randomUUID().slice(0,8)}))];if(!def.artifactsIntro)def.artifactsIntro=LUSTRIA_ARTIFACTS_INTRO}))toast(en?`${todo.length} artifacts imported`:`${todo.length} artefacts importés`);
 }
+/* V-SETTLEMENTS: places a warband can reside in during a campaign
+   (definition.settlements). One shared campaign market; each warband buys
+   with its residence's modifiers. A warband that may reside nowhere buys with
+   the outsider penalty (definition.outsiderPenalty: rarity +4 — Common counts
+   as Rare 4 — and +20 % on purchases). Who may reside: every warband except
+   the excluded ids; a warband the admin hadn't seen when saving (created
+   later) follows newAllowed. */
+const LUSTRIA_SETTLEMENTS=[
+ {name:'Santa Magritta',excludeNames:['lizard','amazon','dark elf','undead','orc','skaven','pirate','possessed'],tithe:10,market:{commonPrice:'-1D6',commonFind:0,rarePrice:'+D6x10',rareFind:-2,allFind:0},hsUpkeep:{reduction:'',names:[]},notes:'If you are fighting in the city, the watch shows up after four rounds (one Mercenary Captain and five Swordsmen). The captain may be bribed to ignore the fight for D6×10 gc. If one of the warbands is Tilean, the watch helps cleanse the city of the scum instead.'},
+ {name:'Nuevo Luccini',excludeNames:['lizard','amazon','dark elf','undead','orc','skaven','possessed'],tithe:0,market:{commonPrice:'',commonFind:0,rarePrice:'',rareFind:0,allFind:2},hsUpkeep:{reduction:'',names:[]},notes:''},
+ {name:'Skeggi',excludeNames:['lizard','amazon','dark elf','undead','orc','skaven','possessed'],tithe:0,market:{commonPrice:'',commonFind:0,rarePrice:'',rareFind:0,allFind:0},hsUpkeep:{reduction:'1D6',names:['Pit Fighter','Ogre Bodyguard','Dwarf Troll Slayer','Pathfinder','Norse Shaman']},notes:''}
+];
+function campaignFactionOptions(){return (D.factions||[]).filter(f=>f&&f.id&&!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).map(f=>({id:f.id,name:f.displayName||f.name||f.id})).concat(customWarbandList().map(cw=>({id:'custom-warband-'+cw.id,name:cw.name+' (Custom)'}))).sort((a,b)=>a.name.localeCompare(b.name))}
+function rosterCampaignFactionId(r){return r?.customWarbandId?'custom-warband-'+r.customWarbandId:(r?.factionId||'')}
+function settlementAllows(st,fid){
+  if(!st)return false;const ex=new Set(st.excluded||[]);if(ex.has(fid))return false;
+  const known=Array.isArray(st.known)?st.known:null;if(known&&!known.includes(fid))return st.newAllowed!==false;
+  return true;
+}
+function campaignOutsiderPenalty(c){const p=c?.definition?.outsiderPenalty||{};return {rarity:Number.isFinite(Number(p.rarity))?Number(p.rarity):4,pricePct:Number.isFinite(Number(p.pricePct))?Number(p.pricePct):20}}
+function signed(n){n=Number(n||0);return (n>0?'+':'')+n}
+function settlementEffects(st,en){
+  const out=[];const m=st.market||{};
+  if(Number(st.tithe))out.push({tag:en?'TITHE':'DÎME',text:en?`${st.tithe}% of each game's income goes to the town`:`${st.tithe} % des revenus de chaque partie vont à la ville`,cls:'danger'});
+  if(m.commonPrice)out.push({tag:en?'MARKET':'MARCHÉ',text:en?`Common items: price ${m.commonPrice} gc`:`Objets Common : prix ${m.commonPrice} gc`,cls:'accent'});
+  if(Number(m.commonFind))out.push({tag:en?'MARKET':'MARCHÉ',text:en?`Common items: ${signed(m.commonFind)} to find`:`Objets Common : ${signed(m.commonFind)} pour trouver`,cls:'accent'});
+  if(m.rarePrice)out.push({tag:en?'MARKET':'MARCHÉ',text:en?`Rare items: price ${m.rarePrice} gc`:`Objets rares : prix ${m.rarePrice} gc`,cls:'wip'});
+  if(Number(m.rareFind))out.push({tag:en?'MARKET':'MARCHÉ',text:en?`Rare items: ${signed(m.rareFind)} to find`:`Objets rares : ${signed(m.rareFind)} pour trouver`,cls:'wip'});
+  if(Number(m.allFind))out.push({tag:en?'MARKET':'MARCHÉ',text:en?`All items: ${signed(m.allFind)} to find`:`Tous les objets : ${signed(m.allFind)} pour trouver`,cls:'accent'});
+  if(st.hsUpkeep?.reduction&&(st.hsUpkeep.names||[]).length)out.push({tag:'HIRED SWORDS',text:en?`Upkeep −${st.hsUpkeep.reduction} gc: ${st.hsUpkeep.names.join(', ')}`:`Entretien −${st.hsUpkeep.reduction} gc : ${st.hsUpkeep.names.join(', ')}`,cls:'info'});
+  return out;
+}
+function settlementEffectsMarkup(st,en){const fx=settlementEffects(st,en);return fx.length?`<div class="settle-effects">${fx.map(e=>`<div class="settle-effect"><b class="settle-tag settle-${e.cls}">${esc(e.tag)}</b><span>${esc(e.text)}</span></div>`).join('')}</div>`:`<p class="muted">${en?'No market or income modifier.':'Aucun modificateur de marché ou de revenus.'}</p>`}
+function campaignSettlementsMarkup(c,admin){
+  const en=siteLanguage==='en';const id=esc(c.id);const list=c.definition?.settlements||[];const pen=campaignOutsiderPenalty(c);const opts=campaignFactionOptions();
+  const bar=admin?`<div class="custom-actions" style="justify-content:flex-start;margin-bottom:12px"><button type="button" class="button primary" onclick="openSettlementEditor('${id}','')">＋ ${en?'Add a settlement':'Ajouter une colonie'}</button><button type="button" class="button secondary" onclick="openOutsiderPenaltyEditor('${id}')">⚖ ${en?'Penalty for warbands with no residence':'Pénalité des bandes sans résidence'}</button><button type="button" class="button secondary" onclick="importLustriaSettlements('${id}')">📖 ${en?'Import the Lustria settlements':'Importer les colonies de Lustria'}</button></div>`:'';
+  const head=`<h2 class="campaign-page-title">${en?'Settlements':'Colonies'}</h2>${bar}<p class="sheet-help">${en?`One market for the whole campaign: each warband buys with the modifiers of the settlement it resides in. A warband that may reside nowhere buys with availability +${pen.rarity} (Common counts as Rare 4) and +${pen.pricePct}% on purchases. Moving is free.`:`Un seul marché pour toute la campagne : chaque bande achète avec les modificateurs de sa colonie de résidence. Une bande qui ne peut résider nulle part achète avec rareté +${pen.rarity} (Common compte comme Rare 4) et +${pen.pricePct} % à l’achat. Déménager est gratuit.`}</p>`;
+  if(!list.length)return `<div class="rules-article-body campaign-text">${head}<p class="muted">${en?'No settlement yet.':'Aucune colonie pour l’instant.'}</p></div>`;
+  return `<div class="rules-article-body campaign-text">${head}<div class="settle-grid">${list.map(st=>{const ex=(st.excluded||[]).map(fid=>opts.find(o=>o.id===fid)?.name||fid);return `<article class="settle-card"><div class="artifact-head"><h3>${esc(st.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openSettlementEditor('${id}','${esc(st.id)}')">✎</button>`:''}</div>${settlementEffectsMarkup(st,en)}${st.notes?`<div class="artifact-rules">${ruleTextMarkup(st.notes,{noTitle:true})}</div>`:''}<div class="settle-excluded"><b>${en?'Cannot reside here':'Ne peuvent pas résider ici'}:</b> ${ex.length?ex.map(esc).join(', '):(en?'nobody':'personne')}${st.newAllowed===false?` · <i>${en?'new warbands excluded by default':'nouvelles warbands exclues par défaut'}</i>`:''}</div></article>`}).join('')}</div></div>`;
+}
+function openSettlementEditor(cid,sid){
+  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
+  const st=(c.definition?.settlements||[]).find(x=>x.id===sid)||{name:'',excluded:[],newAllowed:true,tithe:0,market:{},hsUpkeep:{reduction:'',names:[]},notes:''};const m=st.market||{};const ex=new Set(st.excluded||[]);
+  const num=(idv,label,v)=>`<label class="custom-field"><span>${label}</span><input id="${idv}" type="number" step="1" value="${Number(v||0)}"></label>`;
+  const txt=(idv,label,v,ph)=>`<label class="custom-field"><span>${label}</span><input id="${idv}" value="${esc(v||'')}" placeholder="${esc(ph||'')}"></label>`;
+  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)} · ${en?'SETTLEMENT':'COLONIE'}</div><h2>${sid?esc(st.name):(en?'New settlement':'Nouvelle colonie')}</h2>
+   ${txt('stName',en?'Name':'Nom',st.name,'')}
+   <div class="micro-label" style="margin:10px 0 6px">${en?'WHO MAY RESIDE HERE — unticked = excluded':'QUI PEUT RÉSIDER ICI — décoché = exclu'}</div>
+   <div class="settle-checks">${campaignFactionOptions().map(o=>`<label class="custom-check"><input type="checkbox" class="stAllow" data-fid="${esc(o.id)}" ${ex.has(o.id)?'':'checked'}><span>${esc(o.name)}</span></label>`).join('')}</div>
+   <label class="custom-check" style="margin-top:8px"><input type="checkbox" id="stNewAllowed" ${st.newAllowed===false?'':'checked'}><span>${en?'Warbands created later are allowed by default':'Les warbands créées plus tard sont autorisées par défaut'}</span></label>
+   <div class="micro-label" style="margin:12px 0 6px">${en?'RESIDENTS\' MARKET':'MARCHÉ DES RÉSIDENTS'}</div>
+   <div class="form-grid">${txt('stCommonPrice',en?'Common: price (e.g. -1D6)':'Common : prix (ex. -1D6)',m.commonPrice,'-1D6')}${num('stCommonFind',en?'Common: to find (roll modifier)':'Common : pour trouver (modif. du jet)',m.commonFind)}${txt('stRarePrice',en?'Rare: price (e.g. +D6x10)':'Rare : prix (ex. +D6x10)',m.rarePrice,'+D6x10')}${num('stRareFind',en?'Rare: to find (roll modifier)':'Rare : pour trouver (modif. du jet)',m.rareFind)}${num('stAllFind',en?'All items: to find':'Tous les objets : pour trouver',m.allFind)}${num('stTithe',en?'Tithe on each game\'s income (%)':'Dîme sur les revenus (%)',st.tithe)}</div>
+   <div class="form-grid">${txt('stHsRed',en?'Hired Sword upkeep reduction (e.g. 1D6)':'Réduction d’entretien Hired Sword (ex. 1D6)',st.hsUpkeep?.reduction,'1D6')}${txt('stHsNames',en?'…for these Hired Swords (comma separated)':'…pour ces Hired Swords (séparés par des virgules)',(st.hsUpkeep?.names||[]).join(', '),'Pit Fighter, Ogre Bodyguard')}</div>
+   <label class="custom-field"><span>${en?'Other rules (text)':'Autres règles (texte)'}</span><textarea id="stNotes" rows="4">${esc(st.notes||'')}</textarea></label>
+   <div class="custom-actions"><button type="button" class="button primary" onclick="saveSettlement('${esc(cid)}','${esc(sid||'')}')">${en?'Save':'Enregistrer'}</button>${sid?`<button type="button" class="button danger" onclick="deleteSettlement('${esc(cid)}','${esc(sid)}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+}
+async function saveSettlement(cid,sid){
+  const en=siteLanguage==='en';const name=($('#stName')?.value||'').trim();if(!name){toast(en?'Give the settlement a name':'Donne un nom à la colonie');return}
+  const boxes=[...document.querySelectorAll('.stAllow')];const n=v=>Math.round(Number(v)||0);
+  const item={id:sid||crypto.randomUUID().slice(0,8),name,excluded:boxes.filter(b=>!b.checked).map(b=>b.dataset.fid),known:boxes.map(b=>b.dataset.fid),newAllowed:!!$('#stNewAllowed')?.checked,tithe:Math.max(0,n($('#stTithe').value)),market:{commonPrice:($('#stCommonPrice').value||'').trim(),commonFind:n($('#stCommonFind').value),rarePrice:($('#stRarePrice').value||'').trim(),rareFind:n($('#stRareFind').value),allFind:n($('#stAllFind').value)},hsUpkeep:{reduction:($('#stHsRed').value||'').trim(),names:($('#stHsNames').value||'').split(',').map(x=>x.trim()).filter(Boolean)},notes:$('#stNotes').value||''};
+  if(await saveCampaignDefinition(cid,def=>{def.settlements=Array.isArray(def.settlements)?def.settlements:[];const i=def.settlements.findIndex(x=>x.id===item.id);if(i>=0)def.settlements[i]=item;else def.settlements.push(item)})){closeModal();toast(en?'Settlement saved':'Colonie enregistrée')}
+}
+async function deleteSettlement(cid,sid){const en=siteLanguage==='en';if(!confirm(en?'Delete this settlement?':'Supprimer cette colonie ?'))return;if(await saveCampaignDefinition(cid,def=>{def.settlements=(def.settlements||[]).filter(x=>x.id!==sid)}))closeModal()}
+function openOutsiderPenaltyEditor(cid){
+  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const p=campaignOutsiderPenalty(c);
+  openModal(`<div class="wc-dialog"><div class="eyebrow">${esc(c.name)}</div><h2>${en?'Warbands with no residence':'Bandes sans résidence'}</h2><p class="sheet-help">${en?'Applied to a warband that may reside in no settlement, when it buys from the campaign market. Common items count as Rare 4.':'Appliqué à une bande qui ne peut résider dans aucune colonie, quand elle achète au marché de la campagne. Les objets Common comptent comme Rare 4.'}</p><div class="form-grid"><label class="custom-field"><span>${en?'Availability penalty':'Pénalité de rareté'}</span><input id="penRarity" type="number" step="1" value="${p.rarity}"></label><label class="custom-field"><span>${en?'Price on purchases (%)':'Prix à l’achat (%)'}</span><input id="penPrice" type="number" step="1" value="${p.pricePct}"></label></div><div class="custom-actions"><button type="button" class="button primary" onclick="saveOutsiderPenalty('${esc(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+}
+async function saveOutsiderPenalty(cid){const r=Math.round(Number($('#penRarity').value)||0),p=Math.round(Number($('#penPrice').value)||0);if(await saveCampaignDefinition(cid,def=>{def.outsiderPenalty={rarity:r,pricePct:p}}))closeModal()}
+async function importLustriaSettlements(cid){
+  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
+  const have=new Set((c.definition?.settlements||[]).map(x=>normName(x.name)));const todo=LUSTRIA_SETTLEMENTS.filter(x=>!have.has(normName(x.name)));
+  if(!todo.length){toast(en?'Every Lustria settlement is already here':'Toutes les colonies de Lustria sont déjà là');return}
+  const opts=campaignFactionOptions();
+  const items=todo.map(t=>({id:crypto.randomUUID().slice(0,8),name:t.name,excluded:opts.filter(o=>t.excludeNames.some(k=>String(o.name).toLowerCase().includes(k))).map(o=>o.id),known:opts.map(o=>o.id),newAllowed:true,tithe:t.tithe,market:{...t.market},hsUpkeep:{reduction:t.hsUpkeep.reduction,names:t.hsUpkeep.names.slice()},notes:t.notes}));
+  if(await saveCampaignDefinition(cid,def=>{def.settlements=[...(def.settlements||[]),...items];if(!def.outsiderPenalty)def.outsiderPenalty={rarity:4,pricePct:20}}))toast(en?`${items.length} settlements imported — check who may reside in each`:`${items.length} colonies importées — vérifie qui peut résider dans chacune`);
+}
+// Warband side: the residence card in the Campaign tab.
+function campaignResidenceMarkup(r,c){
+  const en=siteLanguage==='en';const list=c?.definition?.settlements||[];if(!list.length)return '';
+  const fid=rosterCampaignFactionId(r);const cur=list.find(x=>x.id===r.campaignResidence)||null;const allowedAny=list.some(st=>settlementAllows(st,fid));const pen=campaignOutsiderPenalty(c);
+  const curCard=cur?`<div class="settle-current"><span class="micro-label">${en?'RESIDENCE':'RÉSIDENCE'}</span><h3>${esc(cur.name)}</h3>${settlementEffectsMarkup(cur,en)}</div>`:`<div class="settle-current"><span class="micro-label">${en?'RESIDENCE':'RÉSIDENCE'}</span><h3>${allowedAny?(en?'None chosen yet':'Aucune choisie'):(en?'No settlement accepts this warband':'Aucune colonie n’accepte cette bande')}</h3><p class="muted">${allowedAny?(en?'Pick a settlement below.':'Choisis une colonie ci-dessous.'):(en?`It buys from the campaign market with availability +${pen.rarity} (Common counts as Rare 4) and +${pen.pricePct}% on purchases.`:`Elle achète au marché de la campagne avec rareté +${pen.rarity} (Common compte comme Rare 4) et +${pen.pricePct} % à l’achat.`)}</p></div>`;
+  const rows=list.map(st=>{const ok=settlementAllows(st,fid);const isCur=cur&&cur.id===st.id;return `<div class="settle-row${isCur?' current':''}${ok?'':' excluded'}"><div><b>${esc(st.name)}</b> <span class="settle-status">${isCur?(en?'CURRENT':'ACTUELLE'):ok?(en?'ALLOWED':'AUTORISÉE'):(en?'EXCLUDED':'EXCLUE')}</span><small>${esc(settlementEffects(st,en).map(e=>e.text).join(' · ')||'—')}</small></div>${isCur?'':ok?`<button type="button" class="button primary small" onclick="setCampaignResidence('${esc(st.id)}')">${en?'Move here':'S’installer'}</button>`:`<span class="muted small">${en?'Not allowed':'Non autorisée'}</span>`}</div>`}).join('');
+  return `<div class="settle-panel">${curCard}<div class="settle-list"><div class="micro-label">${en?'CHANGE SETTLEMENT · free':'CHANGER DE COLONIE · gratuit'}</div>${rows}</div></div>`;
+}
+function setCampaignResidence(sid){
+  const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const c=campaignDetailCache.get(r.campaignId);const st=(c?.definition?.settlements||[]).find(x=>x.id===sid);if(!st)return;
+  if(!settlementAllows(st,rosterCampaignFactionId(r))){toast(en?'This warband may not reside here':'Cette bande ne peut pas résider ici');return}
+  r.campaignResidence=sid;logHistory(r,'settings',en?`Moved to <b>${esc(st.name)}</b>`:`S’installe à <b>${esc(st.name)}</b>`);save(true);render('builder');toast(en?`${r.name} now resides in ${st.name}`:`${r.name} réside maintenant à ${st.name}`);
+}
 // --- entering / withdrawing a warband
 let joinCampaignTarget=null;
 function openJoinCampaign(campaignId,presetRosterId){
@@ -11188,7 +11277,8 @@ function campaignView(r){
   if(r.campaignId){
     const c=campaignDetailCache.get(r.campaignId);if(!c)loadCampaignDetail(r.campaignId,'builder');pushCampaignEntryStats(r);
     const col=campaignColor(c||r.campaignColor);const members=(c?.members||[]).filter(m=>!m.leftAt).slice().sort((a,b)=>Number(b.stats?.rating||0)-Number(a.stats?.rating||0));
-    return `<div class="campaign-hub" style="--cc:${col}"><div class="roster-toolbar"><div><div class="eyebrow">${en?'CAMPAIGN':'CAMPAGNE'}</div><h3>${esc(c?.name||r.campaignName||'')}</h3><p>${en?'Standings and campaign rules. Campaign equipment, income, artifacts and markets arrive in the next steps.':'Classement et règles de la campagne. Équipement, income, artefacts et marchés de campagne arrivent dans les prochaines étapes.'}</p></div><div class="roster-toolbar-actions"><button type="button" class="button primary campaign-btn" onclick="navigateApp('/rules/campaign/${encodeURIComponent(r.campaignId)}')">${en?'Campaign rules':'Règles de la campagne'}</button><button type="button" class="button secondary" onclick="openLeaveCampaign('${esc(r.id)}')">${en?'Withdraw':'Retirer'}</button></div></div>
+    return `<div class="campaign-hub" style="--cc:${col}"><div class="roster-toolbar"><div><div class="eyebrow">${en?'CAMPAIGN':'CAMPAGNE'}</div><h3>${esc(c?.name||r.campaignName||'')}</h3><p>${en?'Residence, standings and campaign rules.':'Résidence, classement et règles de la campagne.'}</p></div><div class="roster-toolbar-actions"><button type="button" class="button primary campaign-btn" onclick="navigateApp('/rules/campaign/${encodeURIComponent(r.campaignId)}')">${en?'Campaign rules':'Règles de la campagne'}</button><button type="button" class="button secondary" onclick="openLeaveCampaign('${esc(r.id)}')">${en?'Withdraw':'Retirer'}</button></div></div>
+     ${c?campaignResidenceMarkup(r,c):''}
      <h4 class="campaign-h3">${en?'Standings':'Classement'}</h4>${c?(members.length?`<div class="campaign-members">${members.map((m,i)=>`<div class="campaign-member${m.rosterId===r.id?' mine':''}"><b>${i+1}. ${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small><span>${m.stats?.rating!=null?`${Number(m.stats.rating)} GC`:'—'}${m.stats?.reputation!=null?` · ${en?'Rep.':'Rép.'} ${Number(m.stats.reputation)}`:''}</span></div>`).join('')}</div>`:`<p class="muted">—</p>`):`<p class="muted">${en?'Loading…':'Chargement…'}</p>`}</div>`;
   }
   if(campaignsCache===null)loadCampaignList('builder');
