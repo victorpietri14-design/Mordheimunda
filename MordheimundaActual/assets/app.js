@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0536.0';
+const APP_BUILD='110.0537.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3390,7 +3390,9 @@ function ruleTextMarkup(text,opts){
       // the page) is a title, not the start of a flowing paragraph — kept
       // on its own line, styled distinctly, rather than merged with the
       // description text that follows it (which starts its own plain block).
-      if(matchesOverviewTitle(label)){out.push(`<div class="rule-line rule-numbered rule-numbered-title"><span class="rule-num">${esc(num)}</span><span>${esc(label)}</span></div>`);return;}
+      // V-NUMHEAD2: an ALL-CAPS numbered line ("4. INFLICT DAMAGE") is a step
+      // title too, even when the overview listing it sits in another page block.
+      if(matchesOverviewTitle(label)||(/^[A-Z0-9’'&\/ ,()-]{3,}$/.test(label)&&/[A-Z]{3}/.test(label))){out.push(`<div class="rule-line rule-numbered rule-numbered-title"><span class="rule-num">${esc(num)}</span><span>${esc(label)}</span></div>`);return;}
       block={kind:'numbered',num,text:label,compact:false};
       return;
     }
