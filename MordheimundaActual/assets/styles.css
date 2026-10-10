@@ -4241,3 +4241,71 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .standings-pick{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#b0afac}
 .standings-pick select{min-height:40px;background:#0c0c0c;border:1px solid #33322f;border-radius:8px;color:inherit;padding:0 8px}
 .standing-val{color:var(--cc,#f2c94c)}
+/* V-CONDITIONS: Play campaign conditions + scenario roll */
+.play-cond-tabs{display:flex;gap:4px;border-bottom:1px solid #33322f;margin:6px 0 16px;overflow-x:auto}
+.play-cond-tabs button{background:none;border:0;border-bottom:2px solid transparent;color:#8d8c88;padding:12px 16px;font:700 12.5px 'IBM Plex Sans',sans-serif;letter-spacing:1px;cursor:pointer;white-space:nowrap;min-height:44px}
+.play-cond-tabs button.on{color:var(--cc,#5fd36a);border-bottom-color:var(--cc,#5fd36a)}
+.play-cond-tabs button:first-child.on{color:var(--accent,#9dfa3c);border-bottom-color:var(--accent,#9dfa3c)}
+.cond-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px}
+.cond-col{display:flex;flex-direction:column;gap:14px}
+.cond-panel{background:#161514;border:1px solid #33322f;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.cond-weather{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#1c1c1b;border:1px solid #2a2927;border-radius:12px;padding:12px 14px}
+.cond-weather>div{display:flex;flex-direction:column;gap:3px}
+.cond-weather small{color:#b0afac;font-size:12px}.cond-weather b{font-size:16px}.cond-weather span{font-size:12.5px;color:#c9c8c4}
+.cond-sub{color:#f2c94c!important}
+.cond-roll{min-height:48px}
+.cond-band{display:flex;flex-direction:column;gap:6px}
+.cond-band>b{font-size:13px}
+.cond-manual{font-size:12px;color:#b0afac;display:flex;gap:8px;align-items:center}
+.cond-manual input{width:70px;min-height:36px;background:#0c0c0c;border:1px solid #33322f;border-radius:7px;color:inherit;padding:0 8px}
+.cond-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cond-chip{display:inline-flex;align-items:center;gap:6px;background:#1c1c1b;border:1px solid #2a2927;border-radius:8px;padding:6px 9px;font-size:12px}
+.cond-chip b{font-family:Cinzel,serif;font-size:14px}
+.cond-chip.hit{background:#3b1d1a;border-color:#d65c55}.cond-chip.hit b{color:#ff8a80}
+.hz-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.hz-label{color:#ff8a80}
+.hz-card{background:#1d1512;border:1px solid #6b2f25;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.hz-top{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:10.5px;letter-spacing:1.5px;color:#ff8a80;font-weight:700;text-transform:uppercase}
+.hz-neutral{background:#2b2b28;border:1px solid #5a5955;color:#e7e6e2;border-radius:6px;padding:3px 8px;letter-spacing:1px}
+.hz-title{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.hz-title h3{margin:0;font-family:Cinzel,serif;font-size:21px}.hz-title span{font-size:13px;color:#c9c8c4}
+.hz-card p{margin:0;font-size:13px;color:#c9c8c4;line-height:1.5}
+.hz-profile{overflow-x:auto;border:1px solid #3a2b26;border-radius:10px}
+.hz-profile table{width:100%;border-collapse:collapse;font-size:13px;text-align:center}
+.hz-profile th{background:#2a1d19;color:#c9c8c4;padding:7px 4px;font-size:11.5px}
+.hz-profile td{padding:8px 4px;font-family:Cinzel,serif;font-weight:700}
+.hz-rules{display:flex;flex-wrap:wrap;gap:6px}
+.hz-rules span{background:#2a1d19;border:1px solid #3a2b26;border-radius:7px;padding:4px 9px;font-size:12px}
+.hz-card small{color:#e7e6e2;font-size:12.5px}
+.scn-roll{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:#161514;border:1px solid #33322f;border-left:4px solid var(--cc,#5fd36a);border-radius:12px;padding:12px 16px;margin-bottom:16px}
+.scn-roll>div:first-child{display:flex;flex-direction:column;gap:3px}
+.scn-roll>div:first-child small{color:#b0afac;font-size:12px}
+.scn-roll-btns{display:flex;gap:6px;flex-wrap:wrap}
+.scn-roll-res{flex-basis:100%;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.scn-roll-res .cpb-art-dice i{border-color:var(--cc,#5fd36a);background:#1c1c1b}
+@media (max-width:820px){.cond-grid{grid-template-columns:1fr}}
+.cond-weather .button,.hz-neutral{flex-shrink:0;white-space:nowrap}
+@media (max-width:520px){.cond-weather{flex-direction:column;align-items:stretch}}
+/* V-MECHANICS */
+.mech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin:12px 0 20px}
+.mech-card{background:#161514;border:1px solid #33322f;border-left:4px solid var(--cc,#5fd36a);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.mech-card.off{opacity:.55;border-left-color:#33322f}
+.mech-head{display:flex;align-items:center;gap:8px}
+.mech-head b{flex:1;font-family:Cinzel,serif;font-size:15px}
+.mech-icon{font-size:18px}
+.mech-state{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cc,#5fd36a);border:1px solid currentColor;border-radius:6px;padding:2px 6px;white-space:nowrap}
+.mech-card.off .mech-state{color:#8d8c88}
+.mech-card p{margin:0;font-size:13px;line-height:1.5}
+.mech-card small{color:#b0afac;font-size:12px}
+.mech-ref{background:#161514;border:1px solid #33322f;border-radius:12px;padding:10px 14px;margin-bottom:10px}
+.mech-ref summary{cursor:pointer;font-family:Cinzel,serif;font-weight:700;min-height:32px;display:flex;align-items:center;gap:8px}
+.mech-ref summary small{color:#8d8c88;font-family:'IBM Plex Sans',sans-serif}
+.mech-table{overflow-x:auto;margin-top:8px}
+.mech-table table{width:100%;border-collapse:collapse;font-size:13px}
+.mech-table th{text-align:left;background:#1c1c1b;padding:7px 9px;font-size:12px;color:#b0afac}
+.mech-table td{border-top:1px solid #2a2927;padding:7px 9px;vertical-align:top;line-height:1.45}
+.mech-hz{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.mech-hz-row{display:flex;flex-direction:column;gap:6px;border-top:1px solid #2a2927;padding-top:8px}
+.mech-hz-row p{margin:4px 0;font-size:13px}
+.mech-hz-row small{display:block;color:#b0afac;font-size:12px}
+.mech-card a{color:var(--cc,#5fd36a);font-size:12.5px;font-weight:600;text-decoration:none}
