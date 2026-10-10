@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0553.0';
+const APP_BUILD='110.0554.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3634,6 +3634,7 @@ function insertRuleEditToken(kind){
  const before=el.value.slice(0,start),selected=el.value.slice(start,end),after=el.value.slice(end);
  let insertText;
  if(kind==='heading')insertText=(selected||(en?'SECTION TITLE':'TITRE DE SECTION')).toUpperCase();
+ else if(kind==='numtitle'){const n=(before.match(/^\s*\d+\.\s+[A-Z0-9’'&\/ ,()-]{3,}\s*$/gm)||[]).length+1;insertText=`${n}. `+(selected||(en?'STEP TITLE':'TITRE D’ÉTAPE')).toUpperCase()}
  else if(kind==='note')insertText=(en?'Note: ':'Note : ')+(selected||(en?'text':'texte'));
  else if(kind==='bullet')insertText='• '+(selected||(en?'text':'texte'));
  else if(kind==='image')insertText=String(arguments[1]||'');
@@ -3765,19 +3766,11 @@ function renderRuleTableEditorOverlay(){
    <div class="rte-actions"><button type="button" class="button secondary" onclick="closeRuleTableEditor()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="ruleTableEditorInsert()">${ruleTableEditorSelRange?(en?'Update table':'Mettre à jour le tableau'):(en?'Insert table':'Insérer le tableau')}</button></div>
  </div>`;
 }
-function ruleEditFormMarkup(sectionId,page,currentText){
- const en=siteLanguage==='en';
- const hasOverride=ruleHasOverride(sectionId,page);
- // Only the "2.2.2 Actions" section uses the [ACTIONCARDS] syntax, so its
- // quick-insert button (and the extra format hint below) only shows up
- // there — everywhere else the toolbar stays exactly as before.
- const isActions=sectionId==='actions';
- const actionCardBtn=isActions?`<button type="button" class="rule-edit-tool rule-edit-tool-actioncard" onclick="insertRuleEditToken('actioncard')" title="${en?'Insert an action card':'Insérer une fiche action'}">▭ ${en?'Action card':'Fiche action'}</button>`:'';
- const hint=isActions
-  ?(en?'One line per action: Name|Type|Statuses|Description — Type is simple, basic or double (shown as a glyph); Statuses is a comma list from active, pinned, injured, engaged (colors the card and adds its tags).':'Une ligne par action : Nom|Type|Statuts|Description — Type vaut simple, basic ou double (affiché en pictogramme) ; Statuts est une liste séparée par des virgules parmi active, pinned, injured, engaged (colore la fiche et ajoute ses pastilles).')
-  :(en?'Formatting follows the rulebook’s own style — pick a line type, no manual styling needed.':'La mise en forme suit le style du livre de règles — choisis un type de ligne, pas besoin de mise en forme manuelle.');
- return `<div class="rule-edit-form"><div class="rule-edit-toolbar">
+// V-EDITTOOLBAR: the rules editor toolbar, shared with the campaign page editor
+// (both write into #ruleEditTextarea).
+function ruleEditToolbarMarkup(actionCardBtn,hint){const en=siteLanguage==='en';return `<div class="rule-edit-toolbar">
   <button type="button" class="rule-edit-tool rule-edit-tool-heading" onclick="insertRuleEditToken('heading')" title="${en?'Insert a section heading':'Insérer un titre de section'}">Aa <b>${en?'TITLE':'TITRE'}</b></button>
+  <button type="button" class="rule-edit-tool rule-edit-tool-numtitle" onclick="insertRuleEditToken('numtitle')" title="${en?'Insert a numbered step title (like 1. MAKE A WOUND ROLL)':'Insérer un titre d’étape numéroté (comme 1. MAKE A WOUND ROLL)'}"><b>1.</b> ${en?'TITLE':'TITRE'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-note" onclick="insertRuleEditToken('note')" title="${en?'Insert a Note: callout':'Insérer un encart Note :'}">${en?'Note':'Note'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-bullet" onclick="insertRuleEditToken('bullet')" title="${en?'Insert a bullet point':'Insérer une puce'}">• ${en?'Bullet':'Puce'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-table" onclick="openRuleTableEditor()" title="${en?'Build a table visually (place the cursor inside an existing one to edit it)':'Construire un tableau visuellement (place le curseur dans un tableau existant pour le modifier)'}">▦ ${en?'Table':'Tableau'}</button>
@@ -3800,7 +3793,19 @@ function ruleEditFormMarkup(sectionId,page,currentText){
   </select>
   ${actionCardBtn}
   <span class="rule-edit-toolbar-hint">${hint}</span>
- </div><textarea id="ruleEditTextarea" class="wide-textarea rule-edit-textarea" rows="12">${esc(currentText)}</textarea><div class="custom-actions rule-edit-actions"><button type="button" class="button secondary" onclick="cancelRuleEdit()">${en?'Cancel':'Annuler'}</button>${hasOverride?`<button type="button" class="button secondary" onclick="restoreRuleOriginal('${esc(sectionId)}',${page})">↺ ${en?'Restore original text':'Restaurer le texte d’origine'}</button>`:''}<button type="button" class="button primary" onclick="saveRuleEdit('${esc(sectionId)}',${page})">${en?'Save':'Enregistrer'}</button></div></div>`
+ </div>`}
+function ruleEditFormMarkup(sectionId,page,currentText){
+ const en=siteLanguage==='en';
+ const hasOverride=ruleHasOverride(sectionId,page);
+ // Only the "2.2.2 Actions" section uses the [ACTIONCARDS] syntax, so its
+ // quick-insert button (and the extra format hint below) only shows up
+ // there — everywhere else the toolbar stays exactly as before.
+ const isActions=sectionId==='actions';
+ const actionCardBtn=isActions?`<button type="button" class="rule-edit-tool rule-edit-tool-actioncard" onclick="insertRuleEditToken('actioncard')" title="${en?'Insert an action card':'Insérer une fiche action'}">▭ ${en?'Action card':'Fiche action'}</button>`:'';
+ const hint=isActions
+  ?(en?'One line per action: Name|Type|Statuses|Description — Type is simple, basic or double (shown as a glyph); Statuses is a comma list from active, pinned, injured, engaged (colors the card and adds its tags).':'Une ligne par action : Nom|Type|Statuts|Description — Type vaut simple, basic ou double (affiché en pictogramme) ; Statuts est une liste séparée par des virgules parmi active, pinned, injured, engaged (colore la fiche et ajoute ses pastilles).')
+  :(en?'Formatting follows the rulebook’s own style — pick a line type, no manual styling needed.':'La mise en forme suit le style du livre de règles — choisis un type de ligne, pas besoin de mise en forme manuelle.');
+ return `<div class="rule-edit-form">${ruleEditToolbarMarkup(actionCardBtn,hint)}<textarea id="ruleEditTextarea" class="wide-textarea rule-edit-textarea" rows="12">${esc(currentText)}</textarea><div class="custom-actions rule-edit-actions"><button type="button" class="button secondary" onclick="cancelRuleEdit()">${en?'Cancel':'Annuler'}</button>${hasOverride?`<button type="button" class="button secondary" onclick="restoreRuleOriginal('${esc(sectionId)}',${page})">↺ ${en?'Restore original text':'Restaurer le texte d’origine'}</button>`:''}<button type="button" class="button primary" onclick="saveRuleEdit('${esc(sectionId)}',${page})">${en?'Save':'Enregistrer'}</button></div></div>`
 }
 async function saveRuleEdit(sectionId,page){
  const en=siteLanguage==='en';
@@ -11397,7 +11402,7 @@ function saveCampaignListLocal(){try{localStorage.setItem(CAMP_LS,JSON.stringify
  campaignDetailCache.delete=k=>{campaignDetailFresh.delete(k);return mapDel(k)}}
 function campaignDetailCached(id){if(campaignDetailCache.has(id))return campaignDetailCache.get(id);try{const v=JSON.parse(localStorage.getItem(CAMP_LS_DETAIL+id)||'null');if(v&&(v.status==='published'||isAdminSession())){Map.prototype.set.call(campaignDetailCache,id,v);return v}}catch(e){}return null}
 function loadCampaignList(view){campaignLoad('list',async()=>{const api=window.MordheimundaAPI;const admin=isAdminSession();const [r,a]=await Promise.all([api.campaigns(),admin?api.adminCampaigns().catch(()=>null):Promise.resolve(null)]);const before=JSON.stringify([campaignsCache,adminCampaignsCache]);campaignsCache=Array.isArray(r?.campaigns)?r.campaigns:[];if(a)adminCampaignsCache=Array.isArray(a?.campaigns)?a.campaigns:[];if(!admin)adminCampaignsCache=null;campaignListStale=false;saveCampaignListLocal();if(JSON.stringify([campaignsCache,adminCampaignsCache])!==before)campaignRerender(view)})}
-function loadCampaignDetail(id,view){campaignLoad('c:'+id,async()=>{let c=null;if(isAdminSession()){try{c=(await window.MordheimundaAPI.adminCampaign(id))?.campaign}catch(e){}}if(!c){try{c=(await window.MordheimundaAPI.campaign(id))?.campaign}catch(e){}}const before=JSON.stringify(campaignDetailCache.get(id)||null);campaignDetailCache.set(id,c||{missing:true});campaignDetailFresh.add(id);if(JSON.stringify(c||{missing:true})!==before)campaignRerender(view)})}
+function loadCampaignDetail(id,view){campaignLoad('c:'+id,async()=>{let c=null;if(isAdminSession()){try{c=(await window.MordheimundaAPI.adminCampaign(id))?.campaign}catch(e){}}if(!c){try{c=(await window.MordheimundaAPI.campaign(id))?.campaign}catch(e){}}const prev=campaignDetailCache.get(id)||campaignDetailCached(id);if(!c&&prev&&!prev.missing){campaignDetailFresh.add(id);return}const before=JSON.stringify(prev||null);campaignDetailCache.set(id,c||{missing:true});campaignDetailFresh.add(id);if(JSON.stringify(c||{missing:true})!==before)campaignRerender(view)})}
 function loadMyCampaignEntries(view){campaignLoad('mine',async()=>{try{const r=await window.MordheimundaAPI.myCampaignEntries();myCampaignEntriesCache=Array.isArray(r?.entries)?r.entries:[]}catch(e){myCampaignEntriesCache=[]}
   // Keep each local warband's campaign link in step with the server (joins
   // made on another device, a campaign deleted meanwhile…).
@@ -11734,10 +11739,10 @@ function openCampaignPageEditor(cid,pid){
   const isOverview=pid==='overview';const pg=isOverview?null:(c.definition?.pages||[]).find(p=>(p.id||'')===pid);
   if(!isOverview&&!pg)return;
   const text=isOverview?(c.definition?.description||''):(pg.text||'');
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)}</div><h2>${isOverview?(en?'Presentation':'Présentation'):(en?'Edit page':'Modifier la page')}</h2>${isOverview?'':`<label class="custom-field"><span>${en?'Page title':'Titre de la page'}</span><input id="cpTitle" value="${esc(pg.title||'')}"></label>`}<label class="custom-field"><span>${en?'Text (same formatting as the rules: • bullets, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)':'Texte (même mise en forme que les règles : • puces, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)'}</span><p class="sheet-help">${en?'Tables used by the app are inserted with [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] or [CHART settlements]. Edit their entries with the ✎ next to each one on the page: what you change there is what the app applies.':'Les tables utilisées par l’appli s’insèrent avec [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] ou [CHART settlements]. Modifie leurs entrées avec le ✎ à côté de chacune sur la page : ce que tu changes là est ce que l’appli applique.'}</p><textarea id="cpText" rows="18" style="width:100%;font-family:ui-monospace,monospace;font-size:12.5px">${esc(text)}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignPageEditor('${esc(cid)}','${esc(pid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)}</div><h2>${isOverview?(en?'Presentation':'Présentation'):(en?'Edit page':'Modifier la page')}</h2>${isOverview?'':`<label class="custom-field"><span>${en?'Page title':'Titre de la page'}</span><input id="cpTitle" value="${esc(pg.title||'')}"></label>`}<label class="custom-field"><span>${en?'Text (same formatting as the rules: • bullets, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)':'Texte (même mise en forme que les règles : • puces, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)'}</span><p class="sheet-help">${en?'Tables used by the app are inserted with [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] or [CHART settlements]. Edit their entries with the ✎ next to each one on the page: what you change there is what the app applies.':'Les tables utilisées par l’appli s’insèrent avec [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] ou [CHART settlements]. Modifie leurs entrées avec le ✎ à côté de chacune sur la page : ce que tu changes là est ce que l’appli applique.'}</p>${ruleEditToolbarMarkup('',en?'Same tools as the rules editor. A line like 1. MAKE A WOUND ROLL becomes a numbered step title.':'Mêmes outils que l’éditeur de règles. Une ligne comme 1. MAKE A WOUND ROLL devient un titre d’étape numéroté.')}<textarea id="ruleEditTextarea" rows="18" style="width:100%;font-family:ui-monospace,monospace;font-size:12.5px">${esc(text)}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignPageEditor('${esc(cid)}','${esc(pid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 async function saveCampaignPageEditor(cid,pid){
-  const text=$('#cpText')?.value||'';const title=($('#cpTitle')?.value||'').trim();
+  const text=$('#ruleEditTextarea')?.value||'';const title=($('#cpTitle')?.value||'').trim();
   if(await saveCampaignDefinition(cid,def=>{if(pid==='overview'){def.description=text;return}def.pages=(def.pages||[]).map(p=>(p.id||'')===pid?{...p,title:title||p.title,text}:p)}))closeModal();
 }
 async function saveCampaignDefinition(id,mutate){
