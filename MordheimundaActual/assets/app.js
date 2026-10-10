@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0560.0';
+const APP_BUILD='110.0561.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10780,7 +10780,7 @@ function hubMarketMarkup(c){
   if(!m)stockPart=`<p class="muted">${en?'Loading the market…':'Chargement du marché…'}</p>`;
   else if(!m.stock)stockPart=`<p class="muted">${en?'The shared market is not stocked yet.':'Le marché partagé n’est pas encore approvisionné.'}</p>${admin?`<button type="button" class="button primary" onclick="stockCampaignMarket('${esc(c.id)}')">🏪 ${en?'Stock it':'Approvisionner'}</button>`:''}`;
   else{
-    const f=r?faction(r):null;const pool=[...D.weapons.filter(w=>!w.hidden&&w.market!==false),...allCustomEquipmentList().filter(w=>w.market)];const byKey=new Map();pool.forEach(w=>{const k=normName(w.name);if(!byKey.has(k))byKey.set(k,w)});
+    const f=r?faction(r):null;const byKey=campaignItemPool();
     const keys=Object.keys(m.stock).filter(k=>byKey.has(k));
     const rows=keys.map(k=>{const w=byKey.get(k);const rar=tradingRarity(w);const base=Number(equipmentPrice(w,f||{},'market')||0);let it={w,price:base,rarity:rar};if(r)it=campaignMarketApply(r,[it],'post')[0];return {k,w,rar,it,cat:canonEquipmentCategory(equipmentCategory(w)),stock:Number(m.stock[k]||0)}}).sort((a,b)=>a.cat.localeCompare(b.cat)||a.w.name.localeCompare(b.w.name));
     const cats=[...new Set(rows.map(x=>x.cat))];const shown=rows.filter(x=>hubMarketCat==='all'||x.cat===hubMarketCat);const q=normName(hubMarketSearch);
@@ -10934,11 +10934,17 @@ async function campaignMarketServer(kind,post,name,r){
   try{const res=kind==='take'?await api.campaignMarketTake(post.campaignId,{rosterId:r.id,key:normName(name)}):await api.campaignMarketGive(post.campaignId,{rosterId:r.id,key:normName(name)});const m=campaignMarketCache.get(post.campaignId);if(m&&res?.stock)m.stock=res.stock;return true}
   catch(e){if(kind==='take'){toast(en?`${name}: sold out in the campaign market — purchase cancelled`:`${name} : épuisé au marché de campagne — achat annulé`,4000);const t=tradingData(r);const pu=[...t.purchases].reverse().find(x=>x.src!=='band'&&normName(x.name)===normName(name));if(pu){t.purchases=t.purchases.filter(x=>x.id!==pu.id);const i=(r.reserve||[]).findIndex(e=>e.reserveId===pu.reserveId);if(i>=0)r.reserve.splice(i,1);r.gold=Number(r.gold||0)+Number(pu.price||0);save(true)}loadCampaignMarket(post.campaignId,'builder')}return false}
 }
+// V-CAMPLIST: the campaign's own equipment list = every [ITEMS] block of its
+// rule pages, matched to the catalogue (book items, custom equipment, items
+// published into official warbands). The shared market stocks only these.
+function campaignItemPool(){const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name));const pool=[...(D.weapons||[]).filter(w=>!w.hidden),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];const by=new Map();pool.forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k))by.set(k,w)});return by}
+function campaignEquipmentItems(c){const names=[];const re=/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g;[c?.definition?.description||'',...(c?.definition?.pages||[]).map(p=>p.text||'')].forEach(t=>{let m;while((m=re.exec(t))){m[1].split(/\r?\n/).map(l=>l.split('|')[0].trim()).filter(Boolean).forEach(n=>names.push(n))}});const by=campaignItemPool();const out=new Map();names.forEach(n=>{const w=by.get(normName(n));if(w&&!out.has(normName(w.name)))out.set(normName(w.name),w)});return [...out.values()]}
 async function stockCampaignMarket(cid){
-  const en=siteLanguage==='en';if(!confirm(en?'Stock the shared market now? It replaces the current stock for every warband.':'Approvisionner le marché partagé maintenant ? Cela remplace le stock actuel pour toutes les bandes.'))return;
-  const items=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'),...allCustomEquipmentList().filter(w=>w.market)];const stock={};
-  items.forEach(w=>{const k=normName(w.name);if(k in stock)return;const [lo,hi]=marketStockRange(tradingRarity(w));stock[k]=lo+Math.floor(Math.random()*(hi-lo+1))});
-  try{await window.MordheimundaAPI.adminStockCampaignMarket(cid,stock);campaignMarketCache.delete(cid);loadCampaignMarket(cid,location.pathname.startsWith('/rules/campaign')?'campaignDetail':null);toast(en?`Market stocked: ${Object.keys(stock).length} items`:`Marché approvisionné : ${Object.keys(stock).length} objets`)}catch(e){toast(en?'Could not stock the market':'Impossible d’approvisionner le marché')}
+  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid)||campaignDetailCached(cid);const listed=campaignEquipmentItems(c);
+  if(!listed.length){toast(en?'No equipment list in this campaign’s pages ([ITEMS] on 4. Equipment): nothing to stock':'Aucune liste d’équipement dans les pages de la campagne ([ITEMS] en 4. Equipment) : rien à approvisionner',5000);return}
+  if(!confirm(en?`Stock the shared market with the ${listed.length} items of the campaign list? It replaces the current stock for every warband.`:`Approvisionner le marché partagé avec les ${listed.length} objets de la liste de la campagne ? Cela remplace le stock actuel pour toutes les bandes.`))return;
+  const stock={};listed.forEach(w=>{const k=normName(w.name);const [lo,hi]=marketStockRange(tradingRarity(w));stock[k]=lo+Math.floor(Math.random()*(hi-lo+1))});
+  try{await window.MordheimundaAPI.adminStockCampaignMarket(cid,stock);campaignMarketCache.delete(cid);loadCampaignMarket(cid,location.pathname.startsWith('/rules/campaign')?'campaignDetail':location.pathname.startsWith('/campaigns/')?'campaignHub':null);toast(en?`Market stocked: ${Object.keys(stock).length} items`:`Marché approvisionné : ${Object.keys(stock).length} objets`)}catch(e){toast(en?'Could not stock the market':'Impossible d’approvisionner le marché')}
 }
 // --- auction house
 function tradeItemLabel(it){return it?eqShownName(it):''}
@@ -11295,7 +11301,7 @@ function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded
 // neither (e.g. a custom warband) falls back to what its fighter profiles
 // can access.
 function tradingBandItems(r){const f=faction(r);if(!f)return [];const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object');const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
-function tradingPostItems(r,post){const f=faction(r);const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
+function tradingPostItems(r,post){const f=faction(r);if(post?.campaignId&&post.stock){const by=campaignItemPool();return Object.keys(post.stock).map(k=>by.get(k)).filter(Boolean).map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
 // V-CAMPMARKET: a warband in a campaign with settlements buys with its
 // residence's modifiers (price dice per Common/Rare item, find modifiers that
 // move the Rarity needed). A warband that may reside nowhere buys with the
