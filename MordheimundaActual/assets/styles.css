@@ -4584,3 +4584,26 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .pc-strip{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:14px;border:1px solid var(--cc,var(--accent));border-left-width:1px;border-radius:10px;background:var(--panel)}
 .pc-strip>span{display:flex;flex-direction:column}.pc-strip .micro-label{color:var(--cc,var(--accent))}.pc-strip b{font:700 16px 'Cinzel',serif}
 @media(max-width:820px){.pk-grid,.pc-two{grid-template-columns:1fr}.pc-rules-grid{grid-template-columns:1fr}.pk-img,.pk-over{height:180px}.pk-over h2{font-size:26px}.pc-start{flex-direction:column;align-items:stretch}}
+/* V-SITELOOK: My Campaigns + Play Mode use the site's own buttons, tags,
+   corners and type — the campaign colour stays an accent line only. */
+.mc-hero,.pk-card{border-radius:10px;border-bottom-width:1px}
+.mc-hero{border-color:var(--line);border-bottom:3px solid var(--cc,var(--accent))}
+.pk-card.camp{border-color:var(--chip-border)}
+.mc-enter,.pk-card.camp .pk-btn{background:linear-gradient(180deg,var(--accent),var(--chip-border));border-color:var(--accent);color:var(--chip-bg);font:700 11px 'IBM Plex Sans';letter-spacing:.7px;text-transform:uppercase;min-height:44px;padding:0 22px}
+.pk-btn{font:700 11px 'IBM Plex Sans';letter-spacing:.7px;text-transform:uppercase;min-height:44px}
+.mc-row-btn{border-color:var(--line);color:var(--text-dim)}
+.mc-flag,.pk-flag{border-radius:4px;border-color:var(--chip-border);color:var(--accent);background:var(--chip-bg);min-height:22px;padding:0 8px;font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:1.2px}
+.mc-kicker,.pk-card.camp .pk-kicker,.pc-on,.pc-strip .micro-label{color:var(--accent)}
+.pk-kicker,.mc-kicker{font:800 8px 'IBM Plex Sans';letter-spacing:2.2px}
+.mc-hero h2,.pk-over h2{font:700 clamp(28px,3.4vw,38px)/1.05 'Cinzel';letter-spacing:.3px}
+.mc-h{font:700 15px 'Cinzel';letter-spacing:.5px}
+.mc-row-body>b,.pc-camp-body b,.pc-band b,.pc-fav b,.pc-rule b,.pc-strip b{font-family:'Cinzel';font-weight:700}
+.mc-todo b,.pc-rule span{font-family:'IBM Plex Sans';font-weight:800}
+.pk-card.camp .pk-body li:before,.mc-todo i{background:var(--accent)}
+.mc-todo b{color:var(--accent)}
+.pc-camp.on,.pc-band.on,.pc-fav.on{border-color:var(--chip-border);background:var(--chip-bg)}
+.pc-camp.on{border-width:1px;box-shadow:inset 0 0 0 1px var(--chip-border)}
+.pc-strip{border-color:var(--chip-border);background:var(--chip-bg)}
+.pc-go{font:700 11px 'IBM Plex Sans';letter-spacing:.7px;text-transform:uppercase;min-height:44px;padding:0 24px}
+.pc-rules{border-color:var(--line)}.pc-rules .hub-panel-head h2{color:var(--accent)}
+.mc-wait{background:var(--panel)}.mc-wait-head{font:800 8px 'IBM Plex Sans';letter-spacing:2px}
