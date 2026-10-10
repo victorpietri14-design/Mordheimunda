@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0575.0';
+const APP_BUILD='110.0576.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1356,7 +1356,8 @@ function referenceGroupedBodyMarkup(cat,q){
     // just stops them being the ONLY place to do it.)
     const domainEditBtn=(cat==='spells'&&isAdminEditUI())?`<button type="button" class="rule-edit-btn" title="${en?'Rename / set color (admin)':'Renommer / couleur (admin)'}" onclick="openDomainOverrideEditor('${esc(k).replace(/'/g,"\\'")}')">✎</button>`:'';
     const skillTreeEditBtn=(cat==='skills'&&isAdminEditUI())?`<button type="button" class="rule-edit-btn" title="${en?'Rename tree (admin)':'Renommer l’arbre (admin)'}" onclick="openSkillTreeOverrideEditor('${esc(k).replace(/'/g,"\\'")}')">✎</button>`:'';
-    return `${divider}<section class="ref-group" id="ref-grp-${refSlug(cat)}-${refSlug(k)}"><div class="tc-head ref-group-head"><h3>${esc(displayName(k))}</h3><span class="tc-count">${items.length}</span>${domainEditBtn}${skillTreeEditBtn}</div>${body}</section>`;
+    const ownersMarkup=(cat==='skills'||cat==='spells')&&isAdminEditUI()?refTreeOwnersMarkup(cat,k):'';
+    return `${divider}<section class="ref-group" id="ref-grp-${refSlug(cat)}-${refSlug(k)}"><div class="tc-head ref-group-head"><h3>${esc(displayName(k))}</h3><span class="tc-count">${items.length}</span>${domainEditBtn}${skillTreeEditBtn}</div>${ownersMarkup}${body}</section>`;
   }).join('');
   return `${q?`<nav class="ref-pillnav">${pills}</nav>`:treeNav}${cat==='spells'?spellGridModeToggleMarkup():''}<div class="${q?'':'ref-fold'}">${sections}</div>`;
 }
@@ -1813,6 +1814,14 @@ document.addEventListener('click',ev=>{const h=ev.target.closest?.('.ref-fold .s
 // the top parent wins over the sub-faction's own tag; a warband with no
 // parent keeps its own.
 function refFactionRace(f){const chain=[];let cur=f;const seen=new Set();while(cur&&!seen.has(cur.id)){seen.add(cur.id);chain.push(cur.id);const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(x=>x.id===pid)||{id:pid}}const raceOf=id=>{const r=raceTagMap.get(id);if(r)return r;const catId=factionCategoryMemberMap.get(id);const fc=catId?factionCategories.find(c=>String(c.id)===String(catId)):null;return fc?.race||''};for(let i=chain.length-1;i>=0;i--){const r=raceOf(chain[i]);if(r)return r}return ''}
+// V-REFTREEOWNER (admin): which warband(s) a tree / domain belongs to, with a
+// button to open that warband's Skills & magic tab in Admin — where the
+// tree can be renamed or deleted (e.g. a leftover "(copie)").
+function refTreeOwners(cat,k){const out=[];(D.factions||[]).forEach(f=>{let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}const tagged=referenceEntries(cat).some(e=>e.__catalogFactionId===f.id&&normName(e.category)===normName(k));if(tagged||list.some(t=>normName(t)===normName(k)))out.push(f)});return out}
+function refTreeOwnersMarkup(cat,k){const en=siteLanguage==='en';const owners=refTreeOwners(cat,k);const custom=(cat==='spells'?customMagicDomainList():customSkillTreeList()).some(t=>normName(t.name)===normName(k));
+  if(!owners.length&&!custom)return `<div class="ref-tree-owners"><span>${en?'No warband holds this':'Aucune bande ne le porte'}</span></div>`;
+  return `<div class="ref-tree-owners"><span>${en?'Belongs to':'Appartient à'}</span>${owners.map(f=>`<button type="button" onclick="openRefTreeOwner('${esc(f.id)}')">⚙ ${esc(f.displayName||f.name||f.id)}${f.packId?` <small>${en?'supplement':'supplément'}</small>`:''}</button>`).join('')}${custom?`<button type="button" onclick="navigateApp('/custom')">✎ ${en?'My custom content':'Mon contenu personnel'}</button>`:''}</div>`}
+async function openRefTreeOwner(fid){const f=(D.factions||[]).find(x=>x.id===fid);if(!f)return;navigateApp('/admin');if(f.__official)await openAdminWarbandRules(fid);else openAdminCatalogEdit(fid);adminWarbandSection='skillsmagic';adminEditingWarriorIdx=null;adminEditingEquipmentIdx=null;render('admin')}
 function refTreeOrder(cat){const out=[];refTreeGroups(cat).forEach(g=>g.trees.forEach(k=>{if(!out.includes(k))out.push(k)}));return out}
 function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.includes(cur)?cur:order[0]}
 function refTreeSidebarMarkup(cat){
