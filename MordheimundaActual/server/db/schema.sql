@@ -475,3 +475,14 @@ CREATE TABLE IF NOT EXISTS site_settings (
   value JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- V-RULEIMAGES: pictures inserted in rule text by an admin ([IMG id=…]). Kept
+-- out of rule_overrides so the rules text every visitor downloads at boot
+-- stays small; each picture is fetched only when a page shows it.
+CREATE TABLE IF NOT EXISTS rule_images (
+  id UUID PRIMARY KEY,
+  mime TEXT NOT NULL,
+  data BYTEA NOT NULL,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

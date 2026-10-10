@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0531.0';
+const APP_BUILD='110.0532.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3209,7 +3209,16 @@ function ruleTextMarkup(text,opts){
   // HTML — see the "Mini title" toolbar button in ruleEditFormMarkup.
   const SUBHEAD_COLORS=new Set(['accent','danger','info','wip','arcane']);
   const subheadBlocks=[];
+  // V-RULEIMAGES: [IMG id=<uuid> width=<20-100>]Caption[/IMG] — a picture
+  // uploaded from the rule editor, served by /api/rule-images/<id>.
+  const imageBlocks=[];
   let withPlaceholders=String(text||'')
+    .replace(/\[IMG\s+id=([0-9a-fA-F-]{36})(?:\s+width=(\d{1,3}))?\]([\s\S]*?)\[\/IMG\]/g,(m,id,width,cap)=>{
+      const w=Math.max(20,Math.min(100,Number(width)||100));const caption=cap.replace(/\s+/g,' ').trim();
+      const src=`${String(window.MORDHEIMUNDA_CONFIG?.apiBaseUrl||'').replace(/\/$/,'')}/api/rule-images/${id}`;
+      imageBlocks.push(`<figure class="rule-figure" style="max-width:${w}%"><a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(caption||'')}" loading="lazy"></a>${caption?`<figcaption>${esc(caption)}</figcaption>`:''}</figure>`);
+      return `\n\u0000IMAGE${imageBlocks.length-1}\u0000\n`;
+    })
     .replace(/\[SUBHEAD(?:\s+color=([a-z]+))?\]([\s\S]*?)\[\/SUBHEAD\]/g,(m,color,body)=>{
       const c=SUBHEAD_COLORS.has(color)?color:'accent';
       const label=body.replace(/\s+/g,' ').trim();
@@ -3350,6 +3359,8 @@ function ruleTextMarkup(text,opts){
     const raw=line.replace(/\s+$/,'');
     if(!raw.trim()){flushBlock();lastHeading=null;inOverviewList=false;out.push('<div class="rule-line rule-blank" aria-hidden="true"></div>');return;}
     const t=raw.trim();
+    const imageMatch=t.match(/^\u0000IMAGE(\d+)\u0000$/);
+    if(imageMatch){flushBlock();lastHeading=null;out.push(imageBlocks[Number(imageMatch[1])]);return;}
     const subheadMatch=t.match(/^\u0000SUBHEAD(\d+)\u0000$/);
     if(subheadMatch){flushBlock();lastHeading=null;out.push(subheadBlocks[Number(subheadMatch[1])]);return;}
     const calloutMatch=t.match(/^\u0000CALLOUT(\d+)\u0000$/);
@@ -3521,6 +3532,44 @@ function cancelRuleEdit(){ruleOverridesEditKey=null;rerenderOverrideHost()}
 // note callout, "• " → bullet), so admins get one-click formatting that's
 // guaranteed to render with the site's existing rule typography/colors
 // instead of guessing at the raw syntax.
+// V-RULEIMAGES: pick a picture, shrink it in the browser (max 1600 px wide),
+// upload it, then insert [IMG id=… width=100]Caption[/IMG] at the cursor.
+// "width" (20–100, % of the text column) and the caption can be edited in
+// the text afterwards.
+function pickRuleImage(){
+  const en=siteLanguage==='en';const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp,image/gif';
+  input.onchange=async()=>{
+    const file=input.files&&input.files[0];if(!file)return;
+    try{
+      toast(en?'Uploading the picture…':'Envoi de l’image…');
+      const dataUrl=await ruleImageDataUrl(file);
+      const r=await window.MordheimundaAPI.adminUploadRuleImage(dataUrl);
+      if(!r?.id)throw new Error('UPLOAD_FAILED');
+      insertRuleEditToken('image',`[IMG id=${r.id} width=100]${en?'Caption (optional)':'Légende (optionnelle)'}[/IMG]`);
+      toast(en?'Picture inserted — save the text to keep it':'Image insérée — enregistre le texte pour la garder');
+    }catch(e){toast((en?'Picture not uploaded: ':'Image non envoyée : ')+(e?.message==='IMAGE_TOO_LARGE'?(en?'too large':'trop lourde'):(e?.message||e)))}
+  };
+  input.click();
+}
+function ruleImageDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();reader.onerror=()=>reject(new Error('READ_FAILED'));
+    reader.onload=()=>{
+      const src=String(reader.result||'');
+      if(file.type==='image/gif'){resolve(src);return}
+      const img=new Image();img.onerror=()=>reject(new Error('INVALID_IMAGE'));
+      img.onload=()=>{
+        const scale=Math.min(1,1600/Math.max(1,img.naturalWidth));
+        if(scale===1&&file.size<1.2*1024*1024){resolve(src);return}
+        const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*scale);c.height=Math.round(img.naturalHeight*scale);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        resolve(file.type==='image/png'&&c.width*c.height<1200000?c.toDataURL('image/png'):c.toDataURL('image/webp',0.86));
+      };
+      img.src=src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function insertRuleEditToken(kind){
  const en=siteLanguage==='en';
  const el=document.getElementById('ruleEditTextarea');
@@ -3531,6 +3580,7 @@ function insertRuleEditToken(kind){
  if(kind==='heading')insertText=(selected||(en?'SECTION TITLE':'TITRE DE SECTION')).toUpperCase();
  else if(kind==='note')insertText=(en?'Note: ':'Note : ')+(selected||(en?'text':'texte'));
  else if(kind==='bullet')insertText='• '+(selected||(en?'text':'texte'));
+ else if(kind==='image')insertText=String(arguments[1]||'');
  else if(kind==='actioncard')insertText=`[ACTIONCARDS]\n${en?'Action Name':'Nom de l’action'}|basic|active|${en?'What this action does.':'Ce que fait cette action.'}\n[/ACTIONCARDS]`;
  else if(kind==='table')insertText=`[TABLE]\n${en?'D6|Result':'D6|Résultat'}\n`+[1,2,3,4,5,6].map(n=>`${n}|${en?'Result '+n+'…':'Résultat '+n+'…'}`).join('\n')+'\n[/TABLE]';
  else if(kind==='subhead'){
@@ -3675,6 +3725,7 @@ function ruleEditFormMarkup(sectionId,page,currentText){
   <button type="button" class="rule-edit-tool rule-edit-tool-note" onclick="insertRuleEditToken('note')" title="${en?'Insert a Note: callout':'Insérer un encart Note :'}">${en?'Note':'Note'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-bullet" onclick="insertRuleEditToken('bullet')" title="${en?'Insert a bullet point':'Insérer une puce'}">• ${en?'Bullet':'Puce'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-table" onclick="openRuleTableEditor()" title="${en?'Build a table visually (place the cursor inside an existing one to edit it)':'Construire un tableau visuellement (place le curseur dans un tableau existant pour le modifier)'}">▦ ${en?'Table':'Tableau'}</button>
+  <button type="button" class="rule-edit-tool" onclick="pickRuleImage()" title="${en?'Insert a picture at the cursor (diagram, illustration…)':'Insérer une image au curseur (schéma, illustration…)'}">🖼 ${en?'Picture':'Image'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-subhead" onclick="insertRuleEditToken('subhead')" title="${en?'Insert a small colored mini title':'Insérer un mini titre coloré'}">Aa <b style="font-size:9px">${en?'mini':'mini'}</b></button>
   <select id="ruleEditSubheadColor" class="select rule-edit-tool-color" title="${en?'Mini title color':'Couleur du mini titre'}" style="width:auto;padding:6px 8px">
    <option value="accent">${en?'Green (default)':'Vert (défaut)'}</option>
