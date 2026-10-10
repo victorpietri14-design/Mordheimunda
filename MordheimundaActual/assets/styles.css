@@ -4137,3 +4137,16 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 /* V-CATALOGRENAME */
 .admin-wb-name-label{display:block;font-size:11px;letter-spacing:1px;font-weight:700;color:var(--accent);margin:4px 0 2px;text-transform:uppercase}
 .admin-wb-name-label small{text-transform:none;letter-spacing:0;color:var(--muted2);font-weight:500}
+/* V-ARTIFACTS */
+.artifact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin:12px 0 24px}
+.artifact-card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--cc,var(--accent));border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;scroll-margin-top:80px}
+.artifact-head{display:flex;align-items:center;gap:10px}
+.artifact-head h3{margin:0;font:700 17px 'Cinzel',serif;flex:1}
+.artifact-roll{min-width:38px;padding:3px 7px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);font:700 12px 'IBM Plex Sans';text-align:center;color:var(--cc,var(--accent))}
+.artifact-base{font-size:12.5px;color:var(--muted)}
+.artifact-missing{color:var(--danger)}
+.artifact-lore{margin:0;font-size:13px;font-style:italic;color:var(--muted);line-height:1.5}
+.artifact-rules{font-size:13.5px}
+.artifact-summary td:first-child{white-space:nowrap;font-weight:700}
+.artifact-summary a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--muted2)}
+.artifact-summary a:hover{color:var(--cc,var(--accent))}
