@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0552.0';
+const APP_BUILD='110.0555.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3634,6 +3634,7 @@ function insertRuleEditToken(kind){
  const before=el.value.slice(0,start),selected=el.value.slice(start,end),after=el.value.slice(end);
  let insertText;
  if(kind==='heading')insertText=(selected||(en?'SECTION TITLE':'TITRE DE SECTION')).toUpperCase();
+ else if(kind==='numtitle'){const n=(before.match(/^\s*\d+\.\s+[A-Z0-9’'&\/ ,()-]{3,}\s*$/gm)||[]).length+1;insertText=`${n}. `+(selected||(en?'STEP TITLE':'TITRE D’ÉTAPE')).toUpperCase()}
  else if(kind==='note')insertText=(en?'Note: ':'Note : ')+(selected||(en?'text':'texte'));
  else if(kind==='bullet')insertText='• '+(selected||(en?'text':'texte'));
  else if(kind==='image')insertText=String(arguments[1]||'');
@@ -3765,19 +3766,11 @@ function renderRuleTableEditorOverlay(){
    <div class="rte-actions"><button type="button" class="button secondary" onclick="closeRuleTableEditor()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="ruleTableEditorInsert()">${ruleTableEditorSelRange?(en?'Update table':'Mettre à jour le tableau'):(en?'Insert table':'Insérer le tableau')}</button></div>
  </div>`;
 }
-function ruleEditFormMarkup(sectionId,page,currentText){
- const en=siteLanguage==='en';
- const hasOverride=ruleHasOverride(sectionId,page);
- // Only the "2.2.2 Actions" section uses the [ACTIONCARDS] syntax, so its
- // quick-insert button (and the extra format hint below) only shows up
- // there — everywhere else the toolbar stays exactly as before.
- const isActions=sectionId==='actions';
- const actionCardBtn=isActions?`<button type="button" class="rule-edit-tool rule-edit-tool-actioncard" onclick="insertRuleEditToken('actioncard')" title="${en?'Insert an action card':'Insérer une fiche action'}">▭ ${en?'Action card':'Fiche action'}</button>`:'';
- const hint=isActions
-  ?(en?'One line per action: Name|Type|Statuses|Description — Type is simple, basic or double (shown as a glyph); Statuses is a comma list from active, pinned, injured, engaged (colors the card and adds its tags).':'Une ligne par action : Nom|Type|Statuts|Description — Type vaut simple, basic ou double (affiché en pictogramme) ; Statuts est une liste séparée par des virgules parmi active, pinned, injured, engaged (colore la fiche et ajoute ses pastilles).')
-  :(en?'Formatting follows the rulebook’s own style — pick a line type, no manual styling needed.':'La mise en forme suit le style du livre de règles — choisis un type de ligne, pas besoin de mise en forme manuelle.');
- return `<div class="rule-edit-form"><div class="rule-edit-toolbar">
+// V-EDITTOOLBAR: the rules editor toolbar, shared with the campaign page editor
+// (both write into #ruleEditTextarea).
+function ruleEditToolbarMarkup(actionCardBtn,hint){const en=siteLanguage==='en';return `<div class="rule-edit-toolbar">
   <button type="button" class="rule-edit-tool rule-edit-tool-heading" onclick="insertRuleEditToken('heading')" title="${en?'Insert a section heading':'Insérer un titre de section'}">Aa <b>${en?'TITLE':'TITRE'}</b></button>
+  <button type="button" class="rule-edit-tool rule-edit-tool-numtitle" onclick="insertRuleEditToken('numtitle')" title="${en?'Insert a numbered step title (like 1. MAKE A WOUND ROLL)':'Insérer un titre d’étape numéroté (comme 1. MAKE A WOUND ROLL)'}"><b>1.</b> ${en?'TITLE':'TITRE'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-note" onclick="insertRuleEditToken('note')" title="${en?'Insert a Note: callout':'Insérer un encart Note :'}">${en?'Note':'Note'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-bullet" onclick="insertRuleEditToken('bullet')" title="${en?'Insert a bullet point':'Insérer une puce'}">• ${en?'Bullet':'Puce'}</button>
   <button type="button" class="rule-edit-tool rule-edit-tool-table" onclick="openRuleTableEditor()" title="${en?'Build a table visually (place the cursor inside an existing one to edit it)':'Construire un tableau visuellement (place le curseur dans un tableau existant pour le modifier)'}">▦ ${en?'Table':'Tableau'}</button>
@@ -3800,7 +3793,19 @@ function ruleEditFormMarkup(sectionId,page,currentText){
   </select>
   ${actionCardBtn}
   <span class="rule-edit-toolbar-hint">${hint}</span>
- </div><textarea id="ruleEditTextarea" class="wide-textarea rule-edit-textarea" rows="12">${esc(currentText)}</textarea><div class="custom-actions rule-edit-actions"><button type="button" class="button secondary" onclick="cancelRuleEdit()">${en?'Cancel':'Annuler'}</button>${hasOverride?`<button type="button" class="button secondary" onclick="restoreRuleOriginal('${esc(sectionId)}',${page})">↺ ${en?'Restore original text':'Restaurer le texte d’origine'}</button>`:''}<button type="button" class="button primary" onclick="saveRuleEdit('${esc(sectionId)}',${page})">${en?'Save':'Enregistrer'}</button></div></div>`
+ </div>`}
+function ruleEditFormMarkup(sectionId,page,currentText){
+ const en=siteLanguage==='en';
+ const hasOverride=ruleHasOverride(sectionId,page);
+ // Only the "2.2.2 Actions" section uses the [ACTIONCARDS] syntax, so its
+ // quick-insert button (and the extra format hint below) only shows up
+ // there — everywhere else the toolbar stays exactly as before.
+ const isActions=sectionId==='actions';
+ const actionCardBtn=isActions?`<button type="button" class="rule-edit-tool rule-edit-tool-actioncard" onclick="insertRuleEditToken('actioncard')" title="${en?'Insert an action card':'Insérer une fiche action'}">▭ ${en?'Action card':'Fiche action'}</button>`:'';
+ const hint=isActions
+  ?(en?'One line per action: Name|Type|Statuses|Description — Type is simple, basic or double (shown as a glyph); Statuses is a comma list from active, pinned, injured, engaged (colors the card and adds its tags).':'Une ligne par action : Nom|Type|Statuts|Description — Type vaut simple, basic ou double (affiché en pictogramme) ; Statuts est une liste séparée par des virgules parmi active, pinned, injured, engaged (colore la fiche et ajoute ses pastilles).')
+  :(en?'Formatting follows the rulebook’s own style — pick a line type, no manual styling needed.':'La mise en forme suit le style du livre de règles — choisis un type de ligne, pas besoin de mise en forme manuelle.');
+ return `<div class="rule-edit-form">${ruleEditToolbarMarkup(actionCardBtn,hint)}<textarea id="ruleEditTextarea" class="wide-textarea rule-edit-textarea" rows="12">${esc(currentText)}</textarea><div class="custom-actions rule-edit-actions"><button type="button" class="button secondary" onclick="cancelRuleEdit()">${en?'Cancel':'Annuler'}</button>${hasOverride?`<button type="button" class="button secondary" onclick="restoreRuleOriginal('${esc(sectionId)}',${page})">↺ ${en?'Restore original text':'Restaurer le texte d’origine'}</button>`:''}<button type="button" class="button primary" onclick="saveRuleEdit('${esc(sectionId)}',${page})">${en?'Save':'Enregistrer'}</button></div></div>`
 }
 async function saveRuleEdit(sectionId,page){
  const en=siteLanguage==='en';
@@ -11385,23 +11390,34 @@ let campaignsCache=null,adminCampaignsCache=null,campaignDetailCache=new Map(),m
 function campaignColor(c){return /^#[0-9a-f]{6}$/i.test(String(c?.color||c||''))?String(c.color||c):'#ff8a3d'}
 async function campaignLoad(key,fn){if(campaignLoadsInFlight.has(key))return;campaignLoadsInFlight.add(key);try{await fn()}catch(e){console.warn('campaign load',key,e)}finally{campaignLoadsInFlight.delete(key)}}
 function campaignRerender(view){const v=parseAppRoute().view;if(v===view||(view==='builder'&&(v==='builder')))renderCurrentRoute()}
-function loadCampaignList(view){campaignLoad('list',async()=>{const r=await window.MordheimundaAPI.campaigns();campaignsCache=Array.isArray(r?.campaigns)?r.campaigns:[];if(isAdminSession()){try{const a=await window.MordheimundaAPI.adminCampaigns();adminCampaignsCache=Array.isArray(a?.campaigns)?a.campaigns:[]}catch(e){}}campaignRerender(view)})}
-function loadCampaignDetail(id,view){campaignLoad('c:'+id,async()=>{let c=null;if(isAdminSession()){try{c=(await window.MordheimundaAPI.adminCampaign(id))?.campaign}catch(e){}}if(!c){try{c=(await window.MordheimundaAPI.campaign(id))?.campaign}catch(e){}}campaignDetailCache.set(id,c||{missing:true});campaignRerender(view)})}
+// V-CAMPCACHE: the campaign list and opened campaigns are kept in the
+// browser so Rules: Campaign shows at once; each visit refreshes them quietly
+// in the background (stale-while-revalidate). Admin calls run in parallel.
+const CAMP_LS='mordheimunda_campaigns_v1',CAMP_LS_DETAIL='mordheimunda_campaign_';
+let campaignListStale=true;const campaignDetailFresh=new Set();
+try{const o=JSON.parse(localStorage.getItem(CAMP_LS)||'null');if(o&&Array.isArray(o.list)){campaignsCache=o.list;adminCampaignsCache=Array.isArray(o.admin)?o.admin:null}}catch(e){}
+function saveCampaignListLocal(){try{localStorage.setItem(CAMP_LS,JSON.stringify({list:campaignsCache,admin:adminCampaignsCache,at:Date.now()}))}catch(e){}}
+{const mapSet=campaignDetailCache.set.bind(campaignDetailCache),mapDel=campaignDetailCache.delete.bind(campaignDetailCache);
+ campaignDetailCache.set=(k,v)=>{mapSet(k,v);try{if(v&&!v.missing&&(v.status==='published'||isAdminSession()))localStorage.setItem(CAMP_LS_DETAIL+k,JSON.stringify(v));else localStorage.removeItem(CAMP_LS_DETAIL+k)}catch(e){}return campaignDetailCache};
+ campaignDetailCache.delete=k=>{campaignDetailFresh.delete(k);return mapDel(k)}}
+function campaignDetailCached(id){if(campaignDetailCache.has(id))return campaignDetailCache.get(id);try{const v=JSON.parse(localStorage.getItem(CAMP_LS_DETAIL+id)||'null');if(v&&(v.status==='published'||isAdminSession())){Map.prototype.set.call(campaignDetailCache,id,v);return v}}catch(e){}return null}
+function loadCampaignList(view){campaignLoad('list',async()=>{const api=window.MordheimundaAPI;const admin=isAdminSession();const [r,a]=await Promise.all([api.campaigns(),admin?api.adminCampaigns().catch(()=>null):Promise.resolve(null)]);const before=JSON.stringify([campaignsCache,adminCampaignsCache]);campaignsCache=Array.isArray(r?.campaigns)?r.campaigns:[];if(a)adminCampaignsCache=Array.isArray(a?.campaigns)?a.campaigns:[];if(!admin)adminCampaignsCache=null;campaignListStale=false;saveCampaignListLocal();if(JSON.stringify([campaignsCache,adminCampaignsCache])!==before)campaignRerender(view)})}
+function loadCampaignDetail(id,view){campaignLoad('c:'+id,async()=>{let c=null;if(isAdminSession()){try{c=(await window.MordheimundaAPI.adminCampaign(id))?.campaign}catch(e){}}if(!c){try{c=(await window.MordheimundaAPI.campaign(id))?.campaign}catch(e){}}const prev=campaignDetailCache.get(id)||campaignDetailCached(id);if(!c&&prev&&!prev.missing){campaignDetailFresh.add(id);return}const before=JSON.stringify(prev||null);campaignDetailCache.set(id,c||{missing:true});campaignDetailFresh.add(id);if(JSON.stringify(c||{missing:true})!==before)campaignRerender(view)})}
 function loadMyCampaignEntries(view){campaignLoad('mine',async()=>{try{const r=await window.MordheimundaAPI.myCampaignEntries();myCampaignEntriesCache=Array.isArray(r?.entries)?r.entries:[]}catch(e){myCampaignEntriesCache=[]}
   // Keep each local warband's campaign link in step with the server (joins
   // made on another device, a campaign deleted meanwhile…).
   let changed=false;(state.rosters||[]).forEach(r=>{const e=myCampaignEntriesCache.find(x=>x.rosterId===r.id&&!x.leftAt);const want=e?e.campaignId:null;if((r.campaignId||null)!==want){r.campaignId=want;r.campaignName=e?.campaignName||null;r.campaignColor=e?.campaignColor||null;changed=true}});
   if(changed)save(true);campaignRerender(view)})}
-function campaignListAll(){const pub=campaignsCache||[];const adm=adminCampaignsCache||[];const ids=new Set(pub.map(c=>c.id));return [...pub,...adm.filter(c=>!ids.has(c.id))]}
+function campaignListAll(){const pub=campaignsCache||[];const adm=isAdminEditUI()?(adminCampaignsCache||[]):[];const ids=new Set(pub.map(c=>c.id));return [...pub,...adm.filter(c=>!ids.has(c.id))]}
 function campaignCardMarkup(c){const en=siteLanguage==='en';const col=campaignColor(c);return `<a class="campaign-card" href="/rules/campaign/${encodeURIComponent(c.id)}" onclick="event.preventDefault();navigateApp('/rules/campaign/${encodeURIComponent(c.id)}')" style="--cc:${col}"><div class="campaign-card-top"><b>${esc(c.name)}</b>${c.status!=='published'?`<span class="campaign-tag draft">${en?'DRAFT':'BROUILLON'}</span>`:`<span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span>`}</div><small>${c.memberCount!=null?`${c.memberCount} ${en?'warband'+(c.memberCount!==1?'s':''):'bande'+(c.memberCount!==1?'s':'')}`:''}</small><p>${esc(String(c.definition?.description||'').split('\n')[0].slice(0,160))}</p></a>`}
 function rulesCampaign(){
-  const en=siteLanguage==='en';if(campaignsCache===null)loadCampaignList('rulesCampaign');
-  const list=campaignListAll();const admin=isAdminSession();
+  const en=siteLanguage==='en';if(campaignsCache===null||campaignListStale)loadCampaignList('rulesCampaign');
+  const list=campaignListAll();const admin=isAdminEditUI();
   $('#content').innerHTML=`<div class="ref-page"><div class="rules-head"><h1 class="rules-page-title">${en?'Rules: Campaign':'Règles : Campagne'}</h1><p>${en?'Every campaign, with its optional rules and what changes for the warbands that join it.':'Toutes les campagnes, avec leurs règles optionnelles et ce qui change pour les bandes qui les rejoignent.'}</p></div>
    ${admin?`<div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button></div>`:''}
    ${campaignsCache===null?`<div class="empty">${en?'Loading…':'Chargement…'}</div>`:list.length?`<div class="campaign-grid">${list.map(campaignCardMarkup).join('')}</div>`:`<div class="empty large"><strong>${en?'No campaign yet.':'Aucune campagne pour l’instant.'}</strong></div>`}</div>`;
 }
-function campaignSections(c){const en=siteLanguage==='en';const d=c?.definition||{};const pages=(Array.isArray(d.pages)?d.pages:[]).map((p,i)=>({p,i})).sort((a,b)=>cmpCampaignPages(a.p,b.p));const arts=Array.isArray(d.artifacts)?d.artifacts:[];const st=d.settlements||[];const admin=isAdminSession();
+function campaignSections(c){const en=siteLanguage==='en';const d=c?.definition||{};const pages=(Array.isArray(d.pages)?d.pages:[]).map((p,i)=>({p,i})).sort((a,b)=>cmpCampaignPages(a.p,b.p));const arts=Array.isArray(d.artifacts)?d.artifacts:[];const st=d.settlements||[];const admin=isAdminEditUI();
   const out=[{id:'overview',label:en?'Presentation':'Présentation'}];let artsDone=false,stDone=false;
   const artsSec={id:'artifacts',label:`5. ${en?'Artifacts':'Artefacts'}`+(arts.length?` · ${arts.length}`:'')};const stInPage=pages.some(({p})=>/\[CHART\s+settlements\]/i.test(p.text||''));if(stInPage)stDone=true;const stSec={id:'settlements',label:`↳ ${en?'Settlement sheets':'Fiches des colonies'}`+(st.length?` · ${st.length}`:''),sub:true};
   pages.forEach(({p,i})=>{const o=campaignPageOrder(p.title);if(!artsDone&&(arts.length||admin)&&o[0]>5&&o[0]!==999){out.push(artsSec);artsDone=true}out.push({id:'rule-'+(p.id||i),label:p.title||(en?'Untitled':'Sans titre'),page:p,sub:o.length>1});if(!stDone&&(st.length||admin)&&/^1\.2\b/.test(String(p.title||'').trim())){out.push(stSec);stDone=true}});
@@ -11409,12 +11425,14 @@ function campaignSections(c){const en=siteLanguage==='en';const d=c?.definition|
   if(admin)out.push({id:'mechanics',label:en?'⚙ Setup (admin)':'⚙ Configuration (admin)'});
   return out}
 const campaignNavOpen=new Map();
+let campaignNavCollapsed=(()=>{try{return localStorage.getItem('mordheimunda_campnav_collapsed')==='1'}catch(e){return false}})();
+function toggleCampaignNav(){campaignNavCollapsed=!campaignNavCollapsed;try{localStorage.setItem('mordheimunda_campnav_collapsed',campaignNavCollapsed?'1':'0')}catch(e){}render('campaignDetail')}
 function toggleCampaignNavGroup(key,wasOpen){campaignNavOpen.set(key,!wasOpen);render('campaignDetail')}
 function campaignDetail(){
-  const en=siteLanguage==='en';const id=currentCampaignId;const c=campaignDetailCache.get(id);
+  const en=siteLanguage==='en';const id=currentCampaignId;const c=campaignDetailCached(id);if(c&&!campaignDetailFresh.has(id))loadCampaignDetail(id,'campaignDetail');
   if(!c){loadCampaignDetail(id,'campaignDetail');$('#content').innerHTML=`<div class="empty large">${en?'Loading…':'Chargement…'}</div>`;return}
   if(c.missing){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Campaign not found.':'Campagne introuvable.'}</strong><span><a href="#" onclick="navigateApp('/rules/campaign');return false;">${en?'← Back to Rules: Campaign':'← Retour à Règles : Campagne'}</a></span></div>`;return}
-  const col=campaignColor(c);const secs=campaignSections(c);const cur=secs.find(x=>x.id===currentCampaignPage)||secs[0];const admin=isAdminSession();
+  const col=campaignColor(c);const secs=campaignSections(c);const cur=secs.find(x=>x.id===currentCampaignPage)||secs[0];const admin=isAdminEditUI();
   const members=(c.members||[]).filter(m=>!m.leftAt);
   const body=cur.id==='mechanics'?campaignMechanicsMarkup(c,admin):cur.id==='settlements'?campaignSettlementsMarkup(c,admin):cur.id==='artifacts'?campaignArtifactsMarkup(c,admin):cur.id==='overview'?`<div class="campaign-overview">${admin?`<button type="button" class="button primary setup-cta" onclick="currentCampaignPage='mechanics';render('campaignDetail')">⚙ ${en?'Campaign setup — turn features on':'Configuration de la campagne — activer les fonctions'} · ${campaignMechanicsList(c).filter(m=>m.on).length}/${campaignMechanicsList(c).length}</button>`:''}${admin?`<div class="campaign-page-edit"><button type="button" class="button secondary small" onclick="openCampaignPageEditor('${esc(c.id)}','overview')">✎ ${en?'Edit the presentation':'Modifier la présentation'}</button></div>`:''}${c.definition?.description?`<div class="rules-article-body campaign-text">${ruleTextMarkup(c.definition.description,{noTitle:true})}</div>`:`<p class="muted">${en?'No presentation yet.':'Pas encore de présentation.'}</p>`}
      <h3 class="campaign-h3">${en?'Warbands in this campaign':'Bandes dans cette campagne'} <small>${members.length}</small></h3>
@@ -11437,7 +11455,7 @@ function campaignDetail(){
    <div class="rules-head"><h1 class="rules-page-title">${esc(c.name)}</h1><p class="camp-head-line"><span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span>${c.status!=='published'?`<span class="campaign-tag draft">${en?'DRAFT — only admins see it':'BROUILLON — visible des admins seulement'}</span>`:''}<span>${members.length} ${en?'warband'+(members.length!==1?'s':''):'bande'+(members.length!==1?'s':'')}</span>${admin&&c.joinCode?`<span class="campaign-code">${en?'Join code':'Code'} <b>${esc(c.joinCode)}</b> <button type="button" class="equipment-action" title="${en?'New code':'Nouveau code'}" onclick="newCampaignCode('${esc(c.id)}')">↻</button></span>`:''}</p>
     <div class="camp-head-actions">${c.status==='published'?`<button type="button" class="button primary" onclick="openJoinCampaign('${esc(c.id)}')">⚑ ${en?'Enter a warband':'Inscrire une bande'}</button>`:''}${admin?`<button type="button" class="button secondary" onclick="openCampaignEditor('${esc(c.id)}')">✎ ${en?'Edit':'Modifier'}</button><button type="button" class="button secondary" onclick="setCampaignStatus('${esc(c.id)}','${c.status==='published'?'draft':'published'}')">${c.status==='published'?(en?'Unpublish':'Dépublier'):(en?'Publish':'Publier')}</button>`:''}</div></div>
    ${mobileNav}
-   <div class="rules-shell campaign-shell"><nav class="rules-nav camp-nav">${navItems}</nav>
+   <div class="rules-shell campaign-shell">${campaignNavCollapsed?`<nav class="rules-nav camp-nav collapsed"><button type="button" class="camp-nav-toggle" title="${en?'Show the menu':'Afficher le menu'}" aria-label="${en?'Show the menu':'Afficher le menu'}" onclick="toggleCampaignNav()">»</button><span class="camp-nav-vlabel">${en?'MENU':'MENU'}</span></nav>`:`<nav class="rules-nav camp-nav"><button type="button" class="camp-nav-toggle" title="${en?'Hide the menu':'Masquer le menu'}" aria-label="${en?'Hide the menu':'Masquer le menu'}" onclick="toggleCampaignNav()">« <span>${en?'Hide':'Masquer'}</span></button>${navItems}</nav>`}
     <div class="rules-main"><div class="rules-crumb"><a href="/rules/campaign" data-app-route="1" onclick="event.preventDefault();navigateApp('/rules/campaign')">${en?'Rules: Campaign':'Règles : Campagne'}</a><span class="sep">›</span><a href="#" onclick="${go('overview')}">${esc(c.name)}</a>${cur.id!=='overview'?`<span class="sep">›</span><span class="cur">${esc(curT.name)}</span>`:''}</div>
      <div class="title-row"><h1 class="rules-title">${curT.num?`<span class="rt-num">${esc(curT.num)}</span>`:''}<span class="rt-name">${esc(curT.name)}</span></h1>${editBtn}</div>
      ${pageBody}</div></div></div>`;
@@ -11723,16 +11741,16 @@ function openCampaignPageEditor(cid,pid){
   const isOverview=pid==='overview';const pg=isOverview?null:(c.definition?.pages||[]).find(p=>(p.id||'')===pid);
   if(!isOverview&&!pg)return;
   const text=isOverview?(c.definition?.description||''):(pg.text||'');
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)}</div><h2>${isOverview?(en?'Presentation':'Présentation'):(en?'Edit page':'Modifier la page')}</h2>${isOverview?'':`<label class="custom-field"><span>${en?'Page title':'Titre de la page'}</span><input id="cpTitle" value="${esc(pg.title||'')}"></label>`}<label class="custom-field"><span>${en?'Text (same formatting as the rules: • bullets, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)':'Texte (même mise en forme que les règles : • puces, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)'}</span><p class="sheet-help">${en?'Tables used by the app are inserted with [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] or [CHART settlements]. Edit their entries with the ✎ next to each one on the page: what you change there is what the app applies.':'Les tables utilisées par l’appli s’insèrent avec [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] ou [CHART settlements]. Modifie leurs entrées avec le ✎ à côté de chacune sur la page : ce que tu changes là est ce que l’appli applique.'}</p><textarea id="cpText" rows="18" style="width:100%;font-family:ui-monospace,monospace;font-size:12.5px">${esc(text)}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignPageEditor('${esc(cid)}','${esc(pid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)}</div><h2>${isOverview?(en?'Presentation':'Présentation'):(en?'Edit page':'Modifier la page')}</h2>${isOverview?'':`<label class="custom-field"><span>${en?'Page title':'Titre de la page'}</span><input id="cpTitle" value="${esc(pg.title||'')}"></label>`}<label class="custom-field"><span>${en?'Text (same formatting as the rules: • bullets, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)':'Texte (même mise en forme que les règles : • puces, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)'}</span><p class="sheet-help">${en?'Tables used by the app are inserted with [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] or [CHART settlements]. Edit their entries with the ✎ next to each one on the page: what you change there is what the app applies.':'Les tables utilisées par l’appli s’insèrent avec [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] ou [CHART settlements]. Modifie leurs entrées avec le ✎ à côté de chacune sur la page : ce que tu changes là est ce que l’appli applique.'}</p>${ruleEditToolbarMarkup('',en?'Same tools as the rules editor. A line like 1. MAKE A WOUND ROLL becomes a numbered step title.':'Mêmes outils que l’éditeur de règles. Une ligne comme 1. MAKE A WOUND ROLL devient un titre d’étape numéroté.')}<textarea id="ruleEditTextarea" rows="18" style="width:100%;font-family:ui-monospace,monospace;font-size:12.5px">${esc(text)}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignPageEditor('${esc(cid)}','${esc(pid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 async function saveCampaignPageEditor(cid,pid){
-  const text=$('#cpText')?.value||'';const title=($('#cpTitle')?.value||'').trim();
+  const text=$('#ruleEditTextarea')?.value||'';const title=($('#cpTitle')?.value||'').trim();
   if(await saveCampaignDefinition(cid,def=>{if(pid==='overview'){def.description=text;return}def.pages=(def.pages||[]).map(p=>(p.id||'')===pid?{...p,title:title||p.title,text}:p)}))closeModal();
 }
 async function saveCampaignDefinition(id,mutate){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(id);if(!c||c.missing)return false;
   const def=JSON.parse(JSON.stringify(c.definition||{}));mutate(def);
-  try{const res=await window.MordheimundaAPI.adminUpdateCampaign(id,{name:c.name,color:c.color,definition:def});campaignDetailCache.set(id,{...c,...(res?.campaign||{}),definition:res?.campaign?.definition||def,members:c.members});campaignsCache=null;render('campaignDetail');return true}
+  try{const res=await window.MordheimundaAPI.adminUpdateCampaign(id,{name:c.name,color:c.color,definition:def});campaignDetailCache.set(id,{...c,...(res?.campaign||{}),definition:res?.campaign?.definition||def,members:c.members});campaignsCache=null;campaignListStale=true;render('campaignDetail');return true}
   catch(e){toast(authError(e,en));return false}
 }
 function campaignArtifactBaseNames(){
@@ -11876,11 +11894,11 @@ async function confirmJoinCampaign(){
     const res=joinCampaignTarget?await window.MordheimundaAPI.joinCampaign(joinCampaignTarget,payload):await window.MordheimundaAPI.joinCampaignByCode({...payload,code:($('#joinCampaignCode')?.value||'').trim().toUpperCase()});
     const c=res?.campaign;r.campaignId=c?.id||joinCampaignTarget;r.campaignName=c?.name||null;r.campaignColor=c?.color||null;
     logHistory(r,'settings',en?`Joined the campaign <b>${esc(r.campaignName||'')}</b>`:`A rejoint la campagne <b>${esc(r.campaignName||'')}</b>`);save(true);closeModal();
-    campaignDetailCache.delete(r.campaignId);myCampaignEntriesCache=null;campaignsCache=null;pushCampaignEntryStats(r,true);renderCurrentRoute();toast(en?`⚑ ${r.name} joined ${r.campaignName||'the campaign'}`:`⚑ ${r.name} a rejoint ${r.campaignName||'la campagne'}`);
+    campaignDetailCache.delete(r.campaignId);myCampaignEntriesCache=null;campaignsCache=null;campaignListStale=true;pushCampaignEntryStats(r,true);renderCurrentRoute();toast(en?`⚑ ${r.name} joined ${r.campaignName||'the campaign'}`:`⚑ ${r.name} a rejoint ${r.campaignName||'la campagne'}`);
   }catch(e){const code=String(e?.message||e);toast(/ALREADY_IN_A_CAMPAIGN/.test(code)?(en?'This warband is already in another campaign':'Cette bande est déjà dans une autre campagne'):/CODE_NOT_FOUND/.test(code)?(en?'Unknown code':'Code inconnu'):authError(e,en))}
 }
 function openLeaveCampaign(rosterId){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>x.id===rosterId);if(!r?.campaignId)return;openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'CAMPAIGN':'CAMPAGNE'}</div><h2>${en?`Withdraw ${esc(r.name)}?`:`Retirer ${esc(r.name)} ?`}</h2><p>${en?'The warband leaves the campaign and keeps everything it won, campaign items included.':'La bande quitte la campagne et garde tout ce qu’elle a gagné, objets de campagne compris.'}</p><button type="button" class="big-delete" onclick="confirmLeaveCampaign('${esc(r.id)}')">${en?'WITHDRAW':'RETIRER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
-async function confirmLeaveCampaign(rosterId){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>x.id===rosterId);if(!r?.campaignId)return;try{await window.MordheimundaAPI.leaveCampaign(r.campaignId,r.id)}catch(e){toast(authError(e,en));return}const name=r.campaignName;campaignDetailCache.delete(r.campaignId);logHistory(r,'settings',en?`Left the campaign <b>${esc(name||'')}</b>`:`A quitté la campagne <b>${esc(name||'')}</b>`);r.campaignId=null;r.campaignName=null;r.campaignColor=null;save(true);closeModal();myCampaignEntriesCache=null;campaignsCache=null;renderCurrentRoute();toast(en?'Warband withdrawn':'Bande retirée')}
+async function confirmLeaveCampaign(rosterId){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>x.id===rosterId);if(!r?.campaignId)return;try{await window.MordheimundaAPI.leaveCampaign(r.campaignId,r.id)}catch(e){toast(authError(e,en));return}const name=r.campaignName;campaignDetailCache.delete(r.campaignId);logHistory(r,'settings',en?`Left the campaign <b>${esc(name||'')}</b>`:`A quitté la campagne <b>${esc(name||'')}</b>`);r.campaignId=null;r.campaignName=null;r.campaignColor=null;save(true);closeModal();myCampaignEntriesCache=null;campaignsCache=null;campaignListStale=true;renderCurrentRoute();toast(en?'Warband withdrawn':'Bande retirée')}
 // V-STANDINGS: the campaign ranks warbands by one resource the admin picks
 // (definition.standings), read from each member's public stats.
 const CAMPAIGN_STANDING_KEYS=['rating','reputation','gold','treasure','artifacts'];
@@ -11907,11 +11925,11 @@ function campaignView(r){
 }
 // Warband Manager → My Campaigns.
 function myCampaigns(){
-  const en=siteLanguage==='en';if(myCampaignEntriesCache===null)loadMyCampaignEntries('myCampaigns');if(campaignsCache===null)loadCampaignList('myCampaigns');
+  const en=siteLanguage==='en';if(myCampaignEntriesCache===null)loadMyCampaignEntries('myCampaigns');if(campaignsCache===null||campaignListStale)loadCampaignList('myCampaigns');
   const entries=(myCampaignEntriesCache||[]).filter(e=>!e.leftAt);const byCamp=new Map();entries.forEach(e=>{if(!byCamp.has(e.campaignId))byCamp.set(e.campaignId,{id:e.campaignId,name:e.campaignName,color:e.campaignColor,entries:[]});byCamp.get(e.campaignId).entries.push(e)});
   const others=(campaignsCache||[]).filter(c=>!byCamp.has(c.id));
   $('#content').innerHTML=`<div class="ref-page"><div class="rules-head"><h1 class="rules-page-title">${en?'My Campaigns':'Mes campagnes'}</h1><p>${en?'Your warbands entered in campaigns. Join a campaign from its page, or with a code a friend gives you.':'Tes bandes inscrites en campagne. Rejoins une campagne depuis sa page, ou avec un code donné par un ami.'}</p>
-   <div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button secondary" onclick="openJoinCampaign(null)">${en?'Join with a code':'Rejoindre avec un code'}</button>${isAdminSession()?`<button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button>`:''}</div></div>
+   <div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button secondary" onclick="openJoinCampaign(null)">${en?'Join with a code':'Rejoindre avec un code'}</button>${isAdminEditUI()?`<button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button>`:''}</div></div>
    ${myCampaignEntriesCache===null?`<div class="empty">${en?'Loading…':'Chargement…'}</div>`:byCamp.size?`<div class="campaign-grid">${[...byCamp.values()].map(c=>`<div class="campaign-card" style="--cc:${campaignColor(c)}"><div class="campaign-card-top"><b>${esc(c.name||'')}</b><span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span></div>${c.entries.map(e=>{const r=(state.rosters||[]).find(x=>x.id===e.rosterId);return `<div class="campaign-entry"><span>⚔ ${esc(r?.name||e.rosterName||'')}</span>${r?`<button type="button" class="button secondary tiny" onclick="navigateApp('/warbands/${encodeURIComponent(r.id)}');setGangTab('campaign')">${en?'Open':'Ouvrir'}</button>`:''}</div>`}).join('')}<div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button secondary" onclick="navigateApp('/rules/campaign/${encodeURIComponent(c.id)}')">${en?'Campaign rules':'Règles de la campagne'}</button></div></div>`).join('')}</div>`:`<div class="empty large"><strong>${en?'None of your warbands is in a campaign yet.':'Aucune de tes bandes n’est encore en campagne.'}</strong></div>`}
    ${others.length?`<h3 class="campaign-h3">${en?'Open campaigns':'Campagnes ouvertes'}</h3><div class="campaign-grid">${others.map(campaignCardMarkup).join('')}</div>`:''}</div>`;
 }
@@ -11940,11 +11958,11 @@ async function saveCampaignEditor(){
   const name=($('#ceName')?.value||'').trim();if(!name){toast(en?'Give the campaign a name':'Donne un nom à la campagne');return}
   const definition={...(d.definition||{}),description:$('#ceDesc')?.value||'',pages:d.pages.filter(p=>(p.title||'').trim()||(p.text||'').trim()).map(p=>({id:p.id||crypto.randomUUID().slice(0,8),title:(p.title||'').trim(),text:p.text||''}))};
   const payload={name,color:$('#ceColor')?.value||'#ff8a3d',definition};
-  try{const res=d.id?await window.MordheimundaAPI.adminUpdateCampaign(d.id,payload):await window.MordheimundaAPI.adminCreateCampaign(payload);const c=res?.campaign;closeModal();campaignsCache=null;adminCampaignsCache=null;if(c){campaignDetailCache.delete(c.id);navigateApp('/rules/campaign/'+encodeURIComponent(c.id))}toast(en?'Campaign saved':'Campagne enregistrée')}catch(e){toast(authError(e,en))}
+  try{const res=d.id?await window.MordheimundaAPI.adminUpdateCampaign(d.id,payload):await window.MordheimundaAPI.adminCreateCampaign(payload);const c=res?.campaign;closeModal();campaignsCache=null;campaignListStale=true;adminCampaignsCache=null;if(c){campaignDetailCache.delete(c.id);navigateApp('/rules/campaign/'+encodeURIComponent(c.id))}toast(en?'Campaign saved':'Campagne enregistrée')}catch(e){toast(authError(e,en))}
 }
-async function setCampaignStatus(id,status){const en=siteLanguage==='en';try{await window.MordheimundaAPI.adminSetCampaignStatus(id,status);campaignDetailCache.delete(id);campaignsCache=null;renderCurrentRoute();toast(status==='published'?(en?'Campaign published':'Campagne publiée'):(en?'Campaign back to draft':'Campagne repassée en brouillon'))}catch(e){toast(authError(e,en))}}
+async function setCampaignStatus(id,status){const en=siteLanguage==='en';try{await window.MordheimundaAPI.adminSetCampaignStatus(id,status);campaignDetailCache.delete(id);campaignsCache=null;campaignListStale=true;renderCurrentRoute();toast(status==='published'?(en?'Campaign published':'Campagne publiée'):(en?'Campaign back to draft':'Campagne repassée en brouillon'))}catch(e){toast(authError(e,en))}}
 async function newCampaignCode(id){const en=siteLanguage==='en';if(!confirm(en?'Make a new join code? The old one stops working.':'Créer un nouveau code ? L’ancien ne marchera plus.'))return;try{await window.MordheimundaAPI.adminNewCampaignCode(id);campaignDetailCache.delete(id);renderCurrentRoute()}catch(e){toast(authError(e,en))}}
-async function deleteCampaign(id){const en=siteLanguage==='en';if(!confirm(en?'Delete this draft campaign for good?':'Supprimer définitivement cette campagne brouillon ?'))return;try{await window.MordheimundaAPI.adminDeleteCampaign(id);closeModal();campaignDetailCache.delete(id);campaignsCache=null;adminCampaignsCache=null;navigateApp('/rules/campaign');toast(en?'Campaign deleted':'Campagne supprimée')}catch(e){toast(authError(e,en))}}
+async function deleteCampaign(id){const en=siteLanguage==='en';if(!confirm(en?'Delete this draft campaign for good?':'Supprimer définitivement cette campagne brouillon ?'))return;try{await window.MordheimundaAPI.adminDeleteCampaign(id);closeModal();campaignDetailCache.delete(id);campaignsCache=null;campaignListStale=true;adminCampaignsCache=null;navigateApp('/rules/campaign');toast(en?'Campaign deleted':'Campagne supprimée')}catch(e){toast(authError(e,en))}}
 /* ================= HIRED SWORDS (V-HIREDSWORDS) ============================
    Built in Custom → 🗡 Hired Swords (customFighterForm in HS mode), hired
    from Recruitment → Hired Swords by the warbands it's assigned to
