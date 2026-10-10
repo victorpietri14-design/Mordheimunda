@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0533.0';
+const APP_BUILD='110.0534.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3216,7 +3216,7 @@ function ruleTextMarkup(text,opts){
     .replace(/\[IMG\s+id=([0-9a-fA-F-]{36})(?:\s+width=(\d{1,3}))?\]([\s\S]*?)\[\/IMG\]/g,(m,id,width,cap)=>{
       const w=Math.max(20,Math.min(100,Number(width)||100));const caption=cap.replace(/\s+/g,' ').trim();
       const src=`${String(window.MORDHEIMUNDA_CONFIG?.apiBaseUrl||'').replace(/\/$/,'')}/api/rule-images/${id}`;
-      imageBlocks.push(`<figure class="rule-figure" style="max-width:${w}%"><a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(caption||'')}" loading="lazy"></a>${caption?`<figcaption>${esc(caption)}</figcaption>`:''}</figure>`);
+      imageBlocks.push(`<figure class="rule-figure" style="max-width:${w}%;--rw:${w}"><a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(caption||'')}" loading="lazy"></a>${caption?`<figcaption>${esc(caption)}</figcaption>`:''}</figure>`);
       return `\n\u0000IMAGE${imageBlocks.length-1}\u0000\n`;
     })
     .replace(/\[SUBHEAD(?:\s+color=([a-z]+))?\]([\s\S]*?)\[\/SUBHEAD\]/g,(m,color,body)=>{

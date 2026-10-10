@@ -4125,4 +4125,6 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 @media print{.rule-figure{break-inside:avoid}}
 /* V-RULEIMAGESMOBILE: on a phone a picture always takes the full text width
    (a width=60 picture became tiny in the narrow column). */
-@media (max-width:760px){.rule-figure{max-width:100%!important;width:100%;margin:12px 0}.rule-figure img{border-radius:6px}}
+/* V-RULEIMAGESMOBILE2: on a phone the width scales with the desktop setting
+   (×2.5, capped at 100 %): width=30 → 75 %, width=40 or more → full width. */
+@media (max-width:760px){.rule-figure{max-width:min(100%,calc(var(--rw,100) * 2.5%))!important;width:100%;margin:12px auto}.rule-figure img{border-radius:6px}}
