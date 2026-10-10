@@ -4150,3 +4150,7 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .artifact-summary td:first-child{white-space:nowrap;font-weight:700}
 .artifact-summary a{color:var(--text);text-decoration:none;border-bottom:1px dotted var(--muted2)}
 .artifact-summary a:hover{color:var(--cc,var(--accent))}
+/* V-CAMPAIGNPAGEEDIT / V-SCENARIOLINK */
+.campaign-page-edit{display:flex;justify-content:flex-end;margin-bottom:10px}
+.campaign-page-editor{width:min(860px,100%)}
+.rule-scenario-link{color:var(--cc,var(--accent));text-decoration:none;border-bottom:1px dotted currentColor;font-weight:600}

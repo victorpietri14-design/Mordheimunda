@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0542.0';
+const APP_BUILD='110.0543.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3063,10 +3063,14 @@ function ruleItemsListMarkup(rows){
 }
 function ruleTableMarkup(rows){
   if(!rows.length)return '';
+  // V-SCENARIOLINK: a body cell that is exactly a published scenario's name
+  // ("Skirmish") — or several separated by "/" — links to that scenario.
+  const scen=n=>(typeof SCENARIOS_CACHE!=='undefined'?SCENARIOS_CACHE:[]).find(x=>normName(x?.name)===normName(n));
+  const linked=val=>{const parts=val.split('/').map(t=>t.trim());if(!parts.some(scen))return esc(val);return parts.map(t=>{const sc=scen(t);return sc?`<a href="/rules/scenarios/${encodeURIComponent(sc.id)}" data-app-route="1" class="rule-scenario-link">${esc(t)}</a>`:esc(t)}).join(' / ')};
   const cell=(c,tag)=>{
     const hi=c.startsWith('*');
     const val=hi?c.slice(1):c;
-    return `<${tag}${hi?' class="rule-table-hi"':''}>${esc(val)}</${tag}>`;
+    return `<${tag}${hi?' class="rule-table-hi"':''}>${tag==='td'?linked(val):esc(val)}</${tag}>`;
   };
   const [header,...body]=rows;
   const thead=`<tr>${header.map(h=>cell(h,'th')).join('')}</tr>`;
@@ -11027,10 +11031,10 @@ function campaignDetail(){
   if(c.missing){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Campaign not found.':'Campagne introuvable.'}</strong><span><a href="#" onclick="navigateApp('/rules/campaign');return false;">${en?'← Back to Rules: Campaign':'← Retour à Règles : Campagne'}</a></span></div>`;return}
   const col=campaignColor(c);const secs=campaignSections(c);const cur=secs.find(x=>x.id===currentCampaignPage)||secs[0];const admin=isAdminSession();
   const members=(c.members||[]).filter(m=>!m.leftAt);
-  const body=cur.id==='artifacts'?campaignArtifactsMarkup(c,admin):cur.id==='overview'?`<div class="campaign-overview">${c.definition?.description?`<div class="rules-article-body campaign-text">${ruleTextMarkup(c.definition.description,{noTitle:true})}</div>`:`<p class="muted">${en?'No presentation yet.':'Pas encore de présentation.'}</p>`}
+  const body=cur.id==='artifacts'?campaignArtifactsMarkup(c,admin):cur.id==='overview'?`<div class="campaign-overview">${admin?`<div class="campaign-page-edit"><button type="button" class="button secondary small" onclick="openCampaignPageEditor('${esc(c.id)}','overview')">✎ ${en?'Edit the presentation':'Modifier la présentation'}</button></div>`:''}${c.definition?.description?`<div class="rules-article-body campaign-text">${ruleTextMarkup(c.definition.description,{noTitle:true})}</div>`:`<p class="muted">${en?'No presentation yet.':'Pas encore de présentation.'}</p>`}
      <h3 class="campaign-h3">${en?'Warbands in this campaign':'Bandes dans cette campagne'} <small>${members.length}</small></h3>
      ${members.length?`<div class="campaign-members">${members.map(m=>`<div class="campaign-member"><b>${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small>${m.stats?.rating!=null?`<span>${Number(m.stats.rating)} GC</span>`:''}</div>`).join('')}</div>`:`<p class="muted">${en?'No warband has joined yet.':'Aucune bande n’a encore rejoint.'}</p>`}</div>`
-    :`<div class="rules-article-body campaign-text"><h2 class="campaign-page-title">${esc(cur.page.title||'')}</h2>${ruleTextMarkup(cur.page.text||'',{noTitle:true})}</div>`;
+    :`<div class="rules-article-body campaign-text"><h2 class="campaign-page-title">${esc(cur.page.title||'')}${admin?` <button type="button" class="rule-edit-btn" title="${en?'Edit this page':'Modifier cette page'}" onclick="openCampaignPageEditor('${esc(c.id)}','${esc(cur.page.id||'')}')">✎</button>`:''}</h2>${ruleTextMarkup(cur.page.text||'',{noTitle:true})}</div>`;
   $('#content').innerHTML=`<div class="ref-page campaign-page" style="--cc:${col}"><div class="rules-head"><p><a href="#" onclick="navigateApp('/rules/campaign');return false;">${en?'← Rules: Campaign':'← Règles : Campagne'}</a></p><h1 class="rules-page-title">${esc(c.name)}</h1><div class="campaign-head-row"><span class="campaign-tag">${en?'CAMPAIGN':'CAMPAGNE'}</span>${c.status!=='published'?`<span class="campaign-tag draft">${en?'DRAFT — only admins see it':'BROUILLON — visible des admins seulement'}</span>`:''}<span class="muted">${members.length} ${en?'warband'+(members.length!==1?'s':''):'bande'+(members.length!==1?'s':'')}</span></div>
    <div class="custom-actions" style="justify-content:flex-start">${c.status==='published'?`<button type="button" class="button primary campaign-btn" onclick="openJoinCampaign('${esc(c.id)}')">⚑ ${en?'Enter a warband':'Inscrire une bande'}</button>`:''}${admin?`<button type="button" class="button secondary" onclick="openCampaignEditor('${esc(c.id)}')">✎ ${en?'Edit':'Modifier'}</button><button type="button" class="button secondary" onclick="setCampaignStatus('${esc(c.id)}','${c.status==='published'?'draft':'published'}')">${c.status==='published'?(en?'Unpublish':'Dépublier'):(en?'Publish':'Publier')}</button>${c.joinCode?`<span class="campaign-code">${en?'Join code':'Code'} : <b>${esc(c.joinCode)}</b> <button type="button" class="equipment-action" title="${en?'New code':'Nouveau code'}" onclick="newCampaignCode('${esc(c.id)}')">↻</button></span>`:''}`:''}</div></div>
    <div class="campaign-layout"><nav class="campaign-nav">${secs.map(sx=>`<a href="#" class="campaign-nav-item${sx.sub?' sub':''}${sx.id===cur.id?' active':''}" onclick="event.preventDefault();currentCampaignPage='${esc(sx.id)}';render('campaignDetail')">${esc(sx.label)}</a>`).join('')}<div class="campaign-nav-soon">${en?'Coming next: income · scenarios · markets & locations · events':'À venir : income · scénarios · marchés & lieux · événements'}</div></nav><main class="campaign-main">${body}</main></div></div>`;
@@ -11100,6 +11104,18 @@ function campaignArtifactsMarkup(c,admin){
     return `<h3 class="campaign-h3">${title} <small>${rows.length}</small></h3>${summary}<div class="artifact-grid">${cards}</div>`;
   };
   return `<div class="rules-article-body campaign-text"><h2 class="campaign-page-title">${en?'Artifacts':'Artefacts'}</h2>${bar}${intro?ruleTextMarkup(intro,{noTitle:true}):''}${section('minor',en?'Minor artifacts':'Artefacts mineurs')}${section('major',en?'Major artifacts':'Artefacts majeurs')}</div>`;
+}
+// V-CAMPAIGNPAGEEDIT: edit the presentation or one rule page in place.
+function openCampaignPageEditor(cid,pid){
+  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
+  const isOverview=pid==='overview';const pg=isOverview?null:(c.definition?.pages||[]).find(p=>(p.id||'')===pid);
+  if(!isOverview&&!pg)return;
+  const text=isOverview?(c.definition?.description||''):(pg.text||'');
+  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)}</div><h2>${isOverview?(en?'Presentation':'Présentation'):(en?'Edit page':'Modifier la page')}</h2>${isOverview?'':`<label class="custom-field"><span>${en?'Page title':'Titre de la page'}</span><input id="cpTitle" value="${esc(pg.title||'')}"></label>`}<label class="custom-field"><span>${en?'Text (same formatting as the rules: • bullets, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)':'Texte (même mise en forme que les règles : • puces, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)'}</span><textarea id="cpText" rows="18" style="width:100%;font-family:ui-monospace,monospace;font-size:12.5px">${esc(text)}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignPageEditor('${esc(cid)}','${esc(pid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+}
+async function saveCampaignPageEditor(cid,pid){
+  const text=$('#cpText')?.value||'';const title=($('#cpTitle')?.value||'').trim();
+  if(await saveCampaignDefinition(cid,def=>{if(pid==='overview'){def.description=text;return}def.pages=(def.pages||[]).map(p=>(p.id||'')===pid?{...p,title:title||p.title,text}:p)}))closeModal();
 }
 async function saveCampaignDefinition(id,mutate){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(id);if(!c||c.missing)return false;
