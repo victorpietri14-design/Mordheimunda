@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0573.0';
+const APP_BUILD='110.0574.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1769,7 +1769,8 @@ function referenceSidebarMarkup(){
     const count=c==='equipment'?referenceEquipmentPool().length:referenceEntries(c).length;
     const active=referenceCategory===c;
     const label=REFERENCE_NAV_LABELS_EN[c]||c;
-    return `<button type="button" class="ref-sidebar-item${active?' active':''}" title="${esc(label)} (${count})" onclick="setReferenceCategory('${c}')"><span class="rsi-icon">${rulePeekIcon(c)}</span><span class="rsi-label">${esc(label)}</span><span class="rsi-count">${count}</span></button>${active&&!collapsed&&(c==='skills'||c==='spells')?refTreeSidebarMarkup(c):''}`;
+    const treeCat=c==='skills'||c==='spells';const treesOpen=refCatTreesOpen[c]!==false;
+    return `<button type="button" class="ref-sidebar-item${active?' active':''}" title="${esc(label)} (${count})" onclick="${active&&treeCat?`toggleRefCatTrees('${c}')`:`setReferenceCategory('${c}')`}" ${active&&treeCat?`aria-expanded="${treesOpen}"`:''}><span class="rsi-icon">${rulePeekIcon(c)}</span><span class="rsi-label">${esc(label)}</span><span class="rsi-count">${count}</span>${active&&treeCat&&!collapsed?`<span class="rsi-fold">${treesOpen?'▾':'▸'}</span>`:''}</button>${active&&!collapsed&&treeCat&&treesOpen?refTreeSidebarMarkup(c):''}`;
   }).join('');
   const toggleLabel=collapsed?(en?'Expand categories':'Agrandir les catégories'):(en?'Collapse categories':'Réduire les catégories');
   return `<aside class="ref-sidebar${collapsed?' collapsed':''}" id="refSidebar"><div class="ref-sidebar-head"><span class="ref-sidebar-label">${en?'Categories':'Catégories'}</span><button type="button" class="ref-sidebar-toggle" onclick="toggleReferenceSidebar()" aria-label="${esc(toggleLabel)}" title="${esc(toggleLabel)}">${collapsed?'›':'‹'}</button></div><div class="ref-sidebar-items">${items}</div></aside>`;
@@ -1783,7 +1784,7 @@ let refRaceOpen=(()=>{try{return JSON.parse(restoreUiState('refRaceOpen','{}'))|
 function setRefTreeState(cat,k){refTreeState[cat]=k;persistUiState('refTree',JSON.stringify(refTreeState))}
 function pickRefTree(cat,k){setRefTreeState(cat,k);const g=refTreeGroups(cat).find(x=>x.trees.includes(k));if(g){refRaceOpen[cat+':'+g.id]=true;persistUiState('refRaceOpen',JSON.stringify(refRaceOpen))}render('references');const b=document.getElementById('referenceBody');if(b&&b.getBoundingClientRect().top<0)b.scrollIntoView({block:'start'})}
 function toggleRefRace(cat,id){const k=cat+':'+id;refRaceOpen[k]=!refRaceOpenState(cat,id);persistUiState('refRaceOpen',JSON.stringify(refRaceOpen));render('references')}
-function refRaceOpenState(cat,id){const k=cat+':'+id;if(k in refRaceOpen)return !!refRaceOpen[k];const cur=refTreeCurrent(cat,refTreeOrder(cat));return !!refTreeGroups(cat).find(g=>g.id===id)?.trees.includes(cur)}
+function refRaceOpenState(cat,id){const k=cat+':'+id;if(k in refRaceOpen)return !!refRaceOpen[k];if(id==='base')return true;const cur=refTreeCurrent(cat,refTreeOrder(cat));return !!refTreeGroups(cat).find(g=>g.id===id)?.trees.includes(cur)}
 function refTreeGroups(cat){
   const en=siteLanguage==='en';const all=[...new Set(referenceEntries(cat).map(e=>e.category).filter(Boolean))];
   const byRace=new Map(RACE_CATEGORIES.map(r=>[r,new Set()]));
@@ -1798,10 +1799,12 @@ function refTreeGroups(cat){
 }
 // Phone: the tree picker under the title, and folded cards (tap a name).
 let refPickerOpen=false;
+let refCatTreesOpen=(()=>{try{return JSON.parse(restoreUiState('refCatTrees','{}'))||{}}catch(e){return {}}})();
+function toggleRefCatTrees(c){refCatTreesOpen[c]=refCatTreesOpen[c]===false;persistUiState('refCatTrees',JSON.stringify(refCatTreesOpen));render('references')}
 function toggleRefPicker(){refPickerOpen=!refPickerOpen;render('references')}
 function refPhonePickerMarkup(cat,groups,cur){const lbl=k=>cat==='spells'?domainDisplayName(k):skillTreeDisplayName(k);
-  return `<div class="ref-phone-picker">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>groups.has(k));if(!ks.length)return '';const open=g.id==='base'||refRaceOpenState(cat,g.id);const col=RACE_COLORS[g.id];
-    return `<div class="rpp-group"><button type="button" class="rpp-head" ${g.id==='base'?'':`onclick="toggleRefRace('${cat}','${esc(g.id)}')"`}>${col?`<i style="color:${col}">${raceIcon(g.id)}</i>`:''}<span>${esc(g.label)}</span><small>${ks.length}${g.id==='base'?'':` ${open?'▾':'▸'}`}</small></button>${open?`<div class="rpp-tiles">${ks.map(k=>`<button type="button" class="${k===cur?'on':''}" onclick="refPickerOpen=false;pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')">${esc(lbl(k))} <small>${groups.get(k).length}</small></button>`).join('')}</div>`:''}</div>`}).join('')}</div>`}
+  return `<div class="ref-phone-picker">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>groups.has(k));if(!ks.length)return '';const open=refRaceOpenState(cat,g.id);const col=RACE_COLORS[g.id];
+    return `<div class="rpp-group"><button type="button" class="rpp-head" onclick="toggleRefRace('${cat}','${esc(g.id)}')">${col?`<i style="color:${col}">${raceIcon(g.id)}</i>`:''}<span>${esc(g.label)}</span><small>${ks.length} ${open?'▾':'▸'}</small></button>${open?`<div class="rpp-tiles">${ks.map(k=>`<button type="button" class="${k===cur?'on':''}" onclick="refPickerOpen=false;pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')">${esc(lbl(k))} <small>${groups.get(k).length}</small></button>`).join('')}</div>`:''}</div>`}).join('')}</div>`}
 function refOpenAll(){const cards=[...document.querySelectorAll('.ref-fold .spell-card')];const all=cards.every(c=>c.classList.contains('open'));cards.forEach(c=>c.classList.toggle('open',!all))}
 document.addEventListener('click',ev=>{const h=ev.target.closest?.('.ref-fold .spell-card .sc-head');if(!h||!window.matchMedia('(max-width:900px)').matches)return;h.closest('.spell-card').classList.toggle('open')});
 // A sub-faction (Supplement) goes where its parent warband goes: the race of
@@ -1813,8 +1816,8 @@ function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.incl
 function refTreeSidebarMarkup(cat){
   const en=siteLanguage==='en';const counts=new Map();referenceFilteredList(cat,'',referenceSourceFilter).forEach(e=>counts.set(e.category,(counts.get(e.category)||0)+1));
   const order=refTreeOrder(cat).filter(k=>counts.has(k));const cur=refTreeCurrent(cat,order);const lbl=k=>cat==='spells'?domainDisplayName(k):skillTreeDisplayName(k);
-  return `<div class="ref-tree-menu">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>counts.has(k));if(!ks.length)return '';const open=g.id==='base'||refRaceOpenState(cat,g.id);const icon=g.id==='base'||g.id==='other'?'':`<i style="color:${RACE_COLORS[g.id]||'var(--muted3)'}">${raceIcon(g.id)}</i>`;
-    return `<div class="ref-tree-group${open?' open':''}"><button type="button" class="ref-tree-group-head" onclick="${g.id==='base'?'':`toggleRefRace('${cat}','${esc(g.id)}')`}" aria-expanded="${open}">${icon}<span>${esc(g.label)}</span><small>${ks.length}</small>${g.id==='base'?'':`<b>${open?'▾':'▸'}</b>`}</button>${open?ks.map(k=>`<button type="button" class="ref-tree-item${k===cur?' on':''}" onclick="pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')"><span>${esc(lbl(k))}</span><small>${counts.get(k)}</small></button>`).join(''):''}</div>`}).join('')}</div>`;
+  return `<div class="ref-tree-menu">${refTreeGroups(cat).map(g=>{const ks=g.trees.filter(k=>counts.has(k));if(!ks.length)return '';const open=refRaceOpenState(cat,g.id);const icon=g.id==='base'||g.id==='other'?'':`<i style="color:${RACE_COLORS[g.id]||'var(--muted3)'}">${raceIcon(g.id)}</i>`;
+    return `<div class="ref-tree-group${open?' open':''}"><button type="button" class="ref-tree-group-head" onclick="toggleRefRace('${cat}','${esc(g.id)}')" aria-expanded="${open}">${icon}<span>${esc(g.label)}</span><small>${ks.length}</small><b>${open?'▾':'▸'}</b></button>${open?ks.map(k=>`<button type="button" class="ref-tree-item${k===cur?' on':''}" onclick="pickRefTree('${cat}','${esc(k).replace(/'/g,"\\'")}')"><span>${esc(lbl(k))}</span><small>${counts.get(k)}</small></button>`).join(''):''}</div>`}).join('')}</div>`;
 }
 function setReferenceCategory(c){referenceCategory=c;persistUiState('refCat',c);referenceSearch='';render('references')}
 let referenceSearchDebounce=null;
