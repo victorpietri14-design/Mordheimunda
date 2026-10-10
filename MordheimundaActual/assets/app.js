@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0538.0';
+const APP_BUILD='110.0539.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3038,6 +3038,26 @@ function repairOrphanedBulletList(lines){
 // cell prefixed with "*" gets the highlighted dice/roll styling (stripped
 // before display) — lets the same generic renderer handle a 2-column
 // "roll → result" chart and a wider stat table without extra syntax.
+function ruleItemsListMarkup(rows){
+  const en=siteLanguage==='en';
+  const pool=[...(D.weapons||[]),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[])];
+  const groups=new Map(),missing=[];
+  rows.forEach(r=>{
+    const w=pool.find(x=>normName(x?.name)===normName(r.name));
+    if(!w){missing.push(r);return}
+    const cat=canonEquipmentCategory(equipmentCategory(w));
+    if(!groups.has(cat))groups.set(cat,[]);
+    groups.get(cat).push({w,note:r.note});
+  });
+  const order=EQUIPMENT_SECTIONS.map(s=>s.cat);
+  const cats=[...groups.keys()].sort((a,b)=>(order.indexOf(a)<0?99:order.indexOf(a))-(order.indexOf(b)<0?99:order.indexOf(b)));
+  const head=`<thead><tr><th>${en?'Item':'Objet'}</th><th>${en?'Cost':'Coût'}</th><th>${en?'Availability':'Rareté'}</th><th>${en?'Notes':'Notes'}</th></tr></thead>`;
+  const row=(name,cost,avail,note)=>`<tr><td>${name}</td><td>${cost}</td><td>${avail}</td><td>${esc(note||'')}</td></tr>`;
+  const label=cat=>{const s=EQUIPMENT_SECTIONS.find(x=>x.cat===cat);return en?(s?.label||cat):cat};
+  let out=cats.map(cat=>`<div class="rule-subhead rule-subhead-accent">${esc(label(cat).toUpperCase())}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${groups.get(cat).map(({w,note})=>row(refLink('equipment',w.name,w.name),w.price==null||w.price===''?'—':`${esc(String(w.price))} gc`,esc(w.availability||w.rarity||'—'),note)).join('')}</tbody></table></div>`).join('');
+  if(missing.length)out+=`<div class="rule-subhead rule-subhead-danger">${en?'NOT ON THE SITE YET':'PAS ENCORE SUR LE SITE'}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${missing.map(r=>row(esc(r.name),'—','—',r.note)).join('')}</tbody></table></div>`;
+  return out;
+}
 function ruleTableMarkup(rows){
   if(!rows.length)return '';
   const cell=(c,tag)=>{
@@ -3245,6 +3265,15 @@ function ruleTextMarkup(text,opts){
     .replace(/\[TABLE\]\s*\n([\s\S]*?)\n\s*\[\/TABLE\]/g,(m,body)=>{
       const rows=body.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>l.split('|').map(c=>c.trim()));
       tables.push(ruleTableMarkup(rows));
+      return `\u0000TABLE${tables.length-1}\u0000`;
+    })
+    // V-ITEMSLIST: [ITEMS] one item name per line (optional "| note") [/ITEMS]
+    // — a live equipment list: each name is matched to the site's catalogue
+    // and shown with its CURRENT price and availability, grouped by the
+    // site's own equipment categories.
+    .replace(/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g,(m,body)=>{
+      const rows=body.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.indexOf('|');return i<0?{name:l,note:''}:{name:l.slice(0,i).trim(),note:l.slice(i+1).trim()}});
+      tables.push(ruleItemsListMarkup(rows));
       return `\u0000TABLE${tables.length-1}\u0000`;
     });
   // The source text preserves the printed book's own line breaks (each
