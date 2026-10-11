@@ -359,6 +359,9 @@ CREATE TABLE IF NOT EXISTS magic_domain_overrides (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- V-DOMAINGROUP: optional Reference menu category for a domain (e.g. "Grand Magic").
+ALTER TABLE magic_domain_overrides ADD COLUMN IF NOT EXISTS group_name TEXT;
+
 -- Admin-attached weapon profile for a BOOK spell/prayer (V-SPELLWEAPON-BOOK,
 -- made shared in Task #84). It used to live only in the admin's own account
 -- data (state.spellWeaponProfiles) — saved there via the ordinary account
