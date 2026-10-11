@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0588.0';
+const APP_BUILD='110.0593.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2940,7 +2940,7 @@ function loadoutControlsMarkup(x){
 function loadoutEquipmentMarkup(x){
   const en=siteLanguage==='en';
   ensureFighterLoadouts(x);const stash=x.equipmentStash||[],l=activeLoadout(x);
-  if(loadoutView==='chest')return `<div class="loadout-view"><div class="loadout-view-head"><div><strong>${en?'Main stash':'Coffre principal'}</strong><small>${en?'All owned equipment. The stash ignores weapon and armour limits and applies no equipment to the profile.':'Tout l’équipement possédé. Le coffre ignore les limites d’armes et d’armures et n’applique aucun équipement au profil.'}</small></div><span>${stash.length} ${en?'item':'objet'}${stash.length!==1?'s':''}</span></div>${stash.length?`<div class="loadout-chest-list">${stash.map((e,i)=>{const v=liveEquipmentView(e);return `<div class="loadout-chest-row"><div>${eqNameLink(v)}<small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div><span>${Number(e.value??e.price??0)} GC</span><div class="equipped-actions"><button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveStashEquipmentToReserve(${i})">▣</button><button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" onclick="sellEquipment(${i})">💰</button><button type="button" class="equipment-action remove" title="${en?'Remove from stash':'Supprimer du coffre'}" onclick="removeEquipment(${i})">🗑</button></div></div>`}).join('')}</div>`:`<div class="empty compact">${en?'Empty stash.':'Coffre vide.'}</div>`}</div>`;
+  if(loadoutView==='chest')return `<div class="loadout-view"><div class="loadout-view-head"><div><strong>${en?'Main stash':'Coffre principal'}</strong><small>${en?'All owned equipment. The stash ignores weapon and armour limits and applies no equipment to the profile.':'Tout l’équipement possédé. Le coffre ignore les limites d’armes et d’armures et n’applique aucun équipement au profil.'}</small></div><span>${stash.length} ${en?'item':'objet'}${stash.length!==1?'s':''}</span></div>${stash.length?`<div class="loadout-chest-list">${stash.map((e,i)=>{const v=liveEquipmentView(e);return `<div class="loadout-chest-row"><div>${eqNameLink(v)}<small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div><span>${Number(e.value??e.price??0)} GC</span><div class="equipped-actions">${itemUseButtonMarkup(e,i)}<button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveStashEquipmentToReserve(${i})">▣</button><button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" onclick="sellEquipment(${i})">💰</button><button type="button" class="equipment-action remove" title="${en?'Remove from stash':'Supprimer du coffre'}" onclick="removeEquipment(${i})">🗑</button></div></div>`}).join('')}</div>`:`<div class="empty compact">${en?'Empty stash.':'Coffre vide.'}</div>`}</div>`;
   return `<div class="loadout-view"><div class="loadout-view-head"><div><strong>${esc(l?.name||'Loadout')}</strong><small>${en?'Check the stash items used by this loadout. Weapon, armour and combination restrictions still apply here.':'Coche les objets du coffre utilisés par ce loadout. Les restrictions d’armes, d’armures et de combinaison restent appliquées ici.'}</small></div><span>${x.equipmentSelected?.length||0} ${en?'selected':'sélectionné'}${(x.equipmentSelected?.length||0)!==1?'s':''}</span></div>${stash.length?`<div class="loadout-select-list">${stash.map((e,i)=>{const checked=loadoutHasItem(x,e),reason=loadoutDisabledReason(x,e),v=liveEquipmentView(e);return `<label class="loadout-check-row ${reason&&!checked?'is-disabled':''}" title="${reason?esc(reason):''}"><input type="checkbox" ${checked?'checked':''} ${reason&&!checked?'disabled':''} onchange="toggleLoadoutItem(${i})"><span><b>${eqNameLink(v)}</b><small>${esc(v.category||(en?'Equipment':'Équipement'))}${v.profile?` · ${esc(v.profile.range||'')} · S ${esc(v.profile.strength||'')} · AP ${esc(v.profile.ap||'—')} · D ${esc(v.profile.damage||'—')}`:''}${reason&&!checked?` · <em>${esc(reason)}</em>`:''}</small></span></label>`}).join('')}</div>`:`<div class="empty compact">${en?'The stash is empty. Add equipment first.':'Le coffre est vide. Ajoute d’abord de l’équipement.'}</div>`}</div>`;
 }
 /* Base cost is normally snapshotted onto the fighter at recruitment (see
@@ -6059,6 +6059,7 @@ function saveAdminWarrior(idx){
     equipmentAccessExact:true,
     noEquipment:!!$('#awNoEquip')?.checked,
     noMisericordia:!!$('#awNoMiseri')?.checked,
+    updatedAt:Date.now(),
     skillAccess:(()=>{const o={};document.querySelectorAll('.awSkillAccess').forEach(s=>{if(s.value)o[s.dataset.set]=s.value});return o})(),
     magicAccess:(()=>{const o={};document.querySelectorAll('.awMagicAccess').forEach(s=>{if(s.value)o[s.dataset.domain]=s.value});return o})(),
     // Book fighters commonly carry this as the STRING "ALL" (see
@@ -6183,8 +6184,11 @@ function saveAdminEquipment(idx){
     price:Number($('#aePrice')?.value||0),
     rulesText:($('#aeRulesText')?.value||''),
     profile:isWeapon?{range:($('#aeRange')?.value||''),strength:($('#aeStrength')?.value||''),ap:($('#aeAp')?.value||''),damage:($('#aeDamage')?.value||''),traits:($('#aeTraits')?.value||'')}:null,
-    traits:isWeapon?($('#aeTraits')?.value||'').split(',').map(s=>s.trim()).filter(Boolean):[]
+    traits:isWeapon?($('#aeTraits')?.value||'').split(',').map(s=>s.trim()).filter(Boolean):[],
+    ...readItemUseFields('aeUse'),
+    type:isWeapon?'weapon':'equipment'
   };
+  if(!isWeapon)e.profile2=null;
   if(!e.customEquipmentId)e.customEquipmentId='book-'+normName(name);
   // V-NOEQUIPUNRESTRICTED: same universal default as the mergeOfficialWarbandPackage
   // heal — every custom item is unrestricted:true in the normal creation
@@ -6215,6 +6219,7 @@ function adminEquipmentFormMarkup(e,idx){
     <label class="custom-field"><span>${en?'Price (GC)':'Prix (GC)'}</span><input id="aePrice" type="number" min="0" step="1" value="${Number(e?.price??e?.value??0)}"></label>
     <label class="custom-field wide"><span>${en?'Rules text':'Règles de l’équipement'}</span>${customTextToolbarMarkup('aeRulesText')}<textarea id="aeRulesText" class="wide-textarea" rows="3">${esc(e?.rulesText||'')}</textarea></label>
   </div>
+  ${itemUseFieldsMarkup(e,'aeUse')}
   <div id="awWeaponFields">${weapon?`<div class="custom-weapon-grid"><label class="custom-field"><span>${en?'Range':'Portée'}</span><input id="aeRange" value="${esc(p.range||'')}"></label><label class="custom-field"><span>${en?'Strength':'Force'}</span><input id="aeStrength" value="${esc(p.strength||'')}"></label><label class="custom-field"><span>AP</span><input id="aeAp" value="${esc(p.ap||'')}"></label><label class="custom-field"><span>${en?'Damage':'Dégâts'}</span><input id="aeDamage" value="${esc(p.damage||'')}"></label><label class="custom-field wide"><span>${en?'Traits (comma-separated)':'Traits (séparés par des virgules)'}</span><input id="aeTraits" value="${esc((e?.traits||[]).join(', '))}"></label></div>`:''}</div>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminCancelEquipment()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveAdminEquipment(${idx})">${en?'Apply':'Appliquer'}</button></div>`;
 }
@@ -7059,7 +7064,11 @@ function warriorToCustomFighterDraft(w,customWarbandId){
 }
 function equipmentToCustomDraft(e){
   const isWeapon=!!e.profile;
+  // V-WEAPONTYPE: keep every field of the published item (second profile,
+  // Market List, on-use rule…) — only the scoping fields are reset below.
+  const full=JSON.parse(JSON.stringify(e||{}));['officialWarbandId','officialWarbandIds','bookFactionIds','exclusiveWarbandId','archived'].forEach(k=>delete full[k]);
   return {
+    ...full,
     customEquipmentId:crypto.randomUUID(),
     name:e.name,
     type:isWeapon?'weapon':'equipment',
@@ -7072,6 +7081,7 @@ function equipmentToCustomDraft(e){
     traits:Array.isArray(e.traits)?e.traits.slice():[],
     rulesText:e.rulesText||'',
     profile:isWeapon?{range:e.profile.range||'',strength:e.profile.strength||'',ap:e.profile.ap||'',damage:e.profile.damage||'',traits:e.profile.traits||''}:null,
+    profile2:isWeapon&&e.profile2?{range:e.profile2.range||'',strength:e.profile2.strength||'',ap:e.profile2.ap||'',damage:e.profile2.damage||'',traits:e.profile2.traits||''}:null,
     weaponSlotCost:e.weaponSlotCost,
     customArmor:!!e.customArmor
   };
@@ -12428,14 +12438,24 @@ function hiredSwordRatingShare(x){return isHiredSword(x)&&!x.hsLeft&&!fighterSta
 function postBattleWarriorCount(r){return (r?.fighters||[]).filter(x=>!(isHiredSword(x)&&x.hsLeft)).length}
 // Every Hired Sword profile: this account's Custom ones first, then the
 // published ones (any official warband or the shared pool).
+// V-HSTWIN: a published Hired Sword lives twice — the author's personal
+// Custom copy and the published copy (edited from Admin). The personal copy
+// used to always win, so a domain/tree given on the published copy never
+// showed. Now the most recently edited copy wins; for older copies with no
+// edit time, the published copy's skill/magic access is merged in.
+function hiredSwordPublishedTwin(w){const id=w?.customFighterId||w?.id;let hit=null;(D.factions||[]).forEach(f=>{if(hit||!f.__official)return;hit=(f.warriors||[]).find(o=>isHiredSword(o)&&!o.archived&&((id&&(o.customFighterId===id||o.id===id))||normName(o.name)===normName(w?.name)))||null});return hit}
+function hiredSwordMergeTwin(w){const o=hiredSwordPublishedTwin(w);if(!o||o===w)return w;const tw=Number(w.updatedAt||0),to=Number(o.updatedAt||0);
+  if(to>tw)return {...o,customFighterId:w.customFighterId||o.customFighterId||o.id};
+  if(tw>to)return w;
+  return {...w,skillAccess:{...(o.skillAccess||{}),...(w.skillAccess||{})},magicAccess:{...(o.magicAccess&&!Array.isArray(o.magicAccess)?o.magicAccess:{}),...(w.magicAccess&&!Array.isArray(w.magicAccess)?w.magicAccess:{})}}}
 function hiredSwordRawList(){
   const out=[],ids=new Set(),names=new Set();
   const add=w=>{if(!w||!isHiredSword(w)||w.archived)return;const id=w.customFighterId||w.id;if(id&&ids.has(id))return;if(names.has(normName(w.name)))return;if(id)ids.add(id);names.add(normName(w.name));out.push(w)};
-  customFighterList().forEach(add);
+  customFighterList().filter(w=>isHiredSword(w)&&!w.archived).map(hiredSwordMergeTwin).forEach(add);
   (D.factions||[]).forEach(f=>{if(f.__official)(f.warriors||[]).forEach(add)});
   return out;
 }
-function hiredSwordRawById(id){if(!id)return null;return customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w))||hiredSwordRawList().find(w=>(w.customFighterId||w.id)===id)||null}
+function hiredSwordRawById(id){if(!id)return null;const own=customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w));if(own)return hiredSwordMergeTwin(own);return hiredSwordRawList().find(w=>(w.customFighterId||w.id)===id)||null}
 function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
 function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId);return w?hiredSwordAsWarrior(w):null}
 function hiredSwordAvailableFor(w,f,r){
@@ -12863,9 +12883,13 @@ function eligibleSkillTreesForAdvancement(x,levels){
   const skills=(sets[key]||[]).filter(skill=>!ownedSkills.has(normName(skill)));
   if(skills.length&&!trees.some(t=>t.kind==='skill'&&t.set===key))trees.push({set:key,level:access[set],skills,kind:'skill'});
  });
- if(levels.includes('Primary')) magicAccessFor(x).forEach(domain=>{
+ // V-MAGICLEVEL: a domain counts at the level the profile gives it — a
+ // Secondary domain (e.g. Illusion on a Necromancer) is no longer offered
+ // as Primary. "Allowed" (no level set) keeps counting as Primary.
+ magicAccessFor(x).forEach(domain=>{
+  const lvl=magicAccessLevel(x,domain)==='Secondary'?'Secondary':'Primary';if(!levels.includes(lvl))return;
   const skills=(domains[domain]||[]).filter(spell=>!ownedSpells.has(normName(spell)));
-  if(skills.length)trees.push({set:domain,level:'Primary',skills,kind:'magic'});
+  if(skills.length)trees.push({set:domain,level:lvl,skills,kind:'magic'});
  });
  return trees;
 }
@@ -13061,7 +13085,7 @@ function profileMarkup(profile,xp,x,options={}){const showMax=!!options.showMax;
   // so options.poolPreview forces every stat neutral/grey here instead of
   // trying to patch the stub's identity resolution.
   const poolPreview=!!options.poolPreview;
-  const f=faction(activeRoster());const normal=poolPreview?profile:fighterNormalProfile(x,f,profile);normalizeInjuries(x);const injuryStats=new Set((x.injuries||[]).flatMap(inj=>Array.isArray(inj.statMods)?inj.statMods.map(m=>m.index):[]));const injuryTitles=P.map((n,i)=>(x.injuries||[]).filter(inj=>(inj.statMods||[]).some(m=>m.index===i)).map(inj=>inj.name).join(' · '));const maxProfile=poolPreview?profile:(maxProfileFor(x)||[]);const stats=P.map((n,i)=>{const v=Number(profile?.[i]??0),b=Number(normal?.[i]??v);const delta=poolPreview?0:v-b;const scar=!poolPreview&&injuryStats.has(i);const maxValue=Number(maxProfile?.[i]??v);const overstat=!poolPreview&&Number.isFinite(maxValue)&&v>maxValue;const cls=`profile-stat ${i>=8?'mental-stat ':''}${delta<0?'stat-below ':''}${delta>0?'stat-above ':''}${overstat?'stat-overstat ':''}${scar?'injury-altered':''}`.trim();return `<div class="${cls}" data-overstat="${overstat?'true':'false'}" title="${overstat?'OVERSTAT · ':''}Maximum : ${maxValue}${scar?` · Séquelle : ${esc(injuryTitles[i])}`:''}"><span>${n}</span><i></i><b>${v}</b>${overstat?'<em class="overstat-label" aria-hidden="true">OVER</em>':''}${scar?'<em class="injury-scar" aria-hidden="true">⌁</em>':''}${poolPreview?'':statConditionalBadgeMarkup(x,f,i)}</div>`}).join('');const maxRow=showMax?`<div class="profile-max-row" aria-label="Caractéristiques maximales">${P.map((n,i)=>`<span><b>${Number(maxProfile?.[i]??profile?.[i]??0)}</b></span>`).join('')}</div>`:'';const xpMarkup=rosterCard?`<div class="profile-stat profile-xp" aria-label="Expérience" title="Modifiable depuis la fiche du guerrier"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`:`<div class="profile-stat profile-xp resource-clickable" aria-label="Expérience" title="Cliquer pour ajouter ou soustraire une quantité d’XP" onclick="event.stopPropagation();openFighterXPAdjust()"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`;return `<div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat"><span>Sv</span><i></i><b>${esc(armorSave(x))}</b>${statConditionalBadgeMarkup(x,f,'SAVE')}</div>${xpMarkup}</div>${maxRow}${!rosterCard?xpBarMarkup(xp):''}</div>`}
+  const f=faction(activeRoster());const normal=poolPreview?profile:fighterNormalProfile(x,f,profile);normalizeInjuries(x);const injuryStats=new Set((x.injuries||[]).flatMap(inj=>Array.isArray(inj.statMods)?inj.statMods.map(m=>m.index):[]));const injuryTitles=P.map((n,i)=>(x.injuries||[]).filter(inj=>(inj.statMods||[]).some(m=>m.index===i)).map(inj=>inj.name).join(' · '));const maxProfile=poolPreview?profile:(maxProfileFor(x)||[]);const stats=P.map((n,i)=>{const v=Number(profile?.[i]??0),b=Number(normal?.[i]??v);const delta=poolPreview?0:v-b;const scar=!poolPreview&&injuryStats.has(i);const maxValue=Number(maxProfile?.[i]??v);const overstat=!poolPreview&&Number.isFinite(maxValue)&&v>maxValue;const cls=`profile-stat ${i>=8?'mental-stat ':''}${delta<0?'stat-below ':''}${delta>0?'stat-above ':''}${overstat?'stat-overstat ':''}${scar?'injury-altered':''}`.trim();return `<div class="${cls}" data-overstat="${overstat?'true':'false'}" title="${overstat?'OVERSTAT · ':''}Maximum : ${maxValue}${scar?` · Séquelle : ${esc(injuryTitles[i])}`:''}"><span>${n}</span><i></i><b>${v}</b>${overstat?'<em class="overstat-label" aria-hidden="true">OVER</em>':''}${scar?'<em class="injury-scar" aria-hidden="true">⌁</em>':''}${poolPreview?'':statConditionalBadgeMarkup(x,f,i)}</div>`}).join('');const maxRow=showMax?`<div class="profile-max-row" aria-label="Caractéristiques maximales">${P.map((n,i)=>`<span><b>${Number(maxProfile?.[i]??profile?.[i]??0)}</b></span>`).join('')}<span class="max-pad"></span><span class="max-pad"></span></div>`:'';const xpMarkup=rosterCard?`<div class="profile-stat profile-xp" aria-label="Expérience" title="Modifiable depuis la fiche du guerrier"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`:`<div class="profile-stat profile-xp resource-clickable" aria-label="Expérience" title="Cliquer pour ajouter ou soustraire une quantité d’XP" onclick="event.stopPropagation();openFighterXPAdjust()"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`;return `<div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat"><span>Sv</span><i></i><b>${esc(armorSave(x))}</b>${statConditionalBadgeMarkup(x,f,'SAVE')}</div>${xpMarkup}</div>${maxRow}${!rosterCard?xpBarMarkup(xp):''}</div>`}
 function weaponEffectPack(x,e){
   if(!x||!e?.profile)return {traits:[],strength:0,ap:0,damage:0,notes:[]};
   const n=normName(e.name), traits=[], notes=[], addTrait=t=>{if(t&&!traits.some(x=>refNorm(x)===refNorm(t)))traits.push(t)};
@@ -13380,7 +13404,7 @@ function equippedItemRow(e,index){
   // to operate on the actual stored/index-addressed item.
   const en=siteLanguage==='en';
   const v=liveEquipmentView(e);
-  return `<div class="equipped-row"><div class="equipped-row-main"><div class="equipped-row-name"><strong>${eqNameLink(v)}</strong><small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div>${v.profile?`<div class="equipped-inline-profile"><span>Weapon <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile.range)}</b></span><span>Str <b>${esc(v.profile.strength)}</b></span><span>Ap <b>${esc(v.profile.ap)}</b></span><span>D <b>${esc(v.profile.damage)}</b></span></div>`:''}${v.profile2?`<div class="equipped-inline-profile"><span>${en?'Profile 2':'Profil 2'} <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile2.range)}</b></span><span>Str <b>${esc(v.profile2.strength)}</b></span><span>Ap <b>${esc(v.profile2.ap)}</b></span><span>D <b>${esc(v.profile2.damage)}</b></span></div>`:''}<div class="equipped-row-price"><strong>${e.paid==null?'—':Number(e.paid)+' GC'}</strong><small>${en?'value':'valeur'} ${Number(e.value??e.price??0)} GC</small></div></div><div class="equipped-actions"><button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" aria-label="${en?'Sell':'Vendre'} ${esc(e.name)}" onclick="sellEquipment(${index})">💰</button><button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveEquipmentToReserve(${index})">▣</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Supprimer'}" aria-label="${en?'Remove':'Supprimer'} ${esc(e.name)}" onclick="removeEquipment(${index})">🗑</button></div></div>`}
+  return `<div class="equipped-row"><div class="equipped-row-main"><div class="equipped-row-name"><strong>${eqNameLink(v)}</strong><small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div>${v.profile?`<div class="equipped-inline-profile"><span>Weapon <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile.range)}</b></span><span>Str <b>${esc(v.profile.strength)}</b></span><span>Ap <b>${esc(v.profile.ap)}</b></span><span>D <b>${esc(v.profile.damage)}</b></span></div>`:''}${v.profile2?`<div class="equipped-inline-profile"><span>${en?'Profile 2':'Profil 2'} <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile2.range)}</b></span><span>Str <b>${esc(v.profile2.strength)}</b></span><span>Ap <b>${esc(v.profile2.ap)}</b></span><span>D <b>${esc(v.profile2.damage)}</b></span></div>`:''}<div class="equipped-row-price"><strong>${e.paid==null?'—':Number(e.paid)+' GC'}</strong><small>${en?'value':'valeur'} ${Number(e.value??e.price??0)} GC</small></div></div><div class="equipped-actions">${itemUseButtonMarkup(e,index)}<button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" aria-label="${en?'Sell':'Vendre'} ${esc(e.name)}" onclick="sellEquipment(${index})">💰</button><button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveEquipmentToReserve(${index})">▣</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Supprimer'}" aria-label="${en?'Remove':'Supprimer'} ${esc(e.name)}" onclick="removeEquipment(${index})">🗑</button></div></div>`}
 let equipmentSearchDebounce=null;
 function setEquipmentSearch(v){
   // V-SEARCHLAG: this used to rebuild the entire equipment picker — re-running
@@ -13426,9 +13450,12 @@ function sellEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),x=
 function confirmSellEquipment(i){const r=activeRoster(),x=r?.fighters[editingIndex];if(!r||!x)return;const e=fighterUsesLoadouts(x)?x.equipmentStash?.[i]:x.equipmentSelected?.[i];if(!e)return;const gold=Math.max(0,Number($('#saleGold')?.value||0));if(!Number.isFinite(gold)){toast(siteLanguage==='en'?'Invalid amount':'Montant invalide');return}r.gold+=gold;if(fighterUsesLoadouts(x)){x.equipmentStash.splice(i,1);x.equipmentLoadouts.forEach(l=>{l.equipmentIds=(l.equipmentIds||[]).filter(id=>id!==e.stashId);l.equipmentNames=l.equipmentIds.map(id=>x.equipmentStash.find(q=>q.stashId===id)?.name).filter(Boolean)});syncLoadoutProjection(x);}else{x.equipmentSelected.splice(i,1);}syncCustomEquipmentEffects(x);save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${e.name} sold · +${gold} GC`:`${e.name} vendu · +${gold} GC`)}
 // Primary / Secondary as set on the profile (book fixed domains count as
 // Primary; a manually unlocked one reads "Allowed").
-function magicLevelLabel(x,d,en){const custom=x?.customFighterId?resolveFighterSource(x,faction(activeRoster())):null;const raw=(custom?custom.magicAccess:x?.magicAccess)||{};const key=Array.isArray(raw)?null:Object.keys(raw).find(k=>normName(k)===normName(d));let v=key!=null?raw[key]:null;
+// 'Primary' | 'Secondary' | 'Allowed' — the level a fighter's profile gives
+// a magic domain (book domains count as Primary).
+function magicAccessLevel(x,d){const custom=x?.customFighterId?resolveFighterSource(x,faction(activeRoster())):null;const raw=(custom?custom.magicAccess:x?.magicAccess)||{};const key=Array.isArray(raw)?null:Object.keys(raw).find(k=>normName(k)===normName(d));let v=key!=null?raw[key]:null;
   if(!v){const f=faction(activeRoster());if(f&&warriorMagicDomains(f,{...x,sourceName:x?.sourceName||x?.name}).some(n=>normName(n)===normName(d)))v='Primary'}
-  return v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(en?'Allowed':'Autorisé')}
+  return v==='Primary'?'Primary':v==='Secondary'?'Secondary':'Allowed'}
+function magicLevelLabel(x,d,en){const v=magicAccessLevel(x,d);return v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(en?'Allowed':'Autorisé')}
 function magicAccessFor(x){
  const domains=customMergedMagicDomains(faction(activeRoster()));
  const unlocked=Array.isArray(x?.unlockedMagicDomains)?x.unlockedMagicDomains:[];
@@ -13857,6 +13884,18 @@ function openModal(html){$('#modalContent').innerHTML=html;try{applySiteLanguage
 // app-route click that lands immediately after a modal close to prevent it.
 let ghostClickGuardUntil=0;
 function closeModal(){$('#modal').classList.add('hidden');ghostClickGuardUntil=Date.now()+600}
+// V-LAYEREDPROMPT: a small value prompt (Blast 3"/5", "(X)" values) opened
+// from an editor that already lives in the popup used to REPLACE that
+// editor, losing it. When the popup is open, the prompt now shows in a
+// second popup on top and closing it returns to the editor untouched.
+let traitPromptLayered=false;
+function openTraitPromptModal(html){
+  const base=$('#modal');if(!base||base.classList.contains('hidden')){traitPromptLayered=false;openModal(html);return}
+  traitPromptLayered=true;let m=$('#modal2');
+  if(!m){m=document.createElement('div');m.id='modal2';m.className='modal modal-layer';m.innerHTML='<div class="modal-card"><button class="modal-close" type="button" onclick="closeTraitPrompt()">×</button><div id="modal2Content"></div></div>';m.onclick=e=>{if(e.target.id==='modal2')closeTraitPrompt()};document.body.appendChild(m)}
+  $('#modal2Content').innerHTML=html;try{applySiteLanguage($('#modal2Content'))}catch(e){}m.classList.remove('hidden');setTimeout(()=>m.querySelector('input')?.focus(),20);
+}
+function closeTraitPrompt(){if(traitPromptLayered){$('#modal2')?.classList.add('hidden');traitPromptLayered=false;ghostClickGuardUntil=Date.now()+600;return}closeModal()}
 
 // Some reference traits/special rules are templated with a literal "(X)" in
 // their name — e.g. "Reload (X)", "Rapid Fire (X)", "Training (X)",
@@ -13897,7 +13936,7 @@ function traitChoiceOptions(name){const m=String(name||'').match(/\(([^()]*\/[^(
 function traitChoiceTemplateFor(name){if(traitChoiceOptions(name))return null;const e=referenceFind('traits',name);return e&&traitChoiceOptions(e.name)?e:null}
 function openTraitChoicePrompt(context,index,templateName){
   pendingTraitParam={context,index,templateName,choice:true};const en=siteLanguage==='en';const label=traitBaseName(templateName);const opts=traitChoiceOptions(templateName)||[];
-  openModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)}</h2><p>${en?'Which value does this weapon use?':'Quelle valeur cette arme utilise-t-elle ?'}</p><div class="account-actions" style="flex-wrap:wrap">${opts.map((o,i)=>`<button type="button" class="button primary" onclick="chooseTraitOption(${i})">${esc(label)} ${esc(o)}</button>`).join('')}</div><div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+  openTraitPromptModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)}</h2><p>${en?'Which value does this weapon use?':'Quelle valeur cette arme utilise-t-elle ?'}</p><div class="account-actions" style="flex-wrap:wrap">${opts.map((o,i)=>`<button type="button" class="button primary" onclick="chooseTraitOption(${i})">${esc(label)} ${esc(o)}</button>`).join('')}</div><div class="account-actions"><button type="button" class="button secondary" onclick="closeTraitPrompt()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 function chooseTraitOption(i){if(!pendingTraitParam)return;const opts=traitChoiceOptions(pendingTraitParam.templateName)||[];if(!opts[i])return;confirmTraitParamValue(`${traitBaseName(pendingTraitParam.templateName)} ${opts[i]}`)}
 function traitBaseName(name){const m=String(name||'').match(/^(.*\S)\s*\([^)]*\)\s*$/);return m?m[1]:String(name||'')}
@@ -13919,7 +13958,7 @@ function openTraitParamPrompt(context,index,templateName){
   const suf=traitParamSuffixOf(templateName)||'(X)';
   const plusMode=suf==='(X+)';
   const currentDigits=plusMode?current.replace(/\+\s*$/,''):current;
-  openModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)} ${esc(suf)}</h2><p>${plusMode?(en?'Enter the value for X in this rule (the “or better” + is added automatically).':'Indique la valeur de X pour cette règle (le « + » est ajouté automatiquement).'):(en?'Enter the value for X in this rule.':'Indique la valeur de X pour cette règle.')}</p><label class="custom-field"><span>X</span><input id="traitParamValue" value="${esc(currentDigits)}" placeholder="Ex. 2"></label><div class="custom-actions"><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary full" onclick="confirmTraitParamValue()">${en?'Save':'Valider'}</button></div></div>`);
+  openTraitPromptModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)} ${esc(suf)}</h2><p>${plusMode?(en?'Enter the value for X in this rule (the “or better” + is added automatically).':'Indique la valeur de X pour cette règle (le « + » est ajouté automatiquement).'):(en?'Enter the value for X in this rule.':'Indique la valeur de X pour cette règle.')}</p><label class="custom-field"><span>X</span><input id="traitParamValue" value="${esc(currentDigits)}" placeholder="Ex. 2"></label><div class="custom-actions"><button type="button" class="button secondary full" onclick="closeTraitPrompt()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary full" onclick="confirmTraitParamValue()">${en?'Save':'Valider'}</button></div></div>`);
 }
 function confirmTraitParamValue(chosenName){
   if(!pendingTraitParam)return;
@@ -13955,7 +13994,7 @@ function confirmTraitParamValue(chosenName){
     refreshCustomFighterTags('rule');
   }
   pendingTraitParam=null;
-  closeModal();
+  closeTraitPrompt();
 }
 function editTraitParamValue(context,index){
   const arr=traitDraftArrayFor(context);
@@ -13976,7 +14015,10 @@ function deleteCustomEquipment(id){const en=siteLanguage==='en';const w=customEq
 function confirmDeleteCustomEquipment(id){const en=siteLanguage==='en';markDeleted('customEquipment',id);state.customEquipment=customEquipmentList().filter(w=>w.customEquipmentId!==id);if(customEquipmentEditId===id)customEquipmentEditId=null;save(true);closeModal();render('custom');toast(en?'Custom equipment deleted':'Équipement custom supprimé')}
 function customEquipmentForm(w){
   const en=siteLanguage==='en';
-  const weapon=w?.type==='weapon';
+  // V-WEAPONTYPE: items saved from Admin or brought back from a published
+  // warband can carry a weapon profile without type:'weapon' — opening them
+  // as plain equipment hid the profile and saving wiped it.
+  const weapon=w?.type==='weapon'||!!w?.profile;
   const traits=customEquipmentTraitDraft.length?customEquipmentTraitDraft:(w?.traits||[]);
   const factions=Array.isArray(w?.factions)?w.factions:[];
   const cats=en?EQUIPMENT_CATEGORY_NAMES_EN:EQUIPMENT_CATEGORY_NAMES_FR;
@@ -13994,6 +14036,7 @@ function customEquipmentForm(w){
 Rules written here can be interpreted by the system when they match a recognized game value.`:`Ex. Cette armure donne une sauvegarde de 5+.
 Les règles écrites ici peuvent être interprétées par le système lorsqu’elles correspondent à une valeur de jeu reconnue.`}">${esc(w?.rulesText||'')}</textarea><small class="custom-field-help">${en?'You can write the rules freely. Some recognized values, like “5+ save”, are automatically taken into account on the fighter’s sheet. Avoid cutting a recognized value in the middle of its formatting.':'Tu peux écrire les règles librement. Certaines valeurs reconnues, comme « sauvegarde de 5+ », sont automatiquement prises en compte dans la fiche du combattant. Évite de couper une valeur reconnue au milieu d’une mise en forme.'}</small></label>
   </div>
+  ${itemUseFieldsMarkup(w,'customUse')}
   <div id="customWeaponFields">${weapon?customWeaponEditor(w):''}</div>
   <div class="custom-section"><div class="custom-section-head"><div><span class="micro-label">${en?'AVAILABILITY':'DISPONIBILITÉ'}</span><strong>${en?'Lists the equipment is added to':'Listes auxquelles l’équipement est ajouté'}</strong></div><small>${en?'Assigning it to a band does not remove the item from the Unrestricted List.':'Une affectation à une bande n’enlève pas l’objet de l’Unrestricted List.'}</small></div>
     <label class="custom-check unrestricted-check"><input id="customUnrestricted" type="checkbox" checked disabled> <span><b>Unrestricted List</b><small>${en?'Always available in the general list. The factions selected below also add the item to their Band List.':'Toujours disponible dans la liste générale. Les factions choisies ci-dessous ajoutent aussi l’objet à leur Band List.'}</small></span></label>
@@ -14036,7 +14079,7 @@ function saveCustomEquipment(){
   const factions=[...document.querySelectorAll('.customFaction:checked')].map(x=>x.dataset.faction);const unrestricted=true;
   const market=!!$('#customMarketList')?.checked;
   const rulesText=($('#customRules')?.value||'').trim();
-  const item={customEquipmentId:customEquipmentEditId||crypto.randomUUID(),name,type,category,subcategory:category,rarity,price,unrestricted,market,factions,traits:customEquipmentTraitDraft.slice(),rulesText};
+  const item={customEquipmentId:customEquipmentEditId||crypto.randomUUID(),name,type,category,subcategory:category,rarity,price,unrestricted,market,factions,traits:customEquipmentTraitDraft.slice(),rulesText,...readItemUseFields('customUse')};
   if(type==='weapon'){item.profile={range:($('#customRange')?.value||'').trim(),strength:($('#customStrength')?.value||'').trim(),ap:($('#customAp')?.value||'').trim(),damage:($('#customDamage')?.value||'').trim(),traits:customEquipmentTraitDraft.join(', ')};item.weaponSlotCost=weaponSlots(item);item.customArmor=false;
     // V-DUALPROFILE: a second, independent profile (e.g. a pistol-sword's shooting
     // AND melee stat lines) — never inferred, only ever set via this checkbox.
@@ -14077,7 +14120,7 @@ function customEquipmentRow(w){
   // item (name / catégorie / prix). Faction access and rule text are shown
   // once, in the editor itself (✎), not duplicated here — same principle
   // as the custom fighter and traits/rules rows.
-  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.type==='weapon'?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${esc(w.category)} · ${Number(w.price||0)} GC${w.rarity?' · '+esc(w.rarity):''}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('equipment',w.customEquipmentId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomEquipmentArchive('${w.customEquipmentId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="editCustomEquipment('${w.customEquipmentId}')">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomEquipment('${w.customEquipmentId}')">🗑</button></div></article>`}
+  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.type==='weapon'||w.profile?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${esc(w.category)} · ${Number(w.price||0)} GC${w.rarity?' · '+esc(w.rarity):''}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('equipment',w.customEquipmentId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomEquipmentArchive('${w.customEquipmentId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="editCustomEquipment('${w.customEquipmentId}')">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomEquipment('${w.customEquipmentId}')">🗑</button></div></article>`}
 
 
 // --- V58 custom equipment integration / rule parsing ---
@@ -14111,14 +14154,62 @@ function customEquipmentEffects(w){
 // granted skills ("gagne la compétence Bull Charge"). Used both for
 // per-equipment effects (customEquipmentEffects, above) and for warband-wide
 // rule effects (syncWarbandRuleEffects, below) so the two behave identically.
+// V-KEYWORDS2: special rules a text GIVES — "gains the Fear special rule",
+// "the wearer has Immune to Psychology", "gagne la règle spéciale Fear".
+// Sentence by sentence; a sentence with a condition (if/when/while/single
+// use…) gives nothing. Rule names must appear with their own capitals, after
+// the granting verb. Templates ("Magic Resistance (X)") keep the written
+// value. Memoized by text.
+const __ruleGrantCache=new Map();
+function detectRuleGrantsInText(rawText,selfName){
+  const text=String(rawText||'');if(!text.trim())return [];
+  const specials=referenceEntries('special');const key=specials.length+'|'+normName(selfName||'')+'|'+text;
+  if(__ruleGrantCache.has(key))return __ruleGrantCache.get(key);
+  const out=[];const self=normName(selfName||'');
+  const verb=/\b(?:gains?|gain|acquires?|has|have|gets?|receives?|is granted|are granted|count(?:s)? as having|gagne(?:nt)?|obtient|obtiennent|acquiert|acqui[eè]rent|poss[eè]de(?:nt)?|re[cç]oit|re[cç]oivent|b[ée]n[ée]ficie(?:nt)? de)\b/i;
+  const sentences=text.replace(/([^\n])\n(?!\n)/g,'$1 ').split(/(?<=[.!?])\s+|\n+/);
+  sentences.forEach((sentence,si)=>{
+    const vm=verb.exec(sentence);if(!vm)return;
+    // The next sentence only counts when it is a bare condition ("Once used
+    // remove it…"), not an effect of its own ("+1 Attack when charging").
+    const nx=sentences[si+1]||'';const near=sentence+' '+(/\d|[+-]\d/.test(nx)||verb.test(nx)?'':nx);
+    if(CONDITIONAL_TRIGGER_PATTERNS.some(re=>re.test(near))||/\brolls?\b|\brolled\b|\bD[36]\b|\bjets?\b|\blancer?\b/i.test(near))return;
+    if(/\b(?:not|never|cannot|can't|loses?|lost|no longer)\b|\bno\b|\bsans\b|\baucun|\bn['’]|\bne\b|\bperd/i.test(sentence.slice(Math.max(0,vm.index-25),vm.index+vm[0].length+12)))return;
+    // The rule must follow the verb closely: "gains the Fear special rule",
+    // "gagne la règle spéciale Fear" — not a name mentioned much later.
+    const after=sentence.slice(vm.index+vm[0].length,vm.index+vm[0].length+45);
+    specials.forEach(e=>{
+      const name=String(e?.name||'').trim();if(name.length<3||/^Race\s*\(/i.test(name))return;
+      if(isTraitParamTemplate(name)){
+        const base=name.replace(/\s*\([^)]*\)\s*$/,'').trim();if(!base||normName(base)===self)return;
+        const m=new RegExp('(?:^|[^A-Za-zÀ-ÿ])'+escapeRegexLiteral(base)+'\\s*\\(([^)]+)\\)').exec(after);
+        if(m){const v=`${base} (${m[1].trim()})`;if(!out.some(n=>normName(n)===normName(v)))out.push(v)}
+        return;
+      }
+      if(normName(name)===self)return;
+      if(new RegExp('(?:^|[^A-Za-zÀ-ÿ])'+escapeRegexLiteral(name)+'(?![A-Za-zÀ-ÿ]|[\'’]s\\b)').test(after)&&!out.some(n=>normName(n)===normName(name)))out.push(name);
+    });
+  });
+  // A longer name wins over one it contains ("Immune to Fear" vs "Fear").
+  const res=out.filter(n=>!out.some(o=>o!==n&&o.length>n.length&&new RegExp('(?:^|[^A-Za-zÀ-ÿ])'+escapeRegexLiteral(n)+'(?![A-Za-zÀ-ÿ])').test(o)));
+  if(__ruleGrantCache.size>2000)__ruleGrantCache.clear();__ruleGrantCache.set(key,res);return res;
+}
+// Rules given by the fighter's equipped items (their written rules) and by
+// its skills' text.
+function fighterGrantedRuleNames(x){
+  const out=[];
+  try{
+    (Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]).forEach(e=>{const d=(isCustomEquipment(e)?liveEquipmentDef(e):null)||null;if(d)detectRuleGrantsInText(d.rulesText,d.name).forEach(n=>out.push(n))});
+    (Array.isArray(x?.skills)?x.skills:[]).forEach(sk=>{const e=referenceFind('skills',sk);if(e)detectRuleGrantsInText(e.text,e.name).forEach(n=>out.push(n))});
+  }catch(e){}
+  return out;
+}
 function effectsFromRuleText(text){
   text=String(text||'');
-  const stats=[];
-  const statNames='Mouvement|Movement|M|WS|CC|Capacité de combat|BS|CT|Capacité de tir|Force|S|Endurance|T|Blessures|W|Initiative|I|Attaques|A|Leadership|LD|Commandement|Calme|CL|Volonté|WIL|Intelligence|INT';
-  const re=new RegExp('(?:réduit|reduit|diminue|baisse|augmente|augmente de|modifie|modifié|modifier|gagne|perd|ajoute|ajout)\\s+(?:son|sa|ses|le|la|les)?\\s*('+statNames+')\\s*(?:de|à|a)?\\s*([+-]?\\d+)', 'gi');
-  let m;while((m=re.exec(text))){const idx=customRuleStatIndex(m[1]);if(idx!=null){let amount=Number(m[2]);const lead=m[0].toLowerCase();if(/réduit|reduit|diminue|baisse|perd/.test(lead))amount=-Math.abs(amount);stats.push({index:idx,amount});}}
-  // Also accept concise forms such as "Leadership -3" or "Leadership +2".
-  const re2=new RegExp('\\b('+statNames+')\\s*([+-]\\d+)','gi');while((m=re2.exec(text))){const idx=customRuleStatIndex(m[1]);if(idx!=null)stats.push({index:idx,amount:Number(m[2])});}
+  // V-KEYWORDS2: stats now come from the same reader as skills/spells/rules
+  // (English + French, many phrasings), and a CONDITIONAL bonus ("+1
+  // Strength when charging", "single use") is no longer applied for good.
+  const stats=detectStatBonusesInText(text).filter(b=>!b.conditional&&b.mode!=='set'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12).map(b=>({index:b.index,amount:Number(b.delta)}));
   const skills=[];
   const addSkillCandidate=(candidate)=>{
     let c=String(candidate||'').trim().replace(/^[\s:;–—-]+|[\s:;,.!?–—-]+$/g,'').trim();
@@ -14719,6 +14810,18 @@ function detectStatBonusesInText(rawText,ctx){
       let m;while((m=fwd.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
       const rev=new RegExp('([+-]\\d+)\\s*(?:en|de|d\'|d’|)\\s*'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
       while((m=rev.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
+      // V-KEYWORDS2: more natural phrasings, English and French —
+      // "+1 to his Strength" / "+1 à sa Force", "increases his Toughness by 1"
+      // / "augmente sa Force de 1", "reduces/réduit son Endurance de 1",
+      // "Strength is increased by 1" / "sa Force est augmentée de 1".
+      const own='(?:(?:his|her|their|its|the|this\\s+(?:model|warrior|fighter)\'s|son|sa|ses|le|la|les|l\'|l’)\\s*)?';
+      const toRe=new RegExp('([+-]\\d+)\\s*(?:to|à|a)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'(?!\\s*(?:tests?|checks?|rolls?|jets?))','gi');
+      while((m=toRe.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
+      const neg=v=>/^(?:reduc|reduit|réduit|lower|decreas|diminu|baiss|perd|lose)/i.test(v);
+      const verbRe=new RegExp('(increases?|raises?|improves?|boosts?|augmente(?:nt)?|améliore(?:nt)?|ameliore(?:nt)?|reduces?|lowers?|decreases?|réduit|reduit|réduisent|diminue(?:nt)?|baisse(?:nt)?)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*(?:by|de|d\'|d’)\\s*(\\d+)','gi');
+      while((m=verbRe.exec(text))){const n=parseInt(m[2],10);add(def.stat,def.index,neg(m[1])?-n:n,m.index,m[0].length,m[0]);}
+      const passRe=new RegExp(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:is|are|est|sont)\\s+(increased|raised|improved|reduced|lowered|decreased|augmentée?s?|améliorée?s?|réduite?s?|reduite?s?|diminuée?s?|baissée?s?)\\s+(?:by|de|d\'|d’)\\s*(\\d+)','gi');
+      while((m=passRe.exec(text))){const n=parseInt(m[2],10);add(def.stat,def.index,neg(m[1])?-n:n,m.index,m[0].length,m[0]);}
       // V-STATSET: some skills/special rules FIX a stat to an absolute value
       // instead of modifying it by a delta — "Mouvement fixé à 8"", "Son
       // Mouvement devient 8"", "Movement becomes 8"" — none of which carry a
@@ -15302,6 +15405,26 @@ function customEquipmentByName(name){const n=normName(name);return customEquipme
 // CURRENT definition for a stored item — a custom item by its stable
 // customEquipmentId (renaming it doesn't break the link), otherwise a book
 // weapon by normalized name in the live D.weapons pool.
+// V-ITEMUSE: an item can grant a special rule when used (e.g. a Tome of
+// Magic gives Wizard). The rule is kept permanently on the fighter
+// (extraRuleNames); a fighter who already has it can't use the item. The
+// item can be used up (removed) or kept.
+function itemUseFieldsMarkup(e,prefix){const en=siteLanguage==='en';const rule=e?.useGrantsRule||'';return `<div class="custom-section"><div class="custom-section-head"><div><span class="micro-label">${en?'ON USE':'À L’UTILISATION'}</span><strong>${en?'Grants a special rule':'Donne une règle spéciale'}</strong></div><small>${en?'Leave empty for a normal item. The fighter gains the rule permanently when he uses the item, unless he already has it.':'Laisse vide pour un objet normal. Le combattant gagne la règle définitivement en utilisant l’objet, sauf s’il l’a déjà.'}</small></div><div class="custom-form-grid"><label class="custom-field"><span>${en?'Special rule gained':'Règle spéciale gagnée'}</span><input id="${prefix}Rule" value="${esc(rule)}" placeholder="${en?'E.g. Wizard':'Ex. Wizard'}"></label><label class="custom-check"><input id="${prefix}Consumes" type="checkbox" ${e?.useConsumes!==false?'checked':''}> <span><b>${en?'Used up':'Consommé'}</b><small>${en?'The item is removed once used.':'L’objet est retiré une fois utilisé.'}</small></span></label></div></div>`}
+function readItemUseFields(prefix){const raw=($('#'+prefix+'Rule')?.value||'').trim();if(!raw)return {useGrantsRule:'',useConsumes:false};const hit=referenceFind('special',raw);return {useGrantsRule:hit?.name&&!isTraitParamTemplate(hit.name)?hit.name:raw,useConsumes:!!$('#'+prefix+'Consumes')?.checked}}
+function itemUseRule(e){const d=liveEquipmentDef(e)||e;return String(d?.useGrantsRule||e?.useGrantsRule||'').trim()}
+function itemUseConsumes(e){const d=liveEquipmentDef(e)||e;return (d&&'useConsumes' in d?d.useConsumes:e?.useConsumes)!==false}
+function fighterHasRule(x,name){const f=faction(activeRoster());return fighterRuleNames(x,f).some(n=>normName(n)===normName(name))}
+function itemUseButtonMarkup(e,index){const rule=itemUseRule(e);if(!rule)return '';const en=siteLanguage==='en';const x=activeRoster()?.fighters?.[editingIndex];if(x&&fighterHasRule(x,rule))return `<span class="equipment-use-done" title="${en?`Already has ${esc(rule)}`:`A déjà ${esc(rule)}`}">✓ ${esc(rule)}</span>`;return `<button type="button" class="equipment-action use" title="${en?`Use: gain ${esc(rule)}`:`Utiliser : gagne ${esc(rule)}`}" aria-label="${en?'Use':'Utiliser'} ${esc(e.name)}" onclick="useEquipmentItem(${index})">${en?'Use':'Utiliser'}</button>`}
+function useEquipmentItem(i){const en=siteLanguage==='en';const x=activeRoster()?.fighters?.[editingIndex];if(!x)return;const e=fighterUsesLoadouts(x)?x.equipmentStash?.[i]:x.equipmentSelected?.[i];const rule=itemUseRule(e);if(!e||!rule)return;if(fighterHasRule(x,rule)){toast(en?`${x.name} already has ${rule}`:`${x.name} a déjà ${rule}`);return}const gone=itemUseConsumes(e);
+  openModal(`<div class="sell-dialog"><div class="eyebrow">${en?'USE ITEM':'UTILISER L’OBJET'}</div><h2>${esc(e.name)}</h2><p>${en?`<b>${esc(x.name)}</b> gains ${refLink('special',rule,rule)} permanently.${gone?' The item is used up and removed.':''}`:`<b>${esc(x.name)}</b> gagne ${refLink('special',rule,rule)} définitivement.${gone?' L’objet est consommé et retiré.':''}`}</p><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="confirmUseEquipmentItem(${i})">${en?'Use':'Utiliser'}</button></div></div>`)}
+function confirmUseEquipmentItem(i){const en=siteLanguage==='en';const r=activeRoster(),x=r?.fighters?.[editingIndex];if(!x)return;const e=fighterUsesLoadouts(x)?x.equipmentStash?.[i]:x.equipmentSelected?.[i];const rule=itemUseRule(e);if(!e||!rule)return closeModal();
+  // fighterHasRule → activeRoster() can save and swap `state` for a fresh
+  // copy, so re-read the roster and fighter after the check.
+  const had=fighterHasRule(x,rule);const r2=activeRoster(),x2=r2?.fighters?.[editingIndex];if(!x2)return closeModal();
+  if(!had)x2.extraRuleNames=[...(Array.isArray(x2.extraRuleNames)?x2.extraRuleNames:[]),rule];
+  const gone=itemUseConsumes(e);logHistory(r2,'equipment',en?`${x.name} used ${e.name}: gains ${rule}`:`${x.name} utilise ${e.name} : gagne ${rule}`);
+  if(gone)return confirmRemoveEquipment(i);
+  syncCustomEquipmentEffects(x2);save(true);closeModal();render('fighter')}
 function liveEquipmentDef(e){
   if(!e)return null;
   if(e.customEquipmentId){
@@ -15782,6 +15905,7 @@ function saveCustomFighter(){
   ['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(existing&&existing[k]!==undefined)item[k]=existing[k]});
   item.noEquipment=!!$('#cfNoEquip')?.checked;
   item.noMisericordia=!!$('#cfNoMiseri')?.checked;
+  item.updatedAt=Date.now();
   if(isHS){item.hiredSword=true;item.type='Hired Sword';item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;item.hsFactions=hiredSwordReadScope();item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';}
   const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0)state.customFighters[idx]=item;else state.customFighters.push(item);
   const ref=`custom:${item.customFighterId}`;
@@ -16089,7 +16213,9 @@ function fighterRuleNames(x,f){
   }
   names=names.filter(n=>!/^Race\s*\(/i.test(String(n)));
   const equipmentRules=standardEquipmentSpecialRules(x);
-  return [...new Set([raceRule,...names,...equipmentRules,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
+  const bare=v=>normName(String(v||'').replace(/\s*\([^)]*\)\s*$/,''));
+  const granted=fighterGrantedRuleNames(x).filter(n=>![raceRule,...names,...equipmentRules].some(o=>bare(o)===bare(n)));
+  return [...new Set([raceRule,...names,...equipmentRules,...granted,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
 }
 function warriorBandAllowed(w,x,fac){if(x?.customFighterId){return Array.isArray(x.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name))}
   if(!fac)fac=faction(activeRoster());
@@ -17026,7 +17152,7 @@ function custom(){
     const active=shown.filter(w=>!w.archived);
     const archived=shown.filter(w=>w.archived);
     const rowFn=w=>customContentTab==='fighters'?customFighterRow(w,false):customContentTab==='equipment'?customEquipmentRow(w):customContentLibraryRow(customContentTab,w);
-    if(customContentTab==='fighters'){const editingF=customFighterEditId?customFighterById(customFighterEditId):null;editor=customFighterForm(editingF)} else if(customContentTab==='equipment'){const editingEq=customEquipmentEditId?state.customEquipment.find(x=>x.customEquipmentId===customEquipmentEditId):null;editor=customEquipmentForm(editingEq)} else {const editing=customContentEditId?customContentById(customContentTab,customContentEditId):null;editor=customContentForm(customContentTab,editing)}
+    if(customContentTab==='fighters'){let editingF=customFighterEditId?customFighterById(customFighterEditId):null;if(editingF&&isHiredSword(editingF))editingF=hiredSwordMergeTwin(editingF);editor=customFighterForm(editingF)} else if(customContentTab==='equipment'){const editingEq=customEquipmentEditId?state.customEquipment.find(x=>x.customEquipmentId===customEquipmentEditId):null;editor=customEquipmentForm(editingEq)} else {const editing=customContentEditId?customContentById(customContentTab,customContentEditId):null;editor=customContentForm(customContentTab,editing)}
     title=en?(customContentTab==='fighters'?(customFighterHSMode?'Hired Swords':'Fighter profiles'):customContentTab==='equipment'?'Custom equipment':'Custom '+customContentTypeLabel(customContentTab).toLowerCase()+'s'):(customContentTab==='fighters'?(customFighterHSMode?'Hired Swords':'Profils de combattants'):customContentTab==='equipment'?'Équipements personnalisés':customContentTypeLabel(customContentTab)+'s personnalisés');
     createLabel=en?(customContentTab==='fighters'?(customFighterHSMode?'New Hired Sword':'New fighter'):customContentTab==='equipment'?'New equipment':'New '+customContentTypeLabel(customContentTab).toLowerCase()):(customContentTab==='fighters'?(customFighterHSMode?'Nouveau Hired Sword':'Nouveau combattant'):customContentTab==='equipment'?'Nouvel équipement':'Nouvelle '+customContentTypeLabel(customContentTab).toLowerCase());
     action=customContentTab==='fighters'?'newCustomFighter()':customContentTab==='equipment'?'newCustomEquipment()':`newCustomContent('${customContentTab}')`;
