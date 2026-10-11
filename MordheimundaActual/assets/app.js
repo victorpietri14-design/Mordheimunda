@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0590.0';
+const APP_BUILD='110.0591.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12876,9 +12876,13 @@ function eligibleSkillTreesForAdvancement(x,levels){
   const skills=(sets[key]||[]).filter(skill=>!ownedSkills.has(normName(skill)));
   if(skills.length&&!trees.some(t=>t.kind==='skill'&&t.set===key))trees.push({set:key,level:access[set],skills,kind:'skill'});
  });
- if(levels.includes('Primary')) magicAccessFor(x).forEach(domain=>{
+ // V-MAGICLEVEL: a domain counts at the level the profile gives it — a
+ // Secondary domain (e.g. Illusion on a Necromancer) is no longer offered
+ // as Primary. "Allowed" (no level set) keeps counting as Primary.
+ magicAccessFor(x).forEach(domain=>{
+  const lvl=magicAccessLevel(x,domain)==='Secondary'?'Secondary':'Primary';if(!levels.includes(lvl))return;
   const skills=(domains[domain]||[]).filter(spell=>!ownedSpells.has(normName(spell)));
-  if(skills.length)trees.push({set:domain,level:'Primary',skills,kind:'magic'});
+  if(skills.length)trees.push({set:domain,level:lvl,skills,kind:'magic'});
  });
  return trees;
 }
@@ -13074,7 +13078,7 @@ function profileMarkup(profile,xp,x,options={}){const showMax=!!options.showMax;
   // so options.poolPreview forces every stat neutral/grey here instead of
   // trying to patch the stub's identity resolution.
   const poolPreview=!!options.poolPreview;
-  const f=faction(activeRoster());const normal=poolPreview?profile:fighterNormalProfile(x,f,profile);normalizeInjuries(x);const injuryStats=new Set((x.injuries||[]).flatMap(inj=>Array.isArray(inj.statMods)?inj.statMods.map(m=>m.index):[]));const injuryTitles=P.map((n,i)=>(x.injuries||[]).filter(inj=>(inj.statMods||[]).some(m=>m.index===i)).map(inj=>inj.name).join(' · '));const maxProfile=poolPreview?profile:(maxProfileFor(x)||[]);const stats=P.map((n,i)=>{const v=Number(profile?.[i]??0),b=Number(normal?.[i]??v);const delta=poolPreview?0:v-b;const scar=!poolPreview&&injuryStats.has(i);const maxValue=Number(maxProfile?.[i]??v);const overstat=!poolPreview&&Number.isFinite(maxValue)&&v>maxValue;const cls=`profile-stat ${i>=8?'mental-stat ':''}${delta<0?'stat-below ':''}${delta>0?'stat-above ':''}${overstat?'stat-overstat ':''}${scar?'injury-altered':''}`.trim();return `<div class="${cls}" data-overstat="${overstat?'true':'false'}" title="${overstat?'OVERSTAT · ':''}Maximum : ${maxValue}${scar?` · Séquelle : ${esc(injuryTitles[i])}`:''}"><span>${n}</span><i></i><b>${v}</b>${overstat?'<em class="overstat-label" aria-hidden="true">OVER</em>':''}${scar?'<em class="injury-scar" aria-hidden="true">⌁</em>':''}${poolPreview?'':statConditionalBadgeMarkup(x,f,i)}</div>`}).join('');const maxRow=showMax?`<div class="profile-max-row" aria-label="Caractéristiques maximales">${P.map((n,i)=>`<span><b>${Number(maxProfile?.[i]??profile?.[i]??0)}</b></span>`).join('')}</div>`:'';const xpMarkup=rosterCard?`<div class="profile-stat profile-xp" aria-label="Expérience" title="Modifiable depuis la fiche du guerrier"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`:`<div class="profile-stat profile-xp resource-clickable" aria-label="Expérience" title="Cliquer pour ajouter ou soustraire une quantité d’XP" onclick="event.stopPropagation();openFighterXPAdjust()"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`;return `<div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat"><span>Sv</span><i></i><b>${esc(armorSave(x))}</b>${statConditionalBadgeMarkup(x,f,'SAVE')}</div>${xpMarkup}</div>${maxRow}${!rosterCard?xpBarMarkup(xp):''}</div>`}
+  const f=faction(activeRoster());const normal=poolPreview?profile:fighterNormalProfile(x,f,profile);normalizeInjuries(x);const injuryStats=new Set((x.injuries||[]).flatMap(inj=>Array.isArray(inj.statMods)?inj.statMods.map(m=>m.index):[]));const injuryTitles=P.map((n,i)=>(x.injuries||[]).filter(inj=>(inj.statMods||[]).some(m=>m.index===i)).map(inj=>inj.name).join(' · '));const maxProfile=poolPreview?profile:(maxProfileFor(x)||[]);const stats=P.map((n,i)=>{const v=Number(profile?.[i]??0),b=Number(normal?.[i]??v);const delta=poolPreview?0:v-b;const scar=!poolPreview&&injuryStats.has(i);const maxValue=Number(maxProfile?.[i]??v);const overstat=!poolPreview&&Number.isFinite(maxValue)&&v>maxValue;const cls=`profile-stat ${i>=8?'mental-stat ':''}${delta<0?'stat-below ':''}${delta>0?'stat-above ':''}${overstat?'stat-overstat ':''}${scar?'injury-altered':''}`.trim();return `<div class="${cls}" data-overstat="${overstat?'true':'false'}" title="${overstat?'OVERSTAT · ':''}Maximum : ${maxValue}${scar?` · Séquelle : ${esc(injuryTitles[i])}`:''}"><span>${n}</span><i></i><b>${v}</b>${overstat?'<em class="overstat-label" aria-hidden="true">OVER</em>':''}${scar?'<em class="injury-scar" aria-hidden="true">⌁</em>':''}${poolPreview?'':statConditionalBadgeMarkup(x,f,i)}</div>`}).join('');const maxRow=showMax?`<div class="profile-max-row" aria-label="Caractéristiques maximales">${P.map((n,i)=>`<span><b>${Number(maxProfile?.[i]??profile?.[i]??0)}</b></span>`).join('')}<span class="max-pad"></span><span class="max-pad"></span></div>`:'';const xpMarkup=rosterCard?`<div class="profile-stat profile-xp" aria-label="Expérience" title="Modifiable depuis la fiche du guerrier"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`:`<div class="profile-stat profile-xp resource-clickable" aria-label="Expérience" title="Cliquer pour ajouter ou soustraire une quantité d’XP" onclick="event.stopPropagation();openFighterXPAdjust()"><span>XP</span><i></i><b>${Number(xp||0)}</b></div>`;return `<div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat"><span>Sv</span><i></i><b>${esc(armorSave(x))}</b>${statConditionalBadgeMarkup(x,f,'SAVE')}</div>${xpMarkup}</div>${maxRow}${!rosterCard?xpBarMarkup(xp):''}</div>`}
 function weaponEffectPack(x,e){
   if(!x||!e?.profile)return {traits:[],strength:0,ap:0,damage:0,notes:[]};
   const n=normName(e.name), traits=[], notes=[], addTrait=t=>{if(t&&!traits.some(x=>refNorm(x)===refNorm(t)))traits.push(t)};
@@ -13439,9 +13443,12 @@ function sellEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),x=
 function confirmSellEquipment(i){const r=activeRoster(),x=r?.fighters[editingIndex];if(!r||!x)return;const e=fighterUsesLoadouts(x)?x.equipmentStash?.[i]:x.equipmentSelected?.[i];if(!e)return;const gold=Math.max(0,Number($('#saleGold')?.value||0));if(!Number.isFinite(gold)){toast(siteLanguage==='en'?'Invalid amount':'Montant invalide');return}r.gold+=gold;if(fighterUsesLoadouts(x)){x.equipmentStash.splice(i,1);x.equipmentLoadouts.forEach(l=>{l.equipmentIds=(l.equipmentIds||[]).filter(id=>id!==e.stashId);l.equipmentNames=l.equipmentIds.map(id=>x.equipmentStash.find(q=>q.stashId===id)?.name).filter(Boolean)});syncLoadoutProjection(x);}else{x.equipmentSelected.splice(i,1);}syncCustomEquipmentEffects(x);save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${e.name} sold · +${gold} GC`:`${e.name} vendu · +${gold} GC`)}
 // Primary / Secondary as set on the profile (book fixed domains count as
 // Primary; a manually unlocked one reads "Allowed").
-function magicLevelLabel(x,d,en){const custom=x?.customFighterId?resolveFighterSource(x,faction(activeRoster())):null;const raw=(custom?custom.magicAccess:x?.magicAccess)||{};const key=Array.isArray(raw)?null:Object.keys(raw).find(k=>normName(k)===normName(d));let v=key!=null?raw[key]:null;
+// 'Primary' | 'Secondary' | 'Allowed' — the level a fighter's profile gives
+// a magic domain (book domains count as Primary).
+function magicAccessLevel(x,d){const custom=x?.customFighterId?resolveFighterSource(x,faction(activeRoster())):null;const raw=(custom?custom.magicAccess:x?.magicAccess)||{};const key=Array.isArray(raw)?null:Object.keys(raw).find(k=>normName(k)===normName(d));let v=key!=null?raw[key]:null;
   if(!v){const f=faction(activeRoster());if(f&&warriorMagicDomains(f,{...x,sourceName:x?.sourceName||x?.name}).some(n=>normName(n)===normName(d)))v='Primary'}
-  return v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(en?'Allowed':'Autorisé')}
+  return v==='Primary'?'Primary':v==='Secondary'?'Secondary':'Allowed'}
+function magicLevelLabel(x,d,en){const v=magicAccessLevel(x,d);return v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(en?'Allowed':'Autorisé')}
 function magicAccessFor(x){
  const domains=customMergedMagicDomains(faction(activeRoster()));
  const unlocked=Array.isArray(x?.unlockedMagicDomains)?x.unlockedMagicDomains:[];
@@ -14125,14 +14132,62 @@ function customEquipmentEffects(w){
 // granted skills ("gagne la compétence Bull Charge"). Used both for
 // per-equipment effects (customEquipmentEffects, above) and for warband-wide
 // rule effects (syncWarbandRuleEffects, below) so the two behave identically.
+// V-KEYWORDS2: special rules a text GIVES — "gains the Fear special rule",
+// "the wearer has Immune to Psychology", "gagne la règle spéciale Fear".
+// Sentence by sentence; a sentence with a condition (if/when/while/single
+// use…) gives nothing. Rule names must appear with their own capitals, after
+// the granting verb. Templates ("Magic Resistance (X)") keep the written
+// value. Memoized by text.
+const __ruleGrantCache=new Map();
+function detectRuleGrantsInText(rawText,selfName){
+  const text=String(rawText||'');if(!text.trim())return [];
+  const specials=referenceEntries('special');const key=specials.length+'|'+normName(selfName||'')+'|'+text;
+  if(__ruleGrantCache.has(key))return __ruleGrantCache.get(key);
+  const out=[];const self=normName(selfName||'');
+  const verb=/\b(?:gains?|gain|acquires?|has|have|gets?|receives?|is granted|are granted|count(?:s)? as having|gagne(?:nt)?|obtient|obtiennent|acquiert|acqui[eè]rent|poss[eè]de(?:nt)?|re[cç]oit|re[cç]oivent|b[ée]n[ée]ficie(?:nt)? de)\b/i;
+  const sentences=text.replace(/([^\n])\n(?!\n)/g,'$1 ').split(/(?<=[.!?])\s+|\n+/);
+  sentences.forEach((sentence,si)=>{
+    const vm=verb.exec(sentence);if(!vm)return;
+    // The next sentence only counts when it is a bare condition ("Once used
+    // remove it…"), not an effect of its own ("+1 Attack when charging").
+    const nx=sentences[si+1]||'';const near=sentence+' '+(/\d|[+-]\d/.test(nx)||verb.test(nx)?'':nx);
+    if(CONDITIONAL_TRIGGER_PATTERNS.some(re=>re.test(near))||/\brolls?\b|\brolled\b|\bD[36]\b|\bjets?\b|\blancer?\b/i.test(near))return;
+    if(/\b(?:not|never|cannot|can't|loses?|lost|no longer)\b|\bno\b|\bsans\b|\baucun|\bn['’]|\bne\b|\bperd/i.test(sentence.slice(Math.max(0,vm.index-25),vm.index+vm[0].length+12)))return;
+    // The rule must follow the verb closely: "gains the Fear special rule",
+    // "gagne la règle spéciale Fear" — not a name mentioned much later.
+    const after=sentence.slice(vm.index+vm[0].length,vm.index+vm[0].length+45);
+    specials.forEach(e=>{
+      const name=String(e?.name||'').trim();if(name.length<3||/^Race\s*\(/i.test(name))return;
+      if(isTraitParamTemplate(name)){
+        const base=name.replace(/\s*\([^)]*\)\s*$/,'').trim();if(!base||normName(base)===self)return;
+        const m=new RegExp('(?:^|[^A-Za-zÀ-ÿ])'+escapeRegexLiteral(base)+'\\s*\\(([^)]+)\\)').exec(after);
+        if(m){const v=`${base} (${m[1].trim()})`;if(!out.some(n=>normName(n)===normName(v)))out.push(v)}
+        return;
+      }
+      if(normName(name)===self)return;
+      if(new RegExp('(?:^|[^A-Za-zÀ-ÿ])'+escapeRegexLiteral(name)+'(?![A-Za-zÀ-ÿ]|[\'’]s\\b)').test(after)&&!out.some(n=>normName(n)===normName(name)))out.push(name);
+    });
+  });
+  // A longer name wins over one it contains ("Immune to Fear" vs "Fear").
+  const res=out.filter(n=>!out.some(o=>o!==n&&o.length>n.length&&new RegExp('(?:^|[^A-Za-zÀ-ÿ])'+escapeRegexLiteral(n)+'(?![A-Za-zÀ-ÿ])').test(o)));
+  if(__ruleGrantCache.size>2000)__ruleGrantCache.clear();__ruleGrantCache.set(key,res);return res;
+}
+// Rules given by the fighter's equipped items (their written rules) and by
+// its skills' text.
+function fighterGrantedRuleNames(x){
+  const out=[];
+  try{
+    (Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]).forEach(e=>{const d=(isCustomEquipment(e)?liveEquipmentDef(e):null)||null;if(d)detectRuleGrantsInText(d.rulesText,d.name).forEach(n=>out.push(n))});
+    (Array.isArray(x?.skills)?x.skills:[]).forEach(sk=>{const e=referenceFind('skills',sk);if(e)detectRuleGrantsInText(e.text,e.name).forEach(n=>out.push(n))});
+  }catch(e){}
+  return out;
+}
 function effectsFromRuleText(text){
   text=String(text||'');
-  const stats=[];
-  const statNames='Mouvement|Movement|M|WS|CC|Capacité de combat|BS|CT|Capacité de tir|Force|S|Endurance|T|Blessures|W|Initiative|I|Attaques|A|Leadership|LD|Commandement|Calme|CL|Volonté|WIL|Intelligence|INT';
-  const re=new RegExp('(?:réduit|reduit|diminue|baisse|augmente|augmente de|modifie|modifié|modifier|gagne|perd|ajoute|ajout)\\s+(?:son|sa|ses|le|la|les)?\\s*('+statNames+')\\s*(?:de|à|a)?\\s*([+-]?\\d+)', 'gi');
-  let m;while((m=re.exec(text))){const idx=customRuleStatIndex(m[1]);if(idx!=null){let amount=Number(m[2]);const lead=m[0].toLowerCase();if(/réduit|reduit|diminue|baisse|perd/.test(lead))amount=-Math.abs(amount);stats.push({index:idx,amount});}}
-  // Also accept concise forms such as "Leadership -3" or "Leadership +2".
-  const re2=new RegExp('\\b('+statNames+')\\s*([+-]\\d+)','gi');while((m=re2.exec(text))){const idx=customRuleStatIndex(m[1]);if(idx!=null)stats.push({index:idx,amount:Number(m[2])});}
+  // V-KEYWORDS2: stats now come from the same reader as skills/spells/rules
+  // (English + French, many phrasings), and a CONDITIONAL bonus ("+1
+  // Strength when charging", "single use") is no longer applied for good.
+  const stats=detectStatBonusesInText(text).filter(b=>!b.conditional&&b.mode!=='set'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12).map(b=>({index:b.index,amount:Number(b.delta)}));
   const skills=[];
   const addSkillCandidate=(candidate)=>{
     let c=String(candidate||'').trim().replace(/^[\s:;–—-]+|[\s:;,.!?–—-]+$/g,'').trim();
@@ -14733,6 +14788,18 @@ function detectStatBonusesInText(rawText,ctx){
       let m;while((m=fwd.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
       const rev=new RegExp('([+-]\\d+)\\s*(?:en|de|d\'|d’|)\\s*'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
       while((m=rev.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
+      // V-KEYWORDS2: more natural phrasings, English and French —
+      // "+1 to his Strength" / "+1 à sa Force", "increases his Toughness by 1"
+      // / "augmente sa Force de 1", "reduces/réduit son Endurance de 1",
+      // "Strength is increased by 1" / "sa Force est augmentée de 1".
+      const own='(?:(?:his|her|their|its|the|this\\s+(?:model|warrior|fighter)\'s|son|sa|ses|le|la|les|l\'|l’)\\s*)?';
+      const toRe=new RegExp('([+-]\\d+)\\s*(?:to|à|a)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'(?!\\s*(?:tests?|checks?|rolls?|jets?))','gi');
+      while((m=toRe.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
+      const neg=v=>/^(?:reduc|reduit|réduit|lower|decreas|diminu|baiss|perd|lose)/i.test(v);
+      const verbRe=new RegExp('(increases?|raises?|improves?|boosts?|augmente(?:nt)?|améliore(?:nt)?|ameliore(?:nt)?|reduces?|lowers?|decreases?|réduit|reduit|réduisent|diminue(?:nt)?|baisse(?:nt)?)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*(?:by|de|d\'|d’)\\s*(\\d+)','gi');
+      while((m=verbRe.exec(text))){const n=parseInt(m[2],10);add(def.stat,def.index,neg(m[1])?-n:n,m.index,m[0].length,m[0]);}
+      const passRe=new RegExp(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:is|are|est|sont)\\s+(increased|raised|improved|reduced|lowered|decreased|augmentée?s?|améliorée?s?|réduite?s?|reduite?s?|diminuée?s?|baissée?s?)\\s+(?:by|de|d\'|d’)\\s*(\\d+)','gi');
+      while((m=passRe.exec(text))){const n=parseInt(m[2],10);add(def.stat,def.index,neg(m[1])?-n:n,m.index,m[0].length,m[0]);}
       // V-STATSET: some skills/special rules FIX a stat to an absolute value
       // instead of modifying it by a delta — "Mouvement fixé à 8"", "Son
       // Mouvement devient 8"", "Movement becomes 8"" — none of which carry a
@@ -16124,7 +16191,9 @@ function fighterRuleNames(x,f){
   }
   names=names.filter(n=>!/^Race\s*\(/i.test(String(n)));
   const equipmentRules=standardEquipmentSpecialRules(x);
-  return [...new Set([raceRule,...names,...equipmentRules,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
+  const bare=v=>normName(String(v||'').replace(/\s*\([^)]*\)\s*$/,''));
+  const granted=fighterGrantedRuleNames(x).filter(n=>![raceRule,...names,...equipmentRules].some(o=>bare(o)===bare(n)));
+  return [...new Set([raceRule,...names,...equipmentRules,...granted,...(Array.isArray(x?.extraRuleNames)?x.extraRuleNames:[])])];
 }
 function warriorBandAllowed(w,x,fac){if(x?.customFighterId){return Array.isArray(x.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name))}
   if(!fac)fac=faction(activeRoster());

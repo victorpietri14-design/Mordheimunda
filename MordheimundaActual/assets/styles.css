@@ -3309,7 +3309,9 @@ html[data-theme="light"] .admin-live-editor-text{background:rgba(0,0,0,.05)}
 .fighter-page .profile-max-row,
 .fighter-card-v4 .profile-max-row,
 .profile-simple .profile-max-row{
-  grid-template-columns:repeat(12,minmax(0,1fr))!important;
+  /* 14 like the stat row above (12 stats + Sv + XP): blank cells sit
+     under Sv and XP so every maximum lines up with its own stat. */
+  grid-template-columns:repeat(14,minmax(0,1fr))!important;
   gap:2px!important;
   width:100%!important;
   overflow:visible!important;
@@ -4677,3 +4679,5 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .ref-tree-owners small{color:var(--muted3);font-size:10px}
 .ref-tree-owners button.danger{border-color:var(--danger-border,#6b2a26);color:var(--danger)}
 .equipment-action.use{width:auto;padding:0 10px;font:700 11px "IBM Plex Sans",system-ui,sans-serif;letter-spacing:.04em;color:var(--accent);border-color:rgba(154,221,75,.45)}.equipment-action.use:hover{background:rgba(154,221,75,.12)}.equipment-use-done{display:inline-flex;align-items:center;padding:0 8px;height:32px;font-size:11px;opacity:.6;white-space:nowrap}
+
+.profile-max-row span.max-pad{border-right:0;visibility:hidden}
