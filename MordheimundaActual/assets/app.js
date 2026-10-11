@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0582.0';
+const APP_BUILD='110.0583.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -542,6 +542,7 @@ function addTraitFor(context){
   const input=$('#'+dom.input);const v=(input?.value||'').trim();if(!v)return;
   const found=preferParamTemplate('traits',referenceFind('traits',v));const canonical=found?.name||v;
   if(isTraitParamTemplate(canonical)){input.value='';openTraitParamPrompt(context,null,canonical);return}
+  if(traitChoiceOptions(canonical)){input.value='';openTraitChoicePrompt(context,null,canonical);return}
   const draft=traitDraftArrayFor(context);
   if(!draft.some(t=>normName(t)===normName(canonical)))draft.push(canonical);
   input.value='';refreshTraitEditorFor(context);
@@ -570,6 +571,10 @@ function referenceFind(category,name){const list=referenceEntries(category);cons
   const base=rawBase?refNorm(rawBase):n.replace(/\([^)]*\)/g,'');
   exact=list.find(e=>{const eb=refNorm(String(e.name||'').replace(/\([^)]*\)/g,''));return eb&&eb===base});
   if(exact)return exact;
+  // V-TRAITCHOICE: a chosen value written after the name ("Blast 3\"") finds
+  // its choice rule ("Blast (3\"/5\")").
+  const valBase=refNorm(raw.replace(/\s+\d+(?:[.,]\d+)?\s*(?:["”″“]|''|’’)?\s*$/,''));
+  if(valBase&&valBase!==n){exact=list.find(e=>traitChoiceOptions(e.name)&&refNorm(String(e.name||'').replace(/\([^)]*\)/g,''))===valBase);if(exact)return exact;}
   return list.find(e=>{const eb=refNorm(String(e.name||'').replace(/\([^)]*\)/g,''));return eb&&(eb.startsWith(base)||base.startsWith(eb))})||null;}
 function referenceCategoryForEquipment(name){return referenceFind('equipment',name)?'equipment':null;}
 function refLink(category,name,display=name){const e=referenceFind(category,name);if(!e)return esc(display);const safeCat=esc(category),safeId=esc(e.id);
@@ -13841,10 +13846,20 @@ function preferParamTemplate(cat,found){
   if(!base)return found;
   return referenceEntries(cat).find(e=>isTraitParamTemplate(e.name)&&refNorm(String(e.name||'').replace(/\([^)]*\)/g,''))===base)||found;
 }
+// V-TRAITCHOICE: a rule whose name ends with a choice "(3”/5”)" asks which
+// value to use and is shown as "Blast 3\"" / "Blast 5\"".
+function traitChoiceOptions(name){const m=String(name||'').match(/\(([^()]*\/[^()]*)\)\s*$/);if(!m)return null;const opts=m[1].split('/').map(x=>x.trim().replace(/[”″“]|''|’’/g,'"')).filter(Boolean);return opts.length>1?opts:null}
+function traitChoiceTemplateFor(name){if(traitChoiceOptions(name))return null;const e=referenceFind('traits',name);return e&&traitChoiceOptions(e.name)?e:null}
+function openTraitChoicePrompt(context,index,templateName){
+  pendingTraitParam={context,index,templateName,choice:true};const en=siteLanguage==='en';const label=traitBaseName(templateName);const opts=traitChoiceOptions(templateName)||[];
+  openModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)}</h2><p>${en?'Which value does this weapon use?':'Quelle valeur cette arme utilise-t-elle ?'}</p><div class="account-actions" style="flex-wrap:wrap">${opts.map((o,i)=>`<button type="button" class="button primary" onclick="chooseTraitOption(${i})">${esc(label)} ${esc(o)}</button>`).join('')}</div><div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+}
+function chooseTraitOption(i){if(!pendingTraitParam)return;const opts=traitChoiceOptions(pendingTraitParam.templateName)||[];if(!opts[i])return;confirmTraitParamValue(`${traitBaseName(pendingTraitParam.templateName)} ${opts[i]}`)}
 function traitBaseName(name){const m=String(name||'').match(/^(.*\S)\s*\([^)]*\)\s*$/);return m?m[1]:String(name||'')}
 function traitParamCurrentValue(name){const m=String(name||'').match(/\(([^)]*)\)\s*$/);return m?m[1]:''}
 const WEAPON_TRAIT_CONTEXTS=['equipment','equipment2','spellBook','adminWeapon'];
 function isEditableParamTag(context,name){
+  if(WEAPON_TRAIT_CONTEXTS.includes(context)&&traitChoiceTemplateFor(name))return true;
   const base=traitBaseName(name);
   const cat=WEAPON_TRAIT_CONTEXTS.includes(context)?'traits':'special';
   const found=TRAIT_PARAM_SUFFIXES.map(suf=>referenceFind(cat,`${base} ${suf}`)).find(f=>f&&isTraitParamTemplate(f.name));
@@ -13861,14 +13876,17 @@ function openTraitParamPrompt(context,index,templateName){
   const currentDigits=plusMode?current.replace(/\+\s*$/,''):current;
   openModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)} ${esc(suf)}</h2><p>${plusMode?(en?'Enter the value for X in this rule (the “or better” + is added automatically).':'Indique la valeur de X pour cette règle (le « + » est ajouté automatiquement).'):(en?'Enter the value for X in this rule.':'Indique la valeur de X pour cette règle.')}</p><label class="custom-field"><span>X</span><input id="traitParamValue" value="${esc(currentDigits)}" placeholder="Ex. 2"></label><div class="custom-actions"><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary full" onclick="confirmTraitParamValue()">${en?'Save':'Valider'}</button></div></div>`);
 }
-function confirmTraitParamValue(){
+function confirmTraitParamValue(chosenName){
   if(!pendingTraitParam)return;
   const {context,index,templateName}=pendingTraitParam;
+  let finalName=typeof chosenName==='string'?chosenName:'';
+  if(!finalName){
   const raw=($('#traitParamValue')?.value||'').trim();
   if(!raw){toast(siteLanguage==='en'?'Enter a value':'Indique une valeur');return}
   const suf=traitParamSuffixOf(templateName)||'(X)';
   const value=suf==='(X+)'?(raw.endsWith('+')?raw:raw+'+'):raw;
-  const finalName=`${traitBaseName(templateName)} (${value})`;
+  finalName=`${traitBaseName(templateName)} (${value})`;
+  }
   if(context==='equipment'){
     if(index==null){if(!customEquipmentTraitDraft.some(x=>normName(x)===normName(finalName)))customEquipmentTraitDraft.push(finalName);}
     else customEquipmentTraitDraft[index]=finalName;
@@ -13897,6 +13915,7 @@ function confirmTraitParamValue(){
 function editTraitParamValue(context,index){
   const arr=traitDraftArrayFor(context);
   const name=arr[index];if(name==null)return;
+  const choice=traitChoiceTemplateFor(name)||(traitChoiceOptions(name)?{name}:null);if(choice){openTraitChoicePrompt(context,index,choice.name);return}
   const suf=/\+\s*$/.test(traitParamCurrentValue(name))?'(X+)':'(X)';
   openTraitParamPrompt(context,index,`${traitBaseName(name)} ${suf}`);
 }
@@ -13961,7 +13980,7 @@ function customTraitTagsMarkup(){const en=siteLanguage==='en';return customEquip
 function customPreviewMarkup(w){const en=siteLanguage==='en';if(!w?.profile)return `<div class="custom-nonweapon-preview"><span>${en?'PREVIEW':'APERÇU'}</span><strong>${en?'Unarmed equipment':'Équipement non armé'}</strong><small>${en?'The weapon profile will appear automatically if the type is changed to Weapon.':'Le profil d’arme apparaîtra automatiquement si le type est changé en Arme.'}</small></div>`;return weaponProfileMarkup({...w,customEquipmentId:'preview',profile:{...w.profile,traits:customEquipmentTraitDraft.join(', ')}}).replace(/data-ref-category="equipment"[^>]*>/g,'>')}
 function refreshCustomForm(){const en=siteLanguage==='en';const type=$('#customType')?.value;const box=$('#customWeaponFields');if(!box)return;box.innerHTML=type==='weapon'?customWeaponEditor({name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:{range:$('#customRange')?.value||'',strength:$('#customStrength')?.value||'',ap:$('#customAp')?.value||'',damage:$('#customDamage')?.value||''},traits:customEquipmentTraitDraft}):''}
 function refreshCustomTraitEditor(){const en=siteLanguage==='en';const tags=$('#customTraitTags');if(tags)tags.innerHTML=customTraitTagsMarkup();const preview=$('#customWeaponPreview');if(preview){const w={name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:{range:$('#customRange')?.value||'',strength:$('#customStrength')?.value||'',ap:$('#customAp')?.value||'',damage:$('#customDamage')?.value||''},traits:customEquipmentTraitDraft};preview.innerHTML=customPreviewMarkup(w)}}
-function addCustomTrait(){const input=$('#customTraitInput');const v=(input?.value||'').trim();if(!v)return;const found=referenceFind('traits',v);const canonical=found?.name||v;if(isTraitParamTemplate(canonical)){input.value='';openTraitParamPrompt('equipment',null,canonical);return}if(!customEquipmentTraitDraft.some(t=>normName(t)===normName(canonical)))customEquipmentTraitDraft.push(canonical);input.value='';refreshCustomTraitEditor();setTimeout(()=>{$('#customTraitInput')?.focus()},20)}
+function addCustomTrait(){const input=$('#customTraitInput');const v=(input?.value||'').trim();if(!v)return;const found=referenceFind('traits',v);const canonical=found?.name||v;if(traitChoiceOptions(canonical)){input.value='';openTraitChoicePrompt('equipment',null,canonical);return}if(isTraitParamTemplate(canonical)){input.value='';openTraitParamPrompt('equipment',null,canonical);return}if(!customEquipmentTraitDraft.some(t=>normName(t)===normName(canonical)))customEquipmentTraitDraft.push(canonical);input.value='';refreshCustomTraitEditor();setTimeout(()=>{$('#customTraitInput')?.focus()},20)}
 function handleCustomTraitKey(e){if(e.key==='Enter'){e.preventDefault();addCustomTrait()}}
 function removeCustomTrait(i){customEquipmentTraitDraft.splice(i,1);refreshCustomTraitEditor()}
 function resetCustomForm(){customEquipmentEditId=null;customEquipmentTraitDraft=[];customEquipmentTraitDraft2=[];render('custom')}
