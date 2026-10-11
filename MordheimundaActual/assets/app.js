@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0597.0';
+const APP_BUILD='110.0598.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12466,9 +12466,18 @@ function hiredSwordRawList(){
   (D.factions||[]).forEach(f=>{if(f.__official)(f.warriors||[]).forEach(add)});
   return out;
 }
-function hiredSwordRawById(id){if(!id)return null;const own=customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w));if(own)return hiredSwordMergeTwin(own);return hiredSwordRawList().find(w=>(w.customFighterId||w.id)===id)||null}
+// V-HSSOURCEID: find the exact copy a hired fighter came from — by id in
+// the personal library, then by id in EVERY published copy (the deduped
+// hiredSwordRawList can hide a same-name duplicate, which left the sheet on
+// its hire-time snapshot: book domains showed, ones added later didn't),
+// then by name as a last resort.
+function hiredSwordRawById(id,name){if(!id&&!name)return null;
+  const own=id?customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w)):null;if(own)return hiredSwordMergeTwin(own);
+  let pub=null;if(id)(D.factions||[]).forEach(f=>{if(pub||!f.__official)return;pub=(f.warriors||[]).find(w=>isHiredSword(w)&&!w.archived&&(w.customFighterId===id||w.id===id))||null});
+  if(pub){const mine=customFighterList().find(w=>isHiredSword(w)&&!w.archived&&normName(w.name)===normName(pub.name));return mine?hiredSwordMergeTwin(mine):pub}
+  return hiredSwordRawList().find(w=>(id&&(w.customFighterId||w.id)===id)||(name&&normName(w.name)===normName(name)))||null}
 function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
-function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId);return w?hiredSwordAsWarrior(w):null}
+function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId,x?.sourceName||x?.name);return w?hiredSwordAsWarrior(w):null}
 function hiredSwordAvailableFor(w,f,r){
   const list=Array.isArray(w?.hsFactions)?w.hsFactions:[];if(!list.length)return true;
   const ids=new Set([f?.id,f?.displayName,f?.baseFactionId,r?.factionId,r?.customWarbandId?'custom-warband-'+r.customWarbandId:null].filter(Boolean).map(normName));
@@ -12757,7 +12766,7 @@ function resolveFighterSource(x,f){
  // a false positive, only a safety net for the id/name match failing.
  const inWarband=f?.warriors?.find(w=>w.id===x?.wid||w.name===x?.sourceName||w.name===x?.name||(x?.customFighterId&&w.customFighterId&&w.customFighterId===x.customFighterId));
  if(inWarband&&!isHiredSword(x))return inWarband;
- if(isHiredSword(x))return hiredSwordRawById(x.customFighterId)||null;
+ if(isHiredSword(x))return hiredSwordRawById(x.customFighterId,x.sourceName||x.name)||null;
  return x?.customFighterId?customFighterById(x.customFighterId):null;
 }
 function fighterSourceType(x){
