@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0595.0';
+const APP_BUILD='110.0596.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1061,8 +1061,10 @@ function spellIsContinuous(sp){
   // them — "Difficulty -1 (Basic) Continuous", "(Basic), Continuous",
   // "Difficulty 2 Continuous". Not "continue fighting" further in the text.
   const m=String(sp?.text||'').match(/Difficult(?:y|é)\s?:?\s*(?:[+-]?\d+\+?|Auto)\s*(?:\(([^)]+)\))?\s*[,;·–—-]?\s*(Continu(?:ous|e|el)\b)?/i);
-  if(!m)return false;
-  return /continu/i.test(m[1]||'')||!!m[2];
+  if(m&&(/continu/i.test(m[1]||'')||m[2]))return true;
+  // Custom spells often just carry the keyword on its own, anywhere in the
+  // text: "Continuous" (capital C, so "continue fighting" never counts).
+  return /(?:^|[^A-Za-zÀ-ÿ])Continu(?:ous|e|el)(?![A-Za-zÀ-ÿ])/.test(String(sp?.text||''));
 }
 function spellActionTypeLabel(type,en){
   if(type==='Simple')return 'Simple';
