@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0585.0';
+const APP_BUILD='110.0586.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -239,7 +239,7 @@ function warbandRoleSortIndex(t){const i=WARBAND_ROLE_ORDER.indexOf(t);return i=
 // See V-SUPPLEMENTMAGICLEAK above warriorStartingSkills — same fallback,
 // same exclusion of __official (admin-officialized) factions from it.
 function warbandMagicAccess(f){return MAGIC_ACCESS[f.id]||(f?.baseFactionId&&!f.__official&&MAGIC_ACCESS[f.baseFactionId])||{};}
-function warriorMagicDomains(f,w){const access=warbandMagicAccess(f);return access[w.type]||access['*']||[];}
+function warriorMagicDomains(f,w){const access=warbandMagicAccess(f);const byName=k=>{const key=Object.keys(access).find(a=>normName(a)===normName(k||''));return key?access[key]:null};return byName(w?.sourceName)||byName(w?.name)||access[w?.type]||access['*']||[];}
 function warbandExclusiveSkillTrees(f){
   const set=new Set();
   // V-ORPHANTREEACCESS: a warrior's skillAccess can carry a stray key for a
@@ -10248,7 +10248,13 @@ function fighterRuleCardMarkup(w,f){
   // Sisters of Sigmar) — this sub-section didn't exist before; a fighter
   // with no access still shows the section with an explicit empty state
   // rather than hiding it, matching the other two sub-sections.
-  const domains=f?warriorMagicDomains(f,w):[];
+  // V-WBMAGICACCESS: a fighter's domains = the book's fixed ones (counted
+  // as Primary) + every domain granted on the fighter itself (magicAccess,
+  // set in Admin / Custom), each with its status like the skill trees.
+  const magicStatus=new Map();(f?warriorMagicDomains(f,w):[]).forEach(d=>magicStatus.set(normName(d),{name:d,v:'Primary'}));
+  Object.entries(w.magicAccess||{}).forEach(([d,v])=>{if(!v)return;magicStatus.set(normName(d),{name:d,v})});
+  const domains=[...magicStatus.values()].map(x=>x.name);
+  const magicRowsMarkup=domains.length?`<div class="skill-status-tablewrap"><table class="skill-status-table"><tr>${[...magicStatus.values()].map(x=>`<th>${esc(domainDisplayName(x.name))}</th>`).join('')}</tr><tr>${[...magicStatus.values()].map(x=>{const cls=x.v==='Secondary'?'secondary':x.v==='Primary'?'primary':'access';const label=x.v==='Secondary'?(en?'Secondary':'Secondaire'):x.v==='Primary'?(en?'Primary':'Primaire'):(en?'Authorized':'Autorisé');return `<td><span class="skill-status-badge sb-${cls}">${label}</span></td>`}).join('')}</tr></table></div>`:'';
   // V-WBSTARTINGSKILL: a skill the warrior already knows for free at
   // creation (STARTING_SKILLS — e.g. every Dwarf has True Grit) — distinct
   // from "Available skills" below, which is what they can later LEARN with
@@ -10298,7 +10304,7 @@ ${exclusiveTrees.length?`<div class="opt-cat"><div class="cat-label">${en?'Warba
 </div>
 </details>
 <details class="opt-section"><summary><span>${en?'Magic available':'Magie disponible'} <span class="count">${domains.length||(en?'none':'aucune')}</span></span><span class="chev">▸</span></summary>
-<div class="opt-body"><div class="opt-list">${domains.length?domains.map(d=>`<span class="opt-pill">${esc(d)}</span>`).join(''):`<span class="empty-note">${en?'This profile has no access to any magic domain.':'Ce profil n’a accès à aucun domaine de sort.'}</span>`}</div></div>
+<div class="opt-body"><div class="opt-list">${domains.length?magicRowsMarkup:`<span class="empty-note">${en?'This profile has no access to any magic domain.':'Ce profil n’a accès à aucun domaine de sort.'}</span>`}</div></div>
 </details>
 <details class="opt-section"><summary><span>${en?'Equipment available at recruitment':'Équipement disponible à la création'} <span class="count">${equipGroupSections.length} ${en?'categories':'catégories'}</span></span><span class="chev">▸</span></summary>
 <div class="opt-body">${equipGroupSections.length?equipGroupSections.map(sec=>`<div class="opt-cat"><div class="cat-label">${esc(sec.label)}</div><div class="opt-list">${sec.items.map(name=>`<span class="opt-pill">${refLinkByName(name,'equipment')}</span>`).join('')}</div></div>`).join(''):`<div class="opt-list"><span class="empty-note">${en?'None':'Aucune'}</span></div>`}</div>
