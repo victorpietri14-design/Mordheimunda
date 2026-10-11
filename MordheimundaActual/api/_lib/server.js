@@ -1096,7 +1096,7 @@ app.put('/api/admin/quests',requireDb,requireSameOrigin,auth,requireAdmin,async(
     if(lib===null){await pool.query("DELETE FROM site_settings WHERE key='questLibrary'");return res.json({library:null})}
     const trees=Array.isArray(lib?.trees)?lib.trees:null;
     if(!trees||trees.length>60)return res.status(400).json({error:'INVALID_QUESTS'});
-    const clean={trees:trees.map(t=>({id:clip(t?.id,60),name:clip(t?.name,60),icon:clip(t?.icon,4),color:clip(t?.color,16),caster:!!t?.caster,skillTrees:(Array.isArray(t?.skillTrees)?t.skillTrees:[]).slice(0,20).map(x=>clip(x,60)),quests:(Array.isArray(t?.quests)?t.quests:[]).slice(0,20).map(q=>({id:clip(q?.id,60),name:clip(q?.name,80),text:clip(q?.text,400),xp:Math.max(0,Math.min(10,Math.round(Number(q?.xp)||0)))}))})).filter(t=>t.id&&t.name)};
+    const clean={trees:trees.map(t=>({id:clip(t?.id,60),name:clip(t?.name,60),icon:clip(t?.icon,4),color:clip(t?.color,16),caster:!!t?.caster,requireAll:!!t?.requireAll,skillTrees:(Array.isArray(t?.skillTrees)?t.skillTrees:[]).slice(0,20).map(x=>clip(x,60)),quests:(Array.isArray(t?.quests)?t.quests:[]).slice(0,20).map(q=>({id:clip(q?.id,60),name:clip(q?.name,80),text:clip(q?.text,400),xp:Math.max(0,Math.min(10,Math.round(Number(q?.xp)||0)))}))})).filter(t=>t.id&&t.name)};
     await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('questLibrary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify(clean)]);
     res.json({library:clean});
   }catch(e){next(e)}

@@ -4716,3 +4716,9 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .qx-tree li.qx-q.open .qx-qd{display:block}
 @media(hover:hover){.qx-tree li.qx-q:hover .qx-qd{display:block}}
 .qa-quest input,.qa-quest textarea{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:7px 9px;font:13px 'IBM Plex Sans',sans-serif;min-width:0}.qa-quest textarea{resize:vertical}
+.qa-mode{display:flex;flex-wrap:wrap;gap:14px;margin:6px 0 8px;font-size:12.5px;color:var(--muted2)}.qa-mode label{display:inline-flex;align-items:center;gap:6px}.qa-trees{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}.qa-trees .custom-check{padding:6px 8px}.qa-trees .custom-check.on{border-color:var(--accent2)}
+.qa-mode label{display:inline-flex!important;width:auto!important;flex:none!important;align-items:center;gap:6px;padding:0!important;border:0!important;background:none!important}.qa-mode input{margin:0}.qa-trees .custom-check{display:flex!important;justify-content:flex-start!important;align-items:center;gap:8px;text-align:left}.qa-trees .custom-check input{margin:0;flex:none}.qa-trees .custom-check span{text-align:left}
+.qa-mode input,.qa-chip input{width:auto!important;height:auto!important;min-height:0!important;padding:0!important;margin:0!important;flex:none;accent-color:var(--accent)}
+.qa-mode label{white-space:nowrap}
+.qa-chip{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-size:12.5px;color:var(--muted2);cursor:pointer}
+.qa-chip.on{border-color:var(--accent2);color:var(--text);background:rgba(157,250,60,.06)}
