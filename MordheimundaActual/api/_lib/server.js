@@ -1526,18 +1526,19 @@ app.delete('/api/admin/catalog/faction-category-members/:factionId',requireDb,re
 // original name) keeps working unmodified. Public read, admin-only write.
 app.get('/api/catalog/domain-overrides',requireDb,async(req,res,next)=>{
   try{
-    const q=await pool.query('SELECT domain_key,name,color,updated_at FROM magic_domain_overrides');
-    res.json({overrides:q.rows.map(r=>({domainKey:r.domain_key,name:r.name,color:r.color,updatedAt:r.updated_at}))});
+    const q=await pool.query('SELECT domain_key,name,color,group_name,updated_at FROM magic_domain_overrides');
+    res.json({overrides:q.rows.map(r=>({domainKey:r.domain_key,name:r.name,color:r.color,group:r.group_name||null,updatedAt:r.updated_at}))});
   }catch(e){next(e)}
 });
 app.put('/api/admin/catalog/domain-overrides/:domainKey',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const domainKey=String(req.params.domainKey||'').trim();
   const name=req.body?.name!=null?String(req.body.name).trim().slice(0,80):null;
   const color=req.body?.color!=null?String(req.body.color).trim().slice(0,20):null;
+  const group=req.body?.group!=null?(String(req.body.group).trim().slice(0,60)||null):null;
   if(!domainKey)return res.status(400).json({error:'INVALID_DOMAIN'});
   try{
-    await pool.query(`INSERT INTO magic_domain_overrides(domain_key,name,color,updated_by,updated_at) VALUES($1,$2,$3,$4,NOW())
-      ON CONFLICT (domain_key) DO UPDATE SET name=EXCLUDED.name,color=EXCLUDED.color,updated_by=EXCLUDED.updated_by,updated_at=NOW()`,[domainKey,name,color,req.user.user_id]);
+    await pool.query(`INSERT INTO magic_domain_overrides(domain_key,name,color,group_name,updated_by,updated_at) VALUES($1,$2,$3,$4,$5,NOW())
+      ON CONFLICT (domain_key) DO UPDATE SET name=EXCLUDED.name,color=EXCLUDED.color,group_name=EXCLUDED.group_name,updated_by=EXCLUDED.updated_by,updated_at=NOW()`,[domainKey,name,color,group,req.user.user_id]);
     res.json({ok:true});
   }catch(e){next(e)}
 });

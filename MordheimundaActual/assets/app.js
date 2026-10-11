@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0581.0';
+const APP_BUILD='110.0582.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1795,6 +1795,15 @@ function refTreeGroups(cat){
   const groups=[];const placed=new Set();
   if(cat==='skills'){const base=all.filter(k=>COMMON_SKILL_TREES.some(c=>normName(c)===normName(k))||/ride|riding/i.test(k));base.sort((a,b)=>{const ra=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(a)),rb=COMMON_SKILL_TREES.findIndex(c=>normName(c)===normName(b));return (ra<0?99:ra)-(rb<0?99:rb)});base.forEach(k=>placed.add(k));groups.push({id:'base',label:en?'Base Skills':'Compétences de base',trees:base})}
   RACE_CATEGORIES.forEach(r=>{const ks=[...byRace.get(r)].filter(k=>!(cat==='skills'&&placed.has(k)&&groups[0]?.trees.includes(k))).sort((a,b)=>a.localeCompare(b));ks.forEach(k=>placed.add(k));if(ks.length)groups.push({id:r,label:r==='Humain'&&en?'Human':r,trees:ks})});
+  // V-DOMAINGROUP: a domain the admin filed under a category (e.g. "Grand
+  // Magic") goes there instead of its race / Base Magic; those categories
+  // come right after Base Magic.
+  if(cat==='spells'){const named=new Map();all.forEach(k=>{const g=domainOverrideMap.get(normName(k))?.group;if(g){if(!named.has(g))named.set(g,[]);named.get(g).push(k)}});
+    if(named.size){const moved=new Set([...named.values()].flat());groups.forEach(g=>{g.trees=g.trees.filter(k=>!moved.has(k))});for(let i=groups.length-1;i>=0;i--)if(!groups[i].trees.length)groups.splice(i,1);moved.forEach(k=>placed.add(k));
+      // "Base Magic" (or "Magie de base") means the existing Base Magic group.
+      const isBase=g=>['base magic','magie de base'].includes(normName(g));const toBase=[...named.entries()].filter(([g])=>isBase(g)).flatMap(([,ks])=>ks);
+      const extra=[...named.entries()].filter(([g])=>!isBase(g)).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,ks])=>({id:'grp:'+g,label:g,trees:ks.sort((a,b)=>a.localeCompare(b))}));
+      const rest0=[...all.filter(k=>!placed.has(k)),...toBase].sort((a,b)=>a.localeCompare(b));groups.unshift(...extra);if(rest0.length){groups.unshift({id:'base',label:en?'Base Magic':'Magie de base',trees:rest0});rest0.forEach(k=>placed.add(k))}}}
   // Spells: every domain no warband owns (Lesser Magic, and any base domain
   // added later) is Base Magic, listed first.
   const rest=all.filter(k=>!placed.has(k)).sort((a,b)=>a.localeCompare(b));if(rest.length){if(cat==='spells')groups.unshift({id:'base',label:en?'Base Magic':'Magie de base',trees:rest});else groups.push({id:'other',label:en?'Other':'Autres',trees:rest})}
@@ -5362,14 +5371,15 @@ function openDomainOverrideEditor(rawKey){
   const o=domainOverrideMap.get(normName(rawKey));
   const name=o?.name||rawKey;
   const color=o?.color||spellDomainColor(rawKey);
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">ADMIN</div><h2>${en?'Edit domain':'Modifier le domaine'}</h2><p class="muted">${en?'Renames how this domain is shown in the Reference and sets its card color — the underlying game data (fighter access, spells) is unaffected.':'Renomme l’affichage de ce domaine dans le Référentiel et fixe la couleur de ses cartes — les données de jeu (accès des combattants, sorts) ne sont pas touchées.'}</p><label class="custom-field wide"><span>${en?'Displayed name':'Nom affiché'}</span><input id="domainOverrideName" value="${esc(name)}"></label><label class="custom-field"><span>${en?'Frame color':'Couleur du cadre'}</span><input id="domainOverrideColor" type="color" value="${esc(color)}"></label><div class="account-actions"><button class="button primary" type="button" onclick="saveDomainOverrideUI('${esc(rawKey).replace(/'/g,"\\'")}')">${en?'Save':'Enregistrer'}</button>${o?`<button class="button secondary" type="button" onclick="resetDomainOverrideUI('${esc(rawKey).replace(/'/g,"\\'")}')">${en?'Revert to book':'Revenir au livre'}</button>`:''}<button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+  openModal(`<div class="admin-live-editor"><div class="eyebrow">ADMIN</div><h2>${en?'Edit domain':'Modifier le domaine'}</h2><p class="muted">${en?'Renames how this domain is shown in the Reference and sets its card color — the underlying game data (fighter access, spells) is unaffected.':'Renomme l’affichage de ce domaine dans le Référentiel et fixe la couleur de ses cartes — les données de jeu (accès des combattants, sorts) ne sont pas touchées.'}</p><label class="custom-field wide"><span>${en?'Displayed name':'Nom affiché'}</span><input id="domainOverrideName" value="${esc(name)}"></label><label class="custom-field"><span>${en?'Frame color':'Couleur du cadre'}</span><input id="domainOverrideColor" type="color" value="${esc(color)}"></label><label class="custom-field wide"><span>${en?'Category in the Reference menu':'Catégorie dans le menu du Référentiel'}</span><input id="domainOverrideGroup" list="domainGroupList" value="${esc(o?.group||'')}" placeholder="${en?'Empty = automatic (Base Magic or the warband’s race)':'Vide = automatique (Base Magic ou race de la bande)'}"><datalist id="domainGroupList">${[...new Set(['Base Magic',...[...domainOverrideMap.values()].map(x=>x.group).filter(Boolean)])].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></label><div class="account-actions"><button class="button primary" type="button" onclick="saveDomainOverrideUI('${esc(rawKey).replace(/'/g,"\\'")}')">${en?'Save':'Enregistrer'}</button>${o?`<button class="button secondary" type="button" onclick="resetDomainOverrideUI('${esc(rawKey).replace(/'/g,"\\'")}')">${en?'Revert to book':'Revenir au livre'}</button>`:''}<button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 async function saveDomainOverrideUI(rawKey){
   const en=siteLanguage==='en';
   const name=($('#domainOverrideName')?.value||'').trim();
   const color=$('#domainOverrideColor')?.value||'';
+  const group=($('#domainOverrideGroup')?.value||'').trim();
   try{
-    await window.MordheimundaAPI.adminSaveDomainOverride(rawKey,{name,color});
+    await window.MordheimundaAPI.adminSaveDomainOverride(rawKey,{name,color,group});
     await loadDomainOverrides();
     closeModal();render(currentViewName());
     toast(en?'Domain updated':'Domaine mis à jour');
