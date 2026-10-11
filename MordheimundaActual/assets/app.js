@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0594.0';
+const APP_BUILD='110.0595.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1057,9 +1057,12 @@ function spellActionType(sp){
 // own small hourglass marker next to the name instead of overloading the
 // action-type badge.
 function spellIsContinuous(sp){
-  const m=String(sp?.text||'').match(/Difficult(?:y|é)\s?:?\s*(?:[+-]?\d+|Auto)\s*\(([^)]+)\)/i);
-  const raw=m?m[1].trim().toLowerCase():'';
-  return /continu/.test(raw);
+  // Inside the brackets — "Difficulty: 0 (Continuous)" — or right after
+  // them — "Difficulty -1 (Basic) Continuous", "(Basic), Continuous",
+  // "Difficulty 2 Continuous". Not "continue fighting" further in the text.
+  const m=String(sp?.text||'').match(/Difficult(?:y|é)\s?:?\s*(?:[+-]?\d+\+?|Auto)\s*(?:\(([^)]+)\))?\s*[,;·–—-]?\s*(Continu(?:ous|e|el)\b)?/i);
+  if(!m)return false;
+  return /continu/i.test(m[1]||'')||!!m[2];
 }
 function spellActionTypeLabel(type,en){
   if(type==='Simple')return 'Simple';
