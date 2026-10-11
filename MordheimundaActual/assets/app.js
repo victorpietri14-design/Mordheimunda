@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0587.0';
+const APP_BUILD='110.0588.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13424,6 +13424,11 @@ function removeEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),
 function confirmRemoveEquipment(i){const r=activeRoster(),x=r?.fighters[editingIndex];if(!x)return;if(fighterUsesLoadouts(x)){ensureFighterLoadouts(x);const e=x.equipmentStash?.[i];if(!e)return;x.equipmentStash.splice(i,1);x.equipmentLoadouts.forEach(l=>{l.equipmentIds=(l.equipmentIds||[]).filter(id=>id!==e.stashId);l.equipmentNames=l.equipmentIds.map(id=>x.equipmentStash.find(q=>q.stashId===id)?.name).filter(Boolean)});syncLoadoutProjection(x);}else{x.equipmentSelected.splice(i,1);}syncCustomEquipmentEffects(x);save(true);closeModal();render('fighter')}
 function sellEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),x=r?.fighters[editingIndex];if(!x)return;const e=fighterUsesLoadouts(x)?x.equipmentStash?.[i]:x.equipmentSelected?.[i];if(!e)return;const sale=Math.max(0,Math.floor(Number(e.value??e.price??0)/2));openModal(`<div class="sell-dialog"><div class="eyebrow">${en?'SELL EQUIPMENT':'VENTE D’ÉQUIPEMENT'}</div><h2>${en?`Sell "${esc(e.name)}"?`:`Vendre « ${esc(e.name)} » ?`}</h2><p>${en?`The official rules don't set a general resale rule for equipment here. The app therefore defaults to <strong>${sale} GC</strong>, i.e. 50% of the displayed value, which you can edit.`:`Le M17 fourni ne fixe pas ici de règle générale de revente d’équipement. L’application propose donc par défaut <strong>${sale} GC</strong>, soit 50 % de la valeur affichée, que tu peux modifier.`}</p><label>${en?'Gold recovered (GC)':'Or récupéré (GC)'}<input id="saleGold" type="number" min="0" step="1" value="${sale}"></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="confirmSellEquipment(${i})">${en?'Sell':'Vendre'}</button></div></div>`)}
 function confirmSellEquipment(i){const r=activeRoster(),x=r?.fighters[editingIndex];if(!r||!x)return;const e=fighterUsesLoadouts(x)?x.equipmentStash?.[i]:x.equipmentSelected?.[i];if(!e)return;const gold=Math.max(0,Number($('#saleGold')?.value||0));if(!Number.isFinite(gold)){toast(siteLanguage==='en'?'Invalid amount':'Montant invalide');return}r.gold+=gold;if(fighterUsesLoadouts(x)){x.equipmentStash.splice(i,1);x.equipmentLoadouts.forEach(l=>{l.equipmentIds=(l.equipmentIds||[]).filter(id=>id!==e.stashId);l.equipmentNames=l.equipmentIds.map(id=>x.equipmentStash.find(q=>q.stashId===id)?.name).filter(Boolean)});syncLoadoutProjection(x);}else{x.equipmentSelected.splice(i,1);}syncCustomEquipmentEffects(x);save(true);closeModal();render('fighter');toast(siteLanguage==='en'?`${e.name} sold · +${gold} GC`:`${e.name} vendu · +${gold} GC`)}
+// Primary / Secondary as set on the profile (book fixed domains count as
+// Primary; a manually unlocked one reads "Allowed").
+function magicLevelLabel(x,d,en){const custom=x?.customFighterId?resolveFighterSource(x,faction(activeRoster())):null;const raw=(custom?custom.magicAccess:x?.magicAccess)||{};const key=Array.isArray(raw)?null:Object.keys(raw).find(k=>normName(k)===normName(d));let v=key!=null?raw[key]:null;
+  if(!v){const f=faction(activeRoster());if(f&&warriorMagicDomains(f,{...x,sourceName:x?.sourceName||x?.name}).some(n=>normName(n)===normName(d)))v='Primary'}
+  return v==='Primary'?(en?'Primary':'Primaire'):v==='Secondary'?(en?'Secondary':'Secondaire'):(en?'Allowed':'Autorisé')}
 function magicAccessFor(x){
  const domains=customMergedMagicDomains(faction(activeRoster()));
  const unlocked=Array.isArray(x?.unlockedMagicDomains)?x.unlockedMagicDomains:[];
@@ -13433,11 +13438,17 @@ function magicAccessFor(x){
  let allowed=[];
  if(custom){
    const raw=custom.magicAccess||{};
-   allowed=Array.isArray(raw)?raw:Object.entries(raw).filter(([,v])=>v===true||v==='Primary'||v==='Secondary').map(([k])=>k);
+   allowed=Array.isArray(raw)?raw:Object.entries(raw).filter(([,v])=>v===true||v==='Primary'||v==='Secondary'||v==='Access').map(([k])=>k);
  }else{
-   const f=faction(activeRoster()), map=MAGIC_ACCESS[f?.id]||{};
-   allowed=map[x?.name]||map['*']||[];
+   // V-PROFILEMAGIC: book/official fighters get the book's fixed domains
+   // PLUS every domain ticked on their profile in Admin (magicAccess) —
+   // no Wizard rule required, the profile decides.
+   const f=faction(activeRoster());
+   const own=Object.entries(x?.magicAccess||{}).filter(([,v])=>v===true||v==='Primary'||v==='Secondary'||v==='Access').map(([k])=>k);
+   allowed=[...(f?warriorMagicDomains(f,{...x,sourceName:x?.sourceName||x?.name}):[]),...own];
  }
+ // Match each name to the domain's real key (case / spacing differences).
+ const keyOf=n=>Object.keys(domains).find(k=>normName(k)===normName(n))||n;allowed=allowed.map(keyOf);
  allowed=choiceMagicDomainFilter(activeRoster(),x,allowed);
  return [...new Set([...allowed,...unlocked])].filter(d=>domains[d]);
 }
@@ -13538,7 +13549,7 @@ function magicMarkup(x){
  // (native access, or a manual unlock/whitelist entry from before this
  // filter existed) — never every domain that exists anywhere.
  const domains=Object.keys(mergedDomains).filter(d=>gangDomains[d]||allowed.includes(d)||unlocked.includes(d));
- return `<div class="magic-access-grid">${domains.map(d=>{const ok=allowed.includes(d),allSpells=mergedDomains[d]||[],whitelist=magicSpellWhitelistFor(x,d),available=whitelist?allSpells.filter(s=>whitelist.includes(s)):allSpells,known=available.filter(s=>spells.includes(s));return `<div class="magic-domain-card ${ok?'authorized':'locked'}"><button type="button" class="magic-domain-main" ${ok?`onclick="openMagicModal('${encodeURIComponent(d)}')"`:''}><div><strong>${esc(d)}</strong><small>${ok?(en?'Allowed':'Autorisé'):(en?'Not allowed':'Non autorisé')}${whitelist?(en?' · limited':' · limité'):''}</small></div><span>${known.length}/${available.length} ${en?'spells acquired':'sorts acquis'}</span></button>${!ok?`<button type="button" class="magic-domain-unlock" onclick="unlockMagicDomain('${encodeURIComponent(d)}')">＋ ${en?'Unlock':'Débloquer'}</button>`:''}${(ok&&(x.unlockedMagicDomains||[]).includes(d))?`<button type="button" class="magic-domain-unlock remove" title="${en?'Remove this manually unlocked access':'Retirer cet accès débloqué manuellement'}" onclick="lockMagicDomain('${encodeURIComponent(d)}')">✕ ${en?'Remove access':"Retirer l'accès"}</button>`:''}</div>`}).join('')}</div>${allowed.length?`<div class="owned-magic-section"><div class="subsection-title">${en?'Acquired spells':'Sorts acquis'} <small>— ${en?'drag to reorder':'glisser pour réorganiser'}</small></div>${spells.length?`<div class="spell-cards owned-spell-cards">${spells.map((s,i)=>fighterOwnedSpellCardMarkup(s,i)).join('')}</div>`:`<small class="muted">${en?'No spells acquired.':'Aucun sort acquis.'}</small>`}</div>`:''}${magicDomainAddMarkup(mergedDomains,domains)}`;
+ return `<div class="magic-access-grid">${domains.map(d=>{const ok=allowed.includes(d),allSpells=mergedDomains[d]||[],whitelist=magicSpellWhitelistFor(x,d),available=whitelist?allSpells.filter(s=>whitelist.includes(s)):allSpells,known=available.filter(s=>spells.includes(s));return `<div class="magic-domain-card ${ok?'authorized':'locked'}"><button type="button" class="magic-domain-main" ${ok?`onclick="openMagicModal('${encodeURIComponent(d)}')"`:''}><div><strong>${esc(d)}</strong><small>${ok?magicLevelLabel(x,d,en):(en?'Not allowed':'Non autorisé')}${whitelist?(en?' · limited':' · limité'):''}</small></div><span>${known.length}/${available.length} ${en?'spells acquired':'sorts acquis'}</span></button>${!ok?`<button type="button" class="magic-domain-unlock" onclick="unlockMagicDomain('${encodeURIComponent(d)}')">＋ ${en?'Unlock':'Débloquer'}</button>`:''}${(ok&&(x.unlockedMagicDomains||[]).includes(d))?`<button type="button" class="magic-domain-unlock remove" title="${en?'Remove this manually unlocked access':'Retirer cet accès débloqué manuellement'}" onclick="lockMagicDomain('${encodeURIComponent(d)}')">✕ ${en?'Remove access':"Retirer l'accès"}</button>`:''}</div>`}).join('')}</div>${allowed.length?`<div class="owned-magic-section"><div class="subsection-title">${en?'Acquired spells':'Sorts acquis'} <small>— ${en?'drag to reorder':'glisser pour réorganiser'}</small></div>${spells.length?`<div class="spell-cards owned-spell-cards">${spells.map((s,i)=>fighterOwnedSpellCardMarkup(s,i)).join('')}</div>`:`<small class="muted">${en?'No spells acquired.':'Aucun sort acquis.'}</small>`}</div>`:''}${magicDomainAddMarkup(mergedDomains,domains)}`;
 }
 // V-MAGICDOMAINADD (Task #64): "＋ Ajouter un domaine de magie" — a way to
 // grant a fighter an EXCEPTIONAL domain outside their warband's own list
