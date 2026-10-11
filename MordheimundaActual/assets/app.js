@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0588.0';
+const APP_BUILD='110.0589.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6059,6 +6059,7 @@ function saveAdminWarrior(idx){
     equipmentAccessExact:true,
     noEquipment:!!$('#awNoEquip')?.checked,
     noMisericordia:!!$('#awNoMiseri')?.checked,
+    updatedAt:Date.now(),
     skillAccess:(()=>{const o={};document.querySelectorAll('.awSkillAccess').forEach(s=>{if(s.value)o[s.dataset.set]=s.value});return o})(),
     magicAccess:(()=>{const o={};document.querySelectorAll('.awMagicAccess').forEach(s=>{if(s.value)o[s.dataset.domain]=s.value});return o})(),
     // Book fighters commonly carry this as the STRING "ALL" (see
@@ -12428,14 +12429,24 @@ function hiredSwordRatingShare(x){return isHiredSword(x)&&!x.hsLeft&&!fighterSta
 function postBattleWarriorCount(r){return (r?.fighters||[]).filter(x=>!(isHiredSword(x)&&x.hsLeft)).length}
 // Every Hired Sword profile: this account's Custom ones first, then the
 // published ones (any official warband or the shared pool).
+// V-HSTWIN: a published Hired Sword lives twice — the author's personal
+// Custom copy and the published copy (edited from Admin). The personal copy
+// used to always win, so a domain/tree given on the published copy never
+// showed. Now the most recently edited copy wins; for older copies with no
+// edit time, the published copy's skill/magic access is merged in.
+function hiredSwordPublishedTwin(w){const id=w?.customFighterId||w?.id;let hit=null;(D.factions||[]).forEach(f=>{if(hit||!f.__official)return;hit=(f.warriors||[]).find(o=>isHiredSword(o)&&!o.archived&&((id&&(o.customFighterId===id||o.id===id))||normName(o.name)===normName(w?.name)))||null});return hit}
+function hiredSwordMergeTwin(w){const o=hiredSwordPublishedTwin(w);if(!o||o===w)return w;const tw=Number(w.updatedAt||0),to=Number(o.updatedAt||0);
+  if(to>tw)return {...o,customFighterId:w.customFighterId||o.customFighterId||o.id};
+  if(tw>to)return w;
+  return {...w,skillAccess:{...(o.skillAccess||{}),...(w.skillAccess||{})},magicAccess:{...(o.magicAccess&&!Array.isArray(o.magicAccess)?o.magicAccess:{}),...(w.magicAccess&&!Array.isArray(w.magicAccess)?w.magicAccess:{})}}}
 function hiredSwordRawList(){
   const out=[],ids=new Set(),names=new Set();
   const add=w=>{if(!w||!isHiredSword(w)||w.archived)return;const id=w.customFighterId||w.id;if(id&&ids.has(id))return;if(names.has(normName(w.name)))return;if(id)ids.add(id);names.add(normName(w.name));out.push(w)};
-  customFighterList().forEach(add);
+  customFighterList().filter(w=>isHiredSword(w)&&!w.archived).map(hiredSwordMergeTwin).forEach(add);
   (D.factions||[]).forEach(f=>{if(f.__official)(f.warriors||[]).forEach(add)});
   return out;
 }
-function hiredSwordRawById(id){if(!id)return null;return customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w))||hiredSwordRawList().find(w=>(w.customFighterId||w.id)===id)||null}
+function hiredSwordRawById(id){if(!id)return null;const own=customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w));if(own)return hiredSwordMergeTwin(own);return hiredSwordRawList().find(w=>(w.customFighterId||w.id)===id)||null}
 function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
 function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId);return w?hiredSwordAsWarrior(w):null}
 function hiredSwordAvailableFor(w,f,r){
@@ -15782,6 +15793,7 @@ function saveCustomFighter(){
   ['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(existing&&existing[k]!==undefined)item[k]=existing[k]});
   item.noEquipment=!!$('#cfNoEquip')?.checked;
   item.noMisericordia=!!$('#cfNoMiseri')?.checked;
+  item.updatedAt=Date.now();
   if(isHS){item.hiredSword=true;item.type='Hired Sword';item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;item.hsFactions=hiredSwordReadScope();item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';}
   const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0)state.customFighters[idx]=item;else state.customFighters.push(item);
   const ref=`custom:${item.customFighterId}`;
@@ -17026,7 +17038,7 @@ function custom(){
     const active=shown.filter(w=>!w.archived);
     const archived=shown.filter(w=>w.archived);
     const rowFn=w=>customContentTab==='fighters'?customFighterRow(w,false):customContentTab==='equipment'?customEquipmentRow(w):customContentLibraryRow(customContentTab,w);
-    if(customContentTab==='fighters'){const editingF=customFighterEditId?customFighterById(customFighterEditId):null;editor=customFighterForm(editingF)} else if(customContentTab==='equipment'){const editingEq=customEquipmentEditId?state.customEquipment.find(x=>x.customEquipmentId===customEquipmentEditId):null;editor=customEquipmentForm(editingEq)} else {const editing=customContentEditId?customContentById(customContentTab,customContentEditId):null;editor=customContentForm(customContentTab,editing)}
+    if(customContentTab==='fighters'){let editingF=customFighterEditId?customFighterById(customFighterEditId):null;if(editingF&&isHiredSword(editingF))editingF=hiredSwordMergeTwin(editingF);editor=customFighterForm(editingF)} else if(customContentTab==='equipment'){const editingEq=customEquipmentEditId?state.customEquipment.find(x=>x.customEquipmentId===customEquipmentEditId):null;editor=customEquipmentForm(editingEq)} else {const editing=customContentEditId?customContentById(customContentTab,customContentEditId):null;editor=customContentForm(customContentTab,editing)}
     title=en?(customContentTab==='fighters'?(customFighterHSMode?'Hired Swords':'Fighter profiles'):customContentTab==='equipment'?'Custom equipment':'Custom '+customContentTypeLabel(customContentTab).toLowerCase()+'s'):(customContentTab==='fighters'?(customFighterHSMode?'Hired Swords':'Profils de combattants'):customContentTab==='equipment'?'Équipements personnalisés':customContentTypeLabel(customContentTab)+'s personnalisés');
     createLabel=en?(customContentTab==='fighters'?(customFighterHSMode?'New Hired Sword':'New fighter'):customContentTab==='equipment'?'New equipment':'New '+customContentTypeLabel(customContentTab).toLowerCase()):(customContentTab==='fighters'?(customFighterHSMode?'Nouveau Hired Sword':'Nouveau combattant'):customContentTab==='equipment'?'Nouvel équipement':'Nouvelle '+customContentTypeLabel(customContentTab).toLowerCase());
     action=customContentTab==='fighters'?'newCustomFighter()':customContentTab==='equipment'?'newCustomEquipment()':`newCustomContent('${customContentTab}')`;
