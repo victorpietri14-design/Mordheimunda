@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0586.0';
+const APP_BUILD='110.0587.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6389,7 +6389,26 @@ function adminConfirmRenameSkillTree(i){
   if(normName(newName)!==normName(t.name)&&(D.skillSets[newName]||d.skillTrees.some((x,xi)=>xi!==i&&normName(x.name)===normName(newName)))){toast(en?'A tree with this name already exists':'Un arbre porte déjà ce nom');return}
   const oldName=t.name;t.name=newName;
   (d.skills||[]).forEach(s=>{if(normName(s.tree||'')===normName(oldName))s.tree=newName;});
+  adminRenameAccessKey(d,'skillAccess',oldName,newName);
   closeModal();render('admin');toast(en?'Tree renamed':'Arbre renommé');
+}
+// V-DOMAINRENAME: renames a warband's magic domain at its core — the domain,
+// every spell filed under it and every fighter's magic access to it — so
+// nothing is left pointing at the old name. Saved with the warband.
+function adminRenameAccessKey(d,field,oldName,newName){(d.warriors||[]).forEach(w=>{const acc=w?.[field];if(!acc||typeof acc!=='object')return;const key=Object.keys(acc).find(k=>normName(k)===normName(oldName));if(key==null)return;const v=acc[key];delete acc[key];acc[newName]=v;})}
+function adminRenameMagicDomain(i){
+  const d=activeAdminEditData();if(!d)return;const dom=d.magicDomains?.[i];if(!dom)return;const en=siteLanguage==='en';
+  openModal(`<div class="purchase-dialog"><div class="eyebrow">${en?'RENAME':'RENOMMER'}</div><h2>${en?'Rename domain':'Renommer le domaine'}</h2><p class="muted">${en?'Changes the domain itself: its spells and every fighter’s magic access follow. Save the warband afterwards.':'Change le domaine lui-même : ses sorts et l’accès magie de chaque combattant suivent. Enregistre la bande ensuite.'}</p><label class="custom-field"><span>${en?'Domain name':'Nom du domaine'}</span><input id="adminRenameDomainInput" value="${esc(dom.name)}"></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="adminConfirmRenameMagicDomain(${i})">${en?'Save':'Enregistrer'}</button></div></div>`);
+}
+function adminConfirmRenameMagicDomain(i){
+  const d=activeAdminEditData();if(!d)return;const dom=d.magicDomains?.[i];if(!dom)return;const en=siteLanguage==='en';
+  const newName=($('#adminRenameDomainInput')?.value||'').trim();
+  if(!newName){toast(en?'Give the domain a name':'Donne un nom au domaine');return}
+  if(normName(newName)!==normName(dom.name)&&(MAGIC_DOMAINS[newName]||d.magicDomains.some((x,xi)=>xi!==i&&normName(x.name)===normName(newName)))){toast(en?'A domain with this name already exists':'Un domaine porte déjà ce nom');return}
+  const oldName=dom.name;dom.name=newName;
+  (d.spells||[]).forEach(s=>{if(normName(s.domain||'')===normName(oldName))s.domain=newName;});
+  adminRenameAccessKey(d,'magicAccess',oldName,newName);
+  closeModal();render('admin');toast(en?'Domain renamed — save the warband':'Domaine renommé — enregistre la bande');
 }
 function adminAddSkillToTree(treeName){
   const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
@@ -6497,7 +6516,7 @@ function adminWarbandSkillsMagicMarkup(d,en){
   const domainCards=d.magicDomains.map((dom,di)=>{
     const items=d.spells.map((s,i)=>({s,i})).filter(x=>normName(x.s.domain||'')===normName(dom.name));
     const key='spell-'+refSlug(dom.name);
-    return `<section class="custom-tree-card open"><header class="custom-tree-card-head"><div><div class="eyebrow">${en?'MAGIC DOMAIN':'DOMAINE DE MAGIE'}</div><h3>${esc(dom.name)}</h3></div><div class="custom-tree-card-meta"><span>${items.length}/6</span><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteMagicDomain(${di})">🗑</button></div></header>
+    return `<section class="custom-tree-card open"><header class="custom-tree-card-head"><div><div class="eyebrow">${en?'MAGIC DOMAIN':'DOMAINE DE MAGIE'}</div><h3>${esc(dom.name)}</h3></div><div class="custom-tree-card-meta"><span>${items.length}/6</span><button type="button" class="equipment-action" title="${en?'Rename':'Renommer'}" onclick="adminRenameMagicDomain(${di})">✎</button><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteMagicDomain(${di})">🗑</button></div></header>
       <div class="custom-builder-items">${items.map(({s,i})=>`<div class="custom-builder-item"><div class="custom-builder-item-main"><div><strong>${esc(s.name)}</strong><p>${customTextMarkup(s.text||'')}</p></div></div><div class="custom-builder-item-actions"><button type="button" class="equipment-action" title="${en?'Edit':'Modifier'}" onclick="adminEditSpellInDomain(${i})">✎</button><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteSpellFromDomain(${i})">🗑</button></div></div>`).join('')||`<div class="custom-builder-empty">${en?'No spell in this domain yet.':'Aucun sort dans ce domaine pour l’instant.'}</div>`}</div>
       ${items.length>=6?`<div class="custom-builder-limit">${en?'Maximum reached: 6 spells.':'Maximum atteint : 6 sorts.'}</div>`:`<div class="custom-inline-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="${key}-name" placeholder="${en?'Spell name…':'Nom du sort…'}"></label><label class="custom-field wide"><span>${en?'Text':'Texte'}</span><textarea id="${key}-text" class="wide-textarea" rows="4" placeholder="${en?'Full rule text…':'Texte complet de la règle…'}"></textarea></label></div><div class="custom-actions"><button type="button" class="button secondary" onclick="adminAddSpellToDomain('${esc(dom.name)}')">＋ ${en?'Add spell':'Ajouter un sort'}</button></div>`}
     </section>`;
