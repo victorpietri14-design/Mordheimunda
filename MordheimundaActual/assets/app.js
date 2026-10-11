@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0591.0';
+const APP_BUILD='110.0592.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6185,8 +6185,10 @@ function saveAdminEquipment(idx){
     rulesText:($('#aeRulesText')?.value||''),
     profile:isWeapon?{range:($('#aeRange')?.value||''),strength:($('#aeStrength')?.value||''),ap:($('#aeAp')?.value||''),damage:($('#aeDamage')?.value||''),traits:($('#aeTraits')?.value||'')}:null,
     traits:isWeapon?($('#aeTraits')?.value||'').split(',').map(s=>s.trim()).filter(Boolean):[],
-    ...readItemUseFields('aeUse')
+    ...readItemUseFields('aeUse'),
+    type:isWeapon?'weapon':'equipment'
   };
+  if(!isWeapon)e.profile2=null;
   if(!e.customEquipmentId)e.customEquipmentId='book-'+normName(name);
   // V-NOEQUIPUNRESTRICTED: same universal default as the mergeOfficialWarbandPackage
   // heal — every custom item is unrestricted:true in the normal creation
@@ -7062,7 +7064,11 @@ function warriorToCustomFighterDraft(w,customWarbandId){
 }
 function equipmentToCustomDraft(e){
   const isWeapon=!!e.profile;
+  // V-WEAPONTYPE: keep every field of the published item (second profile,
+  // Market List, on-use rule…) — only the scoping fields are reset below.
+  const full=JSON.parse(JSON.stringify(e||{}));['officialWarbandId','officialWarbandIds','bookFactionIds','exclusiveWarbandId','archived'].forEach(k=>delete full[k]);
   return {
+    ...full,
     customEquipmentId:crypto.randomUUID(),
     name:e.name,
     type:isWeapon?'weapon':'equipment',
@@ -7075,6 +7081,7 @@ function equipmentToCustomDraft(e){
     traits:Array.isArray(e.traits)?e.traits.slice():[],
     rulesText:e.rulesText||'',
     profile:isWeapon?{range:e.profile.range||'',strength:e.profile.strength||'',ap:e.profile.ap||'',damage:e.profile.damage||'',traits:e.profile.traits||''}:null,
+    profile2:isWeapon&&e.profile2?{range:e.profile2.range||'',strength:e.profile2.strength||'',ap:e.profile2.ap||'',damage:e.profile2.damage||'',traits:e.profile2.traits||''}:null,
     weaponSlotCost:e.weaponSlotCost,
     customArmor:!!e.customArmor
   };
@@ -13996,7 +14003,10 @@ function deleteCustomEquipment(id){const en=siteLanguage==='en';const w=customEq
 function confirmDeleteCustomEquipment(id){const en=siteLanguage==='en';markDeleted('customEquipment',id);state.customEquipment=customEquipmentList().filter(w=>w.customEquipmentId!==id);if(customEquipmentEditId===id)customEquipmentEditId=null;save(true);closeModal();render('custom');toast(en?'Custom equipment deleted':'Équipement custom supprimé')}
 function customEquipmentForm(w){
   const en=siteLanguage==='en';
-  const weapon=w?.type==='weapon';
+  // V-WEAPONTYPE: items saved from Admin or brought back from a published
+  // warband can carry a weapon profile without type:'weapon' — opening them
+  // as plain equipment hid the profile and saving wiped it.
+  const weapon=w?.type==='weapon'||!!w?.profile;
   const traits=customEquipmentTraitDraft.length?customEquipmentTraitDraft:(w?.traits||[]);
   const factions=Array.isArray(w?.factions)?w.factions:[];
   const cats=en?EQUIPMENT_CATEGORY_NAMES_EN:EQUIPMENT_CATEGORY_NAMES_FR;
@@ -14098,7 +14108,7 @@ function customEquipmentRow(w){
   // item (name / catégorie / prix). Faction access and rule text are shown
   // once, in the editor itself (✎), not duplicated here — same principle
   // as the custom fighter and traits/rules rows.
-  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.type==='weapon'?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${esc(w.category)} · ${Number(w.price||0)} GC${w.rarity?' · '+esc(w.rarity):''}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('equipment',w.customEquipmentId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomEquipmentArchive('${w.customEquipmentId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="editCustomEquipment('${w.customEquipmentId}')">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomEquipment('${w.customEquipmentId}')">🗑</button></div></article>`}
+  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.type==='weapon'||w.profile?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${esc(w.category)} · ${Number(w.price||0)} GC${w.rarity?' · '+esc(w.rarity):''}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('equipment',w.customEquipmentId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomEquipmentArchive('${w.customEquipmentId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="editCustomEquipment('${w.customEquipmentId}')">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomEquipment('${w.customEquipmentId}')">🗑</button></div></article>`}
 
 
 // --- V58 custom equipment integration / rule parsing ---
