@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0580.0';
+const APP_BUILD='110.0581.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8267,8 +8267,10 @@ function playPlaceZone2(d0,d1,w,h,insetPx,r,centers){
 // V-FIXEDZONES: a coordinate needs no distance on the map when the zone
 // touches a table edge or sits exactly on a central axis.
 function playZoneFreeCoord(v,dim,r){const t=DEPLOY_SCALE*0.3;return Math.abs(v-r)<=t||Math.abs(v-(dim-r))<=t||Math.abs(v-dim/2)<=t}
+// The site's existing centre disc (①/②, like the map builder's arrival
+// markers) with the Z1 / Z2 label under it; markers hide the radius label.
 function playMakeZoneCircle(cx,cy,r,color,label,w,h){
-  return {type:'circle',cx,cy,r,color,label,noDimX:playZoneFreeCoord(cx,w,r),noDimY:playZoneFreeCoord(cy,h,r)};
+  return {type:'circle',cx,cy,r,color,label,marker:label==='Z2'?'turn2':'turn1',noDimX:playZoneFreeCoord(cx,w,r),noDimY:playZoneFreeCoord(cy,h,r)};
 }
 // Fixed positions only, in inches: against an edge (3", the zone touching it),
 // the centre line, or 12" / 18" / 24"… from an edge. Cost = how many distances
