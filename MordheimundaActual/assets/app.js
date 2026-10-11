@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0577.0';
+const APP_BUILD='110.0579.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8267,25 +8267,32 @@ function playPlaceZone2(d0,d1,w,h,insetPx,r,centers){
 // V-FIXEDZONES: a coordinate needs no distance on the map when the zone
 // touches a table edge or sits exactly on a central axis.
 function playZoneFreeCoord(v,dim,r){const t=DEPLOY_SCALE*0.3;return Math.abs(v-r)<=t||Math.abs(v-(dim-r))<=t||Math.abs(v-dim/2)<=t}
+// Same look as the map builder's arrival markers: a 3" zone with its number
+// (①/②) in a disc at the centre, no radius label.
 function playMakeZoneCircle(cx,cy,r,color,label,w,h){
-  return {type:'circle',cx,cy,r,color,label,noDimX:playZoneFreeCoord(cx,w,r),noDimY:playZoneFreeCoord(cy,h,r)};
+  return {type:'circle',cx,cy,r,color,label:'',marker:label==='Z2'?'turn2':'turn1',noDimX:playZoneFreeCoord(cx,w,r),noDimY:playZoneFreeCoord(cy,h,r)};
 }
 // Fixed positions only, in inches: against an edge (3", the zone touching it),
 // the centre line, or 12" / 18" / 24"… from an edge. Cost = how many distances
 // a player has to measure (0: edge or centre axis; 1: a 12" step; 1.5: other
 // 6" steps). Same-warband zones stay ≥12" apart (centre to centre), other
-// warbands' zones ≥6".
-function playZoneAxisValues(dimIn){const out=new Map();const add=(v,c)=>{if(v<3||v>dimIn-3)return;const k=Math.round(v*2)/2;if(!out.has(k)||out.get(k)>c)out.set(k,c)};add(3,0);add(dimIn-3,0);add(dimIn/2,0);for(let v=6;v<=dimIn-6;v+=6){add(v,v%12===0||(dimIn-v)%12===0?1:1.5)}return [...out.entries()].map(([v,c])=>({v,c}))}
+// warbands' zones ≥9" (6" when the table is full).
+function playZoneAxisValues(dimIn){const out=new Map();const add=(v,c)=>{if(v<3||v>dimIn-3)return;const k=Math.round(v*2)/2;if(!out.has(k)||out.get(k)>c)out.set(k,c)};add(3,0);add(dimIn-3,0);add(dimIn/2,0);for(let v=12;v<=dimIn-12;v+=6){add(v,v%12===0||(dimIn-v)%12===0?1:1.5)}return [...out.entries()].map(([v,c])=>({v,c}))}
 function playZoneCandidates(wIn,hIn){const xs=playZoneAxisValues(wIn),ys=playZoneAxisValues(hIn);const out=[];xs.forEach(x=>ys.forEach(y=>out.push({x:x.v,y:y.v,cost:x.c+y.c})));return out}
-function playZoneFits(pt,mine,others){return mine.every(c=>Math.hypot(pt.x-c.x,pt.y-c.y)>=12-1e-6)&&others.every(c=>Math.hypot(pt.x-c.x,pt.y-c.y)>=6-1e-6)}
+function playZoneFits(pt,mine,others,gapOther){return mine.every(c=>Math.hypot(pt.x-c.x,pt.y-c.y)>=12-1e-6)&&others.every(c=>Math.hypot(pt.x-c.x,pt.y-c.y)>=gapOther-1e-6)}
+// Weighted draw: easy positions (nothing / one thing to measure) are more
+// likely, but not forced; positions far from every zone already placed are
+// favoured so zones spread over the table.
 function playPickZone(cands,mine,others){
-  const pool=cands.filter(p=>playZoneFits(p,mine,others));if(!pool.length)return null;
-  const best=Math.min(...pool.map(p=>p.cost));const top=pool.filter(p=>p.cost<=best);return top[Math.floor(Math.random()*top.length)];
+  let pool=cands.filter(p=>playZoneFits(p,mine,others,9));if(!pool.length)pool=cands.filter(p=>playZoneFits(p,mine,others,6));if(!pool.length)return null;
+  const all=[...mine,...others];const base=c=>c<=0?3:c<=1?2:c<=1.5?1.5:c<=2?1:c<=2.5?.7:.5;
+  const wts=pool.map(p=>{const d=all.length?Math.min(...all.map(c=>Math.hypot(p.x-c.x,p.y-c.y))):24;return base(p.cost)*Math.min(2,Math.max(.3,d/12))});
+  let r=Math.random()*wts.reduce((a,b)=>a+b,0);for(let i=0;i<pool.length;i++){if(r<wts[i])return pool[i];r-=wts[i]}return pool[pool.length-1];
 }
 // Perimeter position (px, same walk as playPerimeterPoint) of a point lying
 // against an edge, to keep Z2 zones on the warband's own edge segment.
 function playZoneOnSegment(pt,d0,d1,wIn,hIn){const S=DEPLOY_SCALE,w=wIn*S,h=hIn*S,x=pt.x*S,y=pt.y*S,r=3*S,pad=r;const ds=[];
-  if(pt.y===3)ds.push(x);if(pt.x===wIn-3)ds.push(w+y);if(pt.y===hIn-3)ds.push(w+h+(w-x));if(pt.x===3)ds.push(2*w+h+(h-y));
+  if(pt.y<=6)ds.push(x);if(pt.x>=wIn-6)ds.push(w+y);if(pt.y>=hIn-6)ds.push(w+h+(w-x));if(pt.x<=6)ds.push(2*w+h+(h-y));
   return ds.some(d=>d>=d0+pad-1&&d<=d1-pad+1)}
 function playGenerateRandom(){
   const ps=state.playSession;if(!ps||!playAllReady(ps))return;
