@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0592.0';
+const APP_BUILD='110.0593.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13884,6 +13884,18 @@ function openModal(html){$('#modalContent').innerHTML=html;try{applySiteLanguage
 // app-route click that lands immediately after a modal close to prevent it.
 let ghostClickGuardUntil=0;
 function closeModal(){$('#modal').classList.add('hidden');ghostClickGuardUntil=Date.now()+600}
+// V-LAYEREDPROMPT: a small value prompt (Blast 3"/5", "(X)" values) opened
+// from an editor that already lives in the popup used to REPLACE that
+// editor, losing it. When the popup is open, the prompt now shows in a
+// second popup on top and closing it returns to the editor untouched.
+let traitPromptLayered=false;
+function openTraitPromptModal(html){
+  const base=$('#modal');if(!base||base.classList.contains('hidden')){traitPromptLayered=false;openModal(html);return}
+  traitPromptLayered=true;let m=$('#modal2');
+  if(!m){m=document.createElement('div');m.id='modal2';m.className='modal modal-layer';m.innerHTML='<div class="modal-card"><button class="modal-close" type="button" onclick="closeTraitPrompt()">×</button><div id="modal2Content"></div></div>';m.onclick=e=>{if(e.target.id==='modal2')closeTraitPrompt()};document.body.appendChild(m)}
+  $('#modal2Content').innerHTML=html;try{applySiteLanguage($('#modal2Content'))}catch(e){}m.classList.remove('hidden');setTimeout(()=>m.querySelector('input')?.focus(),20);
+}
+function closeTraitPrompt(){if(traitPromptLayered){$('#modal2')?.classList.add('hidden');traitPromptLayered=false;ghostClickGuardUntil=Date.now()+600;return}closeModal()}
 
 // Some reference traits/special rules are templated with a literal "(X)" in
 // their name — e.g. "Reload (X)", "Rapid Fire (X)", "Training (X)",
@@ -13924,7 +13936,7 @@ function traitChoiceOptions(name){const m=String(name||'').match(/\(([^()]*\/[^(
 function traitChoiceTemplateFor(name){if(traitChoiceOptions(name))return null;const e=referenceFind('traits',name);return e&&traitChoiceOptions(e.name)?e:null}
 function openTraitChoicePrompt(context,index,templateName){
   pendingTraitParam={context,index,templateName,choice:true};const en=siteLanguage==='en';const label=traitBaseName(templateName);const opts=traitChoiceOptions(templateName)||[];
-  openModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)}</h2><p>${en?'Which value does this weapon use?':'Quelle valeur cette arme utilise-t-elle ?'}</p><div class="account-actions" style="flex-wrap:wrap">${opts.map((o,i)=>`<button type="button" class="button primary" onclick="chooseTraitOption(${i})">${esc(label)} ${esc(o)}</button>`).join('')}</div><div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
+  openTraitPromptModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)}</h2><p>${en?'Which value does this weapon use?':'Quelle valeur cette arme utilise-t-elle ?'}</p><div class="account-actions" style="flex-wrap:wrap">${opts.map((o,i)=>`<button type="button" class="button primary" onclick="chooseTraitOption(${i})">${esc(label)} ${esc(o)}</button>`).join('')}</div><div class="account-actions"><button type="button" class="button secondary" onclick="closeTraitPrompt()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 function chooseTraitOption(i){if(!pendingTraitParam)return;const opts=traitChoiceOptions(pendingTraitParam.templateName)||[];if(!opts[i])return;confirmTraitParamValue(`${traitBaseName(pendingTraitParam.templateName)} ${opts[i]}`)}
 function traitBaseName(name){const m=String(name||'').match(/^(.*\S)\s*\([^)]*\)\s*$/);return m?m[1]:String(name||'')}
@@ -13946,7 +13958,7 @@ function openTraitParamPrompt(context,index,templateName){
   const suf=traitParamSuffixOf(templateName)||'(X)';
   const plusMode=suf==='(X+)';
   const currentDigits=plusMode?current.replace(/\+\s*$/,''):current;
-  openModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)} ${esc(suf)}</h2><p>${plusMode?(en?'Enter the value for X in this rule (the “or better” + is added automatically).':'Indique la valeur de X pour cette règle (le « + » est ajouté automatiquement).'):(en?'Enter the value for X in this rule.':'Indique la valeur de X pour cette règle.')}</p><label class="custom-field"><span>X</span><input id="traitParamValue" value="${esc(currentDigits)}" placeholder="Ex. 2"></label><div class="custom-actions"><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary full" onclick="confirmTraitParamValue()">${en?'Save':'Valider'}</button></div></div>`);
+  openTraitPromptModal(`<div class="trait-param-dialog"><div class="eyebrow">${en?'RULE VALUE':'VALEUR DE LA RÈGLE'}</div><h2>${esc(label)} ${esc(suf)}</h2><p>${plusMode?(en?'Enter the value for X in this rule (the “or better” + is added automatically).':'Indique la valeur de X pour cette règle (le « + » est ajouté automatiquement).'):(en?'Enter the value for X in this rule.':'Indique la valeur de X pour cette règle.')}</p><label class="custom-field"><span>X</span><input id="traitParamValue" value="${esc(currentDigits)}" placeholder="Ex. 2"></label><div class="custom-actions"><button type="button" class="button secondary full" onclick="closeTraitPrompt()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary full" onclick="confirmTraitParamValue()">${en?'Save':'Valider'}</button></div></div>`);
 }
 function confirmTraitParamValue(chosenName){
   if(!pendingTraitParam)return;
@@ -13982,7 +13994,7 @@ function confirmTraitParamValue(chosenName){
     refreshCustomFighterTags('rule');
   }
   pendingTraitParam=null;
-  closeModal();
+  closeTraitPrompt();
 }
 function editTraitParamValue(context,index){
   const arr=traitDraftArrayFor(context);
