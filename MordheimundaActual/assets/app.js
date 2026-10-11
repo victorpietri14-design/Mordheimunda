@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0602.0';
+const APP_BUILD='110.0603.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8655,7 +8655,7 @@ function fighterQuestsMarkup(x){
   const en=siteLanguage==='en';const r=activeRoster();
   if(!fighterQuestEligible(x))return `<section class="sheet-block fighter-tab-block"><div class="sheet-block-head prominent-section"><div><h4>Quests</h4><small>${en?'Only Heroes, Veterans and Hired Swords take quests.':'Seuls les Héros, Vétérans et Hired Swords prennent des quêtes.'}</small></div></div></section>`;
   const info=fighterQuestInfo(x);const lock=questLockedForRoster(r);
-  const tree=(t,why,st)=>`<div class="qx-tree ${st}" ${st==='off'||lock||st==='lock'?'':`onclick="toggleFighterQuestTree('${esc(t.id)}')"`} role="checkbox" aria-checked="${st==='on'||st==='lock'}"><span class="qx-ck">${st==='on'||st==='lock'?'✓':''}</span>${questArchBadge(t)}<span class="why">${esc(why)}</span><ul>${(t.quests||[]).map(q=>`<li title="${esc(q.text||'')}"><span>${esc(q.name)}</span><b>+${Number(q.xp||0)}</b></li>`).join('')}</ul></div>`;
+  const tree=(t,why,st)=>`<div class="qx-tree ${st}" ${st==='off'||lock||st==='lock'?'':`onclick="toggleFighterQuestTree('${esc(t.id)}')"`} role="checkbox" aria-checked="${st==='on'||st==='lock'}"><span class="qx-ck">${st==='on'||st==='lock'?'✓':''}</span>${questArchBadge(t)}<span class="why">${esc(why)}</span><ul>${(t.quests||[]).map(q=>`<li class="qx-q" tabindex="0" onclick="event.stopPropagation();this.classList.toggle('open')" onkeydown="if(event.key==='Enter'){event.stopPropagation();this.classList.toggle('open')}"><span class="qx-qn">${esc(q.name)} <i class="qx-info" aria-hidden="true">ⓘ</i></span><b>+${Number(q.xp||0)}</b><small class="qx-qd">${esc(q.text||'')}</small></li>`).join('')}</ul></div>`;
   const cards=[...info.available.map(a=>tree(a.tree,a.why+(info.locked.includes(a.tree.id)?(en?' · always on for a Leader':' · toujours actif pour un Leader'):''),info.locked.includes(a.tree.id)?'lock':info.chosen.includes(a.tree.id)?'on':'')),...info.unavailable.map(t=>tree(t,en?'Not in his skill access':'Hors de son accès aux compétences','off'))].join('');
   const rec=Array.isArray(x.questRecord)?x.questRecord:[];const recXp=rec.reduce((n,e)=>n+Number(e.xp||0),0);
   const roleLabel=advancementRole(x)==='Leader'?'Leader':isHiredSword(x)?'Hired Sword':advancementRole(x)==='Veteran'?(en?'Veteran':'Vétéran'):(en?'Hero':'Héros');
@@ -8668,7 +8668,10 @@ function fighterQuestsMarkup(x){
 function toggleFighterQuestTree(id){
   const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;
   if(questLockedForRoster(r)){toast(en?'Quest trees change between games':'Les arbres de quêtes se changent entre les parties');return}
-  const info=fighterQuestInfo(x);if(info.locked.includes(id))return;
+  // Read with the per-render cache on: one activeRoster() pass instead of
+  // one per skill/magic lookup.
+  let info;const was=__arCacheActive;__arCacheActive=true;__arCache=null;try{info=fighterQuestInfo(x)}finally{__arCacheActive=was;__arCache=null}
+  if(info.locked.includes(id))return;
   let chosen=info.chosen.slice();
   if(chosen.includes(id))chosen=chosen.filter(c=>c!==id);
   else{if(chosen.length>=info.slots){toast(en?`${info.slots} trees at most — untick one first`:`${info.slots} arbres au maximum — décoche-en un d’abord`);return}chosen.push(id)}

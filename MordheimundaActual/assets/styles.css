@@ -4710,3 +4710,8 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .qa-quest{display:grid;grid-template-columns:1fr 70px auto;gap:6px;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:6px}.qa-quest textarea{grid-column:1/-1}
 @media(max-width:700px){.ms-head{grid-template-columns:1fr auto;gap:6px}.ms-head .ms-chips{grid-column:1/-1;order:3}.ms-chev{display:none}.ms-trees.n3,.ms-trees.n2{grid-template-columns:1fr}.ms-li{min-height:48px}.ms-li i{width:22px;height:22px}}
 .qx-tree.off .qx-ck{display:none}
+.qx-tree li.qx-q{display:grid;grid-template-columns:1fr auto;align-items:baseline;cursor:help}
+.qx-info{font-style:normal;font-size:10px;opacity:.55;margin-left:3px}
+.qx-qd{display:none;grid-column:1/-1;margin-top:4px;padding:6px 8px;border-left:2px solid var(--accent2);background:rgba(157,250,60,.06);color:var(--text);font-size:11.5px;line-height:1.45}
+.qx-tree li.qx-q.open .qx-qd{display:block}
+@media(hover:hover){.qx-tree li.qx-q:hover .qx-qd{display:block}}
