@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0583.0';
+const APP_BUILD='110.0584.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1833,8 +1833,17 @@ function refFactionRace(f){const chain=[];let cur=f;const seen=new Set();while(c
 // tree can be renamed or deleted (e.g. a leftover "(copie)").
 function refTreeOwners(cat,k){const out=[];(D.factions||[]).forEach(f=>{let list=[];try{list=cat==='spells'?warbandExclusiveMagicDomains(f):warbandExclusiveSkillTrees(f)}catch(e){}const tagged=referenceEntries(cat).some(e=>e.__catalogFactionId===f.id&&normName(e.category)===normName(k));if(tagged||list.some(t=>normName(t)===normName(k)))out.push(f)});return out}
 function refTreeOwnersMarkup(cat,k){const en=siteLanguage==='en';const owners=refTreeOwners(cat,k);const custom=(cat==='spells'?customMagicDomainList():customSkillTreeList()).some(t=>normName(t.name)===normName(k));
-  if(!owners.length&&!custom)return `<div class="ref-tree-owners"><span>${en?'No warband holds this':'Aucune bande ne le porte'}</span></div>`;
+  // V-REFLEFTOVER: entries still filed under a tree/domain that no warband
+  // and no custom tree/domain holds any more — e.g. personal spells left
+  // behind when their "(copie)" domain was deleted. Show where they come
+  // from and offer to delete the personal ones.
+  if(!owners.length&&!custom){const personal=refLeftoverPersonal(cat,k);const official=referenceEntries(cat).filter(e=>e.__official&&normName(e.category)===normName(k)).length;const unit=cat==='spells'?(en?'spell':'sort'):(en?'skill':'compétence');
+    return `<div class="ref-tree-owners"><span>${en?'No warband holds this':'Aucune bande ne le porte'}${personal.length?` · ${personal.length} ${unit}${personal.length>1?'s':''} ${en?'left in your personal content':'restant dans ton contenu personnel'}`:''}${official?` · ${official} ${en?'published':'publié'}${official>1?'s':''}`:''}</span>${personal.length?`<button type="button" class="danger" onclick="deleteRefLeftover('${cat}','${esc(k).replace(/'/g,"\\'")}')">🗑 ${en?'Delete these leftovers':'Supprimer ces restes'}</button>`:''}</div>`;}
   return `<div class="ref-tree-owners"><span>${en?'Belongs to':'Appartient à'}</span>${owners.map(f=>`<button type="button" onclick="openRefTreeOwner('${esc(f.id)}')">⚙ ${esc(f.displayName||f.name||f.id)}${f.packId?` <small>${en?'supplement':'supplément'}</small>`:''}</button>`).join('')}${custom?`<button type="button" onclick="navigateApp('/custom')">✎ ${en?'My custom content':'Mon contenu personnel'}</button>`:''}</div>`}
+function refLeftoverPersonal(cat,k){return customContentList(cat).filter(x=>normName(x.domain||x.tree||'')===normName(k))}
+function deleteRefLeftover(cat,k){const en=siteLanguage==='en';const items=refLeftoverPersonal(cat,k);if(!items.length)return;
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE':'SUPPRESSION'}</div><h2>${esc(k)}</h2><p>${en?`Delete the ${items.length} leftover entr${items.length>1?'ies':'y'} from your personal content?`:`Supprimer ${items.length>1?'les':'le'} ${items.length} reste${items.length>1?'s':''} de ton contenu personnel ?`}</p><p class="muted">${items.map(x=>esc(x.name)).join(', ')}</p><button type="button" class="big-delete" onclick="confirmDeleteRefLeftover('${cat}','${esc(k).replace(/'/g,"\\'")}')">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
+function confirmDeleteRefLeftover(cat,k){const list=customContentList(cat);const keep=list.filter(x=>normName(x.domain||x.tree||'')!==normName(k));list.splice(0,list.length,...keep);try{__refEntriesCache=null}catch(e){}save(true);closeModal();render('references');toast(siteLanguage==='en'?'Leftovers deleted':'Restes supprimés')}
 async function openRefTreeOwner(fid){const f=(D.factions||[]).find(x=>x.id===fid);if(!f)return;navigateApp('/admin');if(f.__official)await openAdminWarbandRules(fid);else openAdminCatalogEdit(fid);adminWarbandSection='skillsmagic';adminEditingWarriorIdx=null;adminEditingEquipmentIdx=null;render('admin')}
 function refTreeOrder(cat){const out=[];refTreeGroups(cat).forEach(g=>g.trees.forEach(k=>{if(!out.includes(k))out.push(k)}));return out}
 function refTreeCurrent(cat,order){const cur=refTreeState[cat];return order.includes(cur)?cur:order[0]}
