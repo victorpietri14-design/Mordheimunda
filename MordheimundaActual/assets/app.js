@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0596.0';
+const APP_BUILD='110.0597.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13498,6 +13498,9 @@ function magicAccessFor(x){
 // are untouched. An option's magicDomainFighters (optional) limits its
 // domains to those fighter profiles.
 function choiceMagicDomainFilter(r,x,allowed){
+ // V-HSOWNMAGIC: a Hired Sword isn't part of the warband's own choices
+ // (Marks etc.): it keeps every domain its profile gives it.
+ if(isHiredSword(x))return allowed;
  const def=r?warbandChoiceDef(r):null;if(!def||!x)return allowed;
  const who=normName(x.sourceName||x.name);
  const groups=[...(def.groups||[]).filter(g=>g.when==='creation'),...fighterChoiceGroups(r,x)];
