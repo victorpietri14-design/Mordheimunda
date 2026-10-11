@@ -4715,3 +4715,4 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .qx-qd{display:none;grid-column:1/-1;margin-top:4px;padding:6px 8px;border-left:2px solid var(--accent2);background:rgba(157,250,60,.06);color:var(--text);font-size:11.5px;line-height:1.45}
 .qx-tree li.qx-q.open .qx-qd{display:block}
 @media(hover:hover){.qx-tree li.qx-q:hover .qx-qd{display:block}}
+.qa-quest input,.qa-quest textarea{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:7px 9px;font:13px 'IBM Plex Sans',sans-serif;min-width:0}.qa-quest textarea{resize:vertical}
