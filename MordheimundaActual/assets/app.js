@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0604.0';
+const APP_BUILD='110.0605.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8632,11 +8632,27 @@ function fighterQuestEligible(x){if(!x||x.type==='Animal')return false;if(isHire
 function fighterQuestSlots(x){return advancementRole(x)==='Leader'?3:2}
 function fighterQuestAccess(x){const raw=isHiredSword(x)?(hiredSwordSourceWarrior(x)?.skillAccess||{}):skillAccessFor(x);const out={};Object.entries(raw||{}).forEach(([k,v])=>{if(v==='Primary'||v==='Secondary')out[normName(k)]={name:k,level:v}});if(advancementRole(x)==='Leader')out[normName('Leadership')]={name:'Leadership',level:'Primary'};return out}
 function fighterIsQuestCaster(x){try{if(magicAccessFor(x).length)return true}catch(e){}try{return fighterRuleNames(x,faction(activeRoster())).some(n=>/^(wizard|priest)\b/i.test(String(n)))}catch(e){return false}}
+// V-QUESTSCOPE: "Who can take it" on a tree or a quest — empty = everyone;
+// otherwise these warbands (a Supplement also matches through its base)
+// and/or these fighter profiles ({factionId,name}; factionId '__hs' for a
+// Hired Sword). Matched on the fighter's original profile name.
+function questScopeEmpty(sc){return !sc||(!(sc.factions||[]).length&&!(sc.fighters||[]).length)}
+function questScopeMatch(sc,x,f){
+  if(questScopeEmpty(sc))return true;
+  const ids=[f?.id,f?.baseFactionId].filter(Boolean);
+  if(!isHiredSword(x)&&(sc.factions||[]).some(id=>ids.includes(id)))return true;
+  const nm=normName(x?.sourceName||x?.name);
+  return (sc.fighters||[]).some(e=>normName(e.name)===nm&&(isHiredSword(x)?e.factionId==='__hs':(!e.factionId||ids.includes(e.factionId))));
+}
+function questsForFighter(t,x,f){return (t.quests||[]).filter(q=>questScopeMatch(q.scope,x,f))}
 // {slots, available:[{tree,why,level}], unavailable:[tree], locked:[ids], chosen:[ids]}
 function fighterQuestInfo(x){
   const en=siteLanguage==='en';const access=fighterQuestAccess(x);const caster=fighterIsQuestCaster(x);const slots=fighterQuestSlots(x);
-  const available=[],unavailable=[];
+  const available=[],unavailable=[];const fq=faction(activeRoster());
   questTrees().forEach(t=>{
+    if(!questScopeMatch(t.scope,x,fq))return; // not for this warband / fighter: hidden
+    if(!questsForFighter(t,x,fq).length)return;
+    if(t.ignoreSkills&&!questScopeEmpty(t.scope)){available.push({tree:t,level:'Primary',why:en?'Exclusive':'Exclusif'});return}
     if(t.caster&&caster){available.push({tree:t,level:'Primary',why:en?'Wizard / Priest':'Wizard / Prêtre'});return}
     const links=(t.skillTrees||[]).map(n=>({n,a:access[normName(n)]}));
     // V-QUESTCOMBO: requireAll = a combination — every linked tree must be
@@ -8662,7 +8678,7 @@ function fighterQuestsMarkup(x){
   const en=siteLanguage==='en';const r=activeRoster();
   if(!fighterQuestEligible(x))return `<section class="sheet-block fighter-tab-block"><div class="sheet-block-head prominent-section"><div><h4>Quests</h4><small>${en?'Only Heroes, Veterans and Hired Swords take quests.':'Seuls les Héros, Vétérans et Hired Swords prennent des quêtes.'}</small></div></div></section>`;
   const info=fighterQuestInfo(x);const lock=questLockedForRoster(r);
-  const tree=(t,why,st)=>`<div class="qx-tree ${st}" ${st==='off'||lock||st==='lock'?'':`onclick="toggleFighterQuestTree('${esc(t.id)}')"`} role="checkbox" aria-checked="${st==='on'||st==='lock'}"><span class="qx-ck">${st==='on'||st==='lock'?'✓':''}</span>${questArchBadge(t)}<span class="why">${esc(why)}</span><ul>${(t.quests||[]).map(q=>`<li class="qx-q" tabindex="0" onclick="event.stopPropagation();this.classList.toggle('open')" onkeydown="if(event.key==='Enter'){event.stopPropagation();this.classList.toggle('open')}"><span class="qx-qn">${esc(q.name)} <i class="qx-info" aria-hidden="true">ⓘ</i></span><b>+${Number(q.xp||0)}</b><small class="qx-qd">${esc(q.text||'')}</small></li>`).join('')}</ul></div>`;
+  const tree=(t,why,st)=>`<div class="qx-tree ${st}" ${st==='off'||lock||st==='lock'?'':`onclick="toggleFighterQuestTree('${esc(t.id)}')"`} role="checkbox" aria-checked="${st==='on'||st==='lock'}"><span class="qx-ck">${st==='on'||st==='lock'?'✓':''}</span>${questArchBadge(t)}<span class="why">${esc(why)}</span><ul>${questsForFighter(t,x,faction(activeRoster())).map(q=>`<li class="qx-q" tabindex="0" onclick="event.stopPropagation();this.classList.toggle('open')" onkeydown="if(event.key==='Enter'){event.stopPropagation();this.classList.toggle('open')}"><span class="qx-qn">${esc(q.name)} <i class="qx-info" aria-hidden="true">ⓘ</i></span><b>+${Number(q.xp||0)}</b><small class="qx-qd">${esc(q.text||'')}</small></li>`).join('')}</ul></div>`;
   const cards=[...info.available.map(a=>tree(a.tree,a.why+(info.locked.includes(a.tree.id)?(en?' · always on for a Leader':' · toujours actif pour un Leader'):''),info.locked.includes(a.tree.id)?'lock':info.chosen.includes(a.tree.id)?'on':'')),...info.unavailable.map(t=>tree(t,t.requireAll&&(t.skillTrees||[]).length>1?(en?`Needs ${t.skillTrees.join(' + ')}`:`Demande ${t.skillTrees.join(' + ')}`):(en?'Not in his skill access':'Hors de son accès aux compétences'),'off'))].join('');
   const rec=Array.isArray(x.questRecord)?x.questRecord:[];const recXp=rec.reduce((n,e)=>n+Number(e.xp||0),0);
   const roleLabel=advancementRole(x)==='Leader'?'Leader':isHiredSword(x)?'Hired Sword':advancementRole(x)==='Veteran'?(en?'Veteran':'Vétéran'):(en?'Hero':'Héros');
@@ -8698,7 +8714,7 @@ function playQuestsMarkup(ps,rosters){
       const info=fighterQuestInfo(x);const mine=(x.questRecord||[]).filter(e=>e.sessionKey===key);const doneIds=new Set(mine.map(e=>e.questId));
       const xp=mine.reduce((n,e)=>n+Number(e.xp||0),0);done+=mine.length;xpTotal+=xp;
       const k=r.id+':'+x.instance;const open=playQuestOpen.has(k);const trees=info.chosen.map(id=>questTreeById(id)).filter(Boolean);
-      const cols=trees.map(t=>`<div class="ms-tree"><div class="ms-tree-h">${questArchBadge(t)}<small>${(t.quests||[]).filter(q=>doneIds.has(q.id)).length}/${(t.quests||[]).length}</small></div>${(t.quests||[]).map(q=>{const on=doneIds.has(q.id);return `<button type="button" class="ms-li${on?' ok':''}" role="checkbox" aria-checked="${on}" onclick="togglePlayQuest('${esc(r.id)}','${esc(x.instance)}','${esc(q.id)}')"><i>${on?'✓':''}</i><span><b>${esc(q.name)}</b><small>${esc(q.text||'')}</small></span><span class="ms-xp">+${Number(q.xp||0)}</span></button>`}).join('')}</div>`).join('');
+      const fr=faction(r);const cols=trees.map(t=>{const qs=questsForFighter(t,x,fr);return `<div class="ms-tree"><div class="ms-tree-h">${questArchBadge(t)}<small>${qs.filter(q=>doneIds.has(q.id)).length}/${qs.length}</small></div>${qs.map(q=>{const on=doneIds.has(q.id);return `<button type="button" class="ms-li${on?' ok':''}" role="checkbox" aria-checked="${on}" onclick="togglePlayQuest('${esc(r.id)}','${esc(x.instance)}','${esc(q.id)}')"><i>${on?'✓':''}</i><span><b>${esc(q.name)}</b><small>${esc(q.text||'')}</small></span><span class="ms-xp">+${Number(q.xp||0)}</span></button>`}).join('')}</div>`}).join('');
       const role=isHiredSword(x)?'Hired Sword':advancementRole(x)==='Veteran'?(en?'Veteran':'Vétéran'):(x.type||'');
       return `<div class="ms-row${open?' ms-open':''}"><button type="button" class="ms-head" onclick="togglePlayQuestRow('${esc(k)}')" aria-expanded="${open}"><span class="ms-name"><b>${esc(x.name)}</b><small>${esc(role)} · ${Number(x.xp||0)} XP</small></span><span class="ms-chips">${trees.map(t=>questArchBadge(t)).join('')||`<small class="muted">${en?'No quest tree':'Aucun arbre'}</small>`}</span><span class="ms-xp">${xp?`+${xp} XP`:'—'}<small>${mine.length?`${mine.length} ${en?'completed':'réussie'+(mine.length>1?'s':'')}`:''}</small></span><span class="ms-chev">${open?'▾':'▸'}</span></button>${open?`<div class="ms-trees n${Math.min(3,trees.length)||1}">${cols||`<p class="empty-note">${en?'Pick quest trees on the fighter sheet.':'Choisis ses arbres sur la fiche du combattant.'}</p>`}</div>`:''}</div>`;
     }).join('');
@@ -8721,13 +8737,14 @@ let adminQuestDraft=null;
 function adminQuestsMarkup(){
   const en=siteLanguage==='en';if(!adminQuestDraft)adminQuestDraft=JSON.parse(JSON.stringify(questLibrary()));
   const d=adminQuestDraft;
-  const trees=d.trees.map((t,ti)=>`<details class="custom-collapse"${t.__open?' open':''} ontoggle="adminQuestDraft.trees[${ti}].__open=this.open"><summary><span>${esc(t.icon||'◆')} ${esc(t.name||'—')}</span><small>${(t.quests||[]).length} quests · ${t.caster?(en?'Wizard / Priest':'Wizard / Prêtre'):esc((t.skillTrees||[]).join(t.requireAll?' + ':', ')||'—')}</small></summary>
+  const trees=d.trees.map((t,ti)=>`<details class="custom-collapse"${t.__open?' open':''} ontoggle="adminQuestDraft.trees[${ti}].__open=this.open"><summary><span>${esc(t.icon||'◆')} ${esc(t.name||'—')}</span><small>${questScopeEmpty(t.scope)?'':`<b class="qa-excl">${esc(questScopeLabel(t.scope,en))}</b> · `}${(t.quests||[]).length} quests · ${t.caster?(en?'Wizard / Priest':'Wizard / Prêtre'):esc((t.skillTrees||[]).join(t.requireAll?' + ':', ')||'—')}</small></summary>
    <div class="custom-form-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input value="${esc(t.name||'')}" onchange="adminQuestSet(${ti},-1,'name',this.value)"></label><label class="custom-field"><span>${en?'Icon':'Icône'}</span><input value="${esc(t.icon||'')}" maxlength="3" onchange="adminQuestSet(${ti},-1,'icon',this.value)"></label><label class="custom-field"><span>${en?'Colour':'Couleur'}</span><input type="color" value="${esc(t.color||'#99d65d')}" onchange="adminQuestSet(${ti},-1,'color',this.value)"></label>
    <div class="custom-field wide"><span>${en?'Linked skill trees — Primary or Secondary unlocks it':'Arbres de compétences liés — Primary ou Secondary le débloque'}</span>
     <div class="qa-mode"><label><input type="radio" name="qamode${ti}" ${t.requireAll?'':'checked'} onchange="adminQuestSet(${ti},-1,'requireAll',false)"> ${en?'Any one of them is enough':'Un seul suffit'}</label><label><input type="radio" name="qamode${ti}" ${t.requireAll?'checked':''} onchange="adminQuestSet(${ti},-1,'requireAll',true)"> ${en?'Combination — all of them needed':'Combinaison — tous sont nécessaires'}</label></div>
     <div class="qa-trees">${questSkillTreeOptions(t.skillTrees).map(n=>{const on=(t.skillTrees||[]).some(x=>normName(x)===normName(n));return `<label class="qa-chip${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="adminQuestToggleSkill(${ti},'${esc(n).replace(/'/g,"\\'")}',this.checked)"> <span>${esc(skillTreeDisplayName(n))}</span></label>`}).join('')}</div></div>
+   <div class="custom-field wide"><span>${en?'Who can take it':'Qui peut le prendre'}</span><div class="qa-scope-row"><button type="button" class="button secondary" onclick="openQuestScopeEditor(${ti},-1)">${esc(questScopeLabel(t.scope,en))} ▾</button>${t.ignoreSkills&&!questScopeEmpty(t.scope)?`<span class="qa-tag">${en?'Skill trees ignored':'Arbres de compétences ignorés'}</span>`:''}</div></div>
    <label class="custom-check"><input type="checkbox" ${t.caster?'checked':''} onchange="adminQuestSet(${ti},-1,'caster',this.checked)"> <span><b>${en?'Spellcasters':'Lanceurs de sorts'}</b><small>${en?'Unlocked by a Wizard / Priest or any magic domain':'Débloqué par Wizard / Prêtre ou un domaine de magie'}</small></span></label></div>
-   ${(t.quests||[]).map((q,qi)=>`<div class="qa-quest"><input value="${esc(q.name||'')}" placeholder="${en?'Quest name':'Nom de la quête'}" onchange="adminQuestSet(${ti},${qi},'name',this.value)"><input type="number" min="0" max="10" value="${Number(q.xp||0)}" title="XP" onchange="adminQuestSet(${ti},${qi},'xp',this.value)"><button type="button" class="button secondary" title="${en?'Remove':'Retirer'}" onclick="adminQuestRemove(${ti},${qi})">🗑</button><textarea rows="2" placeholder="${en?'What the fighter must do':'Ce que le combattant doit faire'}" onchange="adminQuestSet(${ti},${qi},'text',this.value)">${esc(q.text||'')}</textarea></div>`).join('')}
+   ${(t.quests||[]).map((q,qi)=>`<div class="qa-quest"><input value="${esc(q.name||'')}" placeholder="${en?'Quest name':'Nom de la quête'}" onchange="adminQuestSet(${ti},${qi},'name',this.value)"><input type="number" min="0" max="10" value="${Number(q.xp||0)}" title="XP" onchange="adminQuestSet(${ti},${qi},'xp',this.value)"><button type="button" class="button secondary" title="${en?'Remove':'Retirer'}" onclick="adminQuestRemove(${ti},${qi})">🗑</button><button type="button" class="qa-scope-btn${questScopeEmpty(q.scope)?'':' on'}" onclick="openQuestScopeEditor(${ti},${qi})">${esc(questScopeLabel(q.scope,en))} ▾</button><textarea rows="2" placeholder="${en?'What the fighter must do':'Ce que le combattant doit faire'}" onchange="adminQuestSet(${ti},${qi},'text',this.value)">${esc(q.text||'')}</textarea></div>`).join('')}
    <div class="custom-actions"><button type="button" class="button secondary" onclick="adminQuestAdd(${ti})">＋ ${en?'Add a quest':'Ajouter une quête'}</button><button type="button" class="button danger-outline" onclick="adminQuestRemoveTree(${ti})">${en?'Delete this tree':'Supprimer cet arbre'}</button></div></details>`).join('');
   return `<div class="card admin-card"><div class="eyebrow">QUESTS</div><p class="custom-field-help">${en?'Quest trees for Heroes, Veterans and Hired Swords. A fighter can pick a tree when one of its linked skill trees is Primary or Secondary for him. Changes apply for every player once saved.':'Arbres de quêtes des Héros, Vétérans et Hired Swords. Un combattant peut prendre un arbre si un de ses arbres de compétences liés est Primary ou Secondary pour lui. Les changements s’appliquent à tous les joueurs une fois enregistrés.'}</p>${trees}
   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminQuestAddTree()">＋ ${en?'Add a tree':'Ajouter un arbre'}</button><button type="button" class="button secondary" onclick="adminQuestReset()">↺ ${en?'Back to the base set':'Revenir au set de base'}</button><button type="button" class="button primary" onclick="adminQuestSave()">${en?'Save for everyone':'Enregistrer pour tous'}</button></div></div>`;
@@ -8736,6 +8753,33 @@ function adminQuestsMarkup(){
 // and every warband's own exclusive trees (+ names already linked).
 function questSkillTreeOptions(current){const m=new Map();const add=n=>{const k=normName(n);if(n&&!m.has(k))m.set(k,n)};add('Leadership');Object.keys(customMergedSkillSets()||{}).forEach(add);(D.factions||[]).forEach(f=>Object.keys(f?.exclusiveSkillSets||{}).forEach(add));(current||[]).forEach(add);return [...m.values()].sort((a,b)=>a.localeCompare(b))}
 function adminQuestToggleSkill(ti,name,on){const t=adminQuestDraft?.trees?.[ti];if(!t)return;t.skillTrees=(t.skillTrees||[]).filter(x=>normName(x)!==normName(name));if(on)t.skillTrees.push(name);t.__open=true;render('admin')}
+function questScopeLabel(sc,en){if(questScopeEmpty(sc))return en?'Everyone':'Tout le monde';const opts=creatureScopeFactionOptions();const parts=[...(sc.factions||[]).map(id=>opts.find(o=>o.id===id)?.name||id),...(sc.fighters||[]).map(e=>e.name)];return (en?'Exclusive: ':'Exclusif : ')+(parts.length>3?parts.slice(0,3).join(', ')+` +${parts.length-3}`:parts.join(', '))}
+let questScopeEdit=null;
+function questScopeTarget(){const e=questScopeEdit;const t=adminQuestDraft?.trees?.[e?.ti];if(!t)return null;return e.qi<0?t:t.quests?.[e.qi]}
+function openQuestScopeEditor(ti,qi){const t=adminQuestDraft?.trees?.[ti];const tgt=qi<0?t:t?.quests?.[qi];if(!tgt)return;questScopeEdit={ti,qi,draft:JSON.parse(JSON.stringify(tgt.scope||{factions:[],fighters:[]})),ignoreSkills:!!t.ignoreSkills,pick:questScopeEdit?.pick||''};renderQuestScopeEditor()}
+function renderQuestScopeEditor(){
+  const en=siteLanguage==='en';const e=questScopeEdit;if(!e)return;const d=e.draft;d.factions=d.factions||[];d.fighters=d.fighters||[];
+  const t=adminQuestDraft.trees[e.ti];const label=e.qi<0?t.name:(t.quests[e.qi]?.name||'');
+  const opts=creatureScopeFactionOptions().filter(o=>!isContentPoolFaction(D.factions.find(f=>f.id===o.id)));
+  const fChecks=opts.map(o=>{const on=d.factions.includes(o.id);return `<label class="qa-chip${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="questScopeToggleFaction('${esc(o.id)}',this.checked)"> <span>${esc(o.name)}</span></label>`}).join('');
+  const pick=e.pick;let fighters=[];
+  if(pick==='__hs')fighters=hiredSwordRawList().map(w=>({factionId:'__hs',name:w.name}));
+  else if(pick){const f=D.factions.find(x=>x.id===pick);fighters=(f?.warriors||[]).filter(w=>!isHiredSword(w)&&w.type!=='Animal').map(w=>({factionId:pick,name:w.name}))}
+  const has=fx=>d.fighters.some(y=>normName(y.name)===normName(fx.name)&&y.factionId===fx.factionId);
+  const pickOpts=`<option value="">${en?'— pick a warband —':'— choisis une bande —'}</option><option value="__hs" ${pick==='__hs'?'selected':''}>Hired Swords</option>${opts.map(o=>`<option value="${esc(o.id)}" ${pick===o.id?'selected':''}>${esc(o.name)}</option>`).join('')}`;
+  const chosen=d.fighters.map((fx,i)=>`<span class="qa-tag">${esc(fx.name)} <small>${esc(fx.factionId==='__hs'?'Hired Sword':(opts.find(o=>o.id===fx.factionId)?.name||''))}</small> <button type="button" onclick="questScopeRemoveFighter(${i})">×</button></span>`).join('');
+  openModal(`<div class="admin-live-editor qa-scope"><div class="eyebrow">${en?'WHO CAN TAKE IT':'QUI PEUT LE PRENDRE'}</div><h2>${esc(label)}</h2><p class="muted">${en?'Leave everything empty for everyone. Otherwise it is only for the warbands and fighters ticked below.':'Laisse tout vide pour tout le monde. Sinon, uniquement pour les bandes et combattants cochés ci-dessous.'}</p>
+   <h4>${en?'Warbands':'Bandes'}</h4><div class="qa-trees">${fChecks}</div>
+   <h4>${en?'Fighters':'Combattants'}</h4><label class="custom-field"><span>${en?'Show the fighters of':'Afficher les combattants de'}</span><select onchange="questScopeEdit.pick=this.value;renderQuestScopeEditor()">${pickOpts}</select></label>
+   ${fighters.length?`<div class="qa-trees">${fighters.map(fx=>{const on=has(fx);return `<label class="qa-chip${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="questScopeToggleFighter('${esc(fx.factionId)}','${esc(fx.name).replace(/'/g,"\\'")}',this.checked)"> <span>${esc(fx.name)}</span></label>`}).join('')}</div>`:''}
+   ${chosen?`<div class="qa-chosen">${chosen}</div>`:''}
+   ${e.qi<0?`<label class="qa-chip${e.ignoreSkills?' on':''}" style="margin-top:12px"><input type="checkbox" ${e.ignoreSkills?'checked':''} onchange="questScopeEdit.ignoreSkills=this.checked"> <span>${en?'Ignore skill trees for them (signature tree)':'Ignorer les arbres de compétences pour eux (arbre signature)'}</span></label>`:''}
+   <div class="custom-actions"><button type="button" class="button secondary" onclick="questScopeEdit.draft={factions:[],fighters:[]};questScopeEdit.ignoreSkills=false;renderQuestScopeEditor()">${en?'Everyone':'Tout le monde'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="applyQuestScope()">${en?'Apply':'Appliquer'}</button></div></div>`);
+}
+function questScopeToggleFaction(id,on){const d=questScopeEdit.draft;d.factions=(d.factions||[]).filter(x=>x!==id);if(on)d.factions.push(id);renderQuestScopeEditor()}
+function questScopeToggleFighter(fid,name,on){const d=questScopeEdit.draft;d.fighters=(d.fighters||[]).filter(y=>!(normName(y.name)===normName(name)&&y.factionId===fid));if(on)d.fighters.push({factionId:fid,name});renderQuestScopeEditor()}
+function questScopeRemoveFighter(i){questScopeEdit.draft.fighters.splice(i,1);renderQuestScopeEditor()}
+function applyQuestScope(){const e=questScopeEdit;const tgt=questScopeTarget();if(!tgt)return closeModal();tgt.scope=questScopeEmpty(e.draft)?undefined:e.draft;if(e.qi<0)adminQuestDraft.trees[e.ti].ignoreSkills=!!e.ignoreSkills&&!questScopeEmpty(e.draft);adminQuestDraft.trees[e.ti].__open=true;questScopeEdit=null;closeModal();render('admin')}
 function adminQuestSet(ti,qi,field,v){const t=adminQuestDraft?.trees?.[ti];if(!t)return;if(qi<0){if(field==='skillTrees')t.skillTrees=String(v).split(',').map(s=>s.trim()).filter(Boolean);else if(field==='caster'||field==='requireAll')t[field]=!!v;else t[field]=String(v)}else{const q=t.quests?.[qi];if(!q)return;q[field]=field==='xp'?Math.max(0,Math.min(10,Math.round(Number(v)||0))):String(v)}if(field==='name'||field==='icon'||field==='caster'||field==='skillTrees'||field==='requireAll'){t.__open=true;render('admin')}}
 function adminQuestAdd(ti){const t=adminQuestDraft.trees[ti];t.quests=t.quests||[];t.quests.push({id:'q-'+crypto.randomUUID().slice(0,8),name:'',text:'',xp:1});t.__open=true;render('admin')}
 function adminQuestRemove(ti,qi){const t=adminQuestDraft.trees[ti];t.quests.splice(qi,1);t.__open=true;render('admin')}
