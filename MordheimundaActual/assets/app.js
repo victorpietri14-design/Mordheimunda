@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0601.0';
+const APP_BUILD='110.0604.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4874,6 +4874,8 @@ function admin(){
       ${adminOpenCategory==='racemax'?`<div class="admin-category-body">${adminRaceMaxCardMarkup()}</div>`:''}
       ${adminCategoryBar('scenarios',en?'Manage · Scenarios':'Gestion · Scénarios',en?'Battle plans + deployment map library':'Plans de bataille + bibliothèque de cartes',adminOpenCategory==='scenarios')}
       ${adminOpenCategory==='scenarios'?`<div class="admin-category-body">${adminScenariosSectionMarkup(en)}</div>`:''}
+      ${adminCategoryBar('quests',en?'Manage · Quests':'Gestion · Quêtes',en?'Quest trees and XP for Heroes, Veterans and Hired Swords':'Arbres de quêtes et XP des Héros, Vétérans et Hired Swords',adminOpenCategory==='quests')}
+      ${adminOpenCategory==='quests'?`<div class="admin-category-body">${adminQuestsMarkup()}</div>`:''}
       ${adminCategoryBar('support',en?'Support · Player warbands':'Support · Bandes des joueurs',en?'Search an account and live-edit their data':'Rechercher un compte et éditer ses données en direct',adminOpenCategory==='support')}
       ${adminOpenCategory==='support'?`<div class="admin-category-body">
       <div class="admin-live-rosters card">
@@ -8072,7 +8074,7 @@ function ensurePlayFriendsLoaded(){
   playFriendsCache='loading';
   window.MordheimundaAPI.friends().then(r=>{playFriendsCache=r||{friends:[]};render('playMode')}).catch(()=>{playFriendsCache={friends:[]};render('playMode')});
 }
-function blankPlaySession(){return {scenarioId:null,tableSize:'48x48',numBands:2,slots:[],groupColors:{},generated:null}}
+function blankPlaySession(){return {questKey:crypto.randomUUID(),scenarioId:null,tableSize:'48x48',numBands:2,slots:[],groupColors:{},generated:null}}
 function playSlotDefault(i){return {source:'own',rosterId:null,rosterName:'',friendId:null,friendUsername:'',friendWarbandId:null,friendWarbandName:'',group:i+1}}
 function playEnsureSlots(ps,n){const arr=[];for(let i=0;i<n;i++)arr.push(ps.slots[i]||playSlotDefault(i));ps.slots=arr;}
 // #123: when a scenario's band count is scenario-decided (bandsMin !==
@@ -8566,11 +8568,193 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
 // Règles : Scénarios' own scenarioDetail() — with section 07 "Déploiement"
 // replaced by the live Play mode block above instead of the static
 // preview+"Generate a map" button that page shows.
+// ===================== V-QUESTS: hero quests =====================
+// Heroes, Veterans and Hired Swords play with quest trees picked from
+// their profile: the trees whose skill tree they have at Primary or
+// Secondary (plus Caster for a Wizard/Priest). Leader: 3 trees (the
+// Commander tree is always one of them), others: 2. Chosen on the fighter
+// sheet (Quests tab), only between games. In Play Mode → Quests, ticking a
+// quest adds its XP to the fighter at once (and records it); unticking
+// takes it back. The library below is the base set; an admin can edit it
+// (Admin → Manage · Quests), stored server-side and loaded over it.
+const QUEST_BASE={trees:[
+ {id:'commander',name:'Commander',icon:'♛',color:'#f2c94c',skillTrees:['Leadership'],quests:[
+  {id:'cmd-headhunter',name:'Headhunter',text:'Take the enemy Leader Out of Action.',xp:3},
+  {id:'cmd-holdline',name:'Hold the line',text:'Your warband takes no Rout test before turn 4.',xp:2},
+  {id:'cmd-noonebehind',name:'Leave no one behind',text:'No Hero of your warband is captured or killed this game.',xp:1}]},
+ {id:'caster',name:'Caster',icon:'✦',color:'#c99bff',caster:true,skillTrees:[],quests:[
+  {id:'cas-ritual',name:'Ritual',text:'Cast 3 spells or prayers successfully this game.',xp:1},
+  {id:'cas-duel',name:'Arcane duel',text:'Take an enemy spellcaster Out of Action.',xp:2},
+  {id:'cas-power',name:'Show of power',text:'Successfully cast a spell or prayer of Difficulty 8 or more.',xp:1}]},
+ {id:'duellist',name:'Duellist',icon:'⚔',color:'#99d65d',skillTrees:['Combat'],quests:[
+  {id:'due-honour',name:'Duel of honour',text:'Beat an enemy Hero in close combat.',xp:2},
+  {id:'due-outnumbered',name:'Outnumbered',text:'Win a close combat while fighting 2 or more enemies.',xp:2},
+  {id:'due-clean',name:'Clean blade',text:'Win a close combat without being wounded.',xp:1}]},
+ {id:'brute',name:'Brute',icon:'✊',color:'#e0895a',skillTrees:['Brawn'],quests:[
+  {id:'bru-breaker',name:'Breaker',text:'Take 2 enemies Out of Action this game.',xp:2},
+  {id:'bru-charge',name:'Crushing charge',text:'Take an enemy Out of Action in the turn he charges.',xp:1},
+  {id:'bru-wall',name:'Living wall',text:'Stay in base contact with an enemy for 2 full turns without going down.',xp:1}]},
+ {id:'berserker',name:'Berserker',icon:'☠',color:'#d9655d',skillTrees:['Ferocity','Savagery'],quests:[
+  {id:'ber-blood',name:'First blood',text:'Take the first enemy of the game Out of Action.',xp:1},
+  {id:'ber-frenzy',name:'Into the fray',text:'Charge in each of your first 3 turns.',xp:1},
+  {id:'ber-carnage',name:'Carnage',text:'Take 3 enemies Out of Action this game.',xp:3}]},
+ {id:'survivor',name:'Survivor',icon:'⛨',color:'#9cc3e0',skillTrees:['Resilience'],quests:[
+  {id:'sur-unbreakable',name:'Unbreakable',text:'Be wounded but still standing at the end of the game.',xp:1},
+  {id:'sur-getup',name:'Back on his feet',text:'Recover from Knocked Down or Stunned and take an enemy Out of Action.',xp:2},
+  {id:'sur-shield',name:'Shield bearer',text:'Be the target of 3 or more attacks and stay standing.',xp:1}]},
+ {id:'scout',name:'Scout',icon:'➹',color:'#7fd6c4',skillTrees:['Agility'],quests:[
+  {id:'sco-infiltrate',name:'Infiltrate',text:'Reach the enemy table edge.',xp:1},
+  {id:'sco-scavenger',name:'Scavenger',text:'Pick up a wyrdstone or treasure counter.',xp:1},
+  {id:'sco-ghost',name:'Ghost',text:'Never be targeted by a shooting attack this game.',xp:1}]},
+ {id:'rogue',name:'Rogue',icon:'✧',color:'#b0afac',skillTrees:['Cunning'],quests:[
+  {id:'rog-pickpocket',name:'Pickpocket',text:'Steal a scenario objective or take one from a downed enemy.',xp:2},
+  {id:'rog-ambush',name:'Ambush',text:'Charge an enemy who could not see him at the start of the turn.',xp:1},
+  {id:'rog-backstab',name:'Knife in the dark',text:'Take an enemy Out of Action by attacking him from behind or while hidden.',xp:2}]},
+ {id:'scholar',name:'Scholar',icon:'✎',color:'#e6d39a',skillTrees:['Academic'],quests:[
+  {id:'sch-counsel',name:'Wise counsel',text:'An ally within 6" passes a test thanks to him (Leadership, re-roll…).',xp:1},
+  {id:'sch-spotter',name:'Spotter',text:'Detect or reveal a hidden enemy.',xp:1},
+  {id:'sch-lore',name:'Forbidden lore',text:'Find or carry a scenario objective back to your deployment zone.',xp:2}]},
+ {id:'marksman',name:'Marksman',icon:'➶',color:'#8cc7ea',skillTrees:['Shooting'],quests:[
+  {id:'mar-sharp',name:'Sharpshooter',text:'Take an enemy Out of Action with a shot from more than 18".',xp:2},
+  {id:'mar-suppress',name:'Suppression',text:'Hit 3 different enemies with shooting attacks this game.',xp:1},
+  {id:'mar-stand',name:'Stand fast',text:'Never move this game and hit at least once.',xp:1}]}
+]};
+let questLibraryOverride=null;
+async function loadQuestLibrary(){try{const r=await window.MordheimundaAPI.quests();questLibraryOverride=r?.library&&Array.isArray(r.library.trees)?r.library:null}catch(e){console.warn('Quest library unavailable',e)}}
+function questLibrary(){return questLibraryOverride||QUEST_BASE}
+function questTrees(){return questLibrary().trees||[]}
+function questTreeById(id){return questTrees().find(t=>t.id===id)||null}
+function questById(id){for(const t of questTrees()){const q=(t.quests||[]).find(q=>q.id===id);if(q)return {...q,tree:t}}return null}
+// Runs fn with r as the active warband: skill access, magic and faction
+// lookups all read the active warband.
+function withActiveRoster(r,fn){if(!r)return fn();const prev=state.active;if(String(prev)===String(r.id))return fn();state.active=r.id;try{return fn()}finally{state.active=prev}}
+function fighterQuestEligible(x){if(!x||x.type==='Animal')return false;if(isHiredSword(x))return true;return ['Leader','Champion','Juves','Veteran'].includes(advancementRole(x))}
+function fighterQuestSlots(x){return advancementRole(x)==='Leader'?3:2}
+function fighterQuestAccess(x){const raw=isHiredSword(x)?(hiredSwordSourceWarrior(x)?.skillAccess||{}):skillAccessFor(x);const out={};Object.entries(raw||{}).forEach(([k,v])=>{if(v==='Primary'||v==='Secondary')out[normName(k)]={name:k,level:v}});if(advancementRole(x)==='Leader')out[normName('Leadership')]={name:'Leadership',level:'Primary'};return out}
+function fighterIsQuestCaster(x){try{if(magicAccessFor(x).length)return true}catch(e){}try{return fighterRuleNames(x,faction(activeRoster())).some(n=>/^(wizard|priest)\b/i.test(String(n)))}catch(e){return false}}
+// {slots, available:[{tree,why,level}], unavailable:[tree], locked:[ids], chosen:[ids]}
+function fighterQuestInfo(x){
+  const en=siteLanguage==='en';const access=fighterQuestAccess(x);const caster=fighterIsQuestCaster(x);const slots=fighterQuestSlots(x);
+  const available=[],unavailable=[];
+  questTrees().forEach(t=>{
+    if(t.caster&&caster){available.push({tree:t,level:'Primary',why:en?'Wizard / Priest':'Wizard / Prêtre'});return}
+    const links=(t.skillTrees||[]).map(n=>({n,a:access[normName(n)]}));
+    // V-QUESTCOMBO: requireAll = a combination — every linked tree must be
+    // Primary or Secondary; otherwise any one of them is enough.
+    if(t.requireAll&&links.length>1){
+      if(links.every(l=>l.a)){const allP=links.every(l=>l.a.level==='Primary');available.push({tree:t,level:allP?'Primary':'Secondary',why:links.map(l=>`${skillTreeDisplayName(l.a.name)} ${l.a.level==='Primary'?'P':'S'}`).join(' + ')})}else unavailable.push(t);
+      return;
+    }
+    const hit=links.map(l=>l.a).filter(Boolean).sort((a,b)=>(a.level==='Primary'?0:1)-(b.level==='Primary'?0:1))[0];
+    if(hit)available.push({tree:t,level:hit.level,why:`${skillTreeDisplayName(hit.name)} · ${hit.level}`});else unavailable.push(t);
+  });
+  const locked=advancementRole(x)==='Leader'&&available.some(a=>a.tree.id==='commander')?['commander']:[];
+  const ok=new Set(available.map(a=>a.tree.id));
+  let chosen=Array.isArray(x?.questTrees)?x.questTrees.filter(id=>ok.has(id)):null;
+  if(!chosen||!chosen.length){const order=available.slice().sort((a,b)=>(locked.includes(b.tree.id)-locked.includes(a.tree.id))||((b.tree.caster?1:0)-(a.tree.caster?1:0))||((a.level==='Primary'?0:1)-(b.level==='Primary'?0:1)));chosen=order.map(a=>a.tree.id)}
+  locked.forEach(id=>{if(!chosen.includes(id))chosen.unshift(id)});
+  chosen=[...new Set(chosen)].slice(0,slots);
+  return {slots,available,unavailable,locked,chosen,auto:!(Array.isArray(x?.questTrees)&&x.questTrees.length)};
+}
+function questLockedForRoster(r){const ps=state.playSession;return !!(ps&&r&&(ps.slots||[]).some(sl=>String(sl.rosterId)===String(r.id)))}
+function questArchBadge(t,extra){return `<span class="qx-arch" style="--qc:${esc(t.color||'#99d65d')}">${esc(t.icon||'◆')} ${esc(String(t.name||'').toUpperCase())}${extra||''}</span>`}
+function fighterQuestsMarkup(x){
+  const en=siteLanguage==='en';const r=activeRoster();
+  if(!fighterQuestEligible(x))return `<section class="sheet-block fighter-tab-block"><div class="sheet-block-head prominent-section"><div><h4>Quests</h4><small>${en?'Only Heroes, Veterans and Hired Swords take quests.':'Seuls les Héros, Vétérans et Hired Swords prennent des quêtes.'}</small></div></div></section>`;
+  const info=fighterQuestInfo(x);const lock=questLockedForRoster(r);
+  const tree=(t,why,st)=>`<div class="qx-tree ${st}" ${st==='off'||lock||st==='lock'?'':`onclick="toggleFighterQuestTree('${esc(t.id)}')"`} role="checkbox" aria-checked="${st==='on'||st==='lock'}"><span class="qx-ck">${st==='on'||st==='lock'?'✓':''}</span>${questArchBadge(t)}<span class="why">${esc(why)}</span><ul>${(t.quests||[]).map(q=>`<li class="qx-q" tabindex="0" onclick="event.stopPropagation();this.classList.toggle('open')" onkeydown="if(event.key==='Enter'){event.stopPropagation();this.classList.toggle('open')}"><span class="qx-qn">${esc(q.name)} <i class="qx-info" aria-hidden="true">ⓘ</i></span><b>+${Number(q.xp||0)}</b><small class="qx-qd">${esc(q.text||'')}</small></li>`).join('')}</ul></div>`;
+  const cards=[...info.available.map(a=>tree(a.tree,a.why+(info.locked.includes(a.tree.id)?(en?' · always on for a Leader':' · toujours actif pour un Leader'):''),info.locked.includes(a.tree.id)?'lock':info.chosen.includes(a.tree.id)?'on':'')),...info.unavailable.map(t=>tree(t,t.requireAll&&(t.skillTrees||[]).length>1?(en?`Needs ${t.skillTrees.join(' + ')}`:`Demande ${t.skillTrees.join(' + ')}`):(en?'Not in his skill access':'Hors de son accès aux compétences'),'off'))].join('');
+  const rec=Array.isArray(x.questRecord)?x.questRecord:[];const recXp=rec.reduce((n,e)=>n+Number(e.xp||0),0);
+  const roleLabel=advancementRole(x)==='Leader'?'Leader':isHiredSword(x)?'Hired Sword':advancementRole(x)==='Veteran'?(en?'Veteran':'Vétéran'):(en?'Hero':'Héros');
+  return `<section class="sheet-block fighter-tab-block quests-block"><div class="sheet-block-head prominent-section"><div><h4>Quests</h4><small>${en?'Pick the quest trees this fighter plays with — they show in Play Mode → Quests':'Choisis les arbres de quêtes de ce combattant — ils apparaissent dans Play Mode → Quests'}</small></div></div>
+  <div class="qx-slots"><span class="qx-count">${en?'Chosen':'Choisis'} <b>${info.chosen.length} / ${info.slots}</b> (${esc(roleLabel)})</span>${info.chosen.map(id=>questTreeById(id)).filter(Boolean).map(t=>questArchBadge(t)).join('')}<span style="flex:1"></span>${lock?`<span class="qx-lock">🔒 ${en?'In a game — change between games':'En partie — à changer entre les parties'}</span>`:`<button type="button" class="button secondary" ${info.auto?'disabled':''} onclick="autoPickFighterQuestTrees()">↺ ${en?'Auto-pick':'Choix auto'}</button>`}</div>
+  ${info.available.length?'':`<p class="empty-note">${en?'No quest tree matches this profile yet.':'Aucun arbre de quêtes ne correspond à ce profil.'}</p>`}
+  <div class="qx-grid">${cards}</div>
+  <div class="qx-hist"><h5>${en?'QUEST RECORD':'HISTORIQUE DES QUÊTES'} · +${recXp} XP ${en?'FROM QUESTS':'GRÂCE AUX QUÊTES'}</h5>${rec.length?rec.slice().reverse().map(e=>`<div class="qx-hrow"><small>${new Date(e.date||Date.now()).toLocaleDateString(en?'en-GB':'fr-FR')}</small><span>${esc(e.name)}${e.scenario?` · ${esc(e.scenario)}`:''}</span><b>+${Number(e.xp||0)}</b></div>`).join(''):`<p class="empty-note">${en?'No quest completed yet.':'Aucune quête réussie pour l’instant.'}</p>`}</div></section>`;
+}
+function toggleFighterQuestTree(id){
+  const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;
+  if(questLockedForRoster(r)){toast(en?'Quest trees change between games':'Les arbres de quêtes se changent entre les parties');return}
+  // Read with the per-render cache on: one activeRoster() pass instead of
+  // one per skill/magic lookup.
+  let info;const was=__arCacheActive;__arCacheActive=true;__arCache=null;try{info=fighterQuestInfo(x)}finally{__arCacheActive=was;__arCache=null}
+  if(info.locked.includes(id))return;
+  let chosen=info.chosen.slice();
+  if(chosen.includes(id))chosen=chosen.filter(c=>c!==id);
+  else{if(chosen.length>=info.slots){toast(en?`${info.slots} trees at most — untick one first`:`${info.slots} arbres au maximum — décoche-en un d’abord`);return}chosen.push(id)}
+  const r2=activeRoster(),x2=r2?.fighters?.[editingIndex];if(!x2)return;x2.questTrees=chosen;save(true);render('fighter');
+}
+function autoPickFighterQuestTrees(){const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x||questLockedForRoster(r))return;delete x.questTrees;save(true);render('fighter')}
+// ---- Play Mode → Quests
+let playQuestOpen=new Set();
+function playQuestRosters(ps){const seen=new Set();return (ps?.slots||[]).map(sl=>sl.rosterId&&(state.rosters||[]).find(r=>String(r.id)===String(sl.rosterId))).filter(r=>r&&!seen.has(r.id)&&seen.add(r.id))}
+function playQuestKey(ps){if(!ps.questKey){ps.questKey=crypto.randomUUID();save(true)}return ps.questKey}
+function playQuestsMarkup(ps,rosters){
+  const en=siteLanguage==='en';const key=playQuestKey(ps);
+  let done=0,xpTotal=0;
+  const bands=rosters.map((r,bi)=>withActiveRoster(r,()=>{
+    const fighters=(r.fighters||[]).filter(x=>fighterQuestEligible(x)&&!fighterStatus(x).dead&&!(isHiredSword(x)&&x.hsLeft));
+    const rows=fighters.map(x=>{
+      const info=fighterQuestInfo(x);const mine=(x.questRecord||[]).filter(e=>e.sessionKey===key);const doneIds=new Set(mine.map(e=>e.questId));
+      const xp=mine.reduce((n,e)=>n+Number(e.xp||0),0);done+=mine.length;xpTotal+=xp;
+      const k=r.id+':'+x.instance;const open=playQuestOpen.has(k);const trees=info.chosen.map(id=>questTreeById(id)).filter(Boolean);
+      const cols=trees.map(t=>`<div class="ms-tree"><div class="ms-tree-h">${questArchBadge(t)}<small>${(t.quests||[]).filter(q=>doneIds.has(q.id)).length}/${(t.quests||[]).length}</small></div>${(t.quests||[]).map(q=>{const on=doneIds.has(q.id);return `<button type="button" class="ms-li${on?' ok':''}" role="checkbox" aria-checked="${on}" onclick="togglePlayQuest('${esc(r.id)}','${esc(x.instance)}','${esc(q.id)}')"><i>${on?'✓':''}</i><span><b>${esc(q.name)}</b><small>${esc(q.text||'')}</small></span><span class="ms-xp">+${Number(q.xp||0)}</span></button>`}).join('')}</div>`).join('');
+      const role=isHiredSword(x)?'Hired Sword':advancementRole(x)==='Veteran'?(en?'Veteran':'Vétéran'):(x.type||'');
+      return `<div class="ms-row${open?' ms-open':''}"><button type="button" class="ms-head" onclick="togglePlayQuestRow('${esc(k)}')" aria-expanded="${open}"><span class="ms-name"><b>${esc(x.name)}</b><small>${esc(role)} · ${Number(x.xp||0)} XP</small></span><span class="ms-chips">${trees.map(t=>questArchBadge(t)).join('')||`<small class="muted">${en?'No quest tree':'Aucun arbre'}</small>`}</span><span class="ms-xp">${xp?`+${xp} XP`:'—'}<small>${mine.length?`${mine.length} ${en?'completed':'réussie'+(mine.length>1?'s':'')}`:''}</small></span><span class="ms-chev">${open?'▾':'▸'}</span></button>${open?`<div class="ms-trees n${Math.min(3,trees.length)||1}">${cols||`<p class="empty-note">${en?'Pick quest trees on the fighter sheet.':'Choisis ses arbres sur la fiche du combattant.'}</p>`}</div>`:''}</div>`;
+    }).join('');
+    return `<section class="scn-sec"><span class="scn-secnum">${String(bi+2).padStart(2,'0')}</span><div class="scn-sectitle">${esc(r.name)} <span class="ms-sub">· ${esc(faction(r)?.displayName||'')}</span></div>${rows||`<p class="empty-note">${en?'No Hero, Veteran or Hired Sword in this warband.':'Aucun Héros, Vétéran ou Hired Sword dans cette bande.'}</p>`}</section>`;
+  }));
+  return `<section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Quests this game':'Quêtes de la partie'}</div><div class="ms-sum"><div><small>${en?'Completed':'Réussies'}</small><b class="ok">${done}</b></div><div><small>${en?'XP earned':'XP gagnée'}</small><b class="xp">+${xpTotal}</b></div><p>${en?'Each fighter plays with the quest trees chosen on his sheet — 3 for the Leader, 2 for the others. Ticking a quest adds its XP to his sheet straight away; unticking takes it back.':'Chaque combattant joue avec les arbres choisis sur sa fiche — 3 pour le Leader, 2 pour les autres. Cocher une quête ajoute son XP tout de suite à sa fiche ; décocher la retire.'}</p></div></section>${bands.join('')}`;
+}
+function togglePlayQuestRow(k){if(playQuestOpen.has(k))playQuestOpen.delete(k);else playQuestOpen.add(k);render('playMode')}
+function togglePlayQuest(rid,inst,qid){
+  const en=siteLanguage==='en';const ps=state.playSession;if(!ps)return;const key=playQuestKey(ps);
+  const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const x=r?.fighters?.find(f=>f.instance===inst);const q=questById(qid);if(!x||!q)return;
+  x.questRecord=Array.isArray(x.questRecord)?x.questRecord:[];
+  const i=x.questRecord.findIndex(e=>e.sessionKey===key&&e.questId===qid);const before=Number(x.xp||0);
+  if(i>=0){const e=x.questRecord[i];x.questRecord.splice(i,1);x.xp=Math.max(0,before-Number(e.xp||0));logHistory(r,'xp',en?`${x.name}: quest “${q.name}” undone (−${e.xp} XP)`:`${x.name} : quête « ${q.name} » annulée (−${e.xp} XP)`);toast(en?`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`:`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`)}
+  else{const xp=Number(q.xp||0);const s=SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId);x.questRecord.push({id:crypto.randomUUID(),questId:q.id,name:q.name,tree:q.tree?.name||'',xp,scenario:s?.name||'',date:Date.now(),sessionKey:key});x.xp=before+xp;logHistory(r,'xp',en?`${x.name}: quest “${q.name}” completed (+${xp} XP)`:`${x.name} : quête « ${q.name} » réussie (+${xp} XP)`);toast(en?`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`:`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`)}
+  save(true);render('playMode');
+}
+// ---- Admin → Manage · Quests
+let adminQuestDraft=null;
+function adminQuestsMarkup(){
+  const en=siteLanguage==='en';if(!adminQuestDraft)adminQuestDraft=JSON.parse(JSON.stringify(questLibrary()));
+  const d=adminQuestDraft;
+  const trees=d.trees.map((t,ti)=>`<details class="custom-collapse"${t.__open?' open':''} ontoggle="adminQuestDraft.trees[${ti}].__open=this.open"><summary><span>${esc(t.icon||'◆')} ${esc(t.name||'—')}</span><small>${(t.quests||[]).length} quests · ${t.caster?(en?'Wizard / Priest':'Wizard / Prêtre'):esc((t.skillTrees||[]).join(t.requireAll?' + ':', ')||'—')}</small></summary>
+   <div class="custom-form-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input value="${esc(t.name||'')}" onchange="adminQuestSet(${ti},-1,'name',this.value)"></label><label class="custom-field"><span>${en?'Icon':'Icône'}</span><input value="${esc(t.icon||'')}" maxlength="3" onchange="adminQuestSet(${ti},-1,'icon',this.value)"></label><label class="custom-field"><span>${en?'Colour':'Couleur'}</span><input type="color" value="${esc(t.color||'#99d65d')}" onchange="adminQuestSet(${ti},-1,'color',this.value)"></label>
+   <div class="custom-field wide"><span>${en?'Linked skill trees — Primary or Secondary unlocks it':'Arbres de compétences liés — Primary ou Secondary le débloque'}</span>
+    <div class="qa-mode"><label><input type="radio" name="qamode${ti}" ${t.requireAll?'':'checked'} onchange="adminQuestSet(${ti},-1,'requireAll',false)"> ${en?'Any one of them is enough':'Un seul suffit'}</label><label><input type="radio" name="qamode${ti}" ${t.requireAll?'checked':''} onchange="adminQuestSet(${ti},-1,'requireAll',true)"> ${en?'Combination — all of them needed':'Combinaison — tous sont nécessaires'}</label></div>
+    <div class="qa-trees">${questSkillTreeOptions(t.skillTrees).map(n=>{const on=(t.skillTrees||[]).some(x=>normName(x)===normName(n));return `<label class="qa-chip${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="adminQuestToggleSkill(${ti},'${esc(n).replace(/'/g,"\\'")}',this.checked)"> <span>${esc(skillTreeDisplayName(n))}</span></label>`}).join('')}</div></div>
+   <label class="custom-check"><input type="checkbox" ${t.caster?'checked':''} onchange="adminQuestSet(${ti},-1,'caster',this.checked)"> <span><b>${en?'Spellcasters':'Lanceurs de sorts'}</b><small>${en?'Unlocked by a Wizard / Priest or any magic domain':'Débloqué par Wizard / Prêtre ou un domaine de magie'}</small></span></label></div>
+   ${(t.quests||[]).map((q,qi)=>`<div class="qa-quest"><input value="${esc(q.name||'')}" placeholder="${en?'Quest name':'Nom de la quête'}" onchange="adminQuestSet(${ti},${qi},'name',this.value)"><input type="number" min="0" max="10" value="${Number(q.xp||0)}" title="XP" onchange="adminQuestSet(${ti},${qi},'xp',this.value)"><button type="button" class="button secondary" title="${en?'Remove':'Retirer'}" onclick="adminQuestRemove(${ti},${qi})">🗑</button><textarea rows="2" placeholder="${en?'What the fighter must do':'Ce que le combattant doit faire'}" onchange="adminQuestSet(${ti},${qi},'text',this.value)">${esc(q.text||'')}</textarea></div>`).join('')}
+   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminQuestAdd(${ti})">＋ ${en?'Add a quest':'Ajouter une quête'}</button><button type="button" class="button danger-outline" onclick="adminQuestRemoveTree(${ti})">${en?'Delete this tree':'Supprimer cet arbre'}</button></div></details>`).join('');
+  return `<div class="card admin-card"><div class="eyebrow">QUESTS</div><p class="custom-field-help">${en?'Quest trees for Heroes, Veterans and Hired Swords. A fighter can pick a tree when one of its linked skill trees is Primary or Secondary for him. Changes apply for every player once saved.':'Arbres de quêtes des Héros, Vétérans et Hired Swords. Un combattant peut prendre un arbre si un de ses arbres de compétences liés est Primary ou Secondary pour lui. Les changements s’appliquent à tous les joueurs une fois enregistrés.'}</p>${trees}
+  <div class="custom-actions"><button type="button" class="button secondary" onclick="adminQuestAddTree()">＋ ${en?'Add a tree':'Ajouter un arbre'}</button><button type="button" class="button secondary" onclick="adminQuestReset()">↺ ${en?'Back to the base set':'Revenir au set de base'}</button><button type="button" class="button primary" onclick="adminQuestSave()">${en?'Save for everyone':'Enregistrer pour tous'}</button></div></div>`;
+}
+// Every skill tree name a quest tree can link to: book, custom, published
+// and every warband's own exclusive trees (+ names already linked).
+function questSkillTreeOptions(current){const m=new Map();const add=n=>{const k=normName(n);if(n&&!m.has(k))m.set(k,n)};add('Leadership');Object.keys(customMergedSkillSets()||{}).forEach(add);(D.factions||[]).forEach(f=>Object.keys(f?.exclusiveSkillSets||{}).forEach(add));(current||[]).forEach(add);return [...m.values()].sort((a,b)=>a.localeCompare(b))}
+function adminQuestToggleSkill(ti,name,on){const t=adminQuestDraft?.trees?.[ti];if(!t)return;t.skillTrees=(t.skillTrees||[]).filter(x=>normName(x)!==normName(name));if(on)t.skillTrees.push(name);t.__open=true;render('admin')}
+function adminQuestSet(ti,qi,field,v){const t=adminQuestDraft?.trees?.[ti];if(!t)return;if(qi<0){if(field==='skillTrees')t.skillTrees=String(v).split(',').map(s=>s.trim()).filter(Boolean);else if(field==='caster'||field==='requireAll')t[field]=!!v;else t[field]=String(v)}else{const q=t.quests?.[qi];if(!q)return;q[field]=field==='xp'?Math.max(0,Math.min(10,Math.round(Number(v)||0))):String(v)}if(field==='name'||field==='icon'||field==='caster'||field==='skillTrees'||field==='requireAll'){t.__open=true;render('admin')}}
+function adminQuestAdd(ti){const t=adminQuestDraft.trees[ti];t.quests=t.quests||[];t.quests.push({id:'q-'+crypto.randomUUID().slice(0,8),name:'',text:'',xp:1});t.__open=true;render('admin')}
+function adminQuestRemove(ti,qi){const t=adminQuestDraft.trees[ti];t.quests.splice(qi,1);t.__open=true;render('admin')}
+function adminQuestAddTree(){adminQuestDraft.trees.push({id:'t-'+crypto.randomUUID().slice(0,8),name:siteLanguage==='en'?'New tree':'Nouvel arbre',icon:'◆',color:'#99d65d',skillTrees:[],quests:[],__open:true});render('admin')}
+function adminQuestRemoveTree(ti){const en=siteLanguage==='en';const t=adminQuestDraft.trees[ti];if(!confirm(en?`Delete the tree “${t.name}”?`:`Supprimer l’arbre « ${t.name} » ?`))return;adminQuestDraft.trees.splice(ti,1);render('admin')}
+function adminQuestReset(){adminQuestDraft=JSON.parse(JSON.stringify(QUEST_BASE));render('admin');toast(siteLanguage==='en'?'Base set loaded — save to apply it':'Set de base chargé — enregistre pour l’appliquer')}
+async function adminQuestSave(){const en=siteLanguage==='en';const lib={trees:adminQuestDraft.trees.map(({__open,...t})=>({...t,quests:(t.quests||[]).filter(q=>q.name)}))};try{const r=await window.MordheimundaAPI.adminSaveQuests(lib);questLibraryOverride=r?.library||lib;adminQuestDraft=null;render('admin');toast(en?'Quests saved for everyone':'Quêtes enregistrées pour tous')}catch(e){toast(authError(e,en))}}
+
 function playSessionMarkup(){
-  const ps=state.playSession;const html=playCampaignStripInject(playSessionMarkupBase(),ps);const camp=ps&&playConditionsCampaign(ps);if(!camp)return html;
+  const ps=state.playSession;const html=playCampaignStripInject(playSessionMarkupBase(),ps);const camp=ps&&playConditionsCampaign(ps);
+  // V-QUESTS: a Quests tab whenever one of your own warbands plays.
+  const mine=ps?playQuestRosters(ps):[];
+  if(!camp&&!mine.length)return html;
   const en=siteLanguage==='en';const cut=html.indexOf('<section class="scn-sec">');if(cut<0)return html;
-  const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${playCondTab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button><button type="button" role="tab" class="${playCondTab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button></div>`;
-  if(playCondTab!=='conditions')return html.slice(0,cut)+tabs+html.slice(cut);
+  let tab=playCondTab;if(tab==='conditions'&&!camp)tab='scenario';if(tab==='quests'&&!mine.length)tab='scenario';
+  const qDone=ps.questKey?mine.reduce((n,r)=>n+(r.fighters||[]).reduce((m,x)=>m+(x.questRecord||[]).filter(e=>e.sessionKey===ps.questKey).length,0),0):0;
+  const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">QUESTS${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
+  if(tab==='scenario')return html.slice(0,cut)+tabs+html.slice(cut);
+  if(tab==='quests')return html.slice(0,cut)+tabs+playQuestsMarkup(ps,mine)+'</div>';
   return html.slice(0,cut)+tabs+playConditionsMarkup(ps,camp)+'</div>';
 }
 function playSessionMarkupBase(){
@@ -11158,7 +11342,7 @@ function rollPlayHazards(){
 }
 function clearPlayConditions(){const ps=state.playSession;if(!ps)return;ps.conditions=null;save();render('playMode')}
 let playCondTab='scenario';
-function setPlayCondTab(t){playCondTab=t==='conditions'?'conditions':'scenario';render('playMode')}
+function setPlayCondTab(t){playCondTab=t==='conditions'||t==='quests'?t:'scenario';render('playMode')}
 function hazardProfileTable(p){const full=[...p.slice(0,9),p[8],p[8],p[8]];const heads=['M','WS','BS','S','T','W','I','A','Ld','Cl','Wil','Int'];return `<div class="hz-profile"><table><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr><tr>${full.map(v=>`<td>${v}</td>`).join('')}</tr></table></div>`}
 function playConditionsMarkup(ps,camp){
   const en=siteLanguage==='en';const pc=playConditions(ps);const table=camp.definition.conditions.hazards||[];const w=pc.weather;
@@ -13000,11 +13184,12 @@ function openFighterSwitcher(){
 function fighterPageMarkup(x){
  const en=siteLanguage==='en';
  const f=faction(activeRoster()),equip=x.equipmentSelected||[];
- const tabs=`<div class="fighter-section-tabs"><button class="fighter-section-tab ${fighterTab==='skills'?'active':''}" onclick="setFighterTab('skills')">Skills <span>${(x.skills||[]).length}</span></button><button class="fighter-section-tab ${fighterTab==='magic'?'active':''}" onclick="setFighterTab('magic')">${en?'Magic':'Magie'} <span>${(x.spells||[]).length}</span></button><button class="fighter-section-tab ${fighterTab==='progression'?'active':''}" onclick="setFighterTab('progression')">Progression <span>${Number(x.xp||0)} XP</span></button><button class="fighter-section-tab ${fighterTab==='injuries'?'active':''}" onclick="setFighterTab('injuries')">Lasting Injuries <span>${(x.injuries||[]).length}</span></button></div>`;
+ const tabs=`<div class="fighter-section-tabs"><button class="fighter-section-tab ${fighterTab==='skills'?'active':''}" onclick="setFighterTab('skills')">Skills <span>${(x.skills||[]).length}</span></button><button class="fighter-section-tab ${fighterTab==='magic'?'active':''}" onclick="setFighterTab('magic')">${en?'Magic':'Magie'} <span>${(x.spells||[]).length}</span></button><button class="fighter-section-tab ${fighterTab==='progression'?'active':''}" onclick="setFighterTab('progression')">Progression <span>${Number(x.xp||0)} XP</span></button><button class="fighter-section-tab ${fighterTab==='injuries'?'active':''}" onclick="setFighterTab('injuries')">Lasting Injuries <span>${(x.injuries||[]).length}</span></button>${fighterQuestEligible(x)?`<button class="fighter-section-tab ${fighterTab==='quests'?'active':''}" onclick="setFighterTab('quests')">Quests <span>${fighterQuestInfo(x).chosen.length}</span></button>`:''}</div>`;
  let tabContent='';
  if(fighterTab==='skills') tabContent=`<section class="sheet-block fighter-tab-block skills-block"><div class="sheet-block-head"><div><h4>Skills</h4><small>${en?'Skills are acquired for free. Personal trees indicate Primary / Secondary.':'Les compétences sont acquises gratuitement. Les arbres personnels indiquent Primary / Secondary.'}</small></div><button type="button" class="button primary skill-add-button" onclick="openSkillModal()">＋ ADD</button></div><div class="owned-skills-section"><div class="subsection-title">${en?'Acquired skills':'Compétences acquises'}</div>${x.skills?.length?`<div class="skill-tags">${x.skills.map((s,i)=>`<span>${refLink('skills',s)}<button type="button" title="${en?'Remove':'Supprimer'}" onclick="removeSkill(${i})">×</button></span>`).join('')}</div>`:`<small class="muted">${en?'No skills acquired.':'Aucune compétence acquise.'}</small>`}</div></section>`;
  else if(fighterTab==='progression') tabContent=progressionMarkup(x);
  else if(fighterTab==='magic') tabContent=`<section class="sheet-block fighter-tab-block magic-block"><div class="sheet-block-head"><div><h4>${en?'Magic':'Magie'}</h4><small>${en?'Domains and spells allowed by the profile':'Domaines et sorts autorisés par le profil'}</small></div></div>${magicMarkup(x)}</section>`;
+ else if(fighterTab==='quests') tabContent=fighterQuestsMarkup(x);
  else tabContent=lastingInjuriesMarkup(x);
  return `${x.poolRefusalPending?`<div class="tp-campaign-mods outsider pool-refusal"><b>Pool of Insight</b><span>${siteLanguage==='en'?'Before the next battle only: roll a D6 — on a 1 this hero recognises the battle and refuses to take part.':'Avant la prochaine bataille seulement : lance un D6 — sur un 1 ce héros reconnaît la bataille et refuse d’y participer.'}</span><button type="button" class="button secondary small" onclick="clearPoolRefusal('${esc(x.instance)}')">✓ ${siteLanguage==='en'?'Rolled':'Fait'}</button></div>`:''}<div class="fighter-page"><div class="fighter-page-top"><div class="fighter-page-nav"><button class="button secondary" onclick="backToGang()">${en?'← Back to warband':'← Retour à la bande'}</button>${(activeRoster()?.fighters||[]).length>1?`<button type="button" class="button secondary fighter-switch-btn" onclick="openFighterSwitcher()">⇄ ${en?'Fighters':'Combattants'}</button>`:''}</div>${(activeRoster()?.fighters||[]).length>1?`<button type="button" class="fighter-switch-fab" aria-label="${en?'Go to another fighter':'Aller à un autre combattant'}" onclick="openFighterSwitcher()">⇄</button>`:''}<div class="fighter-page-actions">${isHiredSword(x)?'':`<button class="button secondary" onclick="openDuplicateFighterConfirm()">✦ ${en?'Duplicate':'Dupliquer'}</button>`}<button class="button danger-outline" onclick="removeEditingFighter()">${en?'Delete fighter':'Supprimer le combattant'}</button></div></div><div class="fighter-page-header"><div><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'} · ${esc(f.displayName)}</div><div class="fighter-title-row"><input id="fighterName" class="sheet-name" value="${esc(x.name)}" onchange="updateFighterField('name',this.value)"><span class="role-badge role-${esc(x.type.toLowerCase().replace(/\s+/g,'-'))}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span></div>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="sheet-sub">${en?`Base profile · ${liveFighterCost(x,f)} GC · changes saved automatically`:`Profil de base · ${liveFighterCost(x,f)} GC · modifications enregistrées automatiquement`}</div></div><div class="fighter-header-visuals"><div class="fighter-avatar-wrap">${fighterStatus(x).recovery?`<span class="fighter-recovery-icon" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${fighterStatus(x).captured?`<span class="fighter-captured-icon" title="${en?'Captured':'Capturé'}">⛓</span>`:''}<button type="button" class="fighter-avatar fighter-avatar-hero" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="pickImage('fighter',${editingIndex})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}<span class="image-edit-badge">✎</span></button></div>${isHiredSword(x)?hiredSwordHeaderBadges(x):`<div class="fighter-hero-value"><span>${en?'VALUE':'VALEUR'}</span><strong>${fighterValue(x,f)}</strong><em>GC</em></div>`}<button type="button" class="image-remove-button" onclick="removeImage('fighter',${editingIndex})" ${x.image?'':'disabled'}>× ${en?'Remove':'Retirer'}</button></div></div>${isHiredSword(x)?hiredSwordSheetNotice(x):''}${fighterStatusControlsMarkup(x)+fighterChoicesMarkup(x)}${profileMarkup(x.profile,x.xp,x,{showMax:true})}${fighterMountMarkup(x,equip)}<div class="fighter-detail-grid"><section class="sheet-block weapons-block"><div class="sheet-block-head loadout-section-head"><div><h4>${en?'Weapons & Equipment':'Armes & équipement'}</h4><small>${fighterUsesLoadouts(x)?(en?'Stash + equipment loadouts':'Coffre + configurations d’équipement'):(en?'Equipped Equipment':'Équipement équipé')}</small></div><div class="loadout-header-right">${fighterUsesLoadouts(x)?loadoutControlsMarkup(x):`<span>${currentWeaponSlots(x)} / 3 ${en?'slots':'emplacements'}</span>`}</div></div>${isHiredSword(x)?hiredSwordEquipmentMarkup(x):fighterUsesLoadouts(x)?loadoutEquipmentMarkup(x):(equip.length?`<div class="equipped-management-list">${equip.map((e,i)=>equippedItemRow(e,i)).join('')}</div>`:`<div class="empty compact">${en?'No equipment equipped.':'Aucun équipement équipé.'}</div>`)}${carriedWeaponRowMarkup(x)}</section>${isHiredSword(x)?'':`<section class="sheet-block equipment-add-block ${equipmentOpen?'is-open':'is-collapsed'}"><button type="button" class="equipment-collapse-head" onclick="toggleEquipmentPanel()"><span><span class="equipment-collapse-icon">＋</span><strong>${en?'Add Equipment':'Ajouter de l’équipement'}</strong></span><span>${equipmentOpen?(en?'Collapse':'Réduire'):(en?'Open':'Ouvrir')} · 3 ${en?'lists':'listes'}</span></button>${equipmentOpen?`<div class="equipment-collapse-body"><p class="sheet-help">${en?'Band List strictly follows the profile\'s "WEAPONS AND EQUIPMENT" and the warband list.':'Band List respecte exclusivement « WEAPONS AND EQUIPMENT » du profil et la liste de la bande.'}</p>${equipmentPicker(x,equip)}</div>`:''}</section>`}${statsTabMarkup(x)}${tabs}${tabContent}<section class="sheet-block"><div class="sheet-block-head prominent-section"><h4>Wargear</h4></div><div class="wargear-summary">${equip.filter(e=>!isWeaponLike(e)).length?equip.filter(e=>!isWeaponLike(e)).map(e=>`<span>${eqNameLink(e)}</span>`).join(''):`<small>${en?'No wargear equipped.':'Aucun wargear équipé.'}</small>`}</div></section><section class="sheet-block"><div class="sheet-block-head prominent-section"><h4>${en?'Special Rules':'Règles spéciales'}</h4></div><div class="rule-name-tags">${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}</div><details class="rule-details"><summary>${en?'View / edit the summary stored in the database':'Voir / modifier le résumé conservé dans la base'}</summary><textarea id="fighterRules" class="wide-textarea" rows="5" placeholder="${en?'Special rules summary…':'Résumé des règles spéciales…'}" onchange="updateFighterField('rules',this.value)">${esc(x.rules||'')}</textarea></details></section><section class="sheet-block"><div class="sheet-block-head"><h4>${en?'Campaign Notes':'Notes de campagne'}</h4></div><textarea id="fighterNotes" class="wide-textarea" rows="5" placeholder="${en?'Notes…':'Notes…'}" onchange="updateFighterField('notes',this.value)">${esc(x.notes||'')}</textarea></section></div></div>`;
 }
@@ -18309,5 +18494,5 @@ if(hasStoredAccountSession){
 }else{
   Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();bootstrapAccountSession();});
 }
-loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
+loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());

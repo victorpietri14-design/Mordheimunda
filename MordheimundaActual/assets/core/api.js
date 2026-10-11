@@ -140,6 +140,9 @@
   /* V-HOME: site news + Active Event shown on the Home page. */
   home:()=>request('/api/home'),
   adminSetHomeEvent:p=>request('/api/admin/home/event',{method:'PUT',body:JSON.stringify(p)}),
+  /* V-QUESTS: quest library (public read, admin write). */
+  quests:()=>request('/api/quests'),
+  adminSaveQuests:library=>request('/api/admin/quests',{method:'PUT',body:JSON.stringify({library})}),
   adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),
   adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'}),
   /* V-RULEIMAGES: pictures in rule text. */
