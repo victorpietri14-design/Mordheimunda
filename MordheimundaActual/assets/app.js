@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0599.0';
+const APP_BUILD='110.0600.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6042,7 +6042,12 @@ function saveAdminWarrior(idx){
   const maxRaw=($('#awMax')?.value||'').trim();
   const maxMode=$('#awMaxMode')?.value||'auto';
   const manualMaxProfile=maxMode==='manual'?P.map((_,i)=>{const n=Number($('#awMaxStat'+i)?.value);return Number.isFinite(n)?n:profile[i]||0}):null;
+  const existingW=(idx===-1||idx==null||idx<0)?null:d.warriors[idx];
   const w={
+    // V-ADMINKEEP: start from the existing record so fields this form
+    // doesn't show (Hired Sword upkeep, who can hire it, its choices,
+    // customFighterId…) survive an edit instead of being wiped.
+    ...(existingW||{}),
     // V-NOWARRIORID: this editor used to build the warrior object with no
     // `id` at all — on a NEW fighter that meant it never had one, and on an
     // EDIT this whole object replaces d.warriors[idx], so even a fighter
@@ -6081,6 +6086,7 @@ function saveAdminWarrior(idx){
     description:($('#awDescription')?.value||'')
   };
   w.rules=w.ruleNames.join(', ');
+  if(w.type==='Hired Sword'){w.hiredSword=true;w.max=1;w.upkeep=Math.max(0,Number($('#awUpkeep')?.value||0))||0;}else{delete w.hiredSword;}
   if(idx===-1||idx==null||idx<0)d.warriors.push(w);else d.warriors[idx]=w;
   adminEditingWarriorIdx=null;
   render('admin');
@@ -6100,7 +6106,12 @@ function moveAdminWarrior(i,dir){
 }
 function adminWarriorFormMarkup(w,idx){
   const en=siteLanguage==='en';
-  const types=['Leader','Champion','Raw Recruit','Henchman'];
+  const types=['Leader','Champion','Raw Recruit','Henchman','Hired Sword'];
+  // V-ADMINHS: a Hired Sword edited here (e.g. in the content pool) keeps
+  // its type; one already saved as a plain fighter by the old form is
+  // recognized by name and offered back as a Hired Sword.
+  const knownHS=new Set([...customFighterList().filter(isHiredSword).map(x=>normName(x.name)),...BOOK_HIRED_SWORDS.map(b=>normName(b.name))]);
+  const awTypeValue=isHiredSword(w)||(w?.name&&knownHS.has(normName(w.name)))?'Hired Sword':(w?.type||'Henchman');
   const p=w?.profile||P.map(()=>1);
   // V-WARBANDSYNC (Task #37): customMergedSkillSets()/customMergedMagicDomains()
   // called with no faction only ever merge in the ADMIN'S OWN per-account
@@ -6135,7 +6146,8 @@ function adminWarriorFormMarkup(w,idx){
   return `<div class="custom-form-head"><div><div class="eyebrow">${idx===-1?(en?'NEW FIGHTER':'NOUVEAU COMBATTANT'):(en?'EDIT FIGHTER':'MODIFICATION')}</div><h3>${esc(w?.name||(en?'Build a fighter':'Construire un combattant'))}</h3></div></div>
   <div class="custom-form-grid">
     <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="awName" value="${esc(w?.name||'')}" placeholder="${en?'e.g. Warlord':'Ex. Maître de guerre'}"></label>
-    <label class="custom-field"><span>${en?'Role':'Sous-catégorie'}</span><select id="awType">${types.map(t=>`<option value="${esc(t)}" ${t===(w?.type||'Henchman')?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+    <label class="custom-field"><span>${en?'Role':'Sous-catégorie'}</span><select id="awType" onchange="const u=document.getElementById('awUpkeepField');if(u)u.style.display=this.value==='Hired Sword'?'':'none'">${types.map(t=>`<option value="${esc(t)}" ${t===awTypeValue?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+    <label class="custom-field" id="awUpkeepField" style="${awTypeValue==='Hired Sword'?'':'display:none'}"><span>${en?'Upkeep (GC)':'Entretien (GC)'}</span><input id="awUpkeep" type="number" min="0" step="1" value="${Number(w?.upkeep||0)}"></label>
     <label class="custom-field"><span>${en?'Cost (GC)':'Valeur de base (GC)'}</span><input id="awCost" type="number" min="0" step="1" value="${Number(w?.cost||0)}"></label>
     <label class="custom-field"><span>${en?'Race':'Race'}</span><input id="awRace" value="${esc(w?.race||'Human')}"></label>
     <label class="custom-field"><span>${en?'Max in warband':'Limite'}</span><input id="awMax" type="number" min="0" step="1" value="${w?.max===null||w?.max===undefined?'':Number(w.max)}" placeholder="${en?'Blank = no limit':'Vide = aucune limite'}"></label>
@@ -12473,7 +12485,10 @@ function hiredSwordMergeCopies(copies,keepId){
   sorted.slice().reverse().forEach(c=>{if(c.w!==base&&stamp&&Number(c.w.updatedAt||0)&&Number(c.w.updatedAt||0)<stamp)return;Object.assign(skillAccess,obj(c.w.skillAccess));Object.assign(magicAccess,obj(c.w.magicAccess))});
   Object.assign(skillAccess,obj(base.skillAccess));Object.assign(magicAccess,obj(base.magicAccess));
   const own=sorted.find(c=>c.own)?.w;
-  return {...base,customFighterId:keepId||own?.customFighterId||base.customFighterId||base.id,skillAccess,magicAccess};
+  // Fields the base copy lacks (e.g. upkeep or who can hire it, dropped by an
+  // older Admin edit) are filled from the other copies.
+  const filled=Object.assign({},...sorted.slice().reverse().map(c=>c.w));Object.keys(base).forEach(k=>{if(base[k]!==undefined)filled[k]=base[k]});
+  return {...filled,customFighterId:keepId||own?.customFighterId||base.customFighterId||base.id,skillAccess,magicAccess};
 }
 function hiredSwordMergeTwin(w){return hiredSwordMergeCopies(hiredSwordCopiesOf(w),w.customFighterId)||w}
 function hiredSwordRawList(){
