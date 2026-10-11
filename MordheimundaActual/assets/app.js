@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0598.0';
+const APP_BUILD='110.0599.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12454,37 +12454,44 @@ function postBattleWarriorCount(r){return (r?.fighters||[]).filter(x=>!(isHiredS
 // used to always win, so a domain/tree given on the published copy never
 // showed. Now the most recently edited copy wins; for older copies with no
 // edit time, the published copy's skill/magic access is merged in.
-function hiredSwordPublishedTwin(w){const id=w?.customFighterId||w?.id;let hit=null;(D.factions||[]).forEach(f=>{if(hit||!f.__official)return;hit=(f.warriors||[]).find(o=>isHiredSword(o)&&!o.archived&&((id&&(o.customFighterId===id||o.id===id))||normName(o.name)===normName(w?.name)))||null});return hit}
-function hiredSwordMergeTwin(w){const o=hiredSwordPublishedTwin(w);if(!o||o===w)return w;const tw=Number(w.updatedAt||0),to=Number(o.updatedAt||0);
-  if(to>tw)return {...o,customFighterId:w.customFighterId||o.customFighterId||o.id};
-  if(tw>to)return w;
-  return {...w,skillAccess:{...(o.skillAccess||{}),...(w.skillAccess||{})},magicAccess:{...(o.magicAccess&&!Array.isArray(o.magicAccess)?o.magicAccess:{}),...(w.magicAccess&&!Array.isArray(w.magicAccess)?w.magicAccess:{})}}}
+// V-HSCOPIES: one Hired Sword can exist as several copies — the author's
+// personal Custom copy and one or more published copies (same name, maybe
+// different ids, edited from Custom or Admin). Picking just one of them hid
+// whatever was added on the others (e.g. a magic domain). All copies of a
+// name are now merged: the most recently edited copy is the base (edits are
+// time-stamped), and skill/magic access is the union of every copy that is
+// not older than the base's last edit — older unstamped copies count too.
+function hiredSwordAllCopies(){const out=[];customFighterList().forEach(w=>{if(isHiredSword(w)&&!w.archived)out.push({w,own:true})});(D.factions||[]).forEach(f=>{if(f.__official)(f.warriors||[]).forEach(w=>{if(isHiredSword(w)&&!w.archived)out.push({w,own:false})})});return out}
+function hiredSwordCopiesOf(w){const id=w?.customFighterId||w?.id,n=normName(w?.name);return hiredSwordAllCopies().filter(c=>normName(c.w.name)===n||(id&&((c.w.customFighterId||c.w.id)===id)))}
+function hiredSwordMergeCopies(copies,keepId){
+  if(!copies.length)return null;
+  const sorted=copies.slice().sort((x,y)=>(Number(y.w.updatedAt||0)-Number(x.w.updatedAt||0))||((y.own?1:0)-(x.own?1:0)));
+  const base=sorted[0].w;const stamp=Number(base.updatedAt||0);
+  const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+  const skillAccess={},magicAccess={};
+  // Oldest first so the base's own values win on a conflict.
+  sorted.slice().reverse().forEach(c=>{if(c.w!==base&&stamp&&Number(c.w.updatedAt||0)&&Number(c.w.updatedAt||0)<stamp)return;Object.assign(skillAccess,obj(c.w.skillAccess));Object.assign(magicAccess,obj(c.w.magicAccess))});
+  Object.assign(skillAccess,obj(base.skillAccess));Object.assign(magicAccess,obj(base.magicAccess));
+  const own=sorted.find(c=>c.own)?.w;
+  return {...base,customFighterId:keepId||own?.customFighterId||base.customFighterId||base.id,skillAccess,magicAccess};
+}
+function hiredSwordMergeTwin(w){return hiredSwordMergeCopies(hiredSwordCopiesOf(w),w.customFighterId)||w}
 function hiredSwordRawList(){
-  const out=[],ids=new Set(),names=new Set();
-  const add=w=>{if(!w||!isHiredSword(w)||w.archived)return;const id=w.customFighterId||w.id;if(id&&ids.has(id))return;if(names.has(normName(w.name)))return;if(id)ids.add(id);names.add(normName(w.name));out.push(w)};
-  customFighterList().filter(w=>isHiredSword(w)&&!w.archived).map(hiredSwordMergeTwin).forEach(add);
-  (D.factions||[]).forEach(f=>{if(f.__official)(f.warriors||[]).forEach(add)});
-  return out;
+  const groups=new Map();
+  hiredSwordAllCopies().forEach(c=>{const k=normName(c.w.name);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(c)});
+  return [...groups.values()].map(g=>hiredSwordMergeCopies(g)).filter(Boolean);
 }
-// V-HSSOURCEID: find the exact copy a hired fighter came from — by id in
-// the personal library, then by id in EVERY published copy (the deduped
-// hiredSwordRawList can hide a same-name duplicate, which left the sheet on
-// its hire-time snapshot: book domains showed, ones added later didn't),
-// then by name as a last resort.
+// Find the copy a hired fighter came from (by id, then by name) and return
+// the merged Hired Sword, keeping the id it was looked up with.
 function hiredSwordRawById(id,name){if(!id&&!name)return null;
-  const own=id?customFighterList().find(w=>w.customFighterId===id&&isHiredSword(w)):null;if(own)return hiredSwordMergeTwin(own);
-  let pub=null;if(id)(D.factions||[]).forEach(f=>{if(pub||!f.__official)return;pub=(f.warriors||[]).find(w=>isHiredSword(w)&&!w.archived&&(w.customFighterId===id||w.id===id))||null});
-  if(pub){const mine=customFighterList().find(w=>isHiredSword(w)&&!w.archived&&normName(w.name)===normName(pub.name));return mine?hiredSwordMergeTwin(mine):pub}
-  return hiredSwordRawList().find(w=>(id&&(w.customFighterId||w.id)===id)||(name&&normName(w.name)===normName(name)))||null}
-function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
-function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId,x?.sourceName||x?.name);return w?hiredSwordAsWarrior(w):null}
-function hiredSwordAvailableFor(w,f,r){
-  const list=Array.isArray(w?.hsFactions)?w.hsFactions:[];if(!list.length)return true;
-  const ids=new Set([f?.id,f?.displayName,f?.baseFactionId,r?.factionId,r?.customWarbandId?'custom-warband-'+r.customWarbandId:null].filter(Boolean).map(normName));
-  return list.some(id=>ids.has(normName(id)));
+  const all=hiredSwordAllCopies();
+  const hit=(id&&all.find(c=>(c.w.customFighterId||c.w.id)===id))||(name&&all.find(c=>normName(c.w.name)===normName(name)));
+  if(!hit)return null;
+  return hiredSwordMergeCopies(hiredSwordCopiesOf(hit.w),id||undefined);
 }
-function hiredSwordsFor(f,r){return hiredSwordRawList().filter(w=>hiredSwordAvailableFor(w,f,r)).map(hiredSwordAsWarrior)}
-function hiredSwordInRoster(r,id){return (r?.fighters||[]).find(x=>isHiredSword(x)&&(x.customFighterId===id||x.wid===id))||null}
+function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId,x?.sourceName||x?.name);return w?hiredSwordAsWarrior(w):null}
+function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
+function hiredSwordInRoster(r,id,name){return (r?.fighters||[]).find(x=>isHiredSword(x)&&(x.customFighterId===id||x.wid===id||(name&&normName(x.sourceName||x.name)===normName(name))))||null}
 function hiredSwordRecruitTabsMarkup(r,f){
   const en=siteLanguage==='en';const n=hiredSwordsFor(f,r).length;
   return `<div class="custom-top-tabs recruit-pool-tabs"><button type="button" class="custom-top-tab ${recruitPoolTab!=='hs'?'active':''}" onclick="setRecruitPoolTab('fighters')">${en?'Fighters':'Combattants'}</button><button type="button" class="custom-top-tab ${recruitPoolTab==='hs'?'active':''}" onclick="setRecruitPoolTab('hs')">🗡 Hired Swords · ${n}</button></div>`;
@@ -12497,7 +12504,7 @@ function hiredSwordPoolMarkup(r,f){
   const intro=`<p class="sheet-help">${en?`Only the Hired Swords assigned to <b>${esc(f.displayName)}</b> appear here. One copy of each per warband. They are neither Heroes nor Henchmen.`:`Seuls les Hired Swords attribués à <b>${esc(f.displayName)}</b> apparaissent ici. Un seul exemplaire de chacun par bande. Ils ne sont ni Heroes ni Henchmen.`}</p>`;
   if(!list.length)return intro+`<div class="empty compact">${en?'No Hired Sword available for this warband yet.':'Aucun Hired Sword disponible pour cette bande pour l’instant.'}</div>`;
   return intro+`<div class="fighter-pool"><div class="pool-grid">${list.map(w=>{
-    const owned=hiredSwordInRoster(r,w.customFighterId);const left=owned&&owned.hsLeft;
+    const owned=hiredSwordInRoster(r,w.customFighterId,w.name);const left=owned&&owned.hsLeft;
     const fixed=(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('');
     const btn=owned&&!left?`<button class="button secondary recruit-btn-full" type="button" disabled>${en?'Already in the warband':'Déjà dans la bande'}</button>`:left?`<button class="button primary recruit-btn-full hs-btn" type="button" onclick="rehireHiredSword('${esc(owned.instance)}')">${en?`Rehire — ${Number(w.cost||0)} GC`:`Réembaucher — ${Number(w.cost||0)} GC`}</button>`:`<button class="button primary recruit-btn-full hs-btn" type="button" onclick="hireHiredSword('${esc(w.customFighterId)}')">${en?`Hire — ${Number(w.cost||0)} GC`:`Embaucher — ${Number(w.cost||0)} GC`}</button>`;
     return `<article class="fighter-card-v4 fighter-row hs-card ${owned&&!left?'maxed':''}"><div class="fighter-top"><div class="fighter-ident"><div class="fighter-sigil">🗡</div><div><div class="fighter-name-line"><h4>${esc(w.name)}</h4><span class="role-badge role-hired-sword">HIRED SWORD</span>${owned&&!left?`<span class="custom-armory-badge">${en?'IN THE WARBAND':'DANS LA BANDE'}</span>`:''}${left?`<span class="custom-armory-badge hs-left-badge">${en?'LEFT':'PARTI'}</span>`:''}</div><div class="fighter-subline">${esc(fighterRace(w,null))} · ${en?'1 per warband':'1 par bande'}</div></div></div>${hiredSwordCostBoxes(w.cost,w.upkeep)}</div>${profileMarkup(effectiveFighterProfile(w,f),0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">${en?'RULES':'RÈGLES'}</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')||'—'}</p></div>${fixed||(w.hsChoices||[]).length?`<div><span class="micro-label">${en?'EQUIPMENT (FIXED)':'ÉQUIPEMENT (FIXE)'}</span><p class="hs-gear-row">${fixed}${hiredSwordChoicesSummary(w)}</p></div>`:''}</div>${btn}</article>`;
@@ -12575,7 +12582,7 @@ function hireHiredSword(id){
   const en=siteLanguage==='en';const r=activeRoster(),f=faction(r);if(!r)return;
   const raw=hiredSwordRawById(id);if(!raw){toast(en?'Hired Sword not found':'Hired Sword introuvable');return}const w=hiredSwordAsWarrior(raw);
   if(!hiredSwordAvailableFor(w,f,r)){toast(en?'Not available for this warband':'Non disponible pour cette bande');return}
-  if(hiredSwordInRoster(r,w.customFighterId)){toast(en?'Only one copy per warband':'Un seul exemplaire par bande');return}
+  if(hiredSwordInRoster(r,w.customFighterId,w.name)){toast(en?'Only one copy per warband':'Un seul exemplaire par bande');return}
   if(Number(r.gold||0)<Number(w.cost||0)){toast(en?'Insufficient treasury':'Trésor insuffisant');return}
   if((w.hsChoices||[]).some(g=>(g.options||[]).length)){hiredSwordPickTarget=id;hiredSwordChoiceModal(w,null,`confirmHireHiredSword()`,en?'HIRE':'EMBAUCHER');return}
   hiredSwordDoHire(w,{});
