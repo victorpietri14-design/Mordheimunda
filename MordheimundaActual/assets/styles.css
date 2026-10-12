@@ -4751,3 +4751,14 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .qa-ux .qa-chip{grid-column:1/-1;justify-self:start}
 @media(max-width:700px){.xp-grid{grid-template-columns:1fr}.xp-step button,.xp-ck{width:36px;height:36px}}
 .ms-row.ms-noxp{opacity:.6}.ms-row.ms-noxp .ms-head{cursor:default}
+
+/* V-QUESTTINT (option B): quest boxes take their tree's colour —
+   coloured border + light 6% tint; ticks use the same colour. */
+.qx-tree:not(.off),.ms-tree{border-color:color-mix(in srgb,var(--qc,#99d65d) 70%,transparent);background:color-mix(in srgb,var(--qc,#99d65d) 6%,transparent)}
+.qx-tree.on,.qx-tree.lock{border-color:var(--qc,#99d65d);box-shadow:inset 0 0 0 1px var(--qc,#99d65d)}
+.qx-tree.on .qx-ck,.qx-tree.lock .qx-ck{background:var(--qc,#99d65d);border-color:var(--qc,#99d65d);color:#0a0a09}
+.qx-tree:not(.off) li{border-top-color:color-mix(in srgb,var(--qc,#99d65d) 22%,transparent)}
+.ms-tree .ms-li{border-top-color:color-mix(in srgb,var(--qc,#99d65d) 22%,transparent)}
+.ms-tree .ms-li.ok{background:color-mix(in srgb,var(--qc,#99d65d) 16%,transparent)}
+.ms-tree .ms-li.ok i{background:var(--qc,#99d65d);border-color:var(--qc,#99d65d);color:#0a0a09}
+.qx-qd{border-left-color:var(--qc,var(--accent2))}
