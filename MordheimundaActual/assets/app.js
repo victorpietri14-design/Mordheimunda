@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0608.0';
+const APP_BUILD='110.0609.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8884,7 +8884,9 @@ function playSessionMarkupBase(){
 function playMode(){
   $('#content').innerHTML=state.playSession?playSessionMarkup():playKind==='skirmish'?playSkirmishMarkup():playKind==='campaign'?playCampaignSetupMarkup():playChoiceMarkup();
 }
-function underdogBonus(){wipPage('Underdogs Bonus','Underdog Bonus')}
+// The Underdog Bonus rule lives in Rules: The Game (1.1, section
+// "underdogbonus"); this route used to show an empty placeholder page.
+function underdogBonus(){rulesOpen='underdogbonus';try{persistUiState('rulesOpen','underdogbonus')}catch(e){}history.replaceState(history.state,'',APP_ROUTES.rules);render('rules');window.scrollTo({top:0,left:0,behavior:'auto'})}
 
 // ============ V-SCENARIOS: Rules > Scenarios (player pages) ===============
 function scenarioCategoryLabel(cat,en){
