@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0605.0';
+const APP_BUILD='110.0606.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2699,7 +2699,7 @@ function syncAdminManagedFighter(x,r){
 
 // See V-ARCACHE at renderCurrentRoute: scopes a cache of this function's
 // result to a single render pass only — never persists across one.
-let __arCacheActive=false,__arCache=null;
+let __arCacheActive=false,__arCache=null,__arRetroSaving=false;
 function activeRoster(){
   if(__arCacheActive&&__arCache&&__arCache.id===state.active)return __arCache.r;
   const r=state.rosters.find(r=>r.id===state.active);
@@ -2720,7 +2720,7 @@ function activeRoster(){
     if(!Array.isArray(x.profile))x.profile=[];
     x.profile=Array.from({length:12},(_,i)=>{const n=Number(x.profile[i]);return Number.isFinite(n)?n:0});
     if(!Array.isArray(x.baseProfile))x.baseProfile=x.profile.slice();
-    if(!Array.isArray(x.equipmentSelected))x.equipmentSelected=[];if(!Array.isArray(x.equipmentStash))x.equipmentStash=[];if(!Array.isArray(x.equipmentLoadouts))x.equipmentLoadouts=[];if(!Array.isArray(x.advancements))x.advancements=[];if(!Array.isArray(x.skills))x.skills=[];if(!Array.isArray(x.spells))x.spells=[];if(!Array.isArray(x.injuries))x.injuries=[];if(!Array.isArray(x.ruleNames))x.ruleNames=[];if(!Array.isArray(x.packModifiers))x.packModifiers=[];if(!Array.isArray(x.packRules))x.packRules=[];if(!Array.isArray(x.equipmentAccessGroups))x.equipmentAccessGroups=[];if(!Array.isArray(x.customEquipmentGrantedSkills))x.customEquipmentGrantedSkills=[];if(!Array.isArray(x.unlockedMagicDomains))x.unlockedMagicDomains=[];if(!x.status||typeof x.status!=='object'||Array.isArray(x.status))x.status={};
+    if(!Array.isArray(x.equipmentSelected))x.equipmentSelected=[];if(!Array.isArray(x.equipmentStash))x.equipmentStash=[];if(!Array.isArray(x.equipmentLoadouts))x.equipmentLoadouts=[];if(!Array.isArray(x.advancements))x.advancements=[];if(!Array.isArray(x.skills))x.skills=[];if(!Array.isArray(x.spells))x.spells=[];if(!Array.isArray(x.injuries))x.injuries=[];if(!Array.isArray(x.ruleNames))x.ruleNames=[];if(!Array.isArray(x.packModifiers))x.packModifiers=[];if(!Array.isArray(x.packRules))x.packRules=[];if(!Array.isArray(x.equipmentAccessGroups)&&x.equipmentAccessGroups!=='ALL')x.equipmentAccessGroups=[];if(!Array.isArray(x.customEquipmentGrantedSkills))x.customEquipmentGrantedSkills=[];if(!Array.isArray(x.unlockedMagicDomains))x.unlockedMagicDomains=[];if(!x.status||typeof x.status!=='object'||Array.isArray(x.status))x.status={};
     x.status.recovery=!!x.status.recovery;
     x.status.captured=!!x.status.captured;
     x.status.dead=!!x.status.dead;
@@ -2741,7 +2741,11 @@ function activeRoster(){
     const rf=faction(r);r.fighters.forEach(x=>{try{spent+=fighterPaid(x,rf)}catch(e){}});
     r.gold=Math.max(0,(faction(r)?.budget||1000)-spent);
   }
-  if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;try{save(true);}catch(e){console.warn('Admin retroactive sync save skipped',e);}}
+  // V-SAVELOOP: save() itself calls activeRoster(); a field two steps keep
+  // rewriting (e.g. equipmentAccessGroups "ALL" vs []) used to re-mark the
+  // roster dirty on every call and recurse save→activeRoster→save until the
+  // stack overflowed — warband pages then failed to open. Never re-enter.
+  if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;if(!__arRetroSaving){__arRetroSaving=true;try{save(true);}catch(e){console.warn('Admin retroactive sync save skipped',e);}finally{__arRetroSaving=false}}}
   // save() replaces `state` with a fresh copy, so hand back that copy's
   // roster — callers that edit the returned object (e.g. drag-reorder
   // setting r.fighters) would otherwise write to a detached object and lose
