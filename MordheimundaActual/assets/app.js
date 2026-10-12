@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0610.0';
+const APP_BUILD='110.0611.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8630,7 +8630,8 @@ const UNIVERSAL_XP_BASE=[
  {id:'ux-takeout',name:'Take out an enemy fighter',xp:2,repeatable:true},
  {id:'ux-recovery',name:'Grant successful assistance in Recovery',xp:1,repeatable:true},
  {id:'ux-injure',name:'Seriously injure an enemy model',xp:1,repeatable:true},
- {id:'ux-standing',name:'Not out of action at the end of the game',xp:1,repeatable:false}];
+ {id:'ux-standing',name:'Not out of action at the end of the game',xp:1,repeatable:false},
+ {id:'ux-large',name:'Large Target bonus — the model taken out or seriously injured had Large Target',xp:1,repeatable:true}];
 function universalXpList(){const l=questLibrary().universalXp;return Array.isArray(l)?l:UNIVERSAL_XP_BASE}
 // A scenario Experience line {name,text[,xp,repeatable]}: XP read from an
 // explicit field, else from the first "+N" / "N XP" in its text or name;
