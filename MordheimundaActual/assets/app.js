@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0606.0';
+const APP_BUILD='110.0607.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12740,6 +12740,12 @@ function hiredSwordRawById(id,name){if(!id&&!name)return null;
 }
 function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId,x?.sourceName||x?.name);return w?hiredSwordAsWarrior(w):null}
 function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
+function hiredSwordAvailableFor(w,f,r){
+  const list=Array.isArray(w?.hsFactions)?w.hsFactions:[];if(!list.length)return true;
+  const ids=new Set([f?.id,f?.displayName,f?.baseFactionId,r?.factionId,r?.customWarbandId?'custom-warband-'+r.customWarbandId:null].filter(Boolean).map(normName));
+  return list.some(id=>ids.has(normName(id)));
+}
+function hiredSwordsFor(f,r){return hiredSwordRawList().filter(w=>hiredSwordAvailableFor(w,f,r)).map(hiredSwordAsWarrior)}
 function hiredSwordInRoster(r,id,name){return (r?.fighters||[]).find(x=>isHiredSword(x)&&(x.customFighterId===id||x.wid===id||(name&&normName(x.sourceName||x.name)===normName(name))))||null}
 function hiredSwordRecruitTabsMarkup(r,f){
   const en=siteLanguage==='en';const n=hiredSwordsFor(f,r).length;
