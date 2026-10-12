@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0612.0';
+const APP_BUILD='110.0613.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8642,7 +8642,13 @@ function scenarioXpList(s){return (s?.experience||[]).map((e,i)=>{const t=`${e.n
 // English or French) earns no XP. Read from the live rule text, so
 // editing a rule updates every fighter that has it.
 const NO_XP_RE=[/\b(?:never|cannot|can't|can\s+not|do(?:es)?\s+not|may\s+not|will\s+not)\s+(?:\w+\s+){0,2}(?:gain|earn|receive|get)s?\s+(?:any\s+)?(?:experience|xp)\b/i,/\bne\s+(?:\w+\s+){0,2}(?:gagne\w*|re[cç]oi\w*|obtien\w*)\s+(?:pas|jamais|aucune?)\s+(?:d['’]|de\s+l['’])?(?:exp[ée]rience|xp)\b/i];
-function fighterNoXpRule(x){try{const f=faction(activeRoster());for(const n of fighterRuleNames(x,f)){for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(!e)continue;const ov=typeof ruleMechanicsText==='function'?ruleMechanicsText(referenceOverrideSectionId(cat,e.id),0):null;const t=String(ov!=null?ov:e.text||'');if(NO_XP_RE.some(re=>re.test(t)))return e.name}}}catch(e){}return null}
+// Another of the fighter's rules can cancel it (e.g. a Vampire rule that
+// nullifies No Brain): "ignores No Brain", "not affected by No Brain",
+// "No Brain does not apply", "annule No Brain"…
+function ruleCancels(text,name){const n=escapeRegexLiteral(name);return new RegExp(`(?:ignor\\w*|nullif\\w*|cancel\\w*|negat\\w*|not\\s+(?:be\\s+)?affected\\s+by|unaffected\\s+by|immune\\s+to|remov\\w*|loses?|annul\\w*|ne\\s+s['’]applique\\s+pas)[^.\\n]{0,60}\\b${n}\\b`,'i').test(text)||new RegExp(`\\b${n}\\b[^.\\n]{0,40}(?:does\\s+not\\s+apply|doesn['’]t\\s+apply|no\\s+longer\\s+appl\\w*|is\\s+ignored|is\\s+removed|ne\\s+s['’]applique\\s+pas|est\\s+annul\\w*)`,'i').test(text)}
+function fighterRuleText(cat,e){const ov=typeof ruleMechanicsText==='function'?ruleMechanicsText(referenceOverrideSectionId(cat,e.id),0):null;return String(ov!=null?ov:e.text||'')}
+function fighterNoXpRule(x){try{const f=faction(activeRoster());const ents=[];fighterRuleNames(x,f).forEach(n=>{for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(e){ents.push({e,t:fighterRuleText(cat,e)});break}}});
+  for(const {e,t} of ents){if(!NO_XP_RE.some(re=>re.test(t)))continue;if(ents.some(o=>o.e!==e&&ruleCancels(o.t,e.name)))continue;return e.name}}catch(e){}return null}
 // Animals (type, or the "Animal" special rule) never earn experience.
 function fighterHasAnimalRule(x){try{return [...(x?.ruleNames||[]),...String(x?.rules||'').split(','),...fighterRuleNames(x,faction(activeRoster()))].some(n=>normName(String(n).trim())==='animal')}catch(e){return false}}
 function fighterCanEarnXp(x){return !!x&&x.type!=='Animal'&&!fighterHasAnimalRule(x)&&!fighterStatus(x).dead&&!(isHiredSword(x)&&x.hsLeft)}
