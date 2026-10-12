@@ -1089,18 +1089,29 @@ async function newsForWarbandEdit(name,status,before,after,userId){
 app.get('/api/quests',requireDb,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='questLibrary'");res.json({library:q.rowCount?q.rows[0].value:null,updatedAt:q.rowCount?q.rows[0].updated_at:null})}catch(e){next(e)}
 });
+app.get('/api/admin/quests/backup',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='questLibraryBackup'");res.json({library:q.rowCount?q.rows[0].value:null,updatedAt:q.rowCount?q.rows[0].updated_at:null})}catch(e){next(e)}
+});
 app.put('/api/admin/quests',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const clip=(v,n)=>String(v??'').slice(0,n);
   const lib=req.body?.library;
   try{
+    // V-QUESTGUARD: refuse a save made from a stale editor (the library was
+    // saved elsewhere since it loaded), and keep the previous library as a
+    // backup so an accidental overwrite can be restored.
+    const cur=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='questLibrary'");
+    const curStamp=cur.rowCount?new Date(cur.rows[0].updated_at).toISOString():null;
+    const sent=req.body?.expectedUpdatedAt?new Date(req.body.expectedUpdatedAt).toISOString():null;
+    if(curStamp&&sent!==curStamp)return res.status(409).json({error:'QUESTS_STALE'});
+    if(cur.rowCount)await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('questLibraryBackup',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify(cur.rows[0].value)]);
     if(lib===null){await pool.query("DELETE FROM site_settings WHERE key='questLibrary'");return res.json({library:null})}
     const trees=Array.isArray(lib?.trees)?lib.trees:null;
     if(!trees||trees.length>60)return res.status(400).json({error:'INVALID_QUESTS'});
     const scope=sc=>{if(!sc||typeof sc!=='object')return undefined;const factions=(Array.isArray(sc.factions)?sc.factions:[]).slice(0,200).map(x=>clip(x,120)).filter(Boolean);const fighters=(Array.isArray(sc.fighters)?sc.fighters:[]).slice(0,200).map(e=>({factionId:clip(e?.factionId,120),name:clip(e?.name,80)})).filter(e=>e.name);return factions.length||fighters.length?{factions,fighters}:undefined};
     const universalXp=(Array.isArray(lib?.universalXp)?lib.universalXp:[]).slice(0,40).map(l=>({id:clip(l?.id,60),name:clip(l?.name,120),xp:Math.max(0,Math.min(10,Math.round(Number(l?.xp)||0))),repeatable:!!l?.repeatable})).filter(l=>l.id&&l.name);
     const clean={...(Array.isArray(lib?.universalXp)?{universalXp}:{}),trees:trees.map(t=>({id:clip(t?.id,60),scope:scope(t?.scope),ignoreSkills:!!t?.ignoreSkills,name:clip(t?.name,60),icon:clip(t?.icon,4),color:clip(t?.color,16),caster:!!t?.caster,requireAll:!!t?.requireAll,skillTrees:(Array.isArray(t?.skillTrees)?t.skillTrees:[]).slice(0,20).map(x=>clip(x,60)),quests:(Array.isArray(t?.quests)?t.quests:[]).slice(0,20).map(q=>({id:clip(q?.id,60),scope:scope(q?.scope),name:clip(q?.name,80),text:clip(q?.text,400),xp:Math.max(0,Math.min(10,Math.round(Number(q?.xp)||0)))}))})).filter(t=>t.id&&t.name)};
-    await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('questLibrary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify(clean)]);
-    res.json({library:clean});
+    const w=await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('questLibrary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW() RETURNING updated_at",[JSON.stringify(clean)]);
+    res.json({library:clean,updatedAt:w.rows[0]?.updated_at||null});
   }catch(e){next(e)}
 });
 app.get('/api/home',requireDb,async(req,res,next)=>{
