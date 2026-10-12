@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0609.0';
+const APP_BUILD='110.0610.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8623,6 +8623,20 @@ const QUEST_BASE={trees:[
   {id:'mar-suppress',name:'Suppression',text:'Hit 3 different enemies with shooting attacks this game.',xp:1},
   {id:'mar-stand',name:'Stand fast',text:'Never move this game and hit at least once.',xp:1}]}
 ]};
+// V-GAMEXP: the experience every fighter can earn in any game (Universal,
+// editable in Admin → Manage · Quests) + the scenario's own Experience
+// lines. repeatable = counted (− / +), otherwise ticked once.
+const UNIVERSAL_XP_BASE=[
+ {id:'ux-takeout',name:'Take out an enemy fighter',xp:2,repeatable:true},
+ {id:'ux-recovery',name:'Grant successful assistance in Recovery',xp:1,repeatable:true},
+ {id:'ux-injure',name:'Seriously injure an enemy model',xp:1,repeatable:true},
+ {id:'ux-standing',name:'Not out of action at the end of the game',xp:1,repeatable:false}];
+function universalXpList(){const l=questLibrary().universalXp;return Array.isArray(l)?l:UNIVERSAL_XP_BASE}
+// A scenario Experience line {name,text[,xp,repeatable]}: XP read from an
+// explicit field, else from the first "+N" / "N XP" in its text or name;
+// "each / per / par / chaque" makes it repeatable.
+function scenarioXpList(s){return (s?.experience||[]).map((e,i)=>{const t=`${e.name||''} ${e.text||''}`;const m=/([+-]?\d+)\s*(?:xp|exp|experience|expérience)?/i.exec(String(e.text||''))||/([+-]?\d+)/.exec(String(e.name||''));const xp=Number.isFinite(Number(e.xp))&&e.xp!==''&&e.xp!=null?Number(e.xp):(m?Number(m[1]):1);return {id:'sx-'+normName(e.name||String(i)),name:e.name||e.text||'—',text:e.text||'',xp,repeatable:e.repeatable!=null?!!e.repeatable:/\b(each|per|par|chaque)\b/i.test(t)}})}
+function fighterCanEarnXp(x){return !!x&&x.type!=='Animal'&&!fighterStatus(x).dead&&!(isHiredSword(x)&&x.hsLeft)}
 let questLibraryOverride=null;
 async function loadQuestLibrary(){try{const r=await window.MordheimundaAPI.quests();questLibraryOverride=r?.library&&Array.isArray(r.library.trees)?r.library:null}catch(e){console.warn('Quest library unavailable',e)}}
 function questLibrary(){return questLibraryOverride||QUEST_BASE}
@@ -8711,20 +8725,40 @@ function playQuestRosters(ps){const seen=new Set();return (ps?.slots||[]).map(sl
 function playQuestKey(ps){if(!ps.questKey){ps.questKey=crypto.randomUUID();save(true)}return ps.questKey}
 function playQuestsMarkup(ps,rosters){
   const en=siteLanguage==='en';const key=playQuestKey(ps);
+  const scen=scenarioXpList(SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId));
   let done=0,xpTotal=0;
   const bands=rosters.map((r,bi)=>withActiveRoster(r,()=>{
-    const fighters=(r.fighters||[]).filter(x=>fighterQuestEligible(x)&&!fighterStatus(x).dead&&!(isHiredSword(x)&&x.hsLeft));
+    const fighters=(r.fighters||[]).filter(fighterCanEarnXp);
     const rows=fighters.map(x=>{
-      const info=fighterQuestInfo(x);const mine=(x.questRecord||[]).filter(e=>e.sessionKey===key);const doneIds=new Set(mine.map(e=>e.questId));
-      const xp=mine.reduce((n,e)=>n+Number(e.xp||0),0);done+=mine.length;xpTotal+=xp;
+      const qe=fighterQuestEligible(x);const info=qe?fighterQuestInfo(x):{chosen:[]};const mine=(x.questRecord||[]).filter(e=>e.sessionKey===key);const doneIds=new Set(mine.map(e=>e.questId));
+      const qxp=mine.reduce((n,e)=>n+Number(e.xp||0),0);done+=mine.length;
+      const gx=(x.gameXpRecord||[]).filter(e=>e.sessionKey===key);const gxp=gx.reduce((n,e)=>n+Number(e.xp||0)*Number(e.count||1),0);
+      const xp=qxp+gxp;xpTotal+=xp;
       const k=r.id+':'+x.instance;const open=playQuestOpen.has(k);const trees=info.chosen.map(id=>questTreeById(id)).filter(Boolean);
+      const lines=[...universalXpList().map(l=>({...l,src:'u'})),...scen.map(l=>({...l,src:'s'}))];
+      const xpBlock=lines.length?`<div class="xp-block"><h6>${en?'EXPERIENCE THIS GAME':'EXPÉRIENCE DE LA PARTIE'}${gxp?` · +${gxp} XP`:''}</h6><div class="xp-grid">${lines.map(l=>{const e=gx.find(z=>z.lineId===l.id);const n=e?Number(e.count||1):0;const on=n>0;const src=l.src==='u'?`<span class="xp-src src-un">UNIVERSAL</span>`:`<span class="xp-src src-sc">${en?'SCENARIO':'SCÉNARIO'}</span>`;const sub=`${l.xp>=0?'+':''}${l.xp} XP${l.repeatable?(en?' each':' chacun'):''}`;const args=`'${esc(r.id)}','${esc(x.instance)}','${esc(l.id)}'`;return `<div class="xp-it${on?' ok':''}"${l.text?` title="${esc(l.text)}"`:''}><span><b>${esc(l.name)}${src}</b><small>${esc(sub)}</small></span>${l.repeatable?`<span class="xp-step"><button type="button" aria-label="−" onclick="playGameXp(${args},-1)" ${n?'':'disabled'}>−</button><b>${n}</b><button type="button" aria-label="+" onclick="playGameXp(${args},1)">+</button></span>`:`<button type="button" class="xp-ck" role="checkbox" aria-checked="${on}" onclick="playGameXp(${args},${on?-1:1})">${on?'✓':''}</button>`}</div>`}).join('')}</div></div>`:'';
       const fr=faction(r);const cols=trees.map(t=>{const qs=questsForFighter(t,x,fr);return `<div class="ms-tree"><div class="ms-tree-h">${questArchBadge(t)}<small>${qs.filter(q=>doneIds.has(q.id)).length}/${qs.length}</small></div>${qs.map(q=>{const on=doneIds.has(q.id);return `<button type="button" class="ms-li${on?' ok':''}" role="checkbox" aria-checked="${on}" onclick="togglePlayQuest('${esc(r.id)}','${esc(x.instance)}','${esc(q.id)}')"><i>${on?'✓':''}</i><span><b>${esc(q.name)}</b><small>${esc(q.text||'')}</small></span><span class="ms-xp">+${Number(q.xp||0)}</span></button>`}).join('')}</div>`}).join('');
       const role=isHiredSword(x)?'Hired Sword':advancementRole(x)==='Veteran'?(en?'Veteran':'Vétéran'):(x.type||'');
-      return `<div class="ms-row${open?' ms-open':''}"><button type="button" class="ms-head" onclick="togglePlayQuestRow('${esc(k)}')" aria-expanded="${open}"><span class="ms-name"><b>${esc(x.name)}</b><small>${esc(role)} · ${Number(x.xp||0)} XP</small></span><span class="ms-chips">${trees.map(t=>questArchBadge(t)).join('')||`<small class="muted">${en?'No quest tree':'Aucun arbre'}</small>`}</span><span class="ms-xp">${xp?`+${xp} XP`:'—'}<small>${mine.length?`${mine.length} ${en?'completed':'réussie'+(mine.length>1?'s':'')}`:''}</small></span><span class="ms-chev">${open?'▾':'▸'}</span></button>${open?`<div class="ms-trees n${Math.min(3,trees.length)||1}">${cols||`<p class="empty-note">${en?'Pick quest trees on the fighter sheet.':'Choisis ses arbres sur la fiche du combattant.'}</p>`}</div>`:''}</div>`;
+      const xpSub=[gxp?`${gxp} ${en?'from experience':'d’expérience'}`:'',qxp?`${qxp} ${en?'from quests':'de quêtes'}`:''].filter(Boolean).join(' · ');
+      return `<div class="ms-row${open?' ms-open':''}"><button type="button" class="ms-head" onclick="togglePlayQuestRow('${esc(k)}')" aria-expanded="${open}"><span class="ms-name"><b>${esc(x.name)}</b><small>${esc(role)} · ${Number(x.xp||0)} XP</small></span><span class="ms-chips">${qe?(trees.map(t=>questArchBadge(t)).join('')||`<small class="muted">${en?'No quest tree':'Aucun arbre'}</small>`):`<small class="muted">${en?'Experience only (no quest trees)':'Expérience seulement (pas de quêtes)'}</small>`}</span><span class="ms-xp">${xp?`+${xp} XP`:'—'}<small>${esc(xpSub)}</small></span><span class="ms-chev">${open?'▾':'▸'}</span></button>${open?`${xpBlock}${qe?`<div class="ms-trees n${Math.min(3,trees.length)||1}">${cols||`<p class="empty-note">${en?'Pick quest trees on the fighter sheet.':'Choisis ses arbres sur la fiche du combattant.'}</p>`}</div>`:''}`:''}</div>`;
     }).join('');
-    return `<section class="scn-sec"><span class="scn-secnum">${String(bi+2).padStart(2,'0')}</span><div class="scn-sectitle">${esc(r.name)} <span class="ms-sub">· ${esc(faction(r)?.displayName||'')}</span></div>${rows||`<p class="empty-note">${en?'No Hero, Veteran or Hired Sword in this warband.':'Aucun Héros, Vétéran ou Hired Sword dans cette bande.'}</p>`}</section>`;
+    return `<section class="scn-sec"><span class="scn-secnum">${String(bi+2).padStart(2,'0')}</span><div class="scn-sectitle">${esc(r.name)} <span class="ms-sub">· ${esc(faction(r)?.displayName||'')}</span></div>${rows||`<p class="empty-note">${en?'No fighter can earn experience in this warband.':'Aucun combattant de cette bande ne peut gagner d’expérience.'}</p>`}</section>`;
   }));
-  return `<section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Quests this game':'Quêtes de la partie'}</div><div class="ms-sum"><div><small>${en?'Completed':'Réussies'}</small><b class="ok">${done}</b></div><div><small>${en?'XP earned':'XP gagnée'}</small><b class="xp">+${xpTotal}</b></div><p>${en?'Each fighter plays with the quest trees chosen on his sheet — 3 for the Leader, 2 for the others. Ticking a quest adds its XP to his sheet straight away; unticking takes it back.':'Chaque combattant joue avec les arbres choisis sur sa fiche — 3 pour le Leader, 2 pour les autres. Cocher une quête ajoute son XP tout de suite à sa fiche ; décocher la retire.'}</p></div></section>${bands.join('')}`;
+  return `<section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'XP & quests this game':'XP & quêtes de la partie'}</div><div class="ms-sum"><div><small>${en?'Quests completed':'Quêtes réussies'}</small><b class="ok">${done}</b></div><div><small>${en?'XP earned':'XP gagnée'}</small><b class="xp">+${xpTotal}</b></div><p>${en?'Experience (Universal + this scenario) for every fighter who can earn it, and the quest trees chosen on Heroes’ sheets. Ticking or + adds the XP to the fighter’s sheet straight away; unticking or − takes it back.':'L’expérience (Universelle + ce scénario) pour chaque combattant qui peut en gagner, et les arbres de quêtes choisis sur la fiche des Héros. Cocher ou + ajoute l’XP tout de suite à sa fiche ; décocher ou − la retire.'}</p></div></section>${bands.join('')}`;
+}
+function playGameXp(rid,inst,lineId,delta){
+  const en=siteLanguage==='en';const ps=state.playSession;if(!ps)return;const key=playQuestKey(ps);
+  const r=(state.rosters||[]).find(z=>String(z.id)===String(rid));const x=r?.fighters?.find(f=>f.instance===inst);if(!x)return;
+  const s=SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId);const line=[...universalXpList(),...scenarioXpList(s)].find(l=>l.id===lineId);if(!line)return;
+  x.gameXpRecord=Array.isArray(x.gameXpRecord)?x.gameXpRecord:[];
+  let e=x.gameXpRecord.find(z=>z.sessionKey===key&&z.lineId===lineId);const cur=e?Number(e.count||1):0;
+  const next=line.repeatable?Math.max(0,cur+delta):(delta>0?1:0);if(next===cur)return;
+  const diff=(next-cur)*Number(line.xp||0);const before=Number(x.xp||0);x.xp=Math.max(0,before+diff);
+  if(!e&&next>0){e={id:crypto.randomUUID(),lineId,name:line.name,xp:Number(line.xp||0),count:next,scenario:s?.name||'',date:Date.now(),sessionKey:key};x.gameXpRecord.push(e)}
+  else if(e){if(next>0)e.count=next;else x.gameXpRecord=x.gameXpRecord.filter(z=>z!==e)}
+  logHistory(r,'xp',`${x.name}: ${line.name}${line.repeatable?` ×${next}`:(next?'':(en?' (undone)':' (annulé)'))} (${diff>=0?'+':''}${diff} XP)`);
+  toast(`${diff>=0?'✓':'↺'} ${line.name} · ${x.name} ${diff>=0?'+':''}${diff} XP (${before} → ${x.xp})`);
+  save(true);render('playMode');
 }
 function togglePlayQuestRow(k){if(playQuestOpen.has(k))playQuestOpen.delete(k);else playQuestOpen.add(k);render('playMode')}
 function togglePlayQuest(rid,inst,qid){
@@ -8740,7 +8774,11 @@ function togglePlayQuest(rid,inst,qid){
 let adminQuestDraft=null;
 function adminQuestsMarkup(){
   const en=siteLanguage==='en';if(!adminQuestDraft)adminQuestDraft=JSON.parse(JSON.stringify(questLibrary()));
-  const d=adminQuestDraft;
+  const d=adminQuestDraft;if(!Array.isArray(d.universalXp))d.universalXp=JSON.parse(JSON.stringify(UNIVERSAL_XP_BASE));
+  const uxp=`<details class="custom-collapse"${d.__uxOpen?' open':''} ontoggle="adminQuestDraft.__uxOpen=this.open"><summary><span>★ ${en?'Universal experience':'Expérience universelle'}</span><small>${d.universalXp.length} ${en?'lines · every fighter, every game':'lignes · tous les combattants, toutes les parties'}</small></summary>
+   <p class="custom-field-help">${en?'Shown in Play Mode → XP & Quests for every fighter who can earn experience, before the scenario’s own Experience lines. “Each” lines are counted with − / +.':'Affiché dans Play Mode → XP & Quêtes pour chaque combattant qui peut gagner de l’expérience, avant les lignes Expérience du scénario. Les lignes « chacun » se comptent avec − / +.'}</p>
+   ${d.universalXp.map((l,i)=>`<div class="qa-quest qa-ux"><input value="${esc(l.name||'')}" placeholder="${en?'What earns it':'Ce qui la rapporte'}" onchange="adminUxSet(${i},'name',this.value)"><input type="number" min="0" max="10" value="${Number(l.xp||0)}" title="XP" onchange="adminUxSet(${i},'xp',this.value)"><button type="button" class="button secondary" title="${en?'Remove':'Retirer'}" onclick="adminUxRemove(${i})">🗑</button><label class="qa-chip${l.repeatable?' on':''}"><input type="checkbox" ${l.repeatable?'checked':''} onchange="adminUxSet(${i},'repeatable',this.checked)"> <span>${en?'Each (counted with − / +)':'Chacun (compté avec − / +)'}</span></label></div>`).join('')}
+   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminUxAdd()">＋ ${en?'Add a line':'Ajouter une ligne'}</button></div></details>`;
   const trees=d.trees.map((t,ti)=>`<details class="custom-collapse"${t.__open?' open':''} ontoggle="adminQuestDraft.trees[${ti}].__open=this.open"><summary><span>${esc(t.icon||'◆')} ${esc(t.name||'—')}</span><small>${questScopeEmpty(t.scope)?'':`<b class="qa-excl">${esc(questScopeLabel(t.scope,en))}</b> · `}${(t.quests||[]).length} quests · ${t.caster?(en?'Wizard / Priest':'Wizard / Prêtre'):esc((t.skillTrees||[]).join(t.requireAll?' + ':', ')||'—')}</small></summary>
    <div class="custom-form-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input value="${esc(t.name||'')}" onchange="adminQuestSet(${ti},-1,'name',this.value)"></label><label class="custom-field"><span>${en?'Icon':'Icône'}</span><input value="${esc(t.icon||'')}" maxlength="3" onchange="adminQuestSet(${ti},-1,'icon',this.value)"></label><label class="custom-field"><span>${en?'Colour':'Couleur'}</span><input type="color" value="${esc(t.color||'#99d65d')}" onchange="adminQuestSet(${ti},-1,'color',this.value)"></label>
    <div class="custom-field wide"><span>${en?'Linked skill trees — Primary or Secondary unlocks it':'Arbres de compétences liés — Primary ou Secondary le débloque'}</span>
@@ -8750,7 +8788,7 @@ function adminQuestsMarkup(){
    <label class="custom-check"><input type="checkbox" ${t.caster?'checked':''} onchange="adminQuestSet(${ti},-1,'caster',this.checked)"> <span><b>${en?'Spellcasters':'Lanceurs de sorts'}</b><small>${en?'Unlocked by a Wizard / Priest or any magic domain':'Débloqué par Wizard / Prêtre ou un domaine de magie'}</small></span></label></div>
    ${(t.quests||[]).map((q,qi)=>`<div class="qa-quest"><input value="${esc(q.name||'')}" placeholder="${en?'Quest name':'Nom de la quête'}" onchange="adminQuestSet(${ti},${qi},'name',this.value)"><input type="number" min="0" max="10" value="${Number(q.xp||0)}" title="XP" onchange="adminQuestSet(${ti},${qi},'xp',this.value)"><button type="button" class="button secondary" title="${en?'Remove':'Retirer'}" onclick="adminQuestRemove(${ti},${qi})">🗑</button><button type="button" class="qa-scope-btn${questScopeEmpty(q.scope)?'':' on'}" onclick="openQuestScopeEditor(${ti},${qi})">${esc(questScopeLabel(q.scope,en))} ▾</button><textarea rows="2" placeholder="${en?'What the fighter must do':'Ce que le combattant doit faire'}" onchange="adminQuestSet(${ti},${qi},'text',this.value)">${esc(q.text||'')}</textarea></div>`).join('')}
    <div class="custom-actions"><button type="button" class="button secondary" onclick="adminQuestAdd(${ti})">＋ ${en?'Add a quest':'Ajouter une quête'}</button><button type="button" class="button danger-outline" onclick="adminQuestRemoveTree(${ti})">${en?'Delete this tree':'Supprimer cet arbre'}</button></div></details>`).join('');
-  return `<div class="card admin-card"><div class="eyebrow">QUESTS</div><p class="custom-field-help">${en?'Quest trees for Heroes, Veterans and Hired Swords. A fighter can pick a tree when one of its linked skill trees is Primary or Secondary for him. Changes apply for every player once saved.':'Arbres de quêtes des Héros, Vétérans et Hired Swords. Un combattant peut prendre un arbre si un de ses arbres de compétences liés est Primary ou Secondary pour lui. Les changements s’appliquent à tous les joueurs une fois enregistrés.'}</p>${trees}
+  return `<div class="card admin-card"><div class="eyebrow">QUESTS</div>${uxp}<p class="custom-field-help">${en?'Quest trees for Heroes, Veterans and Hired Swords. A fighter can pick a tree when one of its linked skill trees is Primary or Secondary for him. Changes apply for every player once saved.':'Arbres de quêtes des Héros, Vétérans et Hired Swords. Un combattant peut prendre un arbre si un de ses arbres de compétences liés est Primary ou Secondary pour lui. Les changements s’appliquent à tous les joueurs une fois enregistrés.'}</p>${trees}
   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminQuestAddTree()">＋ ${en?'Add a tree':'Ajouter un arbre'}</button><button type="button" class="button secondary" onclick="adminQuestReset()">↺ ${en?'Back to the base set':'Revenir au set de base'}</button><button type="button" class="button primary" onclick="adminQuestSave()">${en?'Save for everyone':'Enregistrer pour tous'}</button></div></div>`;
 }
 // Every skill tree name a quest tree can link to: book, custom, published
@@ -8789,8 +8827,11 @@ function adminQuestAdd(ti){const t=adminQuestDraft.trees[ti];t.quests=t.quests||
 function adminQuestRemove(ti,qi){const t=adminQuestDraft.trees[ti];t.quests.splice(qi,1);t.__open=true;render('admin')}
 function adminQuestAddTree(){adminQuestDraft.trees.push({id:'t-'+crypto.randomUUID().slice(0,8),name:siteLanguage==='en'?'New tree':'Nouvel arbre',icon:'◆',color:'#99d65d',skillTrees:[],quests:[],__open:true});render('admin')}
 function adminQuestRemoveTree(ti){const en=siteLanguage==='en';const t=adminQuestDraft.trees[ti];if(!confirm(en?`Delete the tree “${t.name}”?`:`Supprimer l’arbre « ${t.name} » ?`))return;adminQuestDraft.trees.splice(ti,1);render('admin')}
-function adminQuestReset(){adminQuestDraft=JSON.parse(JSON.stringify(QUEST_BASE));render('admin');toast(siteLanguage==='en'?'Base set loaded — save to apply it':'Set de base chargé — enregistre pour l’appliquer')}
-async function adminQuestSave(){const en=siteLanguage==='en';const lib={trees:adminQuestDraft.trees.map(({__open,...t})=>({...t,quests:(t.quests||[]).filter(q=>q.name)}))};try{const r=await window.MordheimundaAPI.adminSaveQuests(lib);questLibraryOverride=r?.library||lib;adminQuestDraft=null;render('admin');toast(en?'Quests saved for everyone':'Quêtes enregistrées pour tous')}catch(e){toast(authError(e,en))}}
+function adminQuestReset(){adminQuestDraft={...JSON.parse(JSON.stringify(QUEST_BASE)),universalXp:JSON.parse(JSON.stringify(UNIVERSAL_XP_BASE))};render('admin');toast(siteLanguage==='en'?'Base set loaded — save to apply it':'Set de base chargé — enregistre pour l’appliquer')}
+function adminUxSet(i,f,v){const l=adminQuestDraft?.universalXp?.[i];if(!l)return;l[f]=f==='xp'?Math.max(0,Math.min(10,Math.round(Number(v)||0))):f==='repeatable'?!!v:String(v);adminQuestDraft.__uxOpen=true;if(f==='repeatable')render('admin')}
+function adminUxAdd(){adminQuestDraft.universalXp.push({id:'ux-'+crypto.randomUUID().slice(0,8),name:'',xp:1,repeatable:false});adminQuestDraft.__uxOpen=true;render('admin')}
+function adminUxRemove(i){adminQuestDraft.universalXp.splice(i,1);adminQuestDraft.__uxOpen=true;render('admin')}
+async function adminQuestSave(){const en=siteLanguage==='en';const lib={universalXp:(adminQuestDraft.universalXp||[]).filter(l=>l.name),trees:adminQuestDraft.trees.map(({__open,...t})=>({...t,quests:(t.quests||[]).filter(q=>q.name)}))};try{const r=await window.MordheimundaAPI.adminSaveQuests(lib);questLibraryOverride=r?.library||lib;adminQuestDraft=null;render('admin');toast(en?'Quests saved for everyone':'Quêtes enregistrées pour tous')}catch(e){toast(authError(e,en))}}
 
 // V-PLAYCOLLAPSE: every numbered section of the play page folds by
 // clicking its title (state kept for this game, per tab), plus Collapse /
@@ -8818,7 +8859,7 @@ function playSessionMarkupTabs(){
   const en=siteLanguage==='en';const cut=html.indexOf('<section class="scn-sec">');if(cut<0)return html;
   let tab=playCondTab;if(tab==='conditions'&&!camp)tab='scenario';if(tab==='quests'&&!mine.length)tab='scenario';
   const qDone=ps.questKey?mine.reduce((n,r)=>n+(r.fighters||[]).reduce((m,x)=>m+(x.questRecord||[]).filter(e=>e.sessionKey===ps.questKey).length,0),0):0;
-  const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">QUESTS${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
+  const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">${en?'XP & QUESTS':'XP & QUÊTES'}${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
   if(tab==='scenario')return html.slice(0,cut)+tabs+html.slice(cut);
   if(tab==='quests')return html.slice(0,cut)+tabs+playQuestsMarkup(ps,mine)+'</div>';
   return html.slice(0,cut)+tabs+playConditionsMarkup(ps,camp)+'</div>';
