@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0607.0';
+const APP_BUILD='110.0608.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8792,7 +8792,25 @@ function adminQuestRemoveTree(ti){const en=siteLanguage==='en';const t=adminQues
 function adminQuestReset(){adminQuestDraft=JSON.parse(JSON.stringify(QUEST_BASE));render('admin');toast(siteLanguage==='en'?'Base set loaded — save to apply it':'Set de base chargé — enregistre pour l’appliquer')}
 async function adminQuestSave(){const en=siteLanguage==='en';const lib={trees:adminQuestDraft.trees.map(({__open,...t})=>({...t,quests:(t.quests||[]).filter(q=>q.name)}))};try{const r=await window.MordheimundaAPI.adminSaveQuests(lib);questLibraryOverride=r?.library||lib;adminQuestDraft=null;render('admin');toast(en?'Quests saved for everyone':'Quêtes enregistrées pour tous')}catch(e){toast(authError(e,en))}}
 
-function playSessionMarkup(){
+// V-PLAYCOLLAPSE: every numbered section of the play page folds by
+// clicking its title (state kept for this game, per tab), plus Collapse /
+// Expand all. playSessionMarkup's output is post-processed so the existing
+// section markup stays untouched.
+function playCollapseKey(n){return (playCondTab||'scenario')+':'+n}
+function playSectionsCollapsible(html){
+  const ps=state.playSession;const set=new Set(ps?.collapsedSecs||[]);const en=siteLanguage==='en';
+  let any=false;
+  const out=html.replace(/<section class="scn-sec"><span class="scn-secnum">(\d+)<\/span>/g,(m,n)=>{any=true;const k=playCollapseKey(n);return `<section class="scn-sec scn-collapsible${set.has(k)?' collapsed':''}" data-sec="${k}"><span class="scn-secnum">${n}</span>`});
+  if(!any)return out;
+  const tools=`<div class="scn-collapse-tools"><button type="button" onclick="playCollapseAll(true)">▸ ${en?'Collapse all':'Tout replier'}</button><button type="button" onclick="playCollapseAll(false)">▾ ${en?'Expand all':'Tout déplier'}</button></div>`;
+  const i=out.indexOf('<section class="scn-sec scn-collapsible');return out.slice(0,i)+tools+out.slice(i);
+}
+function playToggleSection(sec){const ps=state.playSession;if(!ps||!sec)return;const k=sec.dataset.sec;const set=new Set(ps.collapsedSecs||[]);if(sec.classList.toggle('collapsed'))set.add(k);else set.delete(k);ps.collapsedSecs=[...set];try{save(true)}catch(e){}}
+function playCollapseAll(fold){const ps=state.playSession;if(!ps)return;const set=new Set(ps.collapsedSecs||[]);document.querySelectorAll('.scn-collapsible').forEach(sec=>{sec.classList.toggle('collapsed',fold);if(fold)set.add(sec.dataset.sec);else set.delete(sec.dataset.sec)});ps.collapsedSecs=[...set];try{save(true)}catch(e){}}
+document.addEventListener('click',e=>{const head=e.target.closest('.scn-collapsible > .scn-secnum, .scn-collapsible > :nth-child(2)');if(!head)return;if(e.target.closest('a,button,input,select,textarea,label'))return;playToggleSection(head.closest('.scn-collapsible'))});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const head=e.target.closest?.('.scn-collapsible > :nth-child(2)');if(!head||e.target!==head)return;e.preventDefault();playToggleSection(head.closest('.scn-collapsible'))});
+function playSessionMarkup(){return playSectionsCollapsible(playSessionMarkupTabs())}
+function playSessionMarkupTabs(){
   const ps=state.playSession;const html=playCampaignStripInject(playSessionMarkupBase(),ps);const camp=ps&&playConditionsCampaign(ps);
   // V-QUESTS: a Quests tab whenever one of your own warbands plays.
   const mine=ps?playQuestRosters(ps):[];
