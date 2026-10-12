@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0611.0';
+const APP_BUILD='110.0612.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8637,7 +8637,15 @@ function universalXpList(){const l=questLibrary().universalXp;return Array.isArr
 // explicit field, else from the first "+N" / "N XP" in its text or name;
 // "each / per / par / chaque" makes it repeatable.
 function scenarioXpList(s){return (s?.experience||[]).map((e,i)=>{const t=`${e.name||''} ${e.text||''}`;const m=/([+-]?\d+)\s*(?:xp|exp|experience|expérience)?/i.exec(String(e.text||''))||/([+-]?\d+)/.exec(String(e.name||''));const xp=Number.isFinite(Number(e.xp))&&e.xp!==''&&e.xp!=null?Number(e.xp):(m?Number(m[1]):1);return {id:'sx-'+normName(e.name||String(i)),name:e.name||e.text||'—',text:e.text||'',xp,repeatable:e.repeatable!=null?!!e.repeatable:/\b(each|per|par|chaque)\b/i.test(t)}})}
-function fighterCanEarnXp(x){return !!x&&x.type!=='Animal'&&!fighterStatus(x).dead&&!(isHiredSword(x)&&x.hsLeft)}
+// V-NOXPRULE: a fighter whose special rules say he never / cannot gain
+// experience (War Beasts, No Brain, or any custom rule worded that way,
+// English or French) earns no XP. Read from the live rule text, so
+// editing a rule updates every fighter that has it.
+const NO_XP_RE=[/\b(?:never|cannot|can't|can\s+not|do(?:es)?\s+not|may\s+not|will\s+not)\s+(?:\w+\s+){0,2}(?:gain|earn|receive|get)s?\s+(?:any\s+)?(?:experience|xp)\b/i,/\bne\s+(?:\w+\s+){0,2}(?:gagne\w*|re[cç]oi\w*|obtien\w*)\s+(?:pas|jamais|aucune?)\s+(?:d['’]|de\s+l['’])?(?:exp[ée]rience|xp)\b/i];
+function fighterNoXpRule(x){try{const f=faction(activeRoster());for(const n of fighterRuleNames(x,f)){for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(!e)continue;const ov=typeof ruleMechanicsText==='function'?ruleMechanicsText(referenceOverrideSectionId(cat,e.id),0):null;const t=String(ov!=null?ov:e.text||'');if(NO_XP_RE.some(re=>re.test(t)))return e.name}}}catch(e){}return null}
+// Animals (type, or the "Animal" special rule) never earn experience.
+function fighterHasAnimalRule(x){try{return [...(x?.ruleNames||[]),...String(x?.rules||'').split(','),...fighterRuleNames(x,faction(activeRoster()))].some(n=>normName(String(n).trim())==='animal')}catch(e){return false}}
+function fighterCanEarnXp(x){return !!x&&x.type!=='Animal'&&!fighterHasAnimalRule(x)&&!fighterStatus(x).dead&&!(isHiredSword(x)&&x.hsLeft)}
 let questLibraryOverride=null;
 async function loadQuestLibrary(){try{const r=await window.MordheimundaAPI.quests();questLibraryOverride=r?.library&&Array.isArray(r.library.trees)?r.library:null}catch(e){console.warn('Quest library unavailable',e)}}
 function questLibrary(){return questLibraryOverride||QUEST_BASE}
@@ -8736,6 +8744,8 @@ function playQuestsMarkup(ps,rosters){
       const gx=(x.gameXpRecord||[]).filter(e=>e.sessionKey===key);const gxp=gx.reduce((n,e)=>n+Number(e.xp||0)*Number(e.count||1),0);
       const xp=qxp+gxp;xpTotal+=xp;
       const k=r.id+':'+x.instance;const open=playQuestOpen.has(k);const trees=info.chosen.map(id=>questTreeById(id)).filter(Boolean);
+      const noXp=fighterNoXpRule(x);
+      if(noXp)return `<div class="ms-row ms-noxp"><div class="ms-head"><span class="ms-name"><b>${esc(x.name)}</b><small>${esc(x.type||'')}</small></span><span class="ms-chips"><small class="muted">${en?'Cannot gain experience':'Ne gagne pas d’expérience'} · ${refLink('special',noXp,noXp)}</small></span><span class="ms-xp">—</span><span></span></div></div>`;
       const lines=[...universalXpList().map(l=>({...l,src:'u'})),...scen.map(l=>({...l,src:'s'}))];
       const xpBlock=lines.length?`<div class="xp-block"><h6>${en?'EXPERIENCE THIS GAME':'EXPÉRIENCE DE LA PARTIE'}${gxp?` · +${gxp} XP`:''}</h6><div class="xp-grid">${lines.map(l=>{const e=gx.find(z=>z.lineId===l.id);const n=e?Number(e.count||1):0;const on=n>0;const src=l.src==='u'?`<span class="xp-src src-un">UNIVERSAL</span>`:`<span class="xp-src src-sc">${en?'SCENARIO':'SCÉNARIO'}</span>`;const sub=`${l.xp>=0?'+':''}${l.xp} XP${l.repeatable?(en?' each':' chacun'):''}`;const args=`'${esc(r.id)}','${esc(x.instance)}','${esc(l.id)}'`;return `<div class="xp-it${on?' ok':''}"${l.text?` title="${esc(l.text)}"`:''}><span><b>${esc(l.name)}${src}</b><small>${esc(sub)}</small></span>${l.repeatable?`<span class="xp-step"><button type="button" aria-label="−" onclick="playGameXp(${args},-1)" ${n?'':'disabled'}>−</button><b>${n}</b><button type="button" aria-label="+" onclick="playGameXp(${args},1)">+</button></span>`:`<button type="button" class="xp-ck" role="checkbox" aria-checked="${on}" onclick="playGameXp(${args},${on?-1:1})">${on?'✓':''}</button>`}</div>`}).join('')}</div></div>`:'';
       const fr=faction(r);const cols=trees.map(t=>{const qs=questsForFighter(t,x,fr);return `<div class="ms-tree"><div class="ms-tree-h">${questArchBadge(t)}<small>${qs.filter(q=>doneIds.has(q.id)).length}/${qs.length}</small></div>${qs.map(q=>{const on=doneIds.has(q.id);return `<button type="button" class="ms-li${on?' ok':''}" role="checkbox" aria-checked="${on}" onclick="togglePlayQuest('${esc(r.id)}','${esc(x.instance)}','${esc(q.id)}')"><i>${on?'✓':''}</i><span><b>${esc(q.name)}</b><small>${esc(q.text||'')}</small></span><span class="ms-xp">+${Number(q.xp||0)}</span></button>`}).join('')}</div>`}).join('');

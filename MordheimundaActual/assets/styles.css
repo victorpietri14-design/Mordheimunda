@@ -4750,3 +4750,4 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .xp-src{font:700 9px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle}.src-sc{color:#8cc7ea;border:1px solid #3b6f8f}.src-un{color:#e6d39a;border:1px solid #7d6c3c}
 .qa-ux .qa-chip{grid-column:1/-1;justify-self:start}
 @media(max-width:700px){.xp-grid{grid-template-columns:1fr}.xp-step button,.xp-ck{width:36px;height:36px}}
+.ms-row.ms-noxp{opacity:.6}.ms-row.ms-noxp .ms-head{cursor:default}
