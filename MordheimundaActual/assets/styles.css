@@ -4797,3 +4797,26 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
 /* V-FIGHTERRULE */
 .fighter-rule-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.fighter-rule-add input{flex:1 1 220px;min-width:0}
 .rule-tag-remove{margin-left:6px;border:0;background:transparent;color:#d9655d;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+/* V-GQSTANDINGS — main Great Quest achieved: gold row + trophy */
+.hub-table tr.gq-won td{background:linear-gradient(90deg,#e8c25a26,#e8c25a0a);border-top:2px solid #e8c25a;border-bottom:2px solid #e8c25a}
+.hub-table tr.gq-won td:first-child{border-left:2px solid #e8c25a}.hub-table tr.gq-won td:last-child{border-right:2px solid #e8c25a}
+.gq-won-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:5px}.gq-won-line i{font-size:11px;color:#ecd9a0}
+.gq-won-badge{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#1a1408;background:#e8c25a;border-radius:20px;padding:2px 8px;font-weight:700;white-space:nowrap}
+.gq-trophy-big{font-size:17px;margin-right:6px;filter:drop-shadow(0 0 6px #e8c25a88)}
+.campaign-member.gq-won{border:2px solid #e8c25a;background:linear-gradient(90deg,#e8c25a22,#e8c25a08)}
+.campaign-member .gq-won-line{grid-column:1/-1;margin-top:0}
+/* Standings numbers never break letter by letter */
+.hub-table .hub-num{white-space:nowrap}
+.hub-table .th-short{display:none}
+@media (max-width:640px){
+  .hub-table td,.hub-table th{padding:8px 6px}
+  .hub-table th{letter-spacing:.4px}
+  .hub-table .th-long{display:none}.hub-table .th-short{display:inline}
+  .hub-table td.hub-num{font-size:12px}
+}
+@media (max-width:640px){
+  .hub-table .hub-gc{display:block;font-size:10px;color:var(--muted3)}
+  .hub-table .gq-won-badge{white-space:normal;letter-spacing:.05em}
+  .hub-table td:nth-child(2){min-width:0;word-break:normal;overflow-wrap:anywhere}
+  .hub-table .gq-trophy-big{font-size:15px;margin-right:4px}
+}
