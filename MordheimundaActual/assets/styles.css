@@ -4833,3 +4833,10 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
 .gq-tp{width:56px;height:56px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--panel2);cursor:pointer;padding:4px}
 .gq-tp.on{border:2px solid #e8c25a}
 .trophy-admin-item input{background:var(--panel,#111);color:var(--text,#eee);border:1px solid var(--line,#333);border-radius:6px;padding:6px 8px;font:12px system-ui,sans-serif}
+/* Standings — rounder edges (gold rows become rounded cards) */
+.hub-table{border-collapse:separate;border-spacing:0 4px}
+.hub-table tr.gq-won td:first-child{border-radius:14px 0 0 14px}
+.hub-table tr.gq-won td:last-child{border-radius:0 14px 14px 0}
+.hub-table tr.gq-won+tr:not(.gq-won) td{border-top-color:transparent}
+.hub-panel .rule-table-wrap{border-radius:16px}
+.campaign-member{border-radius:14px}
