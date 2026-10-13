@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0627.0';
+const APP_BUILD='110.0628.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4294,6 +4294,7 @@ function account(){
   <div class="eyebrow">${en?'PREFERENCES':'PRÉFÉRENCES'}</div><h3>${en?'Display':'Affichage'}</h3>
   <div class="acct-pref-row"><span>${en?'Language':'Langue'}<span class="acct-pref-sub">${en?'':''}</span></span><select id="acctLanguageSelect" aria-label="Site language" onchange="setSiteLanguage(this.value)"><option value="en" ${siteLanguage==='en'?'selected':''}>English</option><option value="fr" ${siteLanguage==='fr'?'selected':''}>Français</option></select></div>
   <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Day mode':'Mode jour'}<span class="acct-pref-sub">${en?'White background, easier to read in bright light':'Fond blanc, plus lisible en plein soleil'}</span></span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label></div>
+  <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Automatic translation':'Traduction automatique'}<span class="acct-pref-sub">${en?'In French, texts only written in English (rules, quests, scenarios…) are translated automatically':'En français, les textes écrits seulement en anglais (règles, quêtes, scénarios…) sont traduits automatiquement'}</span></span><input type="checkbox" ${mtEnabled?'checked':''} onchange="setAutoTranslate(this.checked)"></label></div>
 </div>
 <div class="account-friends card" ${session?'':'style="display:none"'}>
   <div class="eyebrow">SOCIAL</div><h3>${en?'Friends':'Amis'} <span class="new-badge">${en?'New':'Nouveau'}</span></h3>
@@ -7530,6 +7531,40 @@ function translateSiteText(v){const text=String(v);if(siteLanguage==='fr'){const
 // renderOriginal() just rebuilt. `root` scopes the walk accordingly —
 // renderCurrentRoute passes it the real content root on the hot path, and
 // falls back to a full document.body pass on first load / language switch.
+// V-AUTOTRANSLATE: in French, any block still in English after the
+// dictionary pass (admin-written rules, quests, scenarios, warband texts…)
+// is translated through /api/translate (DeepL, cached for good on the
+// server and here in memory), keeping its links and formatting. Inputs,
+// textareas and short names are never touched; an account setting turns it
+// off. Switching language re-renders, which brings the original back.
+const MT_OFF_KEY='mu_mt_off';
+let mtEnabled=(()=>{try{return localStorage.getItem(MT_OFF_KEY)!=='1'}catch(e){return true}})();
+const mtCache=new Map();let mtPending=new Map();let mtTimer=null;let mtServerOff=false;
+const MT_EN_WORDS=new Set('the and of to in is are with for on this that may must can each when if his their your any from by as be it at or not all an has have will who its into than then they them only also after before during instead until while which'.split(' '));
+const MT_FR_WORDS=new Set('le la les des du une est pour avec dans sur pas aucun cette leur chaque peut doit lors ainsi qui que il elle ils ses son sa au aux et ou en un'.split(' '));
+function mtLooksEnglish(t){const s=String(t||'');if(/[éèêàâçùûôîœ]/i.test(s))return false;const w=s.toLowerCase().match(/[a-z']+/g)||[];if(w.length<3)return false;let en=0,fr=0;for(const x of w){if(MT_EN_WORDS.has(x))en++;else if(MT_FR_WORDS.has(x))fr++}return en>=1&&en>fr}
+const MT_INLINE=new Set(['SPAN','B','STRONG','I','EM','A','SMALL','U','SUP','SUB','BR','MARK','ABBR','CODE','IMG']);
+const MT_SKIP='input,textarea,select,script,style,code,pre,[contenteditable],[data-no-mt],.notranslate,#languageSelect,.toast,.mt-skip';
+function mtBlockFor(node){let el=node.parentElement;if(!el||el.closest(MT_SKIP))return null;while(el&&MT_INLINE.has(el.tagName)&&el.parentElement&&el.parentElement!==document.body)el=el.parentElement;if(!el||el.closest(MT_SKIP))return null;
+  for(const c of el.querySelectorAll('*'))if(!MT_INLINE.has(c.tagName))return {el:null,node};return {el,node}}
+function mtFreeText(el){const c=el.cloneNode(true);c.querySelectorAll('a,button,[onclick],.ref-link').forEach(x=>x.remove());return c.textContent||''}
+function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||mtServerOff||!root)return;
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const seen=new Set();
+  while(w.nextNode()){const n=w.currentNode;const t=n.nodeValue;if(!t||t.trim().length<12||!mtLooksEnglish(t))continue;const b=mtBlockFor(n);if(!b)continue;
+    if(b.el){if(seen.has(b.el)||b.el.__mtDone)continue;seen.add(b.el);
+      // only real sentences: text outside links/buttons (rule, item and
+      // fighter names) must itself read as English — a list of names stays.
+      const free=mtFreeText(b.el);if(free.trim().length<12||!mtLooksEnglish(free))continue;
+      const html=b.el.innerHTML.trim();if(!html||html.length>6000)continue;mtQueue(html,{el:b.el,html:true})}
+    else{if(n.__mtDone||n.parentElement?.closest('a,button,[onclick]'))continue;mtQueue(t,{node:n,html:false})}}
+  if(mtPending.size&&!mtTimer)mtTimer=setTimeout(mtFlush,120)}
+function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
+function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.classList.add('mt-done')}}else if(target.node.isConnected&&target.node.nodeValue===src){target.node.nodeValue=fr;target.node.__mtDone=true}}
+async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;
+  for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
+    try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;const tr=r?.translations||{};
+      chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){mtServerOff=true;console.warn('Auto-translation unavailable',e);return}}}}
+function setAutoTranslate(on){mtEnabled=!!on;try{localStorage.setItem(MT_OFF_KEY,on?'0':'1')}catch(e){}renderCurrentRoute()}
 function applySiteLanguage(root){
  root=root||document.body;
  document.documentElement.lang=siteLanguage;
@@ -7542,6 +7577,7 @@ function applySiteLanguage(root){
    if(siteLanguage==='en'){if(el.placeholder)el.placeholder=translateSiteText(el.dataset.i18nPlaceholder||el.placeholder);if(el.title)el.title=translateSiteText(el.dataset.i18nTitle||el.title);if(el.getAttribute('aria-label'))el.setAttribute('aria-label',translateSiteText(el.dataset.i18nAria||el.getAttribute('aria-label')));}
    else{if(el.dataset.i18nPlaceholder!==undefined)el.placeholder=el.dataset.i18nPlaceholder;if(el.dataset.i18nTitle!==undefined)el.title=el.dataset.i18nTitle;if(el.dataset.i18nAria!==undefined)el.setAttribute('aria-label',el.dataset.i18nAria);}
  });
+ try{autoTranslateScan(root)}catch(e){}
  const sel=document.getElementById('languageSelect');if(sel){sel.value=siteLanguage;const label=sel.closest('.language-control')?.querySelector('span');if(label)label.textContent=siteLanguage==='en'?'Language':'Langue';const opts=sel.options;if(opts[0])opts[0].textContent='English';if(opts[1])opts[1].textContent='Français';}
 }
 // Forces the next applySiteLanguage() call (inside renderCurrentRoute) to do

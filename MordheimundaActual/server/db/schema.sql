@@ -565,3 +565,14 @@ CREATE TABLE IF NOT EXISTS warband_shares (
   revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS warband_shares_user ON warband_shares(user_id);
+
+-- V-AUTOTRANSLATE: DeepL translations, kept forever so each text is only
+-- ever sent to DeepL once.
+CREATE TABLE IF NOT EXISTS translations (
+  hash TEXT NOT NULL,
+  target_lang TEXT NOT NULL,
+  source TEXT NOT NULL,
+  translated TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (hash,target_lang)
+);

@@ -144,6 +144,7 @@
   quests:()=>request('/api/quests'),
   trophies:()=>request('/api/trophies'),
   accountHistory:()=>request('/api/account/history'),
+  translate:(texts,{html=false,target='FR'}={})=>request('/api/translate',{method:'POST',body:JSON.stringify({texts,html,target})}),
   shares:()=>request('/api/account/shares'),
   createShare:rosterId=>request('/api/account/shares',{method:'POST',body:JSON.stringify({rosterId})}),
   revokeShare:token=>request('/api/account/shares/'+encodeURIComponent(token),{method:'DELETE'}),

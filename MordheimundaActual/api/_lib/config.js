@@ -27,5 +27,9 @@ export const config={
   // One-shot secret for the /api/admin/migrate endpoint (V152). Deliberately
   // empty by default: when unset, the endpoint refuses every request, so a
   // forgotten-to-remove migrate route can never be triggered by a stranger.
-  migrateToken:process.env.MIGRATE_TOKEN||''
+  migrateToken:process.env.MIGRATE_TOKEN||'',
+  // V-AUTOTRANSLATE: DeepL API key (a free-plan key ends with ":fx"). When
+  // unset, automatic translation is simply off.
+  deeplApiKey:process.env.DEEPL_API_KEY||'',
+  deeplApiUrl:process.env.DEEPL_API_URL||''
 };
