@@ -1089,6 +1089,17 @@ async function newsForWarbandEdit(name,status,before,after,userId){
 app.get('/api/quests',requireDb,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='questLibrary'");res.json({library:q.rowCount?q.rows[0].value:null,updatedAt:q.rowCount?q.rows[0].updated_at:null})}catch(e){next(e)}
 });
+// V-TROPHIES: custom trophy library (admin-uploaded pictures, stored as
+// rule_images and referenced here by id) for completed Great Quests.
+app.get('/api/trophies',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='trophyLibrary'");res.json({library:q.rowCount?q.rows[0].value:{trophies:[]}})}catch(e){next(e)}
+});
+app.put('/api/admin/trophies',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const list=Array.isArray(req.body?.library?.trophies)?req.body.library.trophies:null;
+  if(!list||list.length>200)return res.status(400).json({error:'INVALID_TROPHIES'});
+  const clean={trophies:list.map(t=>({id:String(t?.id||'').slice(0,60),name:String(t?.name||'').slice(0,80),imageId:String(t?.imageId||'').slice(0,36)})).filter(t=>t.id&&/^[0-9a-f-]{36}$/i.test(t.imageId))};
+  try{await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('trophyLibrary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify(clean)]);res.json({library:clean})}catch(e){next(e)}
+});
 app.get('/api/admin/quests/backup',requireDb,auth,requireAdmin,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='questLibraryBackup'");res.json({library:q.rowCount?q.rows[0].value:null,updatedAt:q.rowCount?q.rows[0].updated_at:null})}catch(e){next(e)}
 });
