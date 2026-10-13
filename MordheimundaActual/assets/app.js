@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0620.0';
+const APP_BUILD='110.0621.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7604,7 +7604,7 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
   // so reordering here is enough; nothing else needs to read a separate
   // "position" field.
   const reorderBtns=reorder?`<div class="dash-wcard-reorder"><button type="button" class="dash-wcard-move" title="${en?'Move up':'Monter'}" aria-label="${en?'Move up':'Monter'}" ${reorder.index<=0?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',-1)">▲</button><button type="button" class="dash-wcard-move" title="${en?'Move down':'Descendre'}" aria-label="${en?'Move down':'Descendre'}" ${reorder.index>=reorder.total-1?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',1)">▼</button></div>`:'';
-  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
+  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}${greatQuestAchieved(r).length?` <span class="gq-trophy" title="${esc((en?'Great Quest achieved: ':'Grande Quête accomplie : ')+greatQuestAchieved(r).map(q=>q.name).join(', '))}">${trophyMarkup(greatQuestAchieved(r)[0].trophy,22)}</span>`:''}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
 function moveRosterOrder(id,dir){
   const idx=state.rosters.findIndex(r=>r.id===id);if(idx<0)return;
   const to=idx+dir;if(to<0||to>=state.rosters.length)return;
