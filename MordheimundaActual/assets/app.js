@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0615.0';
+const APP_BUILD='110.0616.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4822,7 +4822,7 @@ function admin(){
   const en=siteLanguage==='en';
   if(!isAdminSession()){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Admins only':'Réservé aux administrateurs'}</strong></div>`;return}
   if((adminRulesEditId&&adminRulesEditData)||(adminCatalogFactionId&&adminCatalogEditData)){$('#content').innerHTML=adminWarbandRulesPanel();return}
-  if(adminScenarioEditData){$('#content').innerHTML=scenarioEditorPanel();setTimeout(initScenarioEditorAutoGrow,0);return}
+  if(adminScenarioEditData){syncScenarioEditorFormToDraft();$('#content').innerHTML=scenarioEditorPanel();setTimeout(initScenarioEditorAutoGrow,0);return}
   if(adminMapBuilderData){$('#content').innerHTML=mapBuilderPanel();setTimeout(bindMapBuilderStage,30);return}
   if(adminWeaponEditName){$('#content').innerHTML=adminWeaponEditPage();return}
   if(adminAdminsCache===null||adminOfficialCache===null){
@@ -10140,7 +10140,7 @@ function linesToPairs(text){
   });
 }
 function linesToList(text){return String(text||'').split('\n').map(l=>l.trim()).filter(Boolean)}
-function pairsToLines(arr,ka,kb){return (arr||[]).map(x=>`${x[ka]||''} | ${x[kb]||''}`).join('\n')}
+function pairsToLines(arr,ka,kb){return (arr||[]).map(x=>x[kb]?`${x[ka]||''} | ${x[kb]}`:`${x[ka]||''}`).join('\n')}
 function listToLines(arr){return (arr||[]).join('\n')}
 // V-SCENARIOFORMULAMODE: the mode select re-renders the panel (to swap in
 // the right field group below it), which would otherwise discard whatever
@@ -10173,16 +10173,17 @@ function updateScenarioFormulaMode(mode){
   d.bandsFormula.mode=mode;
   render('admin');
 }
-async function saveScenarioEditor(){
-  const en=siteLanguage==='en';
+// V-SCNKEEP: every field of the open scenario editor, read from the form.
+// Used by Save, and before any re-render of the editor (a ticked table size,
+// a formula mode, a deployment map…) so text typed since the last render is
+// kept in the draft instead of being wiped by the redraw.
+function scenarioEditorCollect(){
   const v=id=>document.getElementById(id)?.value||'';
-  const name=v('seName').trim();
-  if(!name){toast(en?'Give the scenario a name':'Donne un nom au scénario');return}
   syncScenarioFormulaFieldsToDraft();
   const categories=Array.from(document.querySelectorAll('.seCategoryCb:checked')).map(cb=>cb.value);
   const bf=adminScenarioEditData?.bandsFormula||{};
-  const body={
-    name,categories:categories.length?categories:['1v1'],summary:v('seSummary'),
+  return {
+    name:v('seName').trim(),categories:categories.length?categories:['1v1'],summary:v('seSummary'),
     tableSizes:(Array.isArray(adminScenarioEditData?.tableSizes)&&adminScenarioEditData.tableSizes.length)?adminScenarioEditData.tableSizes:['48x48'],
     bandsMin:Number(v('seBandsMin'))||1,bandsMax:Number(v('seBandsMax'))||1,
     battlefield:{terrainType:v('seTerrain'),setupInstructions:v('seSetup')},
@@ -10202,6 +10203,14 @@ async function saveScenarioEditor(){
     thumbnail:adminScenarioEditData?.thumbnail||'',
     thumbnailFocus:adminScenarioEditData?.thumbnailFocus||null
   };
+}
+function syncScenarioEditorFormToDraft(){if(!adminScenarioEditData||!document.getElementById('seName'))return;const {tableSizes,thumbnail,thumbnailFocus,...rest}=scenarioEditorCollect();rest.deployment.mapIds=adminScenarioEditData.deployment?.mapIds||[];Object.assign(adminScenarioEditData,rest)}
+async function saveScenarioEditor(){
+  const en=siteLanguage==='en';
+  const v=id=>document.getElementById(id)?.value||'';
+  const name=v('seName').trim();
+  if(!name){toast(en?'Give the scenario a name':'Donne un nom au scénario');return}
+  const body=scenarioEditorCollect();
   try{
     if(adminScenarioEditId)await window.MordheimundaAPI.adminUpdateScenario(adminScenarioEditId,body);
     else await window.MordheimundaAPI.adminCreateScenario(body);
