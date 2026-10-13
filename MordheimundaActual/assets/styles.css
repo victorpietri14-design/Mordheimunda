@@ -4794,3 +4794,6 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
   .gq-count{gap:4px}
   .gq-sub{flex-wrap:wrap}
 }
+/* V-FIGHTERRULE */
+.fighter-rule-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.fighter-rule-add input{flex:1 1 220px;min-width:0}
+.rule-tag-remove{margin-left:6px;border:0;background:transparent;color:#d9655d;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
