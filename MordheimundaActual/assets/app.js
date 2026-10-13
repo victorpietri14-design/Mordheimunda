@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0625.0';
+const APP_BUILD='110.0626.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -38,6 +38,8 @@ function routeForView(view){
   if(view==='scenarioDetail')return currentScenarioId?'/rules/scenarios/'+encodeURIComponent(currentScenarioId):APP_ROUTES.scenarios;
   return APP_ROUTES[view]||'/'
 }
+// V-SHARE state (see enterSharedView) — declared early, read by the router.
+let sharedViewToken=null,sharedViewRosterId=null,sharedViewOwner='',sharedOwnStateSnapshot=null,sharedLoadingToken=null;
 function parseAppRoute(path=location.pathname){
   const p=appPath(path);
   if(p==='/')return {view:'dashboard'};
@@ -60,6 +62,8 @@ function parseAppRoute(path=location.pathname){
   if(chm)return {view:'campaignHub',campaignId:decodeURIComponent(chm[1]),hubTab:chm[2]||'overview'};
   const cpm=p.match(/^\/rules\/campaign\/([^/]+)(?:\/([^/]+))?$/);
   if(cpm)return {view:'campaignDetail',campaignId:decodeURIComponent(cpm[1]),campaignPage:cpm[2]?decodeURIComponent(cpm[2]):'overview'};
+  const shm=p.match(/^\/share\/([A-Za-z0-9_-]{8,40})$/);
+  if(shm)return sharedViewToken===shm[1]&&sharedViewRosterId?{view:'builder',rosterId:sharedViewRosterId}:{view:'sharedLoading',shareToken:shm[1]};
   if(p==='/admin')return {view:'admin'};
   const rwm=p.match(/^\/rules\/warbands\/([^/]+)$/);
   if(rwm)return {view:'rulesWarbandDetail',factionId:decodeURIComponent(rwm[1])};
@@ -1936,6 +1940,7 @@ function save(silent=false){try{const ar=typeof activeRoster==='function'?active
   // data, so it must never reach this admin's own localStorage or their own
   // cloud endpoint — only the admin-support write endpoint, scoped to that
   // account, may receive it.
+  if(sharedViewToken)return; // V-SHARE: a shared warband is read-only — never saved anywhere
   if(adminViewingUserId){
     queueAdminForeignSave();
     if(!silent)toast(siteLanguage==='en'?'Data saved':'Données sauvegardées');
@@ -1995,7 +2000,7 @@ async function flushCloudSave(){
   // enterAdminForeignSession snapshotted that), so it's fine to simply skip
   // this push — normal dirty-detection (hasUnsavedLocalEdits) picks it back
   // up and re-pushes it once the admin exits the foreign session.
-  if(adminViewingUserId)return;
+  if(adminViewingUserId||sharedViewToken)return;
   if(cloudSaveBusy){cloudSaveAgain=true;return}
   cloudSaveBusy=true;
   // Pin down which state object this push is actually for. adminViewingUserId
@@ -2008,7 +2013,7 @@ async function flushCloudSave(){
   try{
     const expectedRevision=toRev(stateAtStart?.meta?.cloudRevision);
     const result=await window.MordheimundaAPI.saveData(stateAtStart,expectedRevision);
-    if(adminViewingUserId||state!==stateAtStart){cloudRetryAttempt=0;cloudSaveAgain=false;clearCloudError();return}
+    if(adminViewingUserId||sharedViewToken||state!==stateAtStart){cloudRetryAttempt=0;cloudSaveAgain=false;clearCloudError();return}
     stateAtStart.meta=stateAtStart.meta||{};
     stateAtStart.meta.cloudRevision=result.revision;
     stateAtStart.meta.cloudUpdatedAt=new Date().toISOString();
@@ -2037,10 +2042,10 @@ async function flushCloudSave(){
   }
 }
 async function resolveCloudConflictAndRetry(){
-  if(adminViewingUserId)return;
+  if(adminViewingUserId||sharedViewToken)return;
   try{
     const remote=await window.MordheimundaAPI.loadData();
-    if(adminViewingUserId)return;
+    if(adminViewingUserId||sharedViewToken)return;
     const remoteData=remote?.payload||{};
     const remoteRevision=toRev(remote?.revision)??1;
     // The other device's data is the new baseline; the mutation we were mid-way
@@ -2318,7 +2323,7 @@ async function pollCloudRevision(){
   // of THIS admin's own cloud data must not overwrite it (applyRemoteData
   // would otherwise silently replace the player's roster being edited with
   // this admin's own warbands mid-session).
-  if(adminViewingUserId||!cloudIsSignedIn()||document.hidden||cloudPollBusy||cloudSaveBusy||hasUnsavedLocalEdits())return;
+  if(adminViewingUserId||sharedViewToken||!cloudIsSignedIn()||document.hidden||cloudPollBusy||cloudSaveBusy||hasUnsavedLocalEdits())return;
   cloudPollBusy=true;
   try{
     const r=await window.MordheimundaAPI.dataRevision();
@@ -2333,14 +2338,14 @@ async function pollCloudRevision(){
     // admin's local storage by applyRemoteData(), which is what made a
     // player's warband appear copied into the admin's own list. Bail at
     // every resume point once adminViewingUserId is set.
-    if(adminViewingUserId)return;
+    if(adminViewingUserId||sharedViewToken)return;
     const remoteRevision=toRev(r?.revision);
     const localRevision=toRev(state?.meta?.cloudRevision);
     // Re-check right before applying: a save can have started while the
     // revision request above was in flight.
     if(remoteRevision!==null&&(localRevision===null||remoteRevision>localRevision)&&!cloudSaveBusy&&!hasUnsavedLocalEdits()){
       const full=await window.MordheimundaAPI.loadData();
-      if(adminViewingUserId)return;
+      if(adminViewingUserId||sharedViewToken)return;
       if(!cloudSaveBusy&&!hasUnsavedLocalEdits())applyRemoteData(full?.payload,full?.revision,{announce:true});
     }else if(pendingRemoteRerender&&!isEditingField()){
       pendingRemoteRerender=false;
@@ -7304,7 +7309,7 @@ function renderOriginal(view='dashboard'){
    }
  });
  document.title=`${PROJECT_NAME} // M17`;
- ({dashboard,rosters,create,rules,builder,fighter,armory,codex,references,custom,account,admin,rulesWarbands,rulesWarbandDetail,playMode,rulesCampaign,scenarios,scenarioDetail,underdogBonus,printList,myCampaigns,campaignDetail,campaignHub}[view]||dashboard)(); try{printListBadge()}catch(e){} if(view==='builder') setTimeout(attachFighterInteractions,0); if(view==='rosters') setTimeout(attachRosterInteractions,0);
+ ({dashboard,rosters,create,rules,builder,fighter,armory,codex,references,custom,account,admin,rulesWarbands,rulesWarbandDetail,playMode,rulesCampaign,scenarios,scenarioDetail,underdogBonus,printList,myCampaigns,campaignDetail,campaignHub,sharedLoading}[view]||dashboard)(); try{printListBadge()}catch(e){} if(view==='builder') setTimeout(attachFighterInteractions,0); if(view==='rosters') setTimeout(attachRosterInteractions,0);
  updateAdminForeignBanner();
 }
 /* ================= SITE THEME (dark / light) =================
@@ -10920,7 +10925,7 @@ function createFromPage(){
 }
 function openRoster(id){const r0=Array.isArray(state?.rosters)?state.rosters.find(x=>String(x?.id)===String(id)):null;if(!r0)return;state.active=r0.id;gangTab='roster';try{activeRoster();}catch(err){console.warn('Warband normalization warning',err)}try{navigateApp(warbandPath(r0.id));}catch(err){console.error('Warband render failed',err);toast(siteLanguage==='en'?'The warband was recovered, but outdated data is still blocking its display.':'La bande a été récupérée, mais une donnée ancienne empêche encore son affichage.');}}
 function duplicateRoster(id){const r=state.rosters.find(x=>x.id===id),copy=JSON.parse(JSON.stringify(r));copy.id=crypto.randomUUID();copy.name=r.name+' — copie';copy.fighters.forEach(x=>x.instance=crypto.randomUUID());(copy.reserve||[]).forEach(x=>x.reserveId=crypto.randomUUID());state.rosters.push(copy);state.active=copy.id;save();navigateApp(warbandPath(copy.id))}
-function builder(){const en=siteLanguage==='en';const r=activeRoster();if(!r){render('create');return}if(gangTab==='recruit'){gangTab='roster';recruitPanelOpen=true}if(gangTab==='history'){gangTab='roster';historyDrawerOpen=true}const f=faction(r)||{id:'unknown-faction',displayName:r.factionName||r.factionId||(en?'Unknown faction':'Faction inconnue'),group:'RECOVERED',budget:1000,warriors:[],equipment:[]},value=total(r),isRecruit=gangTab==='recruit',isPostBattle=gangTab==='postbattle',isHistory=gangTab==='history',isCampaign=gangTab==='campaign',isRulesTab=gangTab==='rules';if(!Number.isFinite(r.reputation))r.reputation=1;const activeSupplements=Array.isArray(r.activeSupplements)?r.activeSupplements:[];const activePackNames=activeSupplements.map(id=>(window.NECROHEIM_PACKS||[]).find(p=>p.id===id)?.name||D.factions.find(fx=>fx.packId===id)?.displayName).filter(Boolean);const custom=Array.isArray(r.customValues)?r.customValues:[];$('#content').innerHTML=`<div class="warroom"><div class="warroom-topbar"><a href="#" onclick="event.preventDefault();navigateApp('${APP_ROUTES.rosters}')">← ${en?'My warbands':'Mes bandes'}</a><div class="warroom-topbar-icons"><button type="button" class="mu-icon-btn" title="${en?'Print the warband sheet':'Imprimer la feuille de bande'}" onclick="window.print()">⎙</button></div></div><div class="warroom-head"><div class="warroom-brand-block"><button type="button" class="gang-icon gang-icon-editable" title="${en?'Import / replace the warband icon':'Importer / remplacer l’icône de la bande'}" onclick="event.stopPropagation();pickImage('gang')">${imageMarkup(r.icon,'gang',en?`Icon for ${r.name}`:`Icône de ${r.name}`,r.iconFocus)}<span class="image-edit-badge">✎</span></button><div><div class="faction-line"><span class="faction-sigil small">${factionSigils[f.id]||'◆'}</span><span>${esc(f.displayName)}</span>${activePackNames.map(n=>`<span class="supplement-active">PACK · ${esc(n)}</span>`).join('')}</div>${warbandRulesMarkup(r)}<h2>${esc(r.name)}</h2><div class="roster-meta"><span>${r.fighters.length} ${en?'fighter':'guerrier'}${r.fighters.length!==1?'s':''}</span><span>${en?'Value':'Valeur'} ${value} GC</span></div></div></div><div class="warroom-head-right"><div class="warband-overview"><div class="warband-stat rating-stat"><span class="stat-icon">◈</span><div><small>${en?'WARBAND VALUE':'VALEUR DE BANDE'}</small><strong>${value}<em>GC</em></strong></div></div><div class="warband-stat gold-stat resource-clickable" onclick="openResourceAdjust('gold')"><span class="stat-icon">◈</span><div><small>${en?'TREASURY':'TRÉSOR'}</small><strong>${r.gold}<em>GC</em></strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div><div class="warband-stat wyrdstone-stat resource-clickable" onclick="openResourceAdjust('wyrdstone')"><span class="stat-icon">◆</span><div>${campaignUsesTreasure(r)?`<small class="gold">TREASURE</small><strong class="gold">${r.wyrdstone||0}</strong><span>${en?'Treasures in stock · click to edit':'Treasures en réserve · cliquer pour modifier'}</span>`:`<small>WYRDSTONE</small><strong>${r.wyrdstone||0}</strong><span>${en?'Shards in stock · click to edit':'Shards en réserve · cliquer pour modifier'}</span>`}</div></div><div class="warband-stat reputation-stat resource-clickable" onclick="openResourceAdjust('reputation')"><span class="stat-icon">★</span><div><small>${en?'REPUTATION':'RÉPUTATION'}</small><strong>${r.reputation}</strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div>${custom.map((c,i)=>`<div class="warband-stat custom-stat resource-clickable" onclick="openCustomValue(${i})"><span class="stat-icon">◆</span><div><small>${esc(c.label||(en?'CUSTOM VALUE':'VALEUR PERSONNALISÉE'))}</small><strong>${esc(String(c.value??0))}</strong><span>${en?'Click to edit':'Cliquer pour modifier'}</span></div></div>`).join('')}${warbandLegalityBadgeMarkup(r)}<button class="warband-stat custom-stat custom-add" type="button" onclick="openCustomValue()"><span class="stat-icon">＋</span><div><small>${en?'ADD A VALUE':'AJOUTER UNE VALEUR'}</small><strong>+</strong><span>${en?'Create a new custom value':'Créer une nouvelle valeur personnalisée'}</span></div></button></div><div class="warroom-head-btns"><button class="button secondary warroom-history-btn" type="button" onclick="openHistoryDrawer()">◷ ${en?'History':'Historique'}</button><button class="button secondary warroom-versions-btn" type="button" title="${en?'Earlier versions of this warband — restore one':'Versions précédentes de cette bande — en restaurer une'}" onclick="openWarbandVersions()">⟲ ${en?'Versions':'Versions'}</button><button class="button primary warroom-edit-btn" onclick="openEditWarband()">✎ ${en?'Edit':'Modifier'}</button></div></div></div><div class="gang-tabs"><button class="gang-tab ${gangTab==='roster'?'active':''}" onclick="setGangTab('roster')"><i class="gt-ic">⚔</i><span class="gt-lbl">${en?'Warband':'Bande'}</span> <span class="gt-count">${r.fighters.length}</span></button><button class="gang-tab ${isRulesTab?'active':''}" onclick="setGangTab('rules')"><i class="gt-ic">☰</i><span class="gt-lbl">${en?'Warband rules':'Règles de bande'}</span></button><button class="gang-tab ${gangTab==='reserve'?'active':''}" onclick="setGangTab('reserve')"><i class="gt-ic">▣</i><span class="gt-lbl">${en?'Stash':'Réserve'}</span> <span class="gt-count">${(r.reserve||[]).length}</span></button><button class="gang-tab ${isPostBattle?'active':''}" onclick="setGangTab('postbattle')"><i class="gt-ic">◈</i><span class="gt-lbl">${en?'Post-battle':'Post-bataille'}</span></button><button class="gang-tab ${isCampaign?'active':''}" onclick="setGangTab('campaign')"><i class="gt-ic">⚑</i><span class="gt-lbl">${en?'Campaign':'Campagne'}</span></button></div><section class="warroom-main warroom-main-full">${isRecruit?recruitmentView(f):gangTab==='reserve'?reserveView(r,f):isPostBattle?postBattleView(r,f):isHistory?historyView(r):isCampaign?campaignView(r):isRulesTab?warbandRulesView(r):rosterView(r,f)}</section></div>`;syncHistoryDrawer(r)}
+function builder(){const en=siteLanguage==='en';const r=activeRoster();if(!r){render('create');return}if(gangTab==='recruit'){gangTab='roster';recruitPanelOpen=true}if(gangTab==='history'){gangTab='roster';historyDrawerOpen=true}const f=faction(r)||{id:'unknown-faction',displayName:r.factionName||r.factionId||(en?'Unknown faction':'Faction inconnue'),group:'RECOVERED',budget:1000,warriors:[],equipment:[]},value=total(r),isRecruit=gangTab==='recruit',isPostBattle=gangTab==='postbattle',isHistory=gangTab==='history',isCampaign=gangTab==='campaign',isRulesTab=gangTab==='rules';if(!Number.isFinite(r.reputation))r.reputation=1;const activeSupplements=Array.isArray(r.activeSupplements)?r.activeSupplements:[];const activePackNames=activeSupplements.map(id=>(window.NECROHEIM_PACKS||[]).find(p=>p.id===id)?.name||D.factions.find(fx=>fx.packId===id)?.displayName).filter(Boolean);const custom=Array.isArray(r.customValues)?r.customValues:[];$('#content').innerHTML=`<div class="warroom"><div class="warroom-topbar"><a href="#" onclick="event.preventDefault();navigateApp('${APP_ROUTES.rosters}')">← ${en?'My warbands':'Mes bandes'}</a><div class="warroom-topbar-icons"><button type="button" class="mu-icon-btn" title="${en?'Print the warband sheet':'Imprimer la feuille de bande'}" onclick="window.print()">⎙</button></div></div><div class="warroom-head"><div class="warroom-brand-block"><button type="button" class="gang-icon gang-icon-editable" title="${en?'Import / replace the warband icon':'Importer / remplacer l’icône de la bande'}" onclick="event.stopPropagation();pickImage('gang')">${imageMarkup(r.icon,'gang',en?`Icon for ${r.name}`:`Icône de ${r.name}`,r.iconFocus)}<span class="image-edit-badge">✎</span></button><div><div class="faction-line"><span class="faction-sigil small">${factionSigils[f.id]||'◆'}</span><span>${esc(f.displayName)}</span>${activePackNames.map(n=>`<span class="supplement-active">PACK · ${esc(n)}</span>`).join('')}</div>${warbandRulesMarkup(r)}<h2>${esc(r.name)}</h2><div class="roster-meta"><span>${r.fighters.length} ${en?'fighter':'guerrier'}${r.fighters.length!==1?'s':''}</span><span>${en?'Value':'Valeur'} ${value} GC</span></div></div></div><div class="warroom-head-right"><div class="warband-overview"><div class="warband-stat rating-stat"><span class="stat-icon">◈</span><div><small>${en?'WARBAND VALUE':'VALEUR DE BANDE'}</small><strong>${value}<em>GC</em></strong></div></div><div class="warband-stat gold-stat resource-clickable" onclick="openResourceAdjust('gold')"><span class="stat-icon">◈</span><div><small>${en?'TREASURY':'TRÉSOR'}</small><strong>${r.gold}<em>GC</em></strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div><div class="warband-stat wyrdstone-stat resource-clickable" onclick="openResourceAdjust('wyrdstone')"><span class="stat-icon">◆</span><div>${campaignUsesTreasure(r)?`<small class="gold">TREASURE</small><strong class="gold">${r.wyrdstone||0}</strong><span>${en?'Treasures in stock · click to edit':'Treasures en réserve · cliquer pour modifier'}</span>`:`<small>WYRDSTONE</small><strong>${r.wyrdstone||0}</strong><span>${en?'Shards in stock · click to edit':'Shards en réserve · cliquer pour modifier'}</span>`}</div></div><div class="warband-stat reputation-stat resource-clickable" onclick="openResourceAdjust('reputation')"><span class="stat-icon">★</span><div><small>${en?'REPUTATION':'RÉPUTATION'}</small><strong>${r.reputation}</strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div>${custom.map((c,i)=>`<div class="warband-stat custom-stat resource-clickable" onclick="openCustomValue(${i})"><span class="stat-icon">◆</span><div><small>${esc(c.label||(en?'CUSTOM VALUE':'VALEUR PERSONNALISÉE'))}</small><strong>${esc(String(c.value??0))}</strong><span>${en?'Click to edit':'Cliquer pour modifier'}</span></div></div>`).join('')}${warbandLegalityBadgeMarkup(r)}<button class="warband-stat custom-stat custom-add" type="button" onclick="openCustomValue()"><span class="stat-icon">＋</span><div><small>${en?'ADD A VALUE':'AJOUTER UNE VALEUR'}</small><strong>+</strong><span>${en?'Create a new custom value':'Créer une nouvelle valeur personnalisée'}</span></div></button></div><div class="warroom-head-btns"><button class="button secondary warroom-history-btn" type="button" onclick="openHistoryDrawer()">◷ ${en?'History':'Historique'}</button><button class="button secondary warroom-versions-btn" type="button" title="${en?'Earlier versions of this warband — restore one':'Versions précédentes de cette bande — en restaurer une'}" onclick="openWarbandVersions()">⟲ ${en?'Versions':'Versions'}</button>${sharedViewToken?'':`<button class="button secondary warroom-share-btn" type="button" title="${en?'Share a read-only link to this warband':'Partager un lien en lecture seule vers cette bande'}" onclick="openWarbandShare()">🔗 ${en?'Share':'Partager'}</button>`}<button class="button primary warroom-edit-btn" onclick="openEditWarband()">✎ ${en?'Edit':'Modifier'}</button></div></div></div><div class="gang-tabs"><button class="gang-tab ${gangTab==='roster'?'active':''}" onclick="setGangTab('roster')"><i class="gt-ic">⚔</i><span class="gt-lbl">${en?'Warband':'Bande'}</span> <span class="gt-count">${r.fighters.length}</span></button><button class="gang-tab ${isRulesTab?'active':''}" onclick="setGangTab('rules')"><i class="gt-ic">☰</i><span class="gt-lbl">${en?'Warband rules':'Règles de bande'}</span></button><button class="gang-tab ${gangTab==='reserve'?'active':''}" onclick="setGangTab('reserve')"><i class="gt-ic">▣</i><span class="gt-lbl">${en?'Stash':'Réserve'}</span> <span class="gt-count">${(r.reserve||[]).length}</span></button><button class="gang-tab ${isPostBattle?'active':''}" onclick="setGangTab('postbattle')"><i class="gt-ic">◈</i><span class="gt-lbl">${en?'Post-battle':'Post-bataille'}</span></button><button class="gang-tab ${isCampaign?'active':''}" onclick="setGangTab('campaign')"><i class="gt-ic">⚑</i><span class="gt-lbl">${en?'Campaign':'Campagne'}</span></button></div><section class="warroom-main warroom-main-full">${isRecruit?recruitmentView(f):gangTab==='reserve'?reserveView(r,f):isPostBattle?postBattleView(r,f):isHistory?historyView(r):isCampaign?campaignView(r):isRulesTab?warbandRulesView(r):rosterView(r,f)}</section></div>`;syncHistoryDrawer(r)}
 function setGangTab(tab){gangTab=tab;if(tab==='postbattle')postBattleSubtab='income';render('builder')}
 function adjustGold(amount){const r=activeRoster();if(!r)return;const n=Number(amount);if(!Number.isFinite(n)||n===0)return;r.gold=Math.max(0,Math.round(r.gold+n));save(true);render('builder');toast(`${n>0?'+':''}${n} GC`)}
 function adjustReputation(amount){const r=activeRoster();if(!r)return;const n=Number(amount);if(!Number.isFinite(n)||n===0)return;r.reputation=Math.max(0,Math.round(Number(r.reputation||0)+n));save(true);render('builder');toast(siteLanguage==='en'?`Reputation ${r.reputation}`:`Réputation ${r.reputation}`)}
@@ -14912,6 +14917,35 @@ async function adminTrophyDelete(i){const en=siteLanguage==='en';const t=trophyL
 // Great Quest editor: trophy picker
 let gqTrophyPick=null;
 function gqTrophyPickerMarkup(cur){const en=siteLanguage==='en';const opts=[{id:'',name:'🏆'},...trophyOptions()];return `<div class="custom-field wide"><span>${en?'Trophy in the campaign Standings':'Trophée dans le Classement de campagne'}</span><div class="gq-trophy-pick">${opts.map(o=>`<button type="button" class="gq-tp${(cur||'')===o.id?' on':''}" title="${esc(o.name)}" onclick="gqTrophyPick='${esc(o.id)}';document.querySelectorAll('.gq-tp').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${trophyMarkup(o.id,40)}</button>`).join('')}</div></div>`}
+// V-SHARE: read-only share link for one warband. /share/<token> loads that
+// warband (and its owner's custom content) into a temporary state, shown with
+// the normal warband pages; save() and every cloud sync are disabled while
+// it is open, and "Leave" restores the visitor's own data untouched.
+function sharedLoading(){const en=siteLanguage==='en';const tok=parseAppRoute().shareToken;$('#content').innerHTML=`<div class="empty large"><strong>${en?'Opening the shared warband…':'Ouverture de la bande partagée…'}</strong></div>`;if(tok&&sharedLoadingToken!==tok){sharedLoadingToken=tok;enterSharedView(tok)}}
+async function enterSharedView(token){const en=siteLanguage==='en';
+  try{const r=await window.MordheimundaAPI.sharedWarband(token);if(!r?.payload)throw new Error('NOT_FOUND');
+    if(!sharedViewToken)sharedOwnStateSnapshot=window.MordheimundaStorage.load();
+    try{stopCloudPolling()}catch(e){}
+    sharedViewToken=token;sharedViewRosterId=r.rosterId;sharedViewOwner=r.owner||'';
+    state=window.MordheimundaMigrations.migrate(r.payload);state.active=r.rosterId;gangTab='roster';
+    renderCurrentRoute();updateSharedBanner()}
+  catch(e){sharedLoadingToken=null;$('#content').innerHTML=`<div class="empty large"><strong>${en?'This link no longer works':'Ce lien ne fonctionne plus'}</strong><p>${en?'The warband was unshared or deleted.':'La bande n’est plus partagée ou a été supprimée.'}</p><a class="button primary" href="/" data-app-route="1">${en?'Home':'Accueil'}</a></div>`}}
+function exitSharedView(){if(!sharedViewToken)return;state=sharedOwnStateSnapshot||window.MordheimundaStorage.load();sharedOwnStateSnapshot=null;sharedViewToken=null;sharedViewRosterId=null;sharedViewOwner='';sharedLoadingToken=null;updateSharedBanner();navigateApp('/');try{bootstrapAccountSession()}catch(e){}}
+function updateSharedBanner(){document.body.classList.toggle('shared-view',!!sharedViewToken);let el=document.getElementById('sharedViewBanner');if(!sharedViewToken){if(el)el.remove();return}const en=siteLanguage==='en';
+  if(!el){el=document.createElement('div');el.id='sharedViewBanner';el.className='shared-banner';const c=document.getElementById('content');c?.parentNode?.insertBefore(el,c)}
+  el.innerHTML=`<span>👁 ${en?`Read-only — ${esc(sharedViewOwner)}’s warband, shared with you. Changes are not saved.`:`Lecture seule — bande de ${esc(sharedViewOwner)}, partagée avec toi. Les modifications ne sont pas enregistrées.`}</span><button type="button" class="button secondary small" onclick="exitSharedView()">${en?'Leave':'Quitter'}</button>`}
+function shareUrl(token){return `${location.origin}/share/${token}`}
+async function openWarbandShare(){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;
+  if(adminViewingUserId)return toast(en?'Share links are created by the player from their own account':'Le lien de partage se crée depuis le compte du joueur');
+  if(!cloudIsSignedIn())return toast(en?'Sign in to share a warband':'Connecte-toi pour partager une bande');
+  let share=null;try{share=((await window.MordheimundaAPI.shares())?.shares||[]).find(s=>String(s.rosterId)===String(r.id))||null}catch(e){return toast(authError(e,en))}
+  renderShareModal(r,share)}
+function renderShareModal(r,share){const en=siteLanguage==='en';
+  openModal(`<div class="admin-live-editor"><div class="eyebrow">${en?'SHARE':'PARTAGER'}</div><h2>${esc(r.name)}</h2><p class="muted">${en?'Anyone with the link can see this warband (fighters, equipment, skills, rules) without an account. They can’t change it, and they never see your other warbands. The link always shows the warband as it is now.':'Toute personne qui a le lien peut voir cette bande (combattants, équipement, compétences, règles) sans compte. Elle ne peut rien modifier et ne voit jamais tes autres bandes. Le lien montre toujours la bande telle qu’elle est maintenant.'}</p>
+  ${share?`<div class="share-link-row"><input id="shareLinkInput" readonly value="${esc(shareUrl(share.token))}" onclick="this.select()"><button type="button" class="button primary" onclick="copyShareLink()">${en?'Copy':'Copier'}</button></div><div class="custom-actions"><button type="button" class="button danger-outline" onclick="revokeWarbandShare('${esc(share.token)}')">${en?'Stop sharing':'Arrêter le partage'}</button><span style="flex:1"></span><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div>`:`<div class="custom-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="createWarbandShare()">🔗 ${en?'Create the link':'Créer le lien'}</button></div>`}</div>`)}
+async function createWarbandShare(){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;try{await flushCloudSave?.()}catch(e){}try{const s=await window.MordheimundaAPI.createShare(r.id);renderShareModal(r,{token:s.token,rosterId:r.id})}catch(e){toast(authError(e,en))}}
+async function revokeWarbandShare(token){const en=siteLanguage==='en';const r=activeRoster();if(!confirm(en?'Stop sharing? The link stops working for everyone.':'Arrêter le partage ? Le lien ne fonctionnera plus pour personne.'))return;try{await window.MordheimundaAPI.revokeShare(token);renderShareModal(r,null);toast(en?'Link disabled':'Lien désactivé')}catch(e){toast(authError(e,en))}}
+async function copyShareLink(){const en=siteLanguage==='en';const v=document.getElementById('shareLinkInput')?.value||'';try{await navigator.clipboard.writeText(v);toast(en?'Link copied':'Lien copié')}catch(e){document.getElementById('shareLinkInput')?.select();toast(en?'Select and copy the link':'Sélectionne et copie le lien')}}
 // V-HISTORY: earlier versions of a warband, from the server's automatic
 // snapshots of the account (one at most every 20 min, 40 kept). Restoring
 // replaces this warband only — every other warband stays as it is. Also
@@ -18805,9 +18839,9 @@ const bootTimeout=new Promise(resolve=>setTimeout(resolve,1500));
 const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands()]);
 costAffectingLoadsReady.then(()=>renderCurrentRoute());
 if(hasStoredAccountSession){
-  Promise.race([Promise.all([bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();});
+  Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();});
 }else{
-  Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();bootstrapAccountSession();});
+  Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();if(!/^\/share\//.test(location.pathname))bootstrapAccountSession();});
 }
 loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadTrophyLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());

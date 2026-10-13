@@ -555,3 +555,13 @@ CREATE TABLE IF NOT EXISTS user_data_history (
   saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS user_data_history_user_saved ON user_data_history(user_id,saved_at DESC);
+
+-- V-SHARE: read-only share links for one warband (revocable).
+CREATE TABLE IF NOT EXISTS warband_shares (
+  token TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  roster_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS warband_shares_user ON warband_shares(user_id);

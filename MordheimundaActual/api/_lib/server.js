@@ -498,6 +498,25 @@ app.get('/api/account/history/:id',requireDb,auth,async(req,res,next)=>{try{cons
 app.get('/api/admin/support/:userId/history',requireDb,auth,requireAdmin,async(req,res,next)=>{try{res.json({snapshots:await historyList(req.params.userId)})}catch(e){next(e)}});
 app.get('/api/admin/support/:userId/history/:id',requireDb,auth,requireAdmin,async(req,res,next)=>{try{const h=await historyGet(req.params.userId,req.params.id);if(!h)return res.status(404).json({error:'NOT_FOUND'});res.json(h)}catch(e){next(e)}});
 
+// V-SHARE: a player can share one warband as a read-only link. The public
+// endpoint returns only that warband plus the player's custom content (so
+// custom fighters/equipment display), never their other warbands.
+app.get('/api/account/shares',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT token,roster_id,created_at FROM warband_shares WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC',[req.user.user_id]);res.json({shares:q.rows.map(r=>({token:r.token,rosterId:r.roster_id,createdAt:r.created_at}))})}catch(e){next(e)}});
+app.post('/api/account/shares',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  const rosterId=String(req.body?.rosterId||'').slice(0,120);if(!rosterId)return res.status(400).json({error:'INVALID_ROSTER'});
+  try{const ex=await pool.query('SELECT token FROM warband_shares WHERE user_id=$1 AND roster_id=$2 AND revoked_at IS NULL LIMIT 1',[req.user.user_id,rosterId]);
+    if(ex.rowCount)return res.json({token:ex.rows[0].token,rosterId});
+    const token=crypto.randomBytes(12).toString('base64url');await pool.query('INSERT INTO warband_shares(token,user_id,roster_id) VALUES($1,$2,$3)',[token,req.user.user_id,rosterId]);res.status(201).json({token,rosterId})}catch(e){next(e)}});
+app.delete('/api/account/shares/:token',requireDb,requireSameOrigin,auth,async(req,res,next)=>{try{await pool.query('UPDATE warband_shares SET revoked_at=NOW() WHERE token=$1 AND user_id=$2 AND revoked_at IS NULL',[req.params.token,req.user.user_id]);res.json({ok:true})}catch(e){next(e)}});
+app.get('/api/shared/:token',requireDb,async(req,res,next)=>{
+  if(!/^[A-Za-z0-9_-]{8,40}$/.test(req.params.token))return res.status(404).json({error:'NOT_FOUND'});
+  try{const q=await pool.query('SELECT s.roster_id,u.username,d.payload FROM warband_shares s JOIN users u ON u.id=s.user_id LEFT JOIN user_data d ON d.user_id=s.user_id WHERE s.token=$1 AND s.revoked_at IS NULL',[req.params.token]);
+    if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    const p=q.rows[0].payload||{};const roster=(Array.isArray(p.rosters)?p.rosters:[]).find(r=>String(r?.id)===String(q.rows[0].roster_id));
+    if(!roster)return res.status(404).json({error:'NOT_FOUND'});
+    const out={rosters:[roster],active:roster.id};for(const [k,v] of Object.entries(p))if(/^custom/.test(k))out[k]=v;
+    res.setHeader('Cache-Control','no-store');res.json({owner:q.rows[0].username,rosterId:roster.id,payload:out})}catch(e){next(e)}});
+
 // V-EXPORT: full backup for an admin, fetched part by part (one table page
 // per request keeps every response small) and assembled into one file by
 // the browser. Never includes password hashes, sessions or reset tokens.
