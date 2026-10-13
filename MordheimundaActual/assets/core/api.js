@@ -142,6 +142,8 @@
   adminSetHomeEvent:p=>request('/api/admin/home/event',{method:'PUT',body:JSON.stringify(p)}),
   /* V-QUESTS: quest library (public read, admin write). */
   quests:()=>request('/api/quests'),
+  trophies:()=>request('/api/trophies'),
+  adminSaveTrophies:library=>request('/api/admin/trophies',{method:'PUT',body:JSON.stringify({library})}),
   adminQuestsBackup:()=>request('/api/admin/quests/backup'),adminSaveQuests:(library,expectedUpdatedAt=null)=>request('/api/admin/quests',{method:'PUT',body:JSON.stringify({library,expectedUpdatedAt})}),
   adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),
   adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'}),

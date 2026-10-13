@@ -4766,7 +4766,7 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 /* V-GREATQUEST */
 .gq{margin:22px 0 26px}.gq-intro{color:var(--muted2,#9a9);font-size:12px;margin:-4px 0 12px}
 .gq-card{border:1px solid #c9a24a66;background:linear-gradient(180deg,#c9a24a14,#0000 60%);border-radius:10px;padding:14px 16px;margin-bottom:12px}
-.gq-card.done{border-color:#e8c25a;box-shadow:0 0 0 1px #e8c25a55,0 0 22px #e8c25a22}
+.gq-card.done{border-color:#e8c25a}
 .gq-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.gq-name{font-family:Georgia,serif;font-size:19px;color:#ecd9a0}
 .gq-chip{font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:20px;border:1px solid #fff3;color:#ccc}
 .gq-chip.prog{border-color:#99d65d77;color:#b7e88a}.gq-chip.win{background:#e8c25a;color:#1a1408;border-color:#e8c25a;font-weight:700}
@@ -4802,7 +4802,7 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
 .hub-table tr.gq-won td:first-child{border-left:2px solid #e8c25a}.hub-table tr.gq-won td:last-child{border-right:2px solid #e8c25a}
 .gq-won-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:5px}.gq-won-line i{font-size:11px;color:#ecd9a0}
 .gq-won-badge{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#1a1408;background:#e8c25a;border-radius:20px;padding:2px 8px;font-weight:700;white-space:nowrap}
-.gq-trophy-big{font-size:17px;margin-right:6px;filter:drop-shadow(0 0 6px #e8c25a88)}
+.gq-trophy-big{margin-right:6px;vertical-align:middle}
 .campaign-member.gq-won{border:2px solid #e8c25a;background:linear-gradient(90deg,#e8c25a22,#e8c25a08)}
 .campaign-member .gq-won-line{grid-column:1/-1;margin-top:0}
 /* Standings numbers never break letter by letter */
@@ -4820,3 +4820,16 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
   .hub-table td:nth-child(2){min-width:0;word-break:normal;overflow-wrap:anywhere}
   .hub-table .gq-trophy-big{font-size:15px;margin-right:4px}
 }
+
+/* V-TROPHIES */
+.trophy-img{object-fit:contain;vertical-align:middle;display:inline-block}
+.trophy-emoji{line-height:1;vertical-align:middle;display:inline-block}
+.gq-trophy-inline{margin-right:5px}
+.trophy-admin-grid{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0}
+.trophy-admin-item{width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.trophy-admin-item input{width:100%;min-width:0}.trophy-admin-item small{text-align:center;color:var(--muted)}
+.trophy-admin-pic{width:80px;height:80px;display:grid;place-items:center;background:repeating-conic-gradient(#ffffff0d 0 25%,#0000 0 50%) 0 0/14px 14px;border-radius:8px}
+.gq-trophy-pick{display:flex;flex-wrap:wrap;gap:8px}
+.gq-tp{width:56px;height:56px;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--panel2);cursor:pointer;padding:4px}
+.gq-tp.on{border:2px solid #e8c25a}
+.trophy-admin-item input{background:var(--panel,#111);color:var(--text,#eee);border:1px solid var(--line,#333);border-radius:6px;padding:6px 8px;font:12px system-ui,sans-serif}
