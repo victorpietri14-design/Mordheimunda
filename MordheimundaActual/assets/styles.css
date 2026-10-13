@@ -4784,3 +4784,13 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
 .gq-sub{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:18px}
 .gq-banner{display:flex;gap:12px;align-items:center;border:1px solid #e8c25a;background:#e8c25a18;border-radius:10px;padding:10px 14px;margin-bottom:12px;color:#ecd9a0;font-size:13px}.gq-banner b{font-size:15px}
 .gq-trophy{font-size:.8em}
+@media (max-width:640px){
+  .gq-card{position:relative;padding:12px}
+  .gq-head{padding-right:64px;gap:6px 8px}
+  .gq-head>span[style*="flex:1"]{display:none}
+  .gq-head>.button{position:absolute;top:10px;right:10px;padding:5px 8px;min-height:0;font-size:10px}
+  .gq-name{font-size:17px}
+  .gq-steps li{padding:7px 8px;gap:8px;font-size:12.5px}
+  .gq-count{gap:4px}
+  .gq-sub{flex-wrap:wrap}
+}
