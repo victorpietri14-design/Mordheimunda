@@ -474,6 +474,47 @@ app.post('/api/account/sessions/revoke-others',requireDb,requireSameOrigin,auth,
 const toInt=v=>{const n=typeof v==='string'?parseInt(v,10):v;return Number.isInteger(n)?n:null;};
 app.get('/api/account/data',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT schema_version,payload,revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{schema_version:4,payload:{rosters:[],active:null},revision:1,updated_at:null})}catch(e){next(e)}});
 app.get('/api/account/data/revision',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{revision:1,updated_at:null})}catch(e){next(e)}});
+// V-HISTORY: automatic warband history. Before a save overwrites an
+// account's data, the current payload is kept as a snapshot (at most one
+// every 20 minutes, the 40 newest per account) with a small per-warband
+// summary, so a player — or an admin viewing the account — can bring one
+// warband back as it was. A snapshot failure never blocks the save.
+const HISTORY_EVERY_MS=20*60*1000,HISTORY_KEEP=40;
+async function snapshotUserData(userId){
+  try{
+    const last=await pool.query('SELECT saved_at FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT 1',[userId]);
+    if(last.rowCount&&Date.now()-new Date(last.rows[0].saved_at).getTime()<HISTORY_EVERY_MS)return;
+    const cur=await pool.query('SELECT payload,revision::int AS revision FROM user_data WHERE user_id=$1',[userId]);if(!cur.rowCount)return;
+    const p=cur.rows[0].payload||{};if(!Array.isArray(p.rosters)||!p.rosters.length)return; // nothing to restore yet
+    const summary={rosters:(Array.isArray(p.rosters)?p.rosters:[]).map(r=>({id:String(r?.id??''),name:String(r?.name||'').slice(0,120),factionId:String(r?.factionId||'').slice(0,120),fighters:Array.isArray(r?.fighters)?r.fighters.length:0,gold:Number(r?.gold||0)||0,reputation:Number(r?.reputation||0)||0}))};
+    await pool.query('INSERT INTO user_data_history(id,user_id,revision,payload,summary,saved_at) VALUES($1,$2,$3,$4,$5,NOW())',[crypto.randomUUID(),userId,cur.rows[0].revision,JSON.stringify(p),JSON.stringify(summary)]);
+    await pool.query('DELETE FROM user_data_history WHERE user_id=$1 AND id NOT IN (SELECT id FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT $2)',[userId,HISTORY_KEEP]);
+  }catch(e){console.error('history snapshot',e)}
+}
+const historyList=async userId=>(await pool.query('SELECT id,revision::int AS revision,summary,saved_at FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT $2',[userId,HISTORY_KEEP])).rows.map(r=>({id:r.id,revision:r.revision,savedAt:r.saved_at,rosters:r.summary?.rosters||[]}));
+const historyGet=async(userId,id)=>{if(!/^[0-9a-f-]{36}$/i.test(String(id)))return null;const q=await pool.query('SELECT id,payload,saved_at FROM user_data_history WHERE user_id=$1 AND id=$2',[userId,id]);return q.rows[0]?{id:q.rows[0].id,savedAt:q.rows[0].saved_at,payload:q.rows[0].payload}:null};
+app.get('/api/account/history',requireDb,auth,async(req,res,next)=>{try{res.json({snapshots:await historyList(req.user.user_id)})}catch(e){next(e)}});
+app.get('/api/account/history/:id',requireDb,auth,async(req,res,next)=>{try{const h=await historyGet(req.user.user_id,req.params.id);if(!h)return res.status(404).json({error:'NOT_FOUND'});res.json(h)}catch(e){next(e)}});
+app.get('/api/admin/support/:userId/history',requireDb,auth,requireAdmin,async(req,res,next)=>{try{res.json({snapshots:await historyList(req.params.userId)})}catch(e){next(e)}});
+app.get('/api/admin/support/:userId/history/:id',requireDb,auth,requireAdmin,async(req,res,next)=>{try{const h=await historyGet(req.params.userId,req.params.id);if(!h)return res.status(404).json({error:'NOT_FOUND'});res.json(h)}catch(e){next(e)}});
+
+// V-EXPORT: full backup for an admin, fetched part by part (one table page
+// per request keeps every response small) and assembled into one file by
+// the browser. Never includes password hashes, sessions or reset tokens.
+const EXPORT_TABLES={users:5,official_warbands:20,catalog_overrides:20,weapon_overrides:200,rule_nav_groups:200,faction_race_tags:200,race_stat_maximums:200,faction_categories:200,faction_category_members:500,rule_overrides:50,magic_domain_overrides:100,spell_weapon_profile_overrides:200,campaigns:20,campaign_members:200,campaign_markets:20,campaign_trades:200,campaign_battles:100,scenarios:20,deployment_maps:5,site_news:200,site_settings:20,rule_images:5,friendships:500,user_data_history:0};
+app.get('/api/admin/export',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  const table=String(req.query.table||'');const offset=Math.max(0,Number(req.query.offset)||0);
+  if(!table)return res.json({tables:Object.entries(EXPORT_TABLES).filter(([,n])=>n>0).map(([t,n])=>({table:t,pageSize:n}))});
+  const limit=EXPORT_TABLES[table];if(!limit)return res.status(400).json({error:'UNKNOWN_TABLE'});
+  try{
+    const q=table==='users'
+      ?await pool.query('SELECT u.id,u.username,u.email,u.created_at,d.payload,d.revision::int AS revision,d.updated_at FROM users u LEFT JOIN user_data d ON d.user_id=u.id ORDER BY u.created_at,u.id LIMIT $1 OFFSET $2',[limit,offset])
+      :await pool.query(`SELECT * FROM ${table} ORDER BY 1 LIMIT $1 OFFSET $2`,[limit,offset]);
+    const rows=q.rows.map(r=>{const o={};for(const [k,v] of Object.entries(r))o[k]=Buffer.isBuffer(v)?{base64:v.toString('base64')}:v;return o});
+    res.json({table,offset,rows,done:rows.length<limit});
+  }catch(e){next(e)}
+});
+
 app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
@@ -498,7 +539,7 @@ app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)
     // of an overwrite.
     const q=expectedRevision===null
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.user.user_id,payload])
-      :await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.user.user_id,expectedRevision]);
+      :(await snapshotUserData(req.user.user_id),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.user.user_id,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
   }catch(e){next(e)}
@@ -1830,7 +1871,7 @@ app.put('/api/admin/support/:userId/data',requireDb,requireSameOrigin,auth,requi
     const expectedRevision=toInt(req.body?.expectedRevision);
     const q=expectedRevision===null
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.params.userId,payload])
-      :await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.params.userId,expectedRevision]);
+      :(await snapshotUserData(req.params.userId),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.params.userId,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
     await pool.query('INSERT INTO admin_support_access_log(id,admin_id,target_user_id,action) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),req.user.user_id,req.params.userId,'edit']);
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});

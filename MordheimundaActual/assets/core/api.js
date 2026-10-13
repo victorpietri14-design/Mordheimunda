@@ -143,6 +143,11 @@
   /* V-QUESTS: quest library (public read, admin write). */
   quests:()=>request('/api/quests'),
   trophies:()=>request('/api/trophies'),
+  accountHistory:()=>request('/api/account/history'),
+  accountHistoryGet:id=>request('/api/account/history/'+encodeURIComponent(id)),
+  adminSupportHistory:uid=>request('/api/admin/support/'+encodeURIComponent(uid)+'/history'),
+  adminSupportHistoryGet:(uid,id)=>request('/api/admin/support/'+encodeURIComponent(uid)+'/history/'+encodeURIComponent(id)),
+  adminExport:(table,offset=0)=>request('/api/admin/export'+(table?`?table=${encodeURIComponent(table)}&offset=${Number(offset)||0}`:'')),
   adminSaveTrophies:library=>request('/api/admin/trophies',{method:'PUT',body:JSON.stringify({library})}),
   adminQuestsBackup:()=>request('/api/admin/quests/backup'),adminSaveQuests:(library,expectedUpdatedAt=null)=>request('/api/admin/quests',{method:'PUT',body:JSON.stringify({library,expectedUpdatedAt})}),
   adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),

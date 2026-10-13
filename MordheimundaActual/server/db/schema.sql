@@ -543,3 +543,15 @@ CREATE TABLE IF NOT EXISTS rule_images (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- V-HISTORY: automatic snapshots of an account's data (see snapshotUserData
+-- in server.js) so a single warband can be restored as it was.
+CREATE TABLE IF NOT EXISTS user_data_history (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  revision BIGINT,
+  payload JSONB NOT NULL,
+  summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS user_data_history_user_saved ON user_data_history(user_id,saved_at DESC);
