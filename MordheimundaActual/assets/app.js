@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0616.0';
+const APP_BUILD='110.0617.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7602,7 +7602,7 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
   // so reordering here is enough; nothing else needs to read a separate
   // "position" field.
   const reorderBtns=reorder?`<div class="dash-wcard-reorder"><button type="button" class="dash-wcard-move" title="${en?'Move up':'Monter'}" aria-label="${en?'Move up':'Monter'}" ${reorder.index<=0?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',-1)">▲</button><button type="button" class="dash-wcard-move" title="${en?'Move down':'Descendre'}" aria-label="${en?'Move down':'Descendre'}" ${reorder.index>=reorder.total-1?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',1)">▼</button></div>`:'';
-  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
+  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}${greatQuestAchieved(r).length?` <span class="gq-trophy" title="${esc((en?'Great Quest achieved: ':'Grande Quête accomplie : ')+greatQuestAchieved(r).map(q=>q.name).join(', '))}">🏆</span>`:''}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
 function moveRosterOrder(id,dir){
   const idx=state.rosters.findIndex(r=>r.id===id);if(idx<0)return;
   const to=idx+dir;if(to<0||to>=state.rosters.length)return;
@@ -14851,6 +14851,63 @@ function eyeOfTheGodsStep(r){
   }
   return `<details class="postbattle-step"${postBattleStep0Open?' open':''} ontoggle="postBattleStep0Open=this.open"><summary><span><b>STEP 0</b> ${en?'Eye of the Gods':'Œil des Dieux'} <small>${en?'Mark of Chaos or Spawn of Chaos for the leader':'Marque du Chaos ou Rejeton du Chaos pour le leader'}</small></span><i>⌄</i></summary><div class="postbattle-step-body">${body}</div></details>`;
 }
+// V-GREATQUEST: a warband's Great Quests — campaign objectives agreed with
+// its player. Completing one (every step ticked) means the warband has
+// achieved its campaign. Written/edited by an admin only (from the player's
+// warband via admin viewing); the player sees them and ticks the steps.
+// Stored on the player's own roster (per player, not per warband type):
+// r.greatQuests=[{id,main,name,text,rewards,steps:[{id,text,target,count,
+// done}],achievedAt}]. One main quest = the win condition; any number of
+// secondary ones. Rewards are plain text, applied by hand.
+function greatQuestList(r){return Array.isArray(r?.greatQuests)?r.greatQuests:[]}
+function greatQuestStepDone(st){return Number(st?.target)>0?Number(st.count||0)>=Number(st.target):!!st?.done}
+function greatQuestProgress(q){const steps=q?.steps||[];const n=steps.filter(greatQuestStepDone).length;return {n,total:steps.length,achieved:steps.length>0&&n===steps.length}}
+function greatQuestMain(r){return greatQuestList(r).find(q=>q.main)||null}
+// The win condition: the main Great Quest completed.
+function greatQuestAchieved(r){const m=greatQuestMain(r);return m&&greatQuestProgress(m).achieved?[m]:[]}
+function greatQuestSync(q){const a=greatQuestProgress(q).achieved;if(a&&!q.achievedAt)q.achievedAt=new Date().toISOString();if(!a&&q.achievedAt)q.achievedAt=null}
+function greatQuestsMarkup(r){
+  const en=siteLanguage==='en';const qs=greatQuestList(r);const admin=isAdminSession();
+  if(!qs.length&&!admin)return '';
+  const done=greatQuestAchieved(r);
+  const card=(q,qi)=>{const pr=greatQuestProgress(q);const pct=pr.total?Math.round(pr.n/pr.total*100):0;const rewards=String(q.rewards||'').split('\n').map(x=>x.trim()).filter(Boolean);
+    return `<div class="gq-card${pr.achieved?' done':''}"><div class="gq-head"><span class="gq-name">${esc(q.name||'—')}</span>${pr.achieved?`<span class="gq-chip win">🏆 ${en?'Achieved':'Accomplie'}${q.achievedAt?` · ${esc(new Date(q.achievedAt).toLocaleDateString(en?'en-GB':'fr-FR'))}`:''}</span>`:`<span class="gq-chip prog">${en?'In progress':'En cours'} · ${pr.n} / ${pr.total}</span>`}${admin?`<span style="flex:1"></span><button type="button" class="button secondary small" onclick="openGreatQuestEditor(${qi})">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
+    ${q.text?`<div class="gq-flav">${esc(q.text)}</div>`:''}
+    ${pr.total?`<div class="gq-bar"><i style="width:${pct}%"></i></div><ul class="gq-steps">${(q.steps||[]).map((st,si)=>{const ok=greatQuestStepDone(st);const t=Number(st.target)>0;return `<li class="${ok?'ok':''}">${t?`<span class="gq-ck">${ok?'✓':''}</span>`:`<button type="button" class="gq-ck" aria-pressed="${ok}" onclick="greatQuestToggleStep(${qi},${si})">${ok?'✓':''}</button>`}<span class="t">${esc(st.text||'')}</span>${t?`<span class="gq-count"><button type="button" onclick="greatQuestCount(${qi},${si},-1)" aria-label="−">−</button><b>${Number(st.count||0)} / ${Number(st.target)}</b><button type="button" onclick="greatQuestCount(${qi},${si},1)" aria-label="+">＋</button></span>`:''}</li>`}).join('')}</ul>`:''}
+    ${rewards.length?`<div class="gq-rew"><small>${pr.achieved?(en?'Unlocked':'Débloqué'):(en?'Rewards':'Récompenses')}</small>${rewards.map(x=>`<span class="gq-r${pr.achieved?' got':''}">${esc(x)}</span>`).join('')}</div>`:''}</div>`};
+  const main=qs.map((q,qi)=>({q,qi})).filter(e=>e.q.main).slice(0,1);const sec=qs.map((q,qi)=>({q,qi})).filter(e=>!main.some(m=>m.qi===e.qi));
+  const add=(isMain,label)=>admin?`<a class="rb-manage-link" href="javascript:void(0)" onclick="openGreatQuestEditor(-1,${isMain})">＋ ${label}</a>`:'';
+  return `<section class="gq"><div class="rb-section-head"><h4>⚜ ${en?'Great Quests':'Grandes Quêtes'}</h4>${main.length?'':add(true,en?'Add the main Great Quest':'Ajouter la Grande Quête principale')}</div>
+  <p class="gq-intro">${en?'This warband’s campaign objectives, agreed with its player. Completing the <b>main</b> Great Quest is the win condition: the warband has achieved its campaign. Secondary Great Quests bring their own rewards. Tick the steps as you go.':'Les objectifs de campagne de cette bande, convenus avec son joueur. Accomplir la Grande Quête <b>principale</b> est la condition de victoire : la bande a réussi sa campagne. Les Grandes Quêtes secondaires apportent leurs propres récompenses. Coche les étapes au fur et à mesure.'}</p>
+  ${done.length?`<div class="gq-banner">🏆 <span><b>${en?'Campaign achieved':'Campagne réussie'}</b><br>${esc(r.name||'')} ${en?'completed':'a accompli'} <i>${esc(done[0].name||'')}</i>.</span></div>`:''}
+  ${main.length?`<div class="gq-label gq-main">♛ ${en?'Main — win condition':'Principale — condition de victoire'}</div>${main.map(e=>card(e.q,e.qi)).join('')}`:`<div class="rb-empty">${en?'No main Great Quest yet.':'Pas encore de Grande Quête principale.'}</div>`}
+  <div class="gq-sub"><div class="gq-label">${en?'Secondary Great Quests':'Grandes Quêtes secondaires'} <small>${sec.length}</small></div>${add(false,en?'Add a secondary Great Quest':'Ajouter une Grande Quête secondaire')}</div>
+  ${sec.length?sec.map(e=>card(e.q,e.qi)).join(''):`<div class="rb-empty">${en?'No secondary Great Quest.':'Aucune Grande Quête secondaire.'}</div>`}</section>`;
+}
+function greatQuestToggleStep(qi,si){const r=activeRoster();const q=greatQuestList(r)[qi];const st=q?.steps?.[si];if(!st)return;st.done=!st.done;greatQuestSync(q);save(true);render('builder')}
+function greatQuestCount(qi,si,d){const r=activeRoster();const q=greatQuestList(r)[qi];const st=q?.steps?.[si];if(!st)return;st.count=Math.max(0,Math.min(999,Number(st.count||0)+d));greatQuestSync(q);save(true);render('builder')}
+// Admin editor — steps one per line; "| 20" at the end makes a counted step.
+function openGreatQuestEditor(qi,asMain){
+  if(!isAdminSession())return;const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const q=qi>=0?greatQuestList(r)[qi]:null;
+  const isMain=q?!!q.main:(asMain===undefined?!greatQuestMain(r):!!asMain);
+  const steps=(q?.steps||[]).map(st=>Number(st.target)>0?`${st.text} | ${st.target}`:st.text).join('\n');
+  openModal(`<div class="admin-live-editor"><div class="eyebrow">${en?'GREAT QUEST':'GRANDE QUÊTE'} · ${esc(r.name||'')}</div><h2>${q?(en?'Edit the Great Quest':'Modifier la Grande Quête'):(en?'New Great Quest':'Nouvelle Grande Quête')}</h2>
+  <label class="custom-check"><input type="checkbox" id="gqMain" ${isMain?'checked':''}> <span><b>${en?'Main Great Quest — win condition':'Grande Quête principale — condition de victoire'}</b><small>${en?'Only one per warband: ticking it here makes any other main quest secondary.':'Une seule par bande : la cocher ici rend secondaire l’ancienne principale.'}</small></span></label>
+  <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="gqName" value="${esc(q?.name||'')}"></label>
+  <label class="custom-field wide"><span>${en?'Story / description':'Histoire / description'}</span><textarea id="gqText" rows="3">${esc(q?.text||'')}</textarea></label>
+  <label class="custom-field wide"><span>${en?'Steps — one per line. End a line with “| 20” to count it (0 / 20)':'Étapes — une par ligne. Termine une ligne par « | 20 » pour la compter (0 / 20)'}</span><textarea id="gqSteps" rows="5">${esc(steps)}</textarea></label>
+  <label class="custom-field wide"><span>${en?'Rewards — one per line (applied by hand)':'Récompenses — une par ligne (à appliquer à la main)'}</span><textarea id="gqRewards" rows="3">${esc(q?.rewards||'')}</textarea></label>
+  <div class="custom-actions">${q?`<button type="button" class="button danger-outline" onclick="deleteGreatQuest(${qi})">🗑 ${en?'Delete':'Supprimer'}</button>`:''}<span style="flex:1"></span><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveGreatQuest(${qi})">${en?'Save':'Enregistrer'}</button></div></div>`)}
+function saveGreatQuest(qi){
+  if(!isAdminSession())return;const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const v=id=>document.getElementById(id)?.value||'';
+  const name=v('gqName').trim();if(!name)return toast(en?'Give it a name':'Donne-lui un nom');
+  const old=qi>=0?greatQuestList(r)[qi]:null;const oldSteps=old?.steps||[];
+  // Keep a step's progress when its text is unchanged (matched by text).
+  const steps=v('gqSteps').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(.*?)\s*\|\s*(\d+)\s*$/);const text=(m?m[1]:l).trim();const target=m?Math.min(999,Number(m[2])):0;const prev=oldSteps.find(o=>normName(o.text)===normName(text));return {id:prev?.id||'gs-'+crypto.randomUUID().slice(0,8),text,target,count:prev?Math.min(Number(prev.count||0),target||Infinity):0,done:target?false:!!prev?.done}});
+  const main=!!document.getElementById('gqMain')?.checked;const q={id:old?.id||'gq-'+crypto.randomUUID().slice(0,8),main,name,text:v('gqText').trim(),rewards:v('gqRewards').trim(),steps,achievedAt:old?.achievedAt||null};greatQuestSync(q);
+  if(!Array.isArray(r.greatQuests))r.greatQuests=[];if(main)r.greatQuests.forEach(o=>{o.main=false});if(old)r.greatQuests[qi]=q;else r.greatQuests.push(q);
+  save(true);closeModal();render('builder');toast(en?'Great Quest saved':'Grande Quête enregistrée')}
+function deleteGreatQuest(qi){const en=siteLanguage==='en';const r=activeRoster();const q=greatQuestList(r)[qi];if(!q||!isAdminSession())return;if(!confirm(en?`Delete “${q.name}”?`:`Supprimer « ${q.name} » ?`))return;r.greatQuests.splice(qi,1);save(true);closeModal();render('builder')}
 function warbandRulesView(r){
   const en=siteLanguage==='en';
   const f=faction(r);
@@ -14880,6 +14937,7 @@ function warbandRulesView(r){
   return `<div class="roster-toolbar"><div><div class="eyebrow">${en?'WARBAND':'BANDE'}</div><h3>${en?'Warband Rules':'Règles de bande'}</h3><p>${en?'General rules that apply to the warband as a whole, plus your own notes for this band.':'Règles générales qui s’appliquent à l’ensemble de la bande, ainsi que tes propres notes pour cette bande.'}</p></div></div>
   ${warbandChoicesSummaryMarkup(r)}
   ${factionRulesBlock}
+  ${greatQuestsMarkup(r)}
   <div class="rb-section-head"><h4>${en?'Selected rules':'Règles sélectionnées'}</h4>${manageLink}</div>
   ${rulesBlock}
   ${defaultSkillsBlock}
