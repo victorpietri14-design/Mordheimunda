@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0623.0';
+const APP_BUILD='110.0624.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2150,9 +2150,10 @@ async function flushAdminForeignSave(){
     if(adminForeignSaveAgain&&!adminForeignRetryTimer)queueAdminForeignSave(1000);
   }
 }
-async function enterAdminForeignSession(userId){
+async function enterAdminForeignSession(userId,rosterId){
   const en=siteLanguage==='en';
   try{
+    if(adminViewingUserId&&String(adminViewingUserId)!==String(userId)){await flushAdminForeignSave?.();exitAdminForeignSession()}
     const {user,data}=await window.MordheimundaAPI.adminSupportView(userId);
     // Stash this admin's own last-saved state exactly as MordheimundaStorage
     // holds it (not the live `state` object, which may carry pending edits
@@ -2166,7 +2167,7 @@ async function enterAdminForeignSession(userId){
     adminViewingRevision=data?.revision??null;
     adminForeignRetryAttempt=0;adminForeignSaveAgain=false;
     state=window.MordheimundaMigrations.migrate(data?.payload||{rosters:[],active:null});
-    navigateApp('/warbands');
+    if(rosterId&&(state.rosters||[]).some(r=>String(r.id)===String(rosterId))){state.active=rosterId;gangTab='roster';navigateApp(warbandPath(rosterId))}else navigateApp('/warbands');
     toast(en?`Viewing ${user.username}’s warbands — edits save to their account`:`Consultation des bandes de ${user.username} — les modifications s’enregistrent sur son compte`);
   }catch(e){toast(authError(e,en));}
 }
@@ -11220,6 +11221,14 @@ function campaignBattleTally(cid){const out={};(campaignBattlesCache.get(cid)||[
 // V-GQSTANDINGS: a warband whose main Great Quest is complete (sent in its
 // campaign stats as stats.greatQuest) gets a gold row + 🏆 in Standings.
 function standingWonMarkup(m){const n=m?.stats?.greatQuest;if(!n)return '';const en=siteLanguage==='en';return `<div class="gq-won-line"><span class="gq-won-badge">★ ${en?'Objective achieved':'Objectif accompli'}</span><i>${esc(n)}</i></div>`}
+// V-ADMINOPENWB: as an admin, a warband's name in the campaign Standings
+// opens that player's warband directly (admin viewing of their account, the
+// same as Admin → Support) — no need to search for the player elsewhere.
+function standingNameMarkup(m,label){const nm=label??esc(m.rosterName||'—');if(!isAdminSession()||!m?.userId||!m?.rosterId)return nm;const en=siteLanguage==='en';return `<a href="javascript:void(0)" class="standing-open" title="${en?`Open ${esc(m.username||'this player')}’s warband`:`Ouvrir la bande de ${esc(m.username||'ce joueur')}`}" onclick="event.preventDefault();event.stopPropagation();openPlayerWarband('${esc(m.userId)}','${esc(m.rosterId)}')">${nm} <span class="standing-open-ic" aria-hidden="true">↗</span></a>`}
+async function openPlayerWarband(userId,rosterId){if(!isAdminSession())return;const me=accountSession()?.id;
+  if(me&&String(me)===String(userId)&&!adminViewingUserId){if((state.rosters||[]).some(r=>String(r.id)===String(rosterId))){state.active=rosterId;gangTab='roster';navigateApp(warbandPath(rosterId))}return}
+  if(adminViewingUserId&&String(adminViewingUserId)===String(userId)){if((state.rosters||[]).some(r=>String(r.id)===String(rosterId))){state.active=rosterId;gangTab='roster';navigateApp(warbandPath(rosterId))}else toast(siteLanguage==='en'?'This warband is no longer in the player’s account':'Cette bande n’est plus dans le compte du joueur');return}
+  await enterAdminForeignSession(userId,rosterId)}
 function standingShortLabel(l){l=String(l||'');return l.length>7?l.slice(0,3)+'.':l}
 function campaignMembersWithTally(c){const t=campaignBattleTally(c.id);return (c.members||[]).filter(m=>!m.leftAt).map(m=>{const x=t[m.rosterId]||{w:0,d:0,l:0,points:0,battles:0};return {...m,stats:{...(m.stats||{}),points:x.points,wins:x.w,battles:x.battles},tally:x}})}
 // --- market price rule: each identical copy already held by the campaign's
@@ -11249,7 +11258,7 @@ function hubOverviewMarkup(c){
   const en=siteLanguage==='en';const admin=isAdminEditUI();const d=c.definition||{};const sk=campaignStandingKey(c);const r=hubRoster(c);
   const members=campaignMembersWithTally(c).sort((a,b)=>campaignStandingValue(b,sk)-campaignStandingValue(a,sk));
   const battles=(campaignBattlesCache.get(c.id)||[]).filter(b=>b.status==='confirmed').slice(0,4);
-  const standings=`<section class="hub-panel"><div class="hub-panel-head"><h2>${en?'Standings':'Classement'}</h2><small>${en?'Ranked by':'Classé par'} ${esc(campaignStandingLabel(sk))}</small></div>${members.length?`<div class="rule-table-wrap"><table class="rule-table hub-table"><tr><th>#</th><th>${en?'Warband':'Bande'}</th><th class="hub-num"><span class="th-long">${esc(campaignStandingLabel(sk))}</span><span class="th-short">${esc(standingShortLabel(campaignStandingLabel(sk)))}</span></th><th class="hub-num">${en?'W-D-L':'V-N-D'}</th><th class="hub-num">${en?'Value':'Valeur'}</th></tr>${members.map((m,i)=>`<tr class="${r&&m.rosterId===r.id?'mine':''}${m.stats?.greatQuest?' gq-won':''}"${m.stats?.greatQuest?` style="--gqc:${gqColor(m.stats.greatQuestColor)}"`:''}><td class="hub-pos${i===0?' first':''}">${i+1}</td><td>${m.stats?.greatQuest?trophyMarkup(m.stats.greatQuestTrophy,30,'gq-trophy-big'):''}<b>${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small>${standingWonMarkup(m)}</td><td class="hub-val hub-num">${campaignStandingValue(m,sk)} ${esc(campaignStandingUnit(sk))}</td><td class="hub-num">${m.tally.w}-${m.tally.d}-${m.tally.l}</td><td class="hub-num">${m.stats?.rating!=null?`${Number(m.stats.rating)} <span class="hub-gc">GC</span>`:'—'}</td></tr>`).join('')}</table></div>`:`<p class="muted">${en?'No warband yet.':'Aucune bande pour l’instant.'}</p>`}</section>`;
+  const standings=`<section class="hub-panel"><div class="hub-panel-head"><h2>${en?'Standings':'Classement'}</h2><small>${en?'Ranked by':'Classé par'} ${esc(campaignStandingLabel(sk))}</small></div>${members.length?`<div class="rule-table-wrap"><table class="rule-table hub-table"><tr><th>#</th><th>${en?'Warband':'Bande'}</th><th class="hub-num"><span class="th-long">${esc(campaignStandingLabel(sk))}</span><span class="th-short">${esc(standingShortLabel(campaignStandingLabel(sk)))}</span></th><th class="hub-num">${en?'W-D-L':'V-N-D'}</th><th class="hub-num">${en?'Value':'Valeur'}</th></tr>${members.map((m,i)=>`<tr class="${r&&m.rosterId===r.id?'mine':''}${m.stats?.greatQuest?' gq-won':''}"${m.stats?.greatQuest?` style="--gqc:${gqColor(m.stats.greatQuestColor)}"`:''}><td class="hub-pos${i===0?' first':''}">${i+1}</td><td>${m.stats?.greatQuest?trophyMarkup(m.stats.greatQuestTrophy,30,'gq-trophy-big'):''}<b>${standingNameMarkup(m)}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small>${standingWonMarkup(m)}</td><td class="hub-val hub-num">${campaignStandingValue(m,sk)} ${esc(campaignStandingUnit(sk))}</td><td class="hub-num">${m.tally.w}-${m.tally.d}-${m.tally.l}</td><td class="hub-num">${m.stats?.rating!=null?`${Number(m.stats.rating)} <span class="hub-gc">GC</span>`:'—'}</td></tr>`).join('')}</table></div>`:`<p class="muted">${en?'No warband yet.':'Aucune bande pour l’instant.'}</p>`}</section>`;
   const last=`<section class="hub-panel"><div class="hub-panel-head"><h2>${en?'Last battles':'Dernières batailles'}</h2><button type="button" class="button secondary small" onclick="setHubTab('battles')">${en?'All battles':'Toutes les batailles'} →</button></div>${battles.length?battles.map(hubBattleLine).join(''):`<p class="muted">${en?'No battle recorded yet.':'Aucune bataille enregistrée.'}</p>`}</section>`;
   const events=(Array.isArray(d.events)?d.events:[]);
   const ev=`<section class="hub-panel hub-events"><div class="hub-panel-head"><h2>${en?'Events':'Événements'}</h2>${admin?`<button type="button" class="button secondary small" onclick="openHubEventEditor('${esc(c.id)}','')">＋ ${en?'Event':'Événement'}</button>`:''}</div>${events.length?events.map(e=>`<div class="hub-event"><div class="hub-event-head"><b>${esc(e.title)}</b>${e.when?`<span>${esc(e.when)}</span>`:''}${admin?`<button type="button" class="rule-edit-btn" onclick="openHubEventEditor('${esc(c.id)}','${esc(e.id)}')">✎</button>`:''}</div>${e.text?`<div class="hub-event-text">${ruleTextMarkup(e.text,{noTitle:true})}</div>`:''}</div>`).join(''):`<p class="muted">${en?'No event right now.':'Aucun événement pour l’instant.'}</p>`}</section>`;
@@ -12683,7 +12692,7 @@ function campaignView(r){
     const col=campaignColor(c||r.campaignColor);const sk=campaignStandingKey(c);const members=(c?.members||[]).filter(m=>!m.leftAt).slice().sort((a,b)=>campaignStandingValue(b,sk)-campaignStandingValue(a,sk));
     return `<div class="campaign-hub" style="--cc:${col}"><div class="roster-toolbar"><div><div class="eyebrow">${en?'CAMPAIGN':'CAMPAGNE'}</div><h3>${esc(c?.name||r.campaignName||'')}</h3><p>${en?'Residence, standings and campaign rules.':'Résidence, classement et règles de la campagne.'}</p></div><div class="roster-toolbar-actions"><button type="button" class="button primary campaign-btn" onclick="hubRosterId='${esc(r.id)}';navigateApp('/campaigns/${encodeURIComponent(r.campaignId)}')">▶ ${en?'My Campaign':'Ma campagne'}</button><button type="button" class="button secondary" onclick="navigateApp('/rules/campaign/${encodeURIComponent(r.campaignId)}')">${en?'Rules':'Règles'}</button><button type="button" class="button secondary" onclick="openLeaveCampaign('${esc(r.id)}')">${en?'Withdraw':'Retirer'}</button></div></div>
      ${c?campaignActiveMarkup(c):''}${c?campaignScenarioRollMarkup(r,c):''}${c?campaignResidenceMarkup(r,c):''}${c&&c.definition?.settlements?.length?auctionMarkup(r,c):''}
-     <h4 class="campaign-h3">${en?'Standings':'Classement'} <small class="muted">· ${esc(campaignStandingLabel(sk))}</small></h4>${c?(members.length?`<div class="campaign-members">${members.map((m,i)=>`<div class="campaign-member${m.rosterId===r.id?' mine':''}${m.stats?.greatQuest?' gq-won':''}"${m.stats?.greatQuest?` style="--gqc:${gqColor(m.stats.greatQuestColor)}"`:''}><b>${i+1}. ${m.stats?.greatQuest?trophyMarkup(m.stats.greatQuestTrophy,22,'gq-trophy-inline'):''}${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small>${standingWonMarkup(m)}<span><b class="standing-val">${campaignStandingValue(m,sk)} ${esc(campaignStandingUnit(sk))}</b>${sk!=='rating'&&m.stats?.rating!=null?` · ${Number(m.stats.rating)} GC`:''}${sk!=='reputation'&&m.stats?.reputation!=null?` · ${en?'Rep.':'Rép.'} ${Number(m.stats.reputation)}`:''}</span></div>`).join('')}</div>`:`<p class="muted">—</p>`):`<p class="muted">${en?'Loading…':'Chargement…'}</p>`}</div>`;
+     <h4 class="campaign-h3">${en?'Standings':'Classement'} <small class="muted">· ${esc(campaignStandingLabel(sk))}</small></h4>${c?(members.length?`<div class="campaign-members">${members.map((m,i)=>`<div class="campaign-member${m.rosterId===r.id?' mine':''}${m.stats?.greatQuest?' gq-won':''}"${m.stats?.greatQuest?` style="--gqc:${gqColor(m.stats.greatQuestColor)}"`:''}><b>${i+1}. ${m.stats?.greatQuest?trophyMarkup(m.stats.greatQuestTrophy,22,'gq-trophy-inline'):''}${standingNameMarkup(m)}</b><small>${esc(m.faction||'')}${m.username?` · ${esc(m.username)}`:''}</small>${standingWonMarkup(m)}<span><b class="standing-val">${campaignStandingValue(m,sk)} ${esc(campaignStandingUnit(sk))}</b>${sk!=='rating'&&m.stats?.rating!=null?` · ${Number(m.stats.rating)} GC`:''}${sk!=='reputation'&&m.stats?.reputation!=null?` · ${en?'Rep.':'Rép.'} ${Number(m.stats.reputation)}`:''}</span></div>`).join('')}</div>`:`<p class="muted">—</p>`):`<p class="muted">${en?'Loading…':'Chargement…'}</p>`}</div>`;
   }
   if(campaignsCache===null)loadCampaignList('builder');
   const list=(campaignsCache||[]);
