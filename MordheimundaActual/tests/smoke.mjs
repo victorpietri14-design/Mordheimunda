@@ -80,6 +80,14 @@ await test('[desktop] campaign post-battle: dice result goes to the Treasure sto
   await btn.click();await page.waitForTimeout(400);
   expect(await page.evaluate(()=>Number(activeRoster().wyrdstone||0))>0,'Treasure stock did not increase');
 });
+await test('[desktop] French: a Rules side-menu group stays in French when opened',null,async page=>{
+  await page.evaluate(()=>{localStorage.setItem(SITE_LANGUAGE_KEY,'fr');siteLanguage='fr';i18nNeedsFullPass=true;navigateApp('/rules')});
+  await page.waitForTimeout(800);
+  const head=page.locator('#rulesNavSidebar .rn-head').first();expect(await head.count(),'no Rules side-menu group');
+  await head.click();await page.waitForTimeout(600);
+  const txt=await page.evaluate(()=>document.getElementById('rulesNavSidebar').innerText);
+  expect(!/First Principles|Measurement|Line of Sight/.test(txt),'opened group shows English titles: '+txt.slice(0,160));
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);
