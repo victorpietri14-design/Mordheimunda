@@ -549,18 +549,25 @@ app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req
     const q=await pool.query('SELECT hash,translated FROM translations WHERE target_lang=$1 AND hash=ANY($2)',[target,keys]);
     const have=new Map(q.rows.map(r=>[r.hash,r.translated]));
     const missing=[];texts.forEach((t,i)=>{if(have.has(keys[i]))out[t]=have.get(keys[i]);else if(!missing.includes(t))missing.push(t)});
-    const provider=translateProvider();
+    const provider=translateProvider();let capped=false;
     if(missing.length&&provider){
       // Services refuse oversized requests (Google: a few thousand characters
       // per call), which used to fail a whole page at once. Send small
       // chunks; if a chunk still fails, retry its texts one by one.
       const chunks=[];let cur=[],size=0;for(const t of missing){if(cur.length&&(cur.length>=25||size+t.length>4000)){chunks.push(cur);cur=[];size=0}cur.push(t);size+=t.length}if(cur.length)chunks.push(cur);
       const store=async(src,t)=>{if(typeof t!=='string')return;out[src]=t;await pool.query('INSERT INTO translations(hash,target_lang,source,translated) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[key(src),target,src,t])};
-      for(const chunk of chunks){const done=await translateWith(provider,chunk,{html,target});
+      // V-TRANSLATECAP: never go past the free allowance — count what is
+      // sent per day and stop once the daily or monthly cap is reached.
+      const usage=async()=>{const q=await pool.query("SELECT COALESCE(SUM(chars) FILTER (WHERE day=CURRENT_DATE),0)::int AS d, COALESCE(SUM(chars) FILTER (WHERE date_trunc('month',day)=date_trunc('month',CURRENT_DATE)),0)::int AS m FROM translation_usage WHERE day>=date_trunc('month',CURRENT_DATE)");return q.rows[0]};
+      const spend=async n=>{await pool.query('INSERT INTO translation_usage(day,chars) VALUES(CURRENT_DATE,$1) ON CONFLICT(day) DO UPDATE SET chars=translation_usage.chars+EXCLUDED.chars',[n])};
+      const canSend=async n=>{const u=await usage();return u.d+n<=config.translateDailyCharLimit&&u.m+n<=config.translateMonthlyCharLimit};
+      const send=async list=>{const n=list.reduce((a,t)=>a+t.length,0);if(!(await canSend(n))){capped=true;return null}await spend(n);return translateWith(provider,list,{html,target})};
+      for(const chunk of chunks){if(capped)break;const done=await send(chunk);
         if(done){for(let i=0;i<chunk.length;i++)await store(chunk[i],done[i])}
-        else if(chunk.length>1){for(const one of chunk){const d=await translateWith(provider,[one],{html,target});if(d)await store(one,d[0])}}}
+        else if(chunk.length>1&&!capped){for(const one of chunk){if(capped)break;const d=await send([one]);if(d)await store(one,d[0])}}}
+      if(capped)console.warn('Translation cap reached — no new texts sent today/this month');
     }
-    res.json({translations:out,enabled:!!translateProvider()});
+    res.json({translations:out,enabled:!!translateProvider(),capped});
   }catch(e){next(e)}
 });
 

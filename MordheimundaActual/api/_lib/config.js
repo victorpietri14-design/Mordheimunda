@@ -33,6 +33,11 @@ export const config={
   // Microsoft Translator (AZURE_TRANSLATOR_KEY + AZURE_TRANSLATOR_REGION) is
   // a fallback. Without a key nothing is translated. *_URL only for tests.
   googleTranslateApiKey:process.env.GOOGLE_TRANSLATE_API_KEY||'',
+  // Hard caps on characters sent for translation (Google's free allowance
+  // is 500,000 a month): beyond them the site simply stops sending new texts
+  // until the next day / month; texts already translated stay available.
+  translateDailyCharLimit:Math.max(0,Number(process.env.TRANSLATE_DAILY_CHAR_LIMIT||15000)),
+  translateMonthlyCharLimit:Math.max(0,Number(process.env.TRANSLATE_MONTHLY_CHAR_LIMIT||450000)),
   googleTranslateApiUrl:process.env.GOOGLE_TRANSLATE_API_URL||'',
   azureTranslatorKey:process.env.AZURE_TRANSLATOR_KEY||'',
   azureTranslatorRegion:process.env.AZURE_TRANSLATOR_REGION||'',

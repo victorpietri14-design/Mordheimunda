@@ -580,3 +580,10 @@ CREATE TABLE IF NOT EXISTS translations (
 -- overwritten by the service).
 ALTER TABLE translations ADD COLUMN IF NOT EXISTS edited_by UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE translations ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+
+-- V-TRANSLATECAP: characters sent to the translation service, per day, so the
+-- site never goes past the service's free allowance (see /api/translate).
+CREATE TABLE IF NOT EXISTS translation_usage (
+  day DATE PRIMARY KEY,
+  chars INTEGER NOT NULL DEFAULT 0
+);
