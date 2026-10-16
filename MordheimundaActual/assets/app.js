@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0637.0';
+const APP_BUILD='110.0638.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2064,6 +2064,7 @@ async function resolveCloudConflictAndRetry(){
     state=window.MordheimundaStorage.save(state);
     scheduleRemoteRerender();
     const saved=await window.MordheimundaAPI.saveData(state,remoteRevision);
+    if(foreignStateOpen())return;
     state.meta.cloudRevision=saved.revision;
     state.meta.cloudDirty=false;
     window.MordheimundaStorage.save(state);
@@ -2071,6 +2072,7 @@ async function resolveCloudConflictAndRetry(){
     cloudSaveAgain=false;
     clearCloudError();
   }catch(e){
+    if(foreignStateOpen())return;
     console.warn('Cloud conflict resolution failed',e);
     recordCloudError('resolveCloudConflictAndRetry',e);
     cloudSaveAgain=true;
@@ -2098,6 +2100,16 @@ async function resolveCloudConflictAndRetry(){
    save()'s write side (see save(), pollCloudRevision()) away from this
    admin's own storage/cloud and into adminSupportSaveData for that account. */
 let adminViewingUserId=null,adminViewingUserInfo=null,adminViewingRevision=null,adminOwnStateSnapshot=null;
+// V-ADMINLEAK: one lock on every write to THIS account's own storage/cloud.
+// While an admin views a player (or anyone opens a shared warband), `state`
+// is someone else's data; a late async step (a sync started just before,
+// "Force sync", a re-login…) must never write it to this device or this
+// account. Each path already checks, but this catches the ones that don't.
+const foreignStateOpen=()=>!!(adminViewingUserId||sharedViewToken);
+(function(){const S=window.MordheimundaStorage,rawSave=S.save,rawImport=S.importData;
+  S.save=v=>foreignStateOpen()?v:rawSave(v);
+  S.importData=raw=>{if(foreignStateOpen())throw new Error('FOREIGN_VIEW_OPEN');return rawImport(raw)};
+  const A=window.MordheimundaAPI;if(A?.saveData){const rawSaveData=A.saveData;A.saveData=(d,rev)=>foreignStateOpen()?Promise.reject(Object.assign(new Error('FOREIGN_VIEW_OPEN'),{status:0})):rawSaveData(d,rev)}})();
 let adminForeignSaveTimer=null,adminForeignSaveBusy=false,adminForeignSaveAgain=false,adminForeignRetryTimer=null,adminForeignRetryAttempt=0;
 function queueAdminForeignSave(delay=0){
   if(!adminViewingUserId)return;
@@ -2187,6 +2199,7 @@ function exitAdminForeignSession(){
   if(cloudIsSignedIn())startCloudPolling();
   navigateApp('/account');
 }
+async function leaveForeignState(){if(adminViewingUserId){try{await flushAdminForeignSave()}catch(e){}exitAdminForeignSession()}if(sharedViewToken){state=sharedOwnStateSnapshot||window.MordheimundaStorage.load();sharedOwnStateSnapshot=null;sharedViewToken=null;sharedViewRosterId=null;sharedViewOwner='';sharedLoadingToken=null;try{updateSharedBanner()}catch(e){}}}
 function updateAdminForeignBanner(){
   let el=document.getElementById('adminForeignBanner');
   if(!adminViewingUserId){if(el)el.remove();return}
@@ -2395,6 +2408,7 @@ async function syncAccountAfterLogin(user){
   refreshAdminNavVisibility();
   try{
     const remote=await window.MordheimundaAPI.loadData();
+    if(foreignStateOpen())return false;
     const remoteData=remote?.payload||{};
     const remoteRevision=toRev(remote?.revision)??1;
     const hasLocal=Array.isArray(state.rosters)&&state.rosters.length>0;
@@ -4398,12 +4412,13 @@ async function loadAccessLog(){
 }
 function authError(e,en){const m={INVALID_USERNAME:en?'Username: 3–24 letters, numbers, _ or -.':'Nom d’utilisateur : 3 à 24 caractères, lettres/chiffres/_/-.',INVALID_EMAIL:en?'Invalid email address.':'Adresse e-mail invalide.',INVALID_PASSWORD:en?'Password must contain 10–128 characters.':'Le mot de passe doit contenir 10 à 128 caractères.',ACCOUNT_EXISTS:en?'Username or email already in use.':'Nom d’utilisateur ou e-mail déjà utilisé.',SAME_EMAIL:en?'This is already your current email.':'C’est déjà ton adresse e-mail actuelle.',NOT_AUTHENTICATED:en?'Your session has expired — please sign in again.':'Ta session a expiré — reconnecte-toi.',INVALID_CREDENTIALS:en?'Incorrect login or password.':'Identifiants incorrects.',RECOVERY_UNAVAILABLE:en?'Recovery service is temporarily unavailable.':'Le service de récupération est temporairement indisponible.',DATABASE_NOT_CONFIGURED:en?'Online account service is not configured on this server.':'Le service de compte en ligne n’est pas configuré sur ce serveur.',RATE_LIMITED:en?'Too many attempts. Please wait a few minutes.':'Trop de tentatives. Attendez quelques minutes.',API_NOT_CONFIGURED:en?'The online service is not configured.':'Le service en ligne n’est pas configuré.',INVALID_IDENTIFIER:en?'Enter an email or username.':'Renseigne un e-mail ou un pseudo.',ACCOUNT_NOT_FOUND:en?'No account matches this email/username.':'Aucun compte ne correspond à cet e-mail/pseudo.',ADMIN_REQUIRED:en?'Admins only.':'Réservé aux administrateurs.',ADMIN_LOCKED:en?'An admin has edited this warband directly since — this action is disabled here to avoid overwriting their changes. Use Admin → Manage instead.':'Un admin a modifié cette bande directement depuis — cette action est désactivée ici pour éviter d’écraser ses changements. Utilise Admin → Gérer à la place.',INTERNAL_SERVER_ERROR:en?'Server error — please try again.':'Erreur serveur — réessaie dans un instant.'};return m[e?.message]||m[e?.error]||e?.message||'Error';}
 function openAccountAuth(mode){const en=siteLanguage==='en';const signup=mode==='signup';openModal(`<div class="account-auth"><div class="eyebrow">${signup?(en?'CREATE ACCOUNT':'CRÉER UN COMPTE'):(en?'SIGN IN':'CONNEXION')}</div><h2>${signup?(en?'Create an account':'Créer un compte'):(en?'Sign in':'Se connecter')}</h2><form id="accountAuthForm" onsubmit="submitAccountAuth(event,'${mode}')"><label>${signup?(en?'Username':'Nom d’utilisateur'):(en?'Username or email':'Nom d’utilisateur ou e-mail')}<input id="authLogin" autocomplete="username" required></label>${signup?`<label>${en?'Email':'E-mail'}<input id="authEmail" type="email" autocomplete="email" required></label>`:''}<label>${en?'Password':'Mot de passe'}<input id="authPassword" type="password" autocomplete="${signup?'new-password':'current-password'}" required minlength="10"></label><div class="account-actions"><button class="button primary" type="submit">${signup?(en?'Create account':'Créer le compte'):(en?'Sign in':'Se connecter')}</button><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></form>${!signup?`<div class="account-links"><button class="text-button" onclick="openRecovery('password')">${en?'Forgot password?':'Mot de passe oublié ?'}</button><button class="text-button" onclick="openRecovery('username')">${en?'Forgot username?':'Nom d’utilisateur oublié ?'}</button></div>`:''}</div>`);}
-async function submitAccountAuth(ev,mode){ev.preventDefault();const en=siteLanguage==='en';const login=$('#authLogin')?.value.trim(),password=$('#authPassword')?.value||'';try{const user=mode==='signup'? (await window.MordheimundaAPI.register({username:login,email:$('#authEmail')?.value.trim()||'',password})).user : (await window.MordheimundaAPI.login({login,password})).user;await syncAccountAfterLogin(user);closeModal();render('account');toast(en?'Account connected':'Compte connecté');}catch(e){toast(authError(e,en));}}
+async function submitAccountAuth(ev,mode){ev.preventDefault();await leaveForeignState();const en=siteLanguage==='en';const login=$('#authLogin')?.value.trim(),password=$('#authPassword')?.value||'';try{const user=mode==='signup'? (await window.MordheimundaAPI.register({username:login,email:$('#authEmail')?.value.trim()||'',password})).user : (await window.MordheimundaAPI.login({login,password})).user;await syncAccountAfterLogin(user);closeModal();render('account');toast(en?'Account connected':'Compte connecté');}catch(e){toast(authError(e,en));}}
 function openRecovery(kind){const en=siteLanguage==='en';openModal(`<div class="account-auth"><div class="eyebrow">${kind==='password'?(en?'PASSWORD RECOVERY':'RÉCUPÉRATION DU MOT DE PASSE'):(en?'USERNAME RECOVERY':'RÉCUPÉRATION DU NOM D’UTILISATEUR')}</div><h2>${kind==='password'?(en?'Recover your account':'Récupérer votre compte'):(en?'Recover username':'Récupérer le nom d’utilisateur')}</h2><p>${en?'Enter the email linked to your account.':'Saisissez l’e-mail associé à votre compte.'}</p><form onsubmit="submitRecovery(event,'${kind}')"><label>E-mail<input id="recoveryEmail" type="email" required autocomplete="email"></label><div class="account-actions"><button class="button primary" type="submit">${en?'Send':'Envoyer'}</button><button class="button secondary" type="button" onclick="openAccountAuth('login')">${en?'Back':'Retour'}</button></div></form></div>`);}
 async function submitRecovery(ev,kind){ev.preventDefault();const en=siteLanguage==='en';try{if(kind==='password')await window.MordheimundaAPI.recoverPassword({email:$('#recoveryEmail').value.trim()});else await window.MordheimundaAPI.recoverUsername({email:$('#recoveryEmail').value.trim()});closeModal();toast(en?'If the address is registered, an email has been sent.':'Si cette adresse est enregistrée, un e-mail a été envoyé.');}catch(e){toast(authError(e,en));}}
-async function logoutAccount(){try{await window.MordheimundaAPI.logout()}catch{}stopCloudPolling();localStorage.removeItem(ACCOUNT_SESSION_KEY);refreshAdminNavVisibility();render('account');toast(siteLanguage==='en'?'Signed out':'Déconnecté');}
+async function logoutAccount(){await leaveForeignState();try{await window.MordheimundaAPI.logout()}catch{}stopCloudPolling();localStorage.removeItem(ACCOUNT_SESSION_KEY);refreshAdminNavVisibility();render('account');toast(siteLanguage==='en'?'Signed out':'Déconnecté');}
 async function syncCloudNow(){
   const en=siteLanguage==='en';
+  if(foreignStateOpen())return toast(en?'Exit the viewing mode first (banner at the top).':'Quitte d’abord le mode consultation (bandeau en haut).');
   try{
     // This used to trust `cloudDirty` to decide whether pulling-and-
     // overwriting local state was safe. That trust was misplaced two ways,
@@ -4422,6 +4437,7 @@ async function syncCloudNow(){
     // Content that only exists on this device can never be lost this way,
     // regardless of what cloudDirty claims before or after.
     const remote=await window.MordheimundaAPI.loadData();
+    if(foreignStateOpen())return;
     const remoteData=remote?.payload||{};
     const remoteRevision=toRev(remote?.revision)??1;
     // V-PLAYSESSIONLOCK: see resolveCloudConflictAndRetry — keep this
@@ -4444,8 +4460,10 @@ async function bootstrapAccountSession(){
     if(!r?.user)return;
     localStorage.setItem(ACCOUNT_SESSION_KEY,JSON.stringify(r.user));
     refreshAdminNavVisibility();
+    if(foreignStateOpen())return;
     const localDirty=!!state?.meta?.cloudDirty;
     const remote=await window.MordheimundaAPI.loadData();
+    if(foreignStateOpen())return;
     if(remote?.payload&&toRev(remote.revision)!==null){
       if(localDirty){
         // Never discard edits made while the device was temporarily offline.
