@@ -161,5 +161,7 @@
   adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),
   adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'}),
   /* V-RULEIMAGES: pictures in rule text. */
-  adminUploadRuleImage:dataUrl=>request('/api/admin/rule-images',{method:'POST',body:JSON.stringify({dataUrl})})};
+  adminUploadRuleImage:dataUrl=>request('/api/admin/rule-images',{method:'POST',body:JSON.stringify({dataUrl})}),
+  uploadMedia:dataUrl=>request('/api/media',{method:'POST',body:JSON.stringify({dataUrl})}),
+  adminConvertMedia:()=>request('/api/admin/media/convert',{method:'POST',body:'{}'})};
 })();
