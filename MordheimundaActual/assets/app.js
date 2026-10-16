@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0636.0';
+const APP_BUILD='110.0637.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4888,6 +4888,8 @@ function admin(){
       ${adminOpenCategory==='scenarios'?`<div class="admin-category-body">${adminScenariosSectionMarkup(en)}</div>`:''}
       ${adminCategoryBar('quests',en?'Manage · Quests':'Gestion · Quêtes',en?'Quest trees and XP for Heroes, Veterans and Hired Swords':'Arbres de quêtes et XP des Héros, Vétérans et Hired Swords',adminOpenCategory==='quests')}
       ${adminOpenCategory==='quests'?`<div class="admin-category-body">${adminQuestsMarkup()}</div>`:''}
+      ${adminCategoryBar('translate',en?'Automatic translation':'Traduction automatique',en?'Words never translated, usage of the free allowance':'Mots jamais traduits, consommation de la partie gratuite',adminOpenCategory==='translate')}
+      ${adminOpenCategory==='translate'?`<div class="admin-category-body">${adminTranslateMarkup()}</div>`:''}
       ${adminCategoryBar('backup',en?'Backup · Export everything':'Sauvegarde · Tout exporter',en?'One file with everything created on the site':'Un fichier avec tout ce qui a été créé sur le site',adminOpenCategory==='backup')}
       ${adminOpenCategory==='backup'?`<div class="admin-category-body">${adminBackupMarkup()}</div>`:''}
       ${adminCategoryBar('trophies',en?'Manage · Trophies':'Gestion · Trophées',en?'Pictures for completed Great Quests in campaign Standings':'Images des Grandes Quêtes accomplies dans le Classement de campagne',adminOpenCategory==='trophies')}
@@ -15079,6 +15081,19 @@ async function restoreWarbandVersion(snapId,rosterId){
   save();closeModal();navigateApp(warbandPath(copy.id));toast(en?'Warband restored':'Bande restaurée')}
 // V-EXPORT: Admin → Backup — every table, page by page, into one JSON file.
 let exportBusy=false;
+// V-MTEXCLUDE admin: words never translated + this month's usage.
+let mtAdminData=null,mtAdminLoading=false;
+async function loadMtAdmin(){if(mtAdminLoading)return;mtAdminLoading=true;try{mtAdminData=await window.MordheimundaAPI.adminTranslateSettings()}catch(e){mtAdminData={error:authError(e,siteLanguage==='en')}}finally{mtAdminLoading=false;render('admin')}}
+function adminTranslateMarkup(){const en=siteLanguage==='en';if(!mtAdminData){loadMtAdmin();return `<div class="card admin-card"><p class="muted">${en?'Loading…':'Chargement…'}</p></div>`}if(mtAdminData.error)return `<div class="card admin-card"><p class="muted">${esc(mtAdminData.error)}</p></div>`;
+  const u=mtAdminData.usage||{};const pct=(a,b)=>b?Math.min(100,Math.round(a/b*100)):0;
+  return `<div class="card admin-card"><div class="eyebrow">${en?'AUTOMATIC TRANSLATION':'TRADUCTION AUTOMATIQUE'}</div>
+  ${mtAdminData.enabled?'':`<p class="custom-field-help">⚠ ${en?'No translation key on the server (GOOGLE_TRANSLATE_API_KEY): automatic translation is off.':'Aucune clé de traduction sur le serveur (GOOGLE_TRANSLATE_API_KEY) : la traduction automatique est éteinte.'}</p>`}
+  <div class="mt-usage"><div><b>${en?'Today':'Aujourd’hui'}</b><span>${(u.today||0).toLocaleString()} / ${(u.dailyLimit||0).toLocaleString()} ${en?'characters':'caractères'}</span><i style="--p:${pct(u.today,u.dailyLimit)}%"></i></div><div><b>${en?'This month':'Ce mois-ci'}</b><span>${(u.month||0).toLocaleString()} / ${(u.monthlyLimit||0).toLocaleString()} ${en?'characters':'caractères'}</span><i style="--p:${pct(u.month,u.monthlyLimit)}%"></i></div><div><b>${en?'Texts in memory':'Textes en mémoire'}</b><span>${(mtAdminData.cached||0).toLocaleString()}</span></div></div>
+  <label class="custom-field wide"><span>${en?'Words never translated — one per line (game terms, names…)':'Mots jamais traduits — un par ligne (termes de jeu, noms…)'}</span><textarea id="mtTerms" rows="8" placeholder="Warband&#10;Wyrdstone&#10;Hired Sword">${esc((mtAdminData.terms||[]).join('\n'))}</textarea></label>
+  <p class="custom-field-help">${en?'Whole words, capitals ignored. When you add a word, the texts that contain it are translated again (your own corrections are kept).':'Mots entiers, majuscules ignorées. Quand tu ajoutes un mot, les textes qui le contiennent sont retraduits (tes propres corrections sont conservées).'}</p>
+  <div class="custom-actions"><button type="button" class="button primary" onclick="saveMtExclusions()">${en?'Save':'Enregistrer'}</button></div></div>`}
+async function saveMtExclusions(){const en=siteLanguage==='en';const terms=String(document.getElementById('mtTerms')?.value||'').split('\n').map(t=>t.trim()).filter(Boolean);
+  try{const r=await window.MordheimundaAPI.adminSaveTranslateExclusions(terms);mtCache.clear();mtAdminData=null;render('admin');toast(en?`Saved — ${r.cleared||0} text(s) will be translated again`:`Enregistré — ${r.cleared||0} texte(s) seront retraduits`)}catch(e){toast(authError(e,en))}}
 async function adminExportAll(){
   const en=siteLanguage==='en';if(exportBusy)return;exportBusy=true;render('admin');
   try{const out={app:'Mordheimunda',build:typeof APP_BUILD!=='undefined'?APP_BUILD:'',exportedAt:new Date().toISOString(),tables:{}};
