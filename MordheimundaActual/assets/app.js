@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0640.0';
+const APP_BUILD='110.0641.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -109,6 +109,7 @@ let lastRenderedRoutePath=null;
 function navTabForView(view){return (view==='builder'||view==='fighter')?'rosters':(view==='rulesWarbandDetail')?'rulesWarbands':(view==='scenarioDetail'||view==='underdogBonus')?'scenarios':(view==='campaignDetail')?'rulesCampaign':(view==='campaignHub')?'myCampaigns':view}
 let lastNavTab=null;
 function renderCurrentRoute(){
+  try{cloudPollSoon()}catch(e){}
   const route=applyRouteState(parseAppRoute());
   const tab=navTabForView(route.view);
   // Some pages keep a "which sub-panel am I in" state that has no URL of its
@@ -2325,6 +2326,14 @@ function applyRemoteData(remoteData,remoteRevision,{announce=false}={}){
   scheduleRemoteRerender();
   if(announce)toast(siteLanguage==='en'?'Synced from your other device':'Synchronisé depuis votre autre appareil');
 }
+// V-POLLQUOTA: no more timed background check (it ran every 3 s on every
+// signed-in device, open or idle, and alone used up the host's free monthly
+// quota). The check now runs only on activity: opening the app, coming back
+// to it, changing page — at most once per CLOUD_POLL_GAP. Saves still go out
+// at once. A local, network-free tick still repaints a pending remote update
+// once the player stops typing.
+const CLOUD_POLL_GAP=30000;let cloudPollActive=false,cloudPollLastAt=0;
+function cloudPollSoon(force=false){if(!cloudPollActive)return;if(!force&&Date.now()-cloudPollLastAt<CLOUD_POLL_GAP)return;pollCloudRevision()}
 async function pollCloudRevision(){
   // A background pull must never win a race against this device's own
   // push: if a save is in flight, queued, or there are local edits not yet
@@ -2339,7 +2348,7 @@ async function pollCloudRevision(){
   // would otherwise silently replace the player's roster being edited with
   // this admin's own warbands mid-session).
   if(adminViewingUserId||sharedViewToken||!cloudIsSignedIn()||document.hidden||cloudPollBusy||cloudSaveBusy||hasUnsavedLocalEdits())return;
-  cloudPollBusy=true;
+  cloudPollBusy=true;cloudPollLastAt=Date.now();
   try{
     const r=await window.MordheimundaAPI.dataRevision();
     // V-ADMINFORFEIGNRACE: enterAdminForeignSession() is itself async (it
@@ -2375,10 +2384,11 @@ async function pollCloudRevision(){
 }
 function startCloudPolling(){
   stopCloudPolling();
-  pollCloudRevision();
-  cloudPollTimer=setInterval(pollCloudRevision,3000);
+  cloudPollActive=true;
+  cloudPollSoon(true);
+  cloudPollTimer=setInterval(()=>{if(pendingRemoteRerender&&!isEditingField()&&!document.hidden){pendingRemoteRerender=false;const y=window.scrollY||window.pageYOffset||0;render(currentViewName(),{history:false});requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'}))}},3000);
 }
-function stopCloudPolling(){if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null}}
+function stopCloudPolling(){cloudPollActive=false;if(cloudPollTimer){clearInterval(cloudPollTimer);cloudPollTimer=null}}
 // These triggers used to unconditionally push this tab's in-memory `state`
 // to the server (flushCloudSave/queueCloudSave) whenever the tab regained
 // focus, came back online, or was closed — even when this tab had no local
@@ -2400,9 +2410,9 @@ const hasUnsavedLocalEdits=()=>!!state?.meta?.cloudDirty;
 // These ambient triggers now defer to a retry/backoff already in flight
 // instead of restarting it.
 const hasPendingCloudRetry=()=>cloudSaveBusy||!!cloudRetryTimer;
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollCloudRevision()});
-window.addEventListener('online',()=>{pollCloudRevision();if(cloudIsSignedIn()&&hasUnsavedLocalEdits()&&!hasPendingCloudRetry())flushCloudSave();});
-window.addEventListener('focus',()=>{pollCloudRevision();if(cloudIsSignedIn()&&hasUnsavedLocalEdits()&&!hasPendingCloudRetry())queueCloudSave();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)cloudPollSoon()});
+window.addEventListener('online',()=>{cloudPollSoon(true);if(cloudIsSignedIn()&&hasUnsavedLocalEdits()&&!hasPendingCloudRetry())flushCloudSave();});
+window.addEventListener('focus',()=>{cloudPollSoon();if(cloudIsSignedIn()&&hasUnsavedLocalEdits()&&!hasPendingCloudRetry())queueCloudSave();});
 window.addEventListener('pagehide',()=>{if(cloudIsSignedIn()&&hasUnsavedLocalEdits()&&!hasPendingCloudRetry())flushCloudSave();});
 async function syncAccountAfterLogin(user){
   localStorage.setItem(ACCOUNT_SESSION_KEY,JSON.stringify(user));
