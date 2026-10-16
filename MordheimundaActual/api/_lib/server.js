@@ -77,6 +77,10 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // V-POLLQUOTA: overall cap per visitor on every API route, so one stuck tab
 // or runaway loop can never burn through the host's monthly free quota.
 app.use('/api/',rateLimit({windowMs:10*60*1000,max:600,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
+// V-SYNCLOOP: whole-account uploads are the heaviest requests (megabytes
+// each with images); a client stuck saving in a loop is cut off quickly.
+const dataPutLimiter=rateLimit({windowMs:10*60*1000,max:120,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+app.put('/api/account/data',dataPutLimiter);app.put('/api/admin/support/:userId/data',dataPutLimiter);
 app.use('/api/auth/',rateLimit({windowMs:15*60*1000,max:30,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/account/',rateLimit({windowMs:60*1000,max:120,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/admin/',rateLimit({windowMs:60*1000,max:60,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));

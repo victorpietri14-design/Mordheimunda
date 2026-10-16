@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0641.0';
+const APP_BUILD='110.0642.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1954,6 +1954,17 @@ function save(silent=false){try{const ar=typeof activeRoster==='function'?active
   queueCloudSave();
   if(!silent)toast(siteLanguage==='en'?'Data saved':'Données sauvegardées');
 }
+// V-SYNCLOOP: automatic corrections the app makes on its own while drawing a
+// page (re-syncing a fighter with the admin's current profile, War Trophies…)
+// must never be pushed to the cloud by themselves. Pushed, each open device
+// "corrected" the account, sent it whole, the other device pulled it,
+// corrected it its own way and sent it back — every few seconds, megabytes
+// each way (this used up the host's free monthly transfer in hours). They are
+// now kept on this device only and travel with the player's next real save.
+function saveLocalOnly(){
+  if(adminViewingUserId||sharedViewToken)return; // in memory only: never pushed to the viewed account
+  try{state=window.MordheimundaStorage.save(state)}catch(e){}
+}
 let cloudSaveTimer=null,cloudSaveBusy=false,cloudSaveAgain=false,cloudRetryTimer=null,cloudRetryAttempt=0;
 // Not persisted (deliberately — it's diagnostic, not app data): the most
 // recent sync failure, so it's visible in the account page's diagnostics
@@ -1971,8 +1982,14 @@ function cloudIsSignedIn(){return !!accountSession();}
 // next tick after the action, so the transmission is driven by the action
 // itself, not by a timer. (delay is still accepted for the rare caller that
 // wants to coalesce several back-to-back mutations, e.g. drag interactions.)
+const cloudPushTimes=[];
 function queueCloudSave(delay=0){
   if(!cloudIsSignedIn())return;
+  // V-SYNCLOOP: several changes within ~1.5 s go out as one upload, and if
+  // something keeps saving non-stop (over 40 uploads in 5 min) uploads slow
+  // down to one every 20 s instead of flooding the server.
+  const now=Date.now();while(cloudPushTimes.length&&now-cloudPushTimes[0]>5*60*1000)cloudPushTimes.shift();
+  delay=Math.max(delay,cloudPushTimes.length>40?20000:1500);
   clearTimeout(cloudSaveTimer);
   clearTimeout(cloudRetryTimer);
   cloudSaveTimer=setTimeout(flushCloudSave,Math.max(0,delay));
@@ -2004,7 +2021,7 @@ async function flushCloudSave(){
   // up and re-pushes it once the admin exits the foreign session.
   if(adminViewingUserId||sharedViewToken)return;
   if(cloudSaveBusy){cloudSaveAgain=true;return}
-  cloudSaveBusy=true;
+  cloudSaveBusy=true;cloudPushTimes.push(Date.now());
   // Pin down which state object this push is actually for. adminViewingUserId
   // can still flip true while saveData() is awaiting the network below (the
   // guard above only covers the moment this call started) — checking that
@@ -2116,7 +2133,7 @@ function queueAdminForeignSave(delay=0){
   if(!adminViewingUserId)return;
   clearTimeout(adminForeignSaveTimer);
   clearTimeout(adminForeignRetryTimer);
-  adminForeignSaveTimer=setTimeout(flushAdminForeignSave,Math.max(0,delay));
+  adminForeignSaveTimer=setTimeout(flushAdminForeignSave,Math.max(1500,delay));
 }
 async function flushAdminForeignSave(){
   if(!adminViewingUserId)return;
@@ -2777,7 +2794,7 @@ function activeRoster(){
   // rewriting (e.g. equipmentAccessGroups "ALL" vs []) used to re-mark the
   // roster dirty on every call and recurse save→activeRoster→save until the
   // stack overflowed — warband pages then failed to open. Never re-enter.
-  if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;if(!__arRetroSaving){__arRetroSaving=true;try{save(true);}catch(e){console.warn('Admin retroactive sync save skipped',e);}finally{__arRetroSaving=false}}}
+  if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;if(!__arRetroSaving){__arRetroSaving=true;try{saveLocalOnly();}catch(e){console.warn('Admin retroactive sync save skipped',e);}finally{__arRetroSaving=false}}}
   // save() replaces `state` with a fresh copy, so hand back that copy's
   // roster — callers that edit the returned object (e.g. drag-reorder
   // setting r.fighters) would otherwise write to a detached object and lose
@@ -12816,7 +12833,8 @@ function campaignStandingUnit(k){return {points:'pts',wins:'',rating:'GC',gold:'
 function campaignStandingValue(m,k){const st=m?.stats||{};return k==='artifacts'?(Array.isArray(st.artifacts)?st.artifacts.length:0):Number(st[k]||0)}
 async function setCampaignStandings(cid,k){if(!CAMPAIGN_STANDING_KEYS.includes(k))return;await saveCampaignDefinition(cid,def=>{def.standings=k})}
 // The warband's public line in the campaign (name, value, reputation…).
-function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),items:rosterItemCounts(r),residence:r.campaignResidence||null,greatQuest:greatQuestAchieved(r)[0]?.name||null,greatQuestTrophy:greatQuestAchieved(r)[0]?.trophy||null,greatQuestColor:greatQuestAchieved(r)[0]?gqColor(greatQuestAchieved(r)[0].color):null};const sig=JSON.stringify([r.name,stats]);if(!force&&r.campaignStatsSent===sig)return;r.campaignStatsSent=sig;window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{});try{save(true)}catch(e){}}
+function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),items:rosterItemCounts(r),residence:r.campaignResidence||null,greatQuest:greatQuestAchieved(r)[0]?.name||null,greatQuestTrophy:greatQuestAchieved(r)[0]?.trophy||null,greatQuestColor:greatQuestAchieved(r)[0]?gqColor(greatQuestAchieved(r)[0].color):null};const sig=JSON.stringify([r.name,stats]);if(!force&&campaignStatsSentLocal.get(r.id)===sig)return;campaignStatsSentLocal.set(r.id,sig);window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{})}
+const campaignStatsSentLocal=new Map();
 // Warband → Campaign tab.
 function campaignView(r){
   const en=siteLanguage==='en';
@@ -14813,7 +14831,7 @@ function fixImmuneWarTrophies(){
     const had=(x.customEquipmentStatMods||[]).some(m=>m.index===1&&normName(m.itemId)==='war trophies');
     if(had&&fighterIsImmuneToPsychology(x)){syncCustomEquipmentEffects(x);changed=true}
   }))}catch(e){console.warn('War Trophies fix skipped',e)}
-  if(changed){try{save(true)}catch(e){}}
+  if(changed)saveLocalOnly();
   return changed;
 }
 function standardEquipmentStatEffects(w,x){
