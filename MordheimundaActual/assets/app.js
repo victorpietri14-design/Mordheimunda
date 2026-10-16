@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0645.0';
+const APP_BUILD='110.0646.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12358,7 +12358,13 @@ function saveCampaignListLocal(){try{localStorage.setItem(CAMP_LS,JSON.stringify
 function campaignDetailCached(id){if(campaignDetailCache.has(id))return campaignDetailCache.get(id);try{const v=JSON.parse(localStorage.getItem(CAMP_LS_DETAIL+id)||'null');if(v&&(v.status==='published'||isAdminSession())){Map.prototype.set.call(campaignDetailCache,id,v);return v}}catch(e){}return null}
 function loadCampaignList(view){campaignLoad('list',async()=>{const api=window.MordheimundaAPI;const admin=isAdminSession();const [r,a]=await Promise.all([api.campaigns(),admin?api.adminCampaigns().catch(()=>null):Promise.resolve(null)]);const before=JSON.stringify([campaignsCache,adminCampaignsCache]);campaignsCache=Array.isArray(r?.campaigns)?r.campaigns:[];if(a)adminCampaignsCache=Array.isArray(a?.campaigns)?a.campaigns:[];if(!admin)adminCampaignsCache=null;campaignListStale=false;saveCampaignListLocal();if(JSON.stringify([campaignsCache,adminCampaignsCache])!==before)campaignRerender(view)})}
 function loadCampaignDetail(id,view){campaignLoad('c:'+id,async()=>{let c=null;if(isAdminSession()){try{c=(await window.MordheimundaAPI.adminCampaign(id))?.campaign}catch(e){}}if(!c){try{c=(await window.MordheimundaAPI.campaign(id))?.campaign}catch(e){}}const prev=campaignDetailCache.get(id)||campaignDetailCached(id);if(!c&&prev&&!prev.missing){campaignDetailFresh.add(id);return}const before=JSON.stringify(prev||null);campaignDetailCache.set(id,c||{missing:true});campaignDetailFresh.add(id);if(JSON.stringify(c||{missing:true})!==before)campaignRerender(view)})}
-function loadMyCampaignEntries(view){campaignLoad('mine',async()=>{try{const r=await window.MordheimundaAPI.myCampaignEntries();myCampaignEntriesCache=Array.isArray(r?.entries)?r.entries:[]}catch(e){myCampaignEntriesCache=[]}
+function loadMyCampaignEntries(view){campaignLoad('mine',async()=>{
+  // V-CAMPKEEP: only a real answer from the server may change which campaign a
+  // warband is in. A failed request (site paused, offline, rate limit…) used
+  // to count as "in no campaign" and detached every warband from its campaign.
+  let r;try{r=await window.MordheimundaAPI.myCampaignEntries()}catch(e){campaignRerender(view);return}
+  if(!Array.isArray(r?.entries)){campaignRerender(view);return}
+  myCampaignEntriesCache=r.entries;
   // Keep each local warband's campaign link in step with the server (joins
   // made on another device, a campaign deleted meanwhile…).
   let changed=false;(state.rosters||[]).forEach(r=>{const e=myCampaignEntriesCache.find(x=>x.rosterId===r.id&&!x.leftAt);const want=e?e.campaignId:null;if((r.campaignId||null)!==want){r.campaignId=want;r.campaignName=e?.campaignName||null;r.campaignColor=e?.campaignColor||null;changed=true}});
