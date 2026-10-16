@@ -4854,3 +4854,12 @@ span.gq-ck{cursor:default}.gq-steps li.ok .gq-ck{background:#c9a24a}.gq-steps li
 .shared-banner{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:9px 16px;background:#13283a;border-bottom:1px solid #2e5878;color:#cfe6f7;font-size:12.5px}
 .share-link-row{display:flex;gap:8px;margin:12px 0}.share-link-row input{flex:1;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12.5px 'IBM Plex Mono',monospace}
 body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.shared-view .recruit-panel,body.shared-view .custom-add,body.shared-view .fighter-page-actions,body.shared-view .equipment-add-block{display:none!important}
+
+/* V-MTEDIT */
+.mt-done{position:relative}
+.mt-edit{display:none;margin-left:6px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:6px;font-size:11px;line-height:1;padding:2px 5px;cursor:pointer;vertical-align:middle}
+.mt-done:hover>.mt-edit,.mt-edit:focus{display:inline-block}
+@media (hover:none){.mt-edit{display:inline-block}}
+.mt-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0}@media (max-width:640px){.mt-cols{grid-template-columns:1fr}}
+.mt-src,.mt-box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:80px;max-height:50vh;overflow:auto;font-size:13px;line-height:1.5;background:var(--panel2)}
+.mt-src{color:var(--muted)}.mt-box{color:var(--text);outline:none}.mt-box:focus{border-color:var(--accent)}

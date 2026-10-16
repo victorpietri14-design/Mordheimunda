@@ -576,3 +576,7 @@ CREATE TABLE IF NOT EXISTS translations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (hash,target_lang)
 );
+-- V-MTEDIT: an admin's hand correction of a machine translation (kept, never
+-- overwritten by the service).
+ALTER TABLE translations ADD COLUMN IF NOT EXISTS edited_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE translations ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;

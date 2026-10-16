@@ -526,6 +526,18 @@ async function translateWith(provider,texts,{html,target}){
   return null;
 }
 const translateLimiter=rateLimit({windowMs:60*1000,max:120,standardHeaders:true,legacyHeaders:false});
+// V-MTEDIT: an admin corrects a French translation by hand. Stored under the
+// same key as the machine translation (hash of the English source), so it
+// replaces it for everyone; the English text itself is never touched.
+app.put('/api/admin/translations',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const source=String(req.body?.source||''),html=!!req.body?.html,target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
+  let translated=String(req.body?.translated||'');
+  if(!source.trim()||!translated.trim()||source.length>6000||translated.length>12000)return res.status(400).json({error:'INVALID_TRANSLATION'});
+  translated=translated.replace(/<\s*\/?\s*(script|iframe|object|embed|style)[^>]*>/gi,'').replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi,m=>/onclick/i.test(m)?m:'');
+  try{const hash=crypto.createHash('sha256').update((html?'h:':'t:')+source).digest('hex');
+    await pool.query('INSERT INTO translations(hash,target_lang,source,translated,edited_by,edited_at) VALUES($1,$2,$3,$4,$5,NOW()) ON CONFLICT(hash,target_lang) DO UPDATE SET translated=EXCLUDED.translated,edited_by=EXCLUDED.edited_by,edited_at=NOW()',[hash,target,source,translated,req.user.user_id]);
+    res.json({ok:true,translated})}catch(e){next(e)}
+});
 app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req,res,next)=>{
   const target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
   const html=!!req.body?.html;

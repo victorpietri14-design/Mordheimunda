@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0628.0';
+const APP_BUILD='110.0629.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7559,11 +7559,27 @@ function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||mtServerOff
     else{if(n.__mtDone||n.parentElement?.closest('a,button,[onclick]'))continue;mtQueue(t,{node:n,html:false})}}
   if(mtPending.size&&!mtTimer)mtTimer=setTimeout(mtFlush,120)}
 function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
-function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.classList.add('mt-done')}}else if(target.node.isConnected&&target.node.nodeValue===src){target.node.nodeValue=fr;target.node.__mtDone=true}}
+function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.__mtSrc=src;target.el.classList.add('mt-done');mtAddEditButton(target.el)}}else if(target.node.isConnected&&target.node.nodeValue===src){target.node.nodeValue=fr;target.node.__mtDone=true}}
 async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;
   for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
     try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;const tr=r?.translations||{};
       chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){mtServerOff=true;console.warn('Auto-translation unavailable',e);return}}}}
+// V-MTEDIT: admin hand-correction of an automatic French translation. A ✎
+// on each translated block opens the English original next to the French,
+// editable in place (links and formatting kept); saving replaces the
+// translation for everyone. The English text never changes.
+let mtEditTarget=null;
+function mtAddEditButton(el){if(!isAdminSession()||el.querySelector(':scope > .mt-edit'))return;const b=document.createElement('button');b.type='button';b.className='mt-edit mt-skip';b.title='Corriger la traduction';b.textContent='✎';b.onclick=e=>{e.preventDefault();e.stopPropagation();openMtEditor(el)};el.appendChild(b)}
+function mtCurrentFr(el){const c=el.cloneNode(true);c.querySelectorAll('.mt-edit').forEach(x=>x.remove());return c.innerHTML.trim()}
+function openMtEditor(el){mtEditTarget=el;const src=el.__mtSrc||'';
+  openModal(`<div class="admin-live-editor mt-editor"><div class="eyebrow">TRADUCTION</div><h2>Corriger la traduction</h2><p class="muted">Ta correction remplace la traduction automatique pour tous les joueurs. Le texte anglais ne change pas.</p>
+  <div class="mt-cols"><div><h4>Anglais (original)</h4><div class="mt-src mt-skip" data-no-mt>${src}</div></div><div><h4>Français</h4><div id="mtEditBox" class="mt-box mt-skip" data-no-mt contenteditable="true">${mtCurrentFr(el)}</div></div></div>
+  <div class="custom-actions"><button type="button" class="button secondary" onclick="closeModal()">Annuler</button><button type="button" class="button primary" onclick="saveMtEdit()">Enregistrer pour tous</button></div></div>`);
+  document.querySelectorAll('#modal .mt-src a,#modal .mt-src [onclick],#modal .mt-box a,#modal .mt-box [onclick]').forEach(x=>{x.removeAttribute('href');x.onclick=null;x.setAttribute('data-onclick',x.getAttribute('onclick')||'');x.removeAttribute('onclick')})}
+async function saveMtEdit(){const el=mtEditTarget;if(!el)return;const box=document.getElementById('mtEditBox');if(!box)return;
+  box.querySelectorAll('[data-onclick]').forEach(x=>{const v=x.getAttribute('data-onclick');if(v)x.setAttribute('onclick',v);x.removeAttribute('data-onclick')});
+  const fr=box.innerHTML.trim();if(!fr)return toast('La traduction est vide');
+  try{const r=await window.MordheimundaAPI.adminSaveTranslation(el.__mtSrc,fr,true);const saved=r?.translated||fr;mtCache.set('h:'+el.__mtSrc,saved);if(el.isConnected){el.innerHTML=saved;mtAddEditButton(el)}closeModal();toast('Traduction corrigée pour tous')}catch(e){toast(authError(e,false))}}
 function setAutoTranslate(on){mtEnabled=!!on;try{localStorage.setItem(MT_OFF_KEY,on?'0':'1')}catch(e){}renderCurrentRoute()}
 function applySiteLanguage(root){
  root=root||document.body;
