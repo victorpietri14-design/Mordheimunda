@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0639.0';
+const APP_BUILD='110.0640.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2321,6 +2321,7 @@ function applyRemoteData(remoteData,remoteRevision,{announce=false}={}){
   next.playSession=keepPlaySession;
   next.meta={...keepMeta,cloudRevision:toRev(remoteRevision)??keepMeta.cloudRevision,cloudUpdatedAt:new Date().toISOString()};
   state=window.MordheimundaStorage.save(next);
+  fixImmuneWarTrophies();
   scheduleRemoteRerender();
   if(announce)toast(siteLanguage==='en'?'Synced from your other device':'Synchronisé depuis votre autre appareil');
 }
@@ -14791,6 +14792,20 @@ function fighterIsImmuneToPsychology(x){
   }catch(e){return false}
 }
 const isWarTrophies=w=>normName(w?.name)==='war trophies';
+// Fighters that already had War Trophies before the rule was enforced keep
+// the old +1 WS in their saved profile until their warband is opened. One
+// pass over every warband removes it and saves, so lists and other devices
+// see the right WS too.
+function fixImmuneWarTrophies(){
+  let changed=false;
+  try{(state?.rosters||[]).forEach(r=>(r.fighters||[]).forEach(x=>{
+    if(!(x?.equipmentSelected||[]).some(isWarTrophies))return;
+    const had=(x.customEquipmentStatMods||[]).some(m=>m.index===1&&normName(m.itemId)==='war trophies');
+    if(had&&fighterIsImmuneToPsychology(x)){syncCustomEquipmentEffects(x);changed=true}
+  }))}catch(e){console.warn('War Trophies fix skipped',e)}
+  if(changed){try{save(true)}catch(e){}}
+  return changed;
+}
 function standardEquipmentStatEffects(w,x){
   const n=normName(w?.name);
   const out=[];
@@ -18989,7 +19004,7 @@ costAffectingLoadsReady.then(()=>renderCurrentRoute());
 if(hasStoredAccountSession){
   Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();});
 }else{
-  Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();if(!/^\/share\//.test(location.pathname))bootstrapAccountSession();});
+  Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{if(fixImmuneWarTrophies())try{__arCache=null}catch(e){}renderCurrentRoute();showPasswordReset();if(!/^\/share\//.test(location.pathname))bootstrapAccountSession();});
 }
 startI18nObserver();loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadTrophyLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());
