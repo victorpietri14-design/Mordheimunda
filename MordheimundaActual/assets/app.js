@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0634.0';
+const APP_BUILD='110.0635.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14339,6 +14339,11 @@ function addRolledLastingInjury(){if(!lastInjuryRoll?.result)return;addInjuryRes
 function addInjury(){const input=$('#injuryInput');const v=(input?.value||'').trim();if(!v)return;const found=LASTING_INJURIES.find(i=>refNorm(i.name)===refNorm(v));if(found)addInjuryResult(found.roll.split(/[–-]/)[0]);else{const x=activeRoster()?.fighters[editingIndex];if(!x)return;normalizeInjuries(x);x.injuries.push({roll:'',name:v,desc:siteLanguage==='en'?'Custom scar':'Séquelle personnalisée',statMods:[]});save(true);render('fighter');toast(siteLanguage==='en'?'Custom scar added':'Séquelle personnalisée ajoutée')}}
 function removeInjury(i){const x=activeRoster()?.fighters[editingIndex];if(!x)return;normalizeInjuries(x);const injury=x.injuries[i];if(!injury)return;applyInjuryStatMods(x,injury,-1);x.injuries.splice(i,1);save(true);render('fighter')}
 function saveFighterCard(){save(true);toast(siteLanguage==='en'?'Sheet saved automatically':'Fiche enregistrée automatiquement')}
+// V-DELETESTASH: equipment a fighter owns (for Leaders/Champions, their
+// personal stash that feeds their loadouts) — everything that can go to the
+// warband Stash when they're removed. Chaos Armour (fused) never moves;
+// a Hired Sword's fixed kit leaves with them.
+function fighterStashableEquipment(x){if(!x||isHiredSword(x))return [];const list=fighterUsesLoadouts(x)&&Array.isArray(x.equipmentStash)&&x.equipmentStash.length?x.equipmentStash:(x.equipmentSelected||[]);return list.filter(e=>e&&!['chaos armour','chaos armor'].includes(normName(e.name)))}
 function removeEditingFighter(){
   const en=siteLanguage==='en';
   const r=activeRoster(),x=r?.fighters[editingIndex];if(!r||!x)return;
@@ -14349,7 +14354,7 @@ function removeEditingFighter(){
   // miss/forget to tick — two explicit buttons ("Delete" vs "Refund &
   // Delete") make the choice itself the action, not a modifier on it.
   const value=fighterValue(x,faction(r));
-  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'IRREVERSIBLE ACTION':'ACTION IRRÉVERSIBLE'}</div><h2>${en?`Remove ${esc(x.name)}?`:`Supprimer ${esc(x.name)} ?`}</h2><p>${en?'This fighter and their card will be removed from the warband.':'Ce combattant et les informations de sa fiche seront retirés de la bande.'}</p><button type="button" class="button primary full" onclick="confirmRemoveEditingFighter(true)">${en?`💰 REFUND & DELETE (+${value} GC)`:`💰 REMBOURSER ET SUPPRIMER (+${value} GC)`}</button><button type="button" class="big-delete" onclick="confirmRemoveEditingFighter(false)">${en?'🗑 DELETE (no refund)':'🗑 SUPPRIMER (sans remboursement)'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'IRREVERSIBLE ACTION':'ACTION IRRÉVERSIBLE'}</div><h2>${en?`Remove ${esc(x.name)}?`:`Supprimer ${esc(x.name)} ?`}</h2><p>${en?'This fighter and their card will be removed from the warband.':'Ce combattant et les informations de sa fiche seront retirés de la bande.'}</p><button type="button" class="button primary full" onclick="confirmRemoveEditingFighter(true)">${en?`💰 REFUND & DELETE (+${value} GC)`:`💰 REMBOURSER ET SUPPRIMER (+${value} GC)`}</button>${fighterStashableEquipment(x).length?`<button type="button" class="button secondary full" onclick="confirmRemoveEditingFighter(false,true)">${en?`▣ PUT THEIR EQUIPMENT IN THE STASH & DELETE (${fighterStashableEquipment(x).length})`:`▣ METTRE SON ÉQUIPEMENT EN RÉSERVE ET SUPPRIMER (${fighterStashableEquipment(x).length})`}</button><p class="muted" style="font-size:11.5px;margin:-4px 0 10px">${en?`To the warband Stash: ${fighterStashableEquipment(x).map(e=>esc(e.name)).join(', ')}`:`Vers la réserve de la bande : ${fighterStashableEquipment(x).map(e=>esc(e.name)).join(', ')}`}</p>`:''}<button type="button" class="big-delete" onclick="confirmRemoveEditingFighter(false)">${en?'🗑 DELETE (no refund)':'🗑 SUPPRIMER (sans remboursement)'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)
 }
 function openDuplicateFighterConfirm(){
   // V-DUPLICATEFIGHTER: clones the fighter exactly as-is (equipment, skills,
@@ -14376,16 +14381,19 @@ function confirmDuplicateFighter(){
   logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(clone.name)}</b> duplicated from <b>${esc(x.name)}</b>${pay?` — ${value} GC paid`:' — free'}`:`<b>${esc(clone.name)}</b> dupliqué depuis <b>${esc(x.name)}</b>${pay?` — ${value} GC payés`:' — gratuit'}`);
   save(true);closeModal();render('builder');toast(siteLanguage==='en'?(pay?`✓ Duplicated — ${value} GC paid`:'✓ Duplicated for free'):(pay?`✓ Dupliqué — ${value} GC payés`:'✓ Dupliqué gratuitement'))
 }
-function confirmRemoveEditingFighter(refund){
+function confirmRemoveEditingFighter(refund,toStash){
   const r=activeRoster(),x=r?.fighters[editingIndex];if(!r||!x)return;
   const name=x.name;
+  if(toStash&&!refund){const items=fighterStashableEquipment(x);r.reserve=Array.isArray(r.reserve)?r.reserve:[];
+    items.forEach(e=>r.reserve.push({...JSON.parse(JSON.stringify(e)),reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),sourceFighter:name}));
+    if(items.length)logHistory(r,'equipment',siteLanguage==='en'?`<b>${esc(name)}</b> removed — equipment moved to the Stash: ${items.map(e=>esc(e.name)).join(', ')}`:`<b>${esc(name)}</b> supprimé — équipement placé en réserve : ${items.map(e=>esc(e.name)).join(', ')}`)}
   if(refund){
     const value=fighterValue(x,faction(r));
     r.gold=Number(r.gold||0)+value;
     logHistory(r,'treasury',siteLanguage==='en'?`Refund for <b>${esc(name)}</b> (removed): +${value} GC`:`Remboursement de <b>${esc(name)}</b> (supprimé) : +${value} GC`);
   }
   r.fighters.splice(editingIndex,1);
-  save(true);closeModal();editingIndex=null;history.replaceState({mordheimunda:true},'',routeForView('builder'));renderCurrentRoute();toast(refund?'Combattant supprimé et remboursé':'Combattant supprimé');
+  save(true);closeModal();editingIndex=null;history.replaceState({mordheimunda:true},'',routeForView('builder'));renderCurrentRoute();{const en=siteLanguage==='en';toast(refund?(en?'Fighter removed and refunded':'Combattant supprimé et remboursé'):toStash?(en?'Fighter removed — equipment in the Stash':'Combattant supprimé — équipement en réserve'):(en?'Fighter removed':'Combattant supprimé'))}
 }
 function deleteRoster(id){if(confirm(siteLanguage==='en'?'Permanently delete this warband?':'Supprimer définitivement cette bande ?')){markDeleted('rosters',id);state.rosters=state.rosters.filter(r=>r.id!==id);state.active=state.rosters[0]?.id||null;save(true);closeModal();render('rosters')}}
 function openModal(html){$('#modalContent').innerHTML=html;try{applySiteLanguage($('#modalContent'));i18nObserver?.takeRecords()}catch(e){}$('#modal').classList.remove('hidden');setTimeout(()=>document.querySelector('#modal input')?.focus(),20)}
