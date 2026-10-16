@@ -28,13 +28,10 @@ export const config={
   // empty by default: when unset, the endpoint refuses every request, so a
   // forgotten-to-remove migrate route can never be triggered by a stranger.
   migrateToken:process.env.MIGRATE_TOKEN||'',
-  // V-AUTOTRANSLATE: DeepL API key (a free-plan key ends with ":fx"). When
-  // unset, automatic translation is simply off.
-  deeplApiKey:process.env.DEEPL_API_KEY||'',
-  deeplApiUrl:process.env.DEEPL_API_URL||'',
-  // Alternatives to DeepL — the first key set is used: DeepL, then Google
-  // Cloud Translation (GOOGLE_TRANSLATE_API_KEY), then Microsoft Translator
-  // (AZURE_TRANSLATOR_KEY + AZURE_TRANSLATOR_REGION). *_URL only for tests.
+  // V-AUTOTRANSLATE: automatic translation of English-only texts. Google
+  // Cloud Translation (GOOGLE_TRANSLATE_API_KEY) is the main service;
+  // Microsoft Translator (AZURE_TRANSLATOR_KEY + AZURE_TRANSLATOR_REGION) is
+  // a fallback. Without a key nothing is translated. *_URL only for tests.
   googleTranslateApiKey:process.env.GOOGLE_TRANSLATE_API_KEY||'',
   googleTranslateApiUrl:process.env.GOOGLE_TRANSLATE_API_URL||'',
   azureTranslatorKey:process.env.AZURE_TRANSLATOR_KEY||'',

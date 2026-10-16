@@ -566,8 +566,8 @@ CREATE TABLE IF NOT EXISTS warband_shares (
 );
 CREATE INDEX IF NOT EXISTS warband_shares_user ON warband_shares(user_id);
 
--- V-AUTOTRANSLATE: DeepL translations, kept forever so each text is only
--- ever sent to DeepL once.
+-- V-AUTOTRANSLATE: machine translations (Google), kept forever so each text
+-- is only ever sent to the translation service once.
 CREATE TABLE IF NOT EXISTS translations (
   hash TEXT NOT NULL,
   target_lang TEXT NOT NULL,

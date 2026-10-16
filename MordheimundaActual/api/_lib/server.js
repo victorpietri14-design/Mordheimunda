@@ -502,19 +502,13 @@ app.get('/api/admin/support/:userId/history/:id',requireDb,auth,requireAdmin,asy
 // rules, quests, scenarios…) when a visitor reads the site in French. Each
 // text is sent to the translation service once and kept in the translations table; afterwards
 // it is served from the database. HTML fragments keep their tags
-// (HTML mode). Provider: DeepL, Google or Microsoft — whichever key is set
-// (see config.js); without any key nothing is translated.
-function translateProvider(){return config.deeplApiKey?'deepl':config.googleTranslateApiKey?'google':config.azureTranslatorKey?'azure':null}
+// (HTML mode). Provider: Google Cloud Translation, or Microsoft Translator
+// as a fallback (see config.js); without a key nothing is translated.
+function translateProvider(){return config.googleTranslateApiKey?'google':config.azureTranslatorKey?'azure':null}
 // Returns the translations in the same order as `texts`, or null on error.
 async function translateWith(provider,texts,{html,target}){
   const src=target==='FR'?'en':'fr',dst=target==='FR'?'fr':'en';
   try{
-    if(provider==='deepl'){
-      const endpoint=config.deeplApiUrl||(/:fx$/.test(config.deeplApiKey)?'https://api-free.deepl.com/v2/translate':'https://api.deepl.com/v2/translate');
-      const r=await fetch(endpoint,{method:'POST',headers:{'Authorization':'DeepL-Auth-Key '+config.deeplApiKey,'Content-Type':'application/json'},body:JSON.stringify({text:texts,source_lang:src.toUpperCase(),target_lang:target,preserve_formatting:true,...(html?{tag_handling:'html'}:{})})});
-      if(!r.ok){console.error('DeepL',r.status,(await r.text()).slice(0,200));return null}
-      return ((await r.json())?.translations||[]).map(t=>t?.text);
-    }
     if(provider==='google'){
       const endpoint=(config.googleTranslateApiUrl||'https://translation.googleapis.com/language/translate/v2')+'?key='+encodeURIComponent(config.googleTranslateApiKey);
       const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts,source:src,target:dst,format:html?'html':'text'})});

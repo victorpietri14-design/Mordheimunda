@@ -7533,7 +7533,7 @@ function translateSiteText(v){const text=String(v);if(siteLanguage==='fr'){const
 // falls back to a full document.body pass on first load / language switch.
 // V-AUTOTRANSLATE: in French, any block still in English after the
 // dictionary pass (admin-written rules, quests, scenarios, warband texts…)
-// is translated through /api/translate (DeepL, cached for good on the
+// is translated through /api/translate (Google Translate, cached for good on the
 // server and here in memory), keeping its links and formatting. Inputs,
 // textareas and short names are never touched; an account setting turns it
 // off. Switching language re-renders, which brings the original back.
