@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0643.0';
+const APP_BUILD='110.0644.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1999,6 +1999,19 @@ async function mediaSweep(root){
   let n=0;const walk=o=>{for(const k of Object.keys(o)){const v=o[k];if(typeof v==='string'){if(!v.includes('data:image/'))continue;let nv=v;for(const d of found){const u=mediaLinkCache.get(d);if(u&&nv.includes(d))nv=nv.split(d).join(u)}if(nv!==v){o[k]=nv;n++}}else if(v&&typeof v==='object')walk(v)}};
   walk(root);return n;
 }
+// V-BUILDGUARD: the server refused a save because this device runs an older
+// version of the site than the server (or than another device that just
+// saved this account). The edit is already kept on this device; uploads
+// pause, the site updates and reloads once, then the edit is sent again.
+function handleAppOutdated(){
+  const en=siteLanguage==='en',k='mu_outdated_reload';let last=0;try{last=Number(sessionStorage.getItem(k))||0}catch(e){}
+  clearTimeout(cloudRetryTimer);cloudRetryTimer=setTimeout(()=>{cloudRetryTimer=null;flushCloudSave()},120000);
+  if(Date.now()-last>120000){
+    try{sessionStorage.setItem(k,String(Date.now()))}catch(e){}
+    toast(en?'A newer version of the site is out — updating…':'Nouvelle version du site — mise à jour…');
+    Promise.resolve(navigator.serviceWorker?.getRegistration?.()).then(r=>r?.update?.()).catch(()=>{}).finally(()=>setTimeout(()=>location.reload(),900));
+  }else toast(en?'Another device uses a newer version of the site: your changes stay on this device and will be sent once this one is up to date.':'Un autre appareil utilise une version plus récente du site : tes modifications restent sur cet appareil et partiront une fois celui-ci à jour.');
+}
 const cloudPushTimes=[];
 function queueCloudSave(delay=0){
   if(!cloudIsSignedIn())return;
@@ -2065,7 +2078,9 @@ async function flushCloudSave(){
   }catch(e){
     console.warn('Cloud save failed',e);
     recordCloudError('flushCloudSave',e);
-    if(e.status===409){
+    if(e.status===409&&e.message==='APP_OUTDATED'){
+      handleAppOutdated();
+    }else if(e.status===409){
       await resolveCloudConflictAndRetry();
     }else if(e.status===401){
       localStorage.removeItem(ACCOUNT_SESSION_KEY);
@@ -2170,6 +2185,7 @@ async function flushAdminForeignSave(){
   }catch(e){
     console.warn('Admin foreign save failed',e);
     if(adminViewingUserId!==userId)return; // session was exited/switched meanwhile
+    if(e.status===409&&e.message==='APP_OUTDATED'){handleAppOutdated();return}
     if(e.status===409){
       try{
         // The viewed account changed since this session opened it (that

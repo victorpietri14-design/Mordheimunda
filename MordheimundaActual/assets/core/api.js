@@ -5,7 +5,7 @@
     const configured=String(cfg().apiBaseUrl||'').replace(/\/$/,'');
     const base=configured || ((/^https?:$/.test(location.protocol))?location.origin:'');
     if(!base)throw new Error('API_NOT_CONFIGURED');
-    const init={credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})},...options};
+    const init={credentials:'include',...options,headers:{'Content-Type':'application/json','X-App-Build':(typeof APP_BUILD!=='undefined'?APP_BUILD:''),...(options.headers||{})}};
     if(options.keepalive===true) init.keepalive=true;
     const res=await fetch(base+path,init);let body=null;try{body=await res.json()}catch{}
     if(!res.ok){const e=new Error(body?.error||`HTTP_${res.status}`);e.status=res.status;throw e}return body;

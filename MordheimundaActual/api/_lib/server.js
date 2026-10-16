@@ -8,6 +8,7 @@ import rateLimit,{ipKeyGenerator} from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { Pool } from 'pg';
+import { APP_BUILD as SERVER_BUILD } from './build.js';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 
@@ -80,6 +81,23 @@ app.use('/api/',rateLimit({windowMs:10*60*1000,max:600,standardHeaders:true,lega
 // V-SYNCLOOP: whole-account uploads are the heaviest requests (megabytes
 // each with images); a client stuck saving in a loop is cut off quickly.
 const dataPutLimiter=rateLimit({windowMs:10*60*1000,max:120,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+// V-BUILDGUARD: two devices running different versions of the site can
+// "correct" the same account in opposite ways and send it back and forth
+// (what used up the Vercel quota on Oct 16). A save from a version older
+// than this server's, or older than the version that saved the same account
+// in the last 10 minutes, is refused with APP_OUTDATED; the device updates
+// itself and sends its edit again. Clients too old to say their version are
+// let through (they update themselves within a minute anyway).
+const BUILD_RE=/^\d+(?:\.\d+)*$/;
+const cmpBuild=(a,b)=>{const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d<0?-1:1}return 0};
+async function buildGuard(req,res,userId){
+  const cb=String(req.get('x-app-build')||'');if(!BUILD_RE.test(cb))return true;
+  if(BUILD_RE.test(SERVER_BUILD)&&cmpBuild(cb,SERVER_BUILD)<0){res.status(409).json({error:'APP_OUTDATED',build:SERVER_BUILD});return false}
+  const q=await pool.query("SELECT last_build,(last_build_at>NOW()-INTERVAL '10 minutes') AS recent FROM user_data WHERE user_id=$1",[userId]);
+  const r=q.rows[0];if(r?.recent&&BUILD_RE.test(r.last_build||'')&&cmpBuild(cb,r.last_build)<0){res.status(409).json({error:'APP_OUTDATED',build:r.last_build});return false}
+  return true;
+}
+async function noteBuild(req,userId){const cb=String(req.get('x-app-build')||'');if(BUILD_RE.test(cb))await pool.query('UPDATE user_data SET last_build=$1,last_build_at=NOW() WHERE user_id=$2',[cb,userId]).catch(()=>{})}
 app.put('/api/account/data',dataPutLimiter);app.put('/api/admin/support/:userId/data',dataPutLimiter);
 // Admin content written with a picture inside (scenarios, maps, official
 // warbands, campaigns…) is stored with links instead, whatever the route.
@@ -661,6 +679,7 @@ app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
   try{
+    if(!(await buildGuard(req,res,req.user.user_id)))return;
     // Accept a numeric string too (defense in depth: an already-cached old
     // client, or any future BIGINT-as-string slip, should self-heal rather
     // than being permanently locked into the null-revision path).
@@ -683,6 +702,7 @@ app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.user.user_id,payload])
       :(await snapshotUserData(req.user.user_id),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.user.user_id,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
+    await noteBuild(req,req.user.user_id);
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
   }catch(e){next(e)}
 });
@@ -2081,11 +2101,13 @@ app.put('/api/admin/support/:userId/data',requireDb,requireSameOrigin,auth,requi
   try{
     const u=await pool.query('SELECT id FROM users WHERE id=$1',[req.params.userId]);
     if(!u.rows[0])return res.status(404).json({error:'ACCOUNT_NOT_FOUND'});
+    if(!(await buildGuard(req,res,req.params.userId)))return;
     const expectedRevision=toInt(req.body?.expectedRevision);
     const q=expectedRevision===null
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.params.userId,payload])
       :(await snapshotUserData(req.params.userId),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.params.userId,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
+    await noteBuild(req,req.params.userId);
     await pool.query('INSERT INTO admin_support_access_log(id,admin_id,target_user_id,action) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),req.user.user_id,req.params.userId,'edit']);
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
   }catch(e){next(e)}

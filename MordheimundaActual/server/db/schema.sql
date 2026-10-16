@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS user_data (
   revision BIGINT NOT NULL DEFAULT 1,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- V-BUILDGUARD: site version of the last device that saved this account.
+ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_build TEXT;
+ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_build_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY,
