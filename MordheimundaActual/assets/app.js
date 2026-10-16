@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0630.0';
+const APP_BUILD='110.0632.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -143,6 +143,7 @@ function renderCurrentRoute(){
     renderOriginal(route.view);
     applySiteLanguage(i18nNeedsFullPass?document.body:document.getElementById('content'));
     i18nNeedsFullPass=false;
+    try{i18nObserver?.takeRecords()}catch(e){}
   }finally{
     __arCacheActive=false;__arCache=null;__statBonusCache=null;__refEntriesCache=null;__equipPoolCache=null;
   }
@@ -7581,6 +7582,21 @@ async function saveMtEdit(){const el=mtEditTarget;if(!el)return;const box=docume
   const fr=box.innerHTML.trim();if(!fr)return toast('La traduction est vide');
   try{const r=await window.MordheimundaAPI.adminSaveTranslation(el.__mtSrc,fr,true);const saved=r?.translated||fr;mtCache.set('h:'+el.__mtSrc,saved);if(el.isConnected){el.innerHTML=saved;mtAddEditButton(el)}closeModal();toast('Traduction corrigée pour tous')}catch(e){toast(authError(e,false))}}
 function setAutoTranslate(on){mtEnabled=!!on;try{localStorage.setItem(MT_OFF_KEY,on?'0':'1')}catch(e){}renderCurrentRoute()}
+// V-I18NLIVE: parts of a page that redraw themselves without a full render
+// (a Rules side-menu group opening, a panel refreshed in place…) used to
+// come back untranslated — or in the original English until the next full
+// render. Any content added to the page outside a render is now run through
+// the same translation (dictionary, then automatic translation) as soon as
+// it appears. Records produced by a render or a modal are already handled
+// there and discarded with takeRecords().
+let i18nObserver=null;
+function startI18nObserver(){if(i18nObserver||typeof MutationObserver==='undefined')return;
+  i18nObserver=new MutationObserver(records=>{const els=new Set();
+    for(const r of records)for(const n of r.addedNodes){const el=n.nodeType===1?n:n.parentElement;if(el&&el.isConnected&&!el.closest('#languageSelect,.mt-skip'))els.add(el)}
+    const roots=[...els].filter(el=>![...els].some(o=>o!==el&&o.contains(el)));
+    roots.forEach(el=>{try{applySiteLanguage(el)}catch(e){}});
+    try{i18nObserver.takeRecords()}catch(e){}});
+  i18nObserver.observe(document.body,{childList:true,subtree:true})}
 function applySiteLanguage(root){
  root=root||document.body;
  document.documentElement.lang=siteLanguage;
@@ -12003,6 +12019,10 @@ function rollCampaignPriceExpr(e){if(!e)return {delta:0,dice:[]};if(!e.n)return 
 // then the price actually paid (residence, outsider, held copies…) in green.
 function tradingPriceDuo(it){const paid=esc(it.priceLabel||`${it.price} GC`);if(it.basePrice==null)return paid;return `<span class="price-base">${Number(it.basePrice)||0} GC</span> <span class="price-paid">${paid}</span>`}
 function campaignMarketApply(r,list,src){
+  // V-BANDLISTPRICE: campaign market rules (outsider penalty, settlement
+  // prices, held-copy rises) only touch the general market — the warband's
+  // own Band List always sells at its book price and rarity.
+  if(src==='band')return r?.campaignId?list.map(it=>({...it,basePrice:it.price,baseRarity:it.rarity,minPrice:it.price,campaignMod:false})):list;
   const m=rosterCampaignMarket(r);if(!m)return r?.campaignId?list.map(it=>({...it,basePrice:it.price})):list;const t=tradingData(r);const rolls=t.priceRolls||{};const mk=m.st?.market||{};
   return list.map(it=>{
     const base=it.rarity;let rarity=base;
@@ -14349,7 +14369,7 @@ function confirmRemoveEditingFighter(refund){
   save(true);closeModal();editingIndex=null;history.replaceState({mordheimunda:true},'',routeForView('builder'));renderCurrentRoute();toast(refund?'Combattant supprimé et remboursé':'Combattant supprimé');
 }
 function deleteRoster(id){if(confirm(siteLanguage==='en'?'Permanently delete this warband?':'Supprimer définitivement cette bande ?')){markDeleted('rosters',id);state.rosters=state.rosters.filter(r=>r.id!==id);state.active=state.rosters[0]?.id||null;save(true);closeModal();render('rosters')}}
-function openModal(html){$('#modalContent').innerHTML=html;try{applySiteLanguage($('#modalContent'))}catch(e){}$('#modal').classList.remove('hidden');setTimeout(()=>document.querySelector('#modal input')?.focus(),20)}
+function openModal(html){$('#modalContent').innerHTML=html;try{applySiteLanguage($('#modalContent'));i18nObserver?.takeRecords()}catch(e){}$('#modal').classList.remove('hidden');setTimeout(()=>document.querySelector('#modal input')?.focus(),20)}
 // On touch devices, closing the modal from a tap on a button near the bottom
 // of the screen (e.g. a delete-confirmation dialog) can uncover the fixed
 // bottom nav bar right under the finger. The browser's synthetic "click"
@@ -18899,5 +18919,5 @@ if(hasStoredAccountSession){
 }else{
   Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();if(!/^\/share\//.test(location.pathname))bootstrapAccountSession();});
 }
-loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadTrophyLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
+startI18nObserver();loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadTrophyLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());
