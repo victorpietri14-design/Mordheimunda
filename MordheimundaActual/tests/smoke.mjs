@@ -68,6 +68,18 @@ for(const vp of ['desktop','mobile']){
     expect((await page.textContent('#content')).length>200,'a warband rules page is empty');
   });
 }
+await test('[desktop] campaign post-battle: dice result goes to the Treasure stock',null,async page=>{
+  await page.evaluate(()=>{siteLanguage='en';const f=D.factions.find(x=>!x.__official);const w=JSON.parse(JSON.stringify(f.warriors[0]));
+    state.rosters=[{id:'cpb',name:'Camp Band',factionId:f.id,gold:100,wyrdstone:0,fighters:[{...w,instance:'h1'}],campaignId:'c-smoke'}];state.active='cpb';
+    campaignDetailCache.set('c-smoke',{id:'c-smoke',name:'Lustria',members:[],definition:{exploration:{chart:'custom',entries:lustriaExplorationDefaults(),enabled:true}}});
+    const pb=ensurePostBattleData(activeRoster());pb.survivingHeroIds=['h1'];pb.heroCount=1;pb.winner=true;postBattleDieRows();pb.dice.forEach((d,i)=>{d.value=[4,2][i]??3;d.selected=true});save(true);
+    navigateApp(warbandPath('cpb'));setGangTab('postbattle')});
+  await page.waitForTimeout(600);
+  const btn=page.locator('[data-pb-sub="2"] .shard-result button');
+  expect(await btn.count(),'no "put in stock" button in the campaign exploration block');
+  await btn.click();await page.waitForTimeout(400);
+  expect(await page.evaluate(()=>Number(activeRoster().wyrdstone||0))>0,'Treasure stock did not increase');
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);

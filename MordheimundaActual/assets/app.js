@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0629.0';
+const APP_BUILD='110.0630.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11732,7 +11732,7 @@ function campaignOfRoster(r){if(!r?.campaignId)return null;const c=campaignDetai
 function campaignPostBattle(r){const c=campaignOfRoster(r);return campaignFeatureOn(c,'exploration')?{c,entries:c.definition.exploration.entries}:null}
 function campaignUsesTreasure(r){return campaignFeatureOn(campaignOfRoster(r),'exploration')}
 // Wyrdstone → Treasure in a campaign warband's texts (identifiers are left alone).
-function treasureText(html){return String(html).replace(/(?<![\w-])([Ww]yrdstone|WYRDSTONE)(?![\w(]| Hunter)/g,(m)=>m==='WYRDSTONE'?'TREASURE':'Treasure').replace(/(?<![\w-])shards?(?![\w(])/g,m=>m==='shard'?'Treasure':'Treasures').replace(/(?<![\w-])Shards?(?![\w(])/g,m=>m==='Shard'?'Treasure':'Treasures').replace(/Treasures? de Treasure/g,'Treasures')}
+function treasureText(html){return String(html).replace(/(?<![\w-])([Ww]yrdstone|WYRDSTONE)(?![\w(]| Hunter)/g,(m)=>m==='WYRDSTONE'?'TREASURE':'Treasure').replace(/(?<![\w-])shards?(?![\w(-])/g,m=>m==='shard'?'Treasure':'Treasures').replace(/(?<![\w-])Shards?(?![\w(-])/g,m=>m==='Shard'?'Treasure':'Treasures').replace(/Treasure(s?) de Treasure/g,'Treasure$1').replace(/\bces Treasure\b/g,'ces Treasures').replace(/\bthis Treasure in stock/g,'this Treasure in stock')}
 // Skinned items: name = base catalogue item (rules), skin = name shown.
 function eqShownName(e){return e?.skin||e?.name||''}
 function eqNameLink(e){if(!e)return '';return e.skin&&normName(e.skin)!==normName(e.name)?`${refLink('equipment',e.name,e.skin)} <small class="eq-skin-base">(${esc(e.name)})</small>`:refLink('equipment',e.name)}
@@ -11819,7 +11819,11 @@ function campaignTithePct(r){const m=rosterCampaignMarket(r);return m?.st?Number
 function campaignHsReduction(r,x){const m=rosterCampaignMarket(r);const h=m?.st?.hsUpkeep;if(!h?.reduction||!(h.names||[]).length)return null;const src=normName(hiredSwordSourceWarrior(x)?.name||x.typeName||x.name);return h.names.some(n=>normName(n)===src||src.includes(normName(n)))?h.reduction:null}
 function campaignAwareIncomeView(r,f){
   const html=postBattleIncomeView(r,f);if(!campaignUsesTreasure(r))return html;const cpb=campaignPostBattle(r);
-  let out=html;if(cpb){const t=document.createElement('template');t.innerHTML=html;const old=t.content.querySelector('[data-pb-sub="2"]');const fresh=document.createElement('template');fresh.innerHTML=campaignExplorationPanel(r,cpb);if(old)old.replaceWith(fresh.content);else t.content.querySelector('.postbattle-grid')?.append(fresh.content);out=t.innerHTML}
+  let out=html;if(cpb){const t=document.createElement('template');t.innerHTML=html;const old=t.content.querySelector('[data-pb-sub="2"]');const fresh=document.createElement('template');fresh.innerHTML=campaignExplorationPanel(r,cpb);
+    // Keep the book block's "put this result in stock" line (dice total →
+    // Treasure) at the top of the campaign chart, which replaces that block.
+    const keep=old?.querySelector('.shard-result');const body=fresh.content.querySelector('.cpb-body');if(keep&&body)body.prepend(keep);
+    if(old)old.replaceWith(fresh.content);else t.content.querySelector('.postbattle-grid')?.append(fresh.content);out=t.innerHTML}
   const tithe=campaignTithePct(r);const en=siteLanguage==='en';
   const note=tithe?`<div class="tp-campaign-mods"><b>${en?'Tithe':'Dîme'} ${tithe}%</b><span>${en?'of every Treasure sale goes to your settlement (taken automatically).':'de chaque vente de Treasure va à ta colonie (prélevé automatiquement).'}</span></div>`:'';
   return note+treasureText(out);
