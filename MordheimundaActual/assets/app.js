@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0631.0';
+const APP_BUILD='110.0632.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12019,6 +12019,10 @@ function rollCampaignPriceExpr(e){if(!e)return {delta:0,dice:[]};if(!e.n)return 
 // then the price actually paid (residence, outsider, held copies…) in green.
 function tradingPriceDuo(it){const paid=esc(it.priceLabel||`${it.price} GC`);if(it.basePrice==null)return paid;return `<span class="price-base">${Number(it.basePrice)||0} GC</span> <span class="price-paid">${paid}</span>`}
 function campaignMarketApply(r,list,src){
+  // V-BANDLISTPRICE: campaign market rules (outsider penalty, settlement
+  // prices, held-copy rises) only touch the general market — the warband's
+  // own Band List always sells at its book price and rarity.
+  if(src==='band')return r?.campaignId?list.map(it=>({...it,basePrice:it.price,baseRarity:it.rarity,minPrice:it.price,campaignMod:false})):list;
   const m=rosterCampaignMarket(r);if(!m)return r?.campaignId?list.map(it=>({...it,basePrice:it.price})):list;const t=tradingData(r);const rolls=t.priceRolls||{};const mk=m.st?.market||{};
   return list.map(it=>{
     const base=it.rarity;let rarity=base;
