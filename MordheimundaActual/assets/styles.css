@@ -4869,3 +4869,9 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .transit-banner b{color:#e8c547;font-size:13px;letter-spacing:.04em}
 .transit-section{margin:6px 0 18px}.transit-section .reserve-list{opacity:.92}
 .gt-transit{margin-left:6px;font-size:10.5px;color:#e8c547;border:1px solid #e8c54766;border-radius:10px;padding:0 6px;white-space:nowrap}
+
+/* V-MTEXCLUDE */
+.mt-usage{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0 14px}
+.mt-usage>div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2);display:flex;flex-direction:column;gap:4px}
+.mt-usage b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.mt-usage span{color:var(--text);font-size:14px}
+.mt-usage i{display:block;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--accent) var(--p),#ffffff14 var(--p))}

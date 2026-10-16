@@ -504,6 +504,23 @@ app.get('/api/admin/support/:userId/history/:id',requireDb,auth,requireAdmin,asy
 // it is served from the database. HTML fragments keep their tags
 // (HTML mode). Provider: Google Cloud Translation, or Microsoft Translator
 // as a fallback (see config.js); without a key nothing is translated.
+// V-MTEXCLUDE: words an admin never wants translated (game terms such as
+// "Warband", "Wyrdstone"…). Each occurrence is wrapped in a translate="no"
+// span before sending — Google and Microsoft leave those untouched — and
+// the span is removed from the result. Text-mode requests go through the
+// HTML mode for this, then come back as plain text.
+let mtExclusionsCache={at:0,terms:[]};
+async function mtExclusions(){if(Date.now()-mtExclusionsCache.at<60000)return mtExclusionsCache.terms;try{const q=await pool.query("SELECT value FROM site_settings WHERE key='translateExclusions'");mtExclusionsCache={at:Date.now(),terms:(q.rows[0]?.value?.terms||[]).filter(Boolean)}}catch(e){mtExclusionsCache={at:Date.now(),terms:[]}}return mtExclusionsCache.terms}
+const mtEscRe=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const mtHtmlEsc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const mtHtmlUnesc=t=>String(t).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&#x27;|&apos;/g,"'").replace(/&nbsp;/g,' ').replace(/&amp;/g,'&');
+function mtProtect(html,terms){if(!terms.length)return html;const re=new RegExp(`(^|[^\\p{L}\\p{N}])(${terms.slice().sort((a,b)=>b.length-a.length).map(mtEscRe).join('|')})(?=$|[^\\p{L}\\p{N}])`,'giu');
+  return html.split(/(<[^>]+>)/).map(part=>part.startsWith('<')?part:part.replace(re,(m,pre,w)=>`${pre}<span translate="no" class="notranslate">${w}</span>`)).join('')}
+const mtUnprotect=t=>String(t).replace(/<span translate="no" class="notranslate">([\s\S]*?)<\/span>/g,'$1').replace(/<span class="notranslate" translate="no">([\s\S]*?)<\/span>/g,'$1');
+async function translateProtected(provider,texts,{html,target}){const terms=await mtExclusions();
+  if(!terms.length)return translateWith(provider,texts,{html,target});
+  const sent=texts.map(t=>mtProtect(html?t:mtHtmlEsc(t),terms));const out=await translateWith(provider,sent,{html:true,target});if(!out)return null;
+  return out.map(t=>{if(typeof t!=='string')return t;const u=mtUnprotect(t);return html?u:mtHtmlUnesc(u)})}
 function translateProvider(){return config.googleTranslateApiKey?'google':config.azureTranslatorKey?'azure':null}
 // Returns the translations in the same order as `texts`, or null on error.
 async function translateWith(provider,texts,{html,target}){
@@ -529,6 +546,20 @@ const translateLimiter=rateLimit({windowMs:60*1000,max:120,standardHeaders:true,
 // V-MTEDIT: an admin corrects a French translation by hand. Stored under the
 // same key as the machine translation (hash of the English source), so it
 // replaces it for everyone; the English text itself is never touched.
+app.get('/api/admin/translate-settings',requireDb,auth,requireAdmin,async(req,res,next)=>{try{
+  const u=await pool.query("SELECT COALESCE(SUM(chars) FILTER (WHERE day=CURRENT_DATE),0)::int AS d, COALESCE(SUM(chars),0)::int AS m FROM translation_usage WHERE day>=date_trunc('month',CURRENT_DATE)");
+  const c=await pool.query('SELECT COUNT(*)::int AS n FROM translations');
+  res.json({terms:await mtExclusions(),usage:{today:u.rows[0].d,month:u.rows[0].m,dailyLimit:config.translateDailyCharLimit,monthlyLimit:config.translateMonthlyCharLimit},cached:c.rows[0].n,enabled:!!translateProvider()})}catch(e){next(e)}});
+// Saving the list forgets the machine translations (not the admin's own
+// corrections) of texts containing a newly added word, so they are
+// translated again with that word kept as is.
+app.put('/api/admin/translate-exclusions',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const terms=[...new Set((Array.isArray(req.body?.terms)?req.body.terms:[]).map(t=>String(t||'').trim().slice(0,60)).filter(Boolean))].slice(0,300);
+  try{const before=await mtExclusions();const added=terms.filter(t=>!before.some(b=>b.toLowerCase()===t.toLowerCase()));
+    await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('translateExclusions',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({terms})]);
+    mtExclusionsCache={at:0,terms:[]};let cleared=0;
+    for(const t of added){const q=await pool.query("DELETE FROM translations WHERE edited_by IS NULL AND source ILIKE $1",['%'+t.replace(/[%_\\]/g,m=>'\\'+m)+'%']);cleared+=q.rowCount}
+    res.json({terms,cleared})}catch(e){next(e)}});
 app.put('/api/admin/translations',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const source=String(req.body?.source||''),html=!!req.body?.html,target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
   let translated=String(req.body?.translated||'');
@@ -561,7 +592,7 @@ app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req
       const usage=async()=>{const q=await pool.query("SELECT COALESCE(SUM(chars) FILTER (WHERE day=CURRENT_DATE),0)::int AS d, COALESCE(SUM(chars) FILTER (WHERE date_trunc('month',day)=date_trunc('month',CURRENT_DATE)),0)::int AS m FROM translation_usage WHERE day>=date_trunc('month',CURRENT_DATE)");return q.rows[0]};
       const spend=async n=>{await pool.query('INSERT INTO translation_usage(day,chars) VALUES(CURRENT_DATE,$1) ON CONFLICT(day) DO UPDATE SET chars=translation_usage.chars+EXCLUDED.chars',[n])};
       const canSend=async n=>{const u=await usage();return u.d+n<=config.translateDailyCharLimit&&u.m+n<=config.translateMonthlyCharLimit};
-      const send=async list=>{const n=list.reduce((a,t)=>a+t.length,0);if(!(await canSend(n))){capped=true;return null}await spend(n);return translateWith(provider,list,{html,target})};
+      const send=async list=>{const n=list.reduce((a,t)=>a+t.length,0);if(!(await canSend(n))){capped=true;return null}await spend(n);return translateProtected(provider,list,{html,target})};
       for(const chunk of chunks){if(capped)break;const done=await send(chunk);
         if(done){for(let i=0;i<chunk.length;i++)await store(chunk[i],done[i])}
         else if(chunk.length>1&&!capped){for(const one of chunk){if(capped)break;const d=await send([one]);if(d)await store(one,d[0])}}}
