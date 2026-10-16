@@ -98,6 +98,16 @@ await test('[desktop] campaign: market penalties never touch the Band List',null
   expect(out.bandRaised===0,`${out.bandRaised} Band List items got a campaign price`);
   expect(out.postRaised>0,'the general market lost its outsider penalty');
 });
+await test('[desktop] campaign: Band List purchase is on its way until the next game',null,async page=>{
+  const r1=await page.evaluate(()=>{siteLanguage='en';const f=D.factions.find(x=>!x.__official);
+    state.rosters=[{id:'tr',name:'Transit',factionId:f.id,gold:500,fighters:[],campaignId:'c-tr',battleRecord:{w:1,d:0,l:0}}];state.active='tr';
+    campaignDetailCache.set('c-tr',{id:'c-tr',name:'C',members:[],definition:{settlements:[{id:'s1',name:'Town'}]}});save(true);
+    const name=tradingShopItems(activeRoster(),'band',null)[0].w.name;buyTradingItem('band',name);navigateApp(warbandPath('tr'));setGangTab('reserve');
+    return {section:!!document.querySelector('.transit-section'),badge:!!document.querySelector('.gt-transit'),inTransit:reserveInTransit(activeRoster(),activeRoster().reserve[0])}});
+  expect(r1.inTransit&&r1.section&&r1.badge,'purchase not shown as on its way: '+JSON.stringify(r1));
+  const r2=await page.evaluate(()=>{activeRoster().battleRecord={w:2,d:0,l:0};save(true);setGangTab('reserve');return {section:!!document.querySelector('.transit-section'),inTransit:reserveInTransit(activeRoster(),activeRoster().reserve[0])}});
+  expect(!r2.inTransit&&!r2.section,'still on its way after the next game');
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);
