@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0638.0';
+const APP_BUILD='110.0639.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13836,7 +13836,7 @@ function carriedWeaponRowMarkup(x){if(!fighterHasMisericordia(x))return '';const
 function fighterNoEquipment(x){return !!x?.noEquipment}
 function henchmanBandListOnly(x){return !!x&&x.type!=='Animal'&&!isHiredSword(x)&&advancementRole(x)==='Henchman'}
 function henchmanBandListAllows(x,e){if(!henchmanBandListOnly(x)||!e)return true;return equipmentPool('band',x).some(w=>normName(w?.name)===normName(e.name))}
-function canEquip(x,w){const en=siteLanguage==='en';if(w.bandOnlyIntrinsic)return {ok:true};const equipped=x?.equipmentSelected||[];if(isWeaponLike(w)){const slots=weaponSlots(w);if(currentWeaponSlots(x)+slots>3)return {ok:false,msg:en?'Maximum of 3 weapon slots reached (two-handed weapons count as 2).':'Maximum de 3 emplacements d’armes atteint (les armes à deux mains comptent pour 2).'}}if(isFurCloak(w)&&equipped.some(e=>isShield(e)))return {ok:false,msg:en?'A fur/fur cloak cannot be used with a shield.':'Une fourrure/cape de fourrure ne peut pas être utilisée avec un bouclier.'};if(isShield(w)&&equipped.some(e=>isFurCloak(e)))return {ok:false,msg:en?'A shield cannot be used with a fur/fur cloak.':'Un bouclier ne peut pas être utilisé avec une fourrure/cape de fourrure.'};return {ok:true}}
+function canEquip(x,w){const en=siteLanguage==='en';if(w.bandOnlyIntrinsic)return {ok:true};if(isWarTrophies(w)&&fighterIsImmuneToPsychology(x))return {ok:false,msg:en?'War Trophies may not be used by warriors that are Immune to Psychology.':'Les War Trophies ne peuvent pas être utilisés par un combattant Immune to Psychology.'};const equipped=x?.equipmentSelected||[];if(isWeaponLike(w)){const slots=weaponSlots(w);if(currentWeaponSlots(x)+slots>3)return {ok:false,msg:en?'Maximum of 3 weapon slots reached (two-handed weapons count as 2).':'Maximum de 3 emplacements d’armes atteint (les armes à deux mains comptent pour 2).'}}if(isFurCloak(w)&&equipped.some(e=>isShield(e)))return {ok:false,msg:en?'A fur/fur cloak cannot be used with a shield.':'Une fourrure/cape de fourrure ne peut pas être utilisée avec un bouclier.'};if(isShield(w)&&equipped.some(e=>isFurCloak(e)))return {ok:false,msg:en?'A shield cannot be used with a fur/fur cloak.':'Un bouclier ne peut pas être utilisé avec une fourrure/cape de fourrure.'};return {ok:true}}
 // V-MOUNTEDCARD: a Mount (equipment-shaped creature profile bought from
 // Custom → Animals & Mounts — see mountCreatureAsEquipment) was previously
 // invisible on the fighter sheet beyond its plain equipment row: no
@@ -14779,7 +14779,19 @@ function effectsFromRuleText(text){
   }
   return {stats,skills};
 }
-function standardEquipmentStatEffects(w){
+// V-WARTROPHY: "May not be used by warriors that are Immune to Psychology."
+// Immune either by the rule itself or by a rule that lists it as one of its
+// own points ("Undead", "Daemonic": "• Immune to Psychology: …"). Frenzy only
+// gives it while frenzied, so it doesn't count.
+function fighterIsImmuneToPsychology(x){
+  try{
+    const r=(state?.rosters||[]).find(rr=>(rr.fighters||[]).includes(x))||activeRoster();const f=r?faction(r):null;
+    const names=[...(Array.isArray(x?.ruleNames)?x.ruleNames:[]),...String(x?.rules||'').split(','),...(f?fighterRuleNames(x,f):[]),...fighterGrantedRuleNames(x)].map(n=>String(n||'').trim()).filter(Boolean);
+    return names.some(n=>{if(normName(n)==='immune to psychology')return true;const e=referenceFind('special',n);return !!e&&/^\s*[•\-*]\s*Immune to Psychology\b/im.test(String(e.text||''))});
+  }catch(e){return false}
+}
+const isWarTrophies=w=>normName(w?.name)==='war trophies';
+function standardEquipmentStatEffects(w,x){
   const n=normName(w?.name);
   const out=[];
   // These are unconditional profile modifiers stated directly by the M17 equipment rules.
@@ -14793,7 +14805,7 @@ function standardEquipmentStatEffects(w){
   }else if(n==='laudanum'){
     out.push({index:6,amount:-1}); // Initiative
   }else if(n==='war trophies'){
-    out.push({index:1,amount:+1}); // WS
+    if(!(x&&fighterIsImmuneToPsychology(x)))out.push({index:1,amount:+1}); // WS
   }
   return out;
 }
@@ -14819,7 +14831,7 @@ function syncCustomEquipmentEffects(x){
   const oldGranted=Array.isArray(x.customEquipmentGrantedSkills)?x.customEquipmentGrantedSkills.slice():[];
   const desiredStats=[];const desiredSkills=[];
   x.equipmentSelected.forEach(e=>{
-    standardEquipmentStatEffects(e).forEach(m=>desiredStats.push({...m,itemId:e.name}));
+    standardEquipmentStatEffects(e,x).forEach(m=>desiredStats.push({...m,itemId:e.name}));
     const fx=customEquipmentEffects(e);
     fx.stats.forEach(m=>desiredStats.push({...m,itemId:e.customEquipmentId||e.name}));
     fx.skills.forEach(skill=>desiredSkills.push({skill,itemId:e.customEquipmentId||e.name}));
