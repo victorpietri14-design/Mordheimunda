@@ -31,5 +31,13 @@ export const config={
   // V-AUTOTRANSLATE: DeepL API key (a free-plan key ends with ":fx"). When
   // unset, automatic translation is simply off.
   deeplApiKey:process.env.DEEPL_API_KEY||'',
-  deeplApiUrl:process.env.DEEPL_API_URL||''
+  deeplApiUrl:process.env.DEEPL_API_URL||'',
+  // Alternatives to DeepL — the first key set is used: DeepL, then Google
+  // Cloud Translation (GOOGLE_TRANSLATE_API_KEY), then Microsoft Translator
+  // (AZURE_TRANSLATOR_KEY + AZURE_TRANSLATOR_REGION). *_URL only for tests.
+  googleTranslateApiKey:process.env.GOOGLE_TRANSLATE_API_KEY||'',
+  googleTranslateApiUrl:process.env.GOOGLE_TRANSLATE_API_URL||'',
+  azureTranslatorKey:process.env.AZURE_TRANSLATOR_KEY||'',
+  azureTranslatorRegion:process.env.AZURE_TRANSLATOR_REGION||'',
+  azureTranslatorUrl:process.env.AZURE_TRANSLATOR_URL||''
 };

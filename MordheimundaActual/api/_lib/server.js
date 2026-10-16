@@ -500,9 +500,37 @@ app.get('/api/admin/support/:userId/history/:id',requireDb,auth,requireAdmin,asy
 
 // V-AUTOTRANSLATE: translate the site's English-only texts (admin-written
 // rules, quests, scenarios…) when a visitor reads the site in French. Each
-// text is sent to DeepL once and kept in the translations table; afterwards
+// text is sent to the translation service once and kept in the translations table; afterwards
 // it is served from the database. HTML fragments keep their tags
-// (tag_handling=html). Without DEEPL_API_KEY nothing is translated.
+// (HTML mode). Provider: DeepL, Google or Microsoft — whichever key is set
+// (see config.js); without any key nothing is translated.
+function translateProvider(){return config.deeplApiKey?'deepl':config.googleTranslateApiKey?'google':config.azureTranslatorKey?'azure':null}
+// Returns the translations in the same order as `texts`, or null on error.
+async function translateWith(provider,texts,{html,target}){
+  const src=target==='FR'?'en':'fr',dst=target==='FR'?'fr':'en';
+  try{
+    if(provider==='deepl'){
+      const endpoint=config.deeplApiUrl||(/:fx$/.test(config.deeplApiKey)?'https://api-free.deepl.com/v2/translate':'https://api.deepl.com/v2/translate');
+      const r=await fetch(endpoint,{method:'POST',headers:{'Authorization':'DeepL-Auth-Key '+config.deeplApiKey,'Content-Type':'application/json'},body:JSON.stringify({text:texts,source_lang:src.toUpperCase(),target_lang:target,preserve_formatting:true,...(html?{tag_handling:'html'}:{})})});
+      if(!r.ok){console.error('DeepL',r.status,(await r.text()).slice(0,200));return null}
+      return ((await r.json())?.translations||[]).map(t=>t?.text);
+    }
+    if(provider==='google'){
+      const endpoint=(config.googleTranslateApiUrl||'https://translation.googleapis.com/language/translate/v2')+'?key='+encodeURIComponent(config.googleTranslateApiKey);
+      const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts,source:src,target:dst,format:html?'html':'text'})});
+      if(!r.ok){console.error('Google Translate',r.status,(await r.text()).slice(0,200));return null}
+      return ((await r.json())?.data?.translations||[]).map(t=>t?.translatedText);
+    }
+    if(provider==='azure'){
+      const endpoint=(config.azureTranslatorUrl||'https://api.cognitive.microsofttranslator.com/translate')+`?api-version=3.0&from=${src}&to=${dst}${html?'&textType=html':''}`;
+      const headers={'Ocp-Apim-Subscription-Key':config.azureTranslatorKey,'Content-Type':'application/json'};if(config.azureTranslatorRegion)headers['Ocp-Apim-Subscription-Region']=config.azureTranslatorRegion;
+      const r=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify(texts.map(t=>({Text:t})))});
+      if(!r.ok){console.error('Microsoft Translator',r.status,(await r.text()).slice(0,200));return null}
+      return ((await r.json())||[]).map(x=>x?.translations?.[0]?.text);
+    }
+  }catch(e){console.error('translate',provider,e.message)}
+  return null;
+}
 const translateLimiter=rateLimit({windowMs:60*1000,max:120,standardHeaders:true,legacyHeaders:false});
 app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req,res,next)=>{
   const target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
@@ -515,15 +543,13 @@ app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req
     const q=await pool.query('SELECT hash,translated FROM translations WHERE target_lang=$1 AND hash=ANY($2)',[target,keys]);
     const have=new Map(q.rows.map(r=>[r.hash,r.translated]));
     const missing=[];texts.forEach((t,i)=>{if(have.has(keys[i]))out[t]=have.get(keys[i]);else if(!missing.includes(t))missing.push(t)});
-    if(missing.length&&config.deeplApiKey){
-      const endpoint=config.deeplApiUrl||(/:fx$/.test(config.deeplApiKey)?'https://api-free.deepl.com/v2/translate':'https://api.deepl.com/v2/translate');
-      const r=await fetch(endpoint,{method:'POST',headers:{'Authorization':'DeepL-Auth-Key '+config.deeplApiKey,'Content-Type':'application/json'},body:JSON.stringify({text:missing,source_lang:target==='FR'?'EN':'FR',target_lang:target,preserve_formatting:true,...(html?{tag_handling:'html'}:{})})});
-      if(r.ok){const j=await r.json();const tr=Array.isArray(j?.translations)?j.translations:[];
-        for(let i=0;i<missing.length;i++){const t=tr[i]?.text;if(typeof t!=='string')continue;out[missing[i]]=t;
-          await pool.query('INSERT INTO translations(hash,target_lang,source,translated) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[key(missing[i]),target,missing[i],t])}}
-      else console.error('DeepL',r.status,(await r.text()).slice(0,200));
+    const provider=translateProvider();
+    if(missing.length&&provider){
+      const done=await translateWith(provider,missing,{html,target});
+      if(done)for(let i=0;i<missing.length;i++){const t=done[i];if(typeof t!=='string')continue;out[missing[i]]=t;
+        await pool.query('INSERT INTO translations(hash,target_lang,source,translated) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[key(missing[i]),target,missing[i],t])}
     }
-    res.json({translations:out,enabled:!!config.deeplApiKey});
+    res.json({translations:out,enabled:!!translateProvider()});
   }catch(e){next(e)}
 });
 
