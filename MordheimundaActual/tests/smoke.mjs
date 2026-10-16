@@ -98,6 +98,20 @@ await test('[desktop] campaign: market penalties never touch the Band List',null
   expect(out.bandRaised===0,`${out.bandRaised} Band List items got a campaign price`);
   expect(out.postRaised>0,'the general market lost its outsider penalty');
 });
+await test('[desktop] campaign: Band List purchase is on its way until a campaign game with the warband is recorded',null,async page=>{
+  const r1=await page.evaluate(()=>{siteLanguage='en';const f=D.factions.find(x=>!x.__official);const w=JSON.parse(JSON.stringify(f.warriors[0]));
+    state.rosters=[{id:'tr',name:'Transit',factionId:f.id,gold:500,fighters:[{...w,instance:'f1'}],campaignId:'c-tr'}];state.active='tr';
+    campaignDetailCache.set('c-tr',{id:'c-tr',name:'C',members:[],definition:{settlements:[{id:'s1',name:'Town'}]}});
+    campaignBattlesCache.set('c-tr',[{id:'old',status:'confirmed',createdAt:new Date(Date.now()-86400000).toISOString(),sides:[{rosterId:'tr',result:'win'}]}]);save(true);
+    const name=tradingShopItems(activeRoster(),'band',null)[0].w.name;buyTradingItem('band',name);navigateApp(warbandPath('tr'));setGangTab('reserve');
+    confirmTransferReserve(0,0);
+    return {section:!!document.querySelector('.transit-section'),badge:!!document.querySelector('.gt-transit'),inTransit:reserveInTransit(activeRoster(),activeRoster().reserve[0]),stillInStash:activeRoster().reserve.length}});
+  expect(r1.inTransit&&r1.section&&r1.badge&&r1.stillInStash===1,'purchase not held as on its way: '+JSON.stringify(r1));
+  const r2=await page.evaluate(()=>{const bs=campaignBattlesCache.get('c-tr');bs.push({id:'other',status:'confirmed',createdAt:new Date(Date.now()+1000).toISOString(),sides:[{rosterId:'someone-else'}]});return reserveInTransit(activeRoster(),activeRoster().reserve[0])});
+  expect(r2,'delivered by a campaign game that did not include the warband');
+  const r3=await page.evaluate(()=>{campaignBattlesCache.get('c-tr').push({id:'next',status:'confirmed',createdAt:new Date(Date.now()+2000).toISOString(),sides:[{rosterId:'tr',result:'loss'}]});setGangTab('reserve');return {inTransit:reserveInTransit(activeRoster(),activeRoster().reserve[0]),section:!!document.querySelector('.transit-section')}});
+  expect(!r3.inTransit&&!r3.section,'still on its way after a recorded campaign game with the warband');
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);

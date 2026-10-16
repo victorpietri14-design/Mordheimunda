@@ -4863,3 +4863,9 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .mt-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0}@media (max-width:640px){.mt-cols{grid-template-columns:1fr}}
 .mt-src,.mt-box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:80px;max-height:50vh;overflow:auto;font-size:13px;line-height:1.5;background:var(--panel2)}
 .mt-src{color:var(--muted)}.mt-box{color:var(--text);outline:none}.mt-box:focus{border-color:var(--accent)}
+
+/* V-TRANSIT */
+.transit-banner{display:flex;flex-direction:column;gap:4px;border:1px solid #e8c54766;background:#e8c5470f;border-left:4px solid #e8c547;border-radius:10px;padding:10px 14px;margin:10px 0;color:var(--text);font-size:12.5px;line-height:1.45}
+.transit-banner b{color:#e8c547;font-size:13px;letter-spacing:.04em}
+.transit-section{margin:6px 0 18px}.transit-section .reserve-list{opacity:.92}
+.gt-transit{margin-left:6px;font-size:10.5px;color:#e8c547;border:1px solid #e8c54766;border-radius:10px;padding:0 6px;white-space:nowrap}
