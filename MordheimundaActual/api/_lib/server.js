@@ -551,9 +551,14 @@ app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req
     const missing=[];texts.forEach((t,i)=>{if(have.has(keys[i]))out[t]=have.get(keys[i]);else if(!missing.includes(t))missing.push(t)});
     const provider=translateProvider();
     if(missing.length&&provider){
-      const done=await translateWith(provider,missing,{html,target});
-      if(done)for(let i=0;i<missing.length;i++){const t=done[i];if(typeof t!=='string')continue;out[missing[i]]=t;
-        await pool.query('INSERT INTO translations(hash,target_lang,source,translated) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[key(missing[i]),target,missing[i],t])}
+      // Services refuse oversized requests (Google: a few thousand characters
+      // per call), which used to fail a whole page at once. Send small
+      // chunks; if a chunk still fails, retry its texts one by one.
+      const chunks=[];let cur=[],size=0;for(const t of missing){if(cur.length&&(cur.length>=25||size+t.length>4000)){chunks.push(cur);cur=[];size=0}cur.push(t);size+=t.length}if(cur.length)chunks.push(cur);
+      const store=async(src,t)=>{if(typeof t!=='string')return;out[src]=t;await pool.query('INSERT INTO translations(hash,target_lang,source,translated) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[key(src),target,src,t])};
+      for(const chunk of chunks){const done=await translateWith(provider,chunk,{html,target});
+        if(done){for(let i=0;i<chunk.length;i++)await store(chunk[i],done[i])}
+        else if(chunk.length>1){for(const one of chunk){const d=await translateWith(provider,[one],{html,target});if(d)await store(one,d[0])}}}
     }
     res.json({translations:out,enabled:!!translateProvider()});
   }catch(e){next(e)}
