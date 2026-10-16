@@ -74,6 +74,9 @@ app.use(cors({origin:config.clientOrigin,credentials:true}));
 app.use(cookieParser());
 app.use(express.json({limit:'6mb'}));
 app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
+// V-POLLQUOTA: overall cap per visitor on every API route, so one stuck tab
+// or runaway loop can never burn through the host's monthly free quota.
+app.use('/api/',rateLimit({windowMs:10*60*1000,max:600,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/auth/',rateLimit({windowMs:15*60*1000,max:30,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/account/',rateLimit({windowMs:60*1000,max:120,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/admin/',rateLimit({windowMs:60*1000,max:60,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
