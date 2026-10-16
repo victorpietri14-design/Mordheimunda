@@ -27,5 +27,14 @@ export const config={
   // One-shot secret for the /api/admin/migrate endpoint (V152). Deliberately
   // empty by default: when unset, the endpoint refuses every request, so a
   // forgotten-to-remove migrate route can never be triggered by a stranger.
-  migrateToken:process.env.MIGRATE_TOKEN||''
+  migrateToken:process.env.MIGRATE_TOKEN||'',
+  // V-AUTOTRANSLATE: automatic translation of English-only texts. Google
+  // Cloud Translation (GOOGLE_TRANSLATE_API_KEY) is the main service;
+  // Microsoft Translator (AZURE_TRANSLATOR_KEY + AZURE_TRANSLATOR_REGION) is
+  // a fallback. Without a key nothing is translated. *_URL only for tests.
+  googleTranslateApiKey:process.env.GOOGLE_TRANSLATE_API_KEY||'',
+  googleTranslateApiUrl:process.env.GOOGLE_TRANSLATE_API_URL||'',
+  azureTranslatorKey:process.env.AZURE_TRANSLATOR_KEY||'',
+  azureTranslatorRegion:process.env.AZURE_TRANSLATOR_REGION||'',
+  azureTranslatorUrl:process.env.AZURE_TRANSLATOR_URL||''
 };

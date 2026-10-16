@@ -5,7 +5,7 @@
 <title>Mordheimunda 26 // M17</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=110.0624.0">
+<link rel="stylesheet" href="/assets/styles.css?v=110.0629.0">
 </head>
 <body>
 <img class="app-bg" src="/assets/img/dashboard-bg.jpg" alt="">
@@ -54,7 +54,7 @@
  <section id="content"></section>
 </main></div>
 <div id="modal" class="modal hidden"><div class="modal-card"><button class="modal-close" id="modalClose">×</button><div id="modalContent"></div></div></div>
-<script src="/data/catalog.js?v=110.0624.0"></script><script src="/data/rules.js?v=110.0624.0"></script><script src="/data/packs/loader.js?v=110.0624.0"></script><script src="/data/packs/blood_dragons.js?v=110.0624.0"></script><script src="/assets/core/config.js?v=110.0624.0"></script><script src="/assets/core/migrations.js?v=110.0624.0"></script><script src="/assets/core/storage.js?v=110.0624.0"></script><script src="/assets/core/content.js?v=110.0624.0"></script><script src="/assets/core/api.js?v=110.0624.0"></script><script src="/assets/app.js?v=110.0624.0"></script>
+<script src="/data/catalog.js?v=110.0629.0"></script><script src="/data/rules.js?v=110.0629.0"></script><script src="/data/packs/loader.js?v=110.0629.0"></script><script src="/data/packs/blood_dragons.js?v=110.0629.0"></script><script src="/assets/core/config.js?v=110.0629.0"></script><script src="/assets/core/migrations.js?v=110.0629.0"></script><script src="/assets/core/storage.js?v=110.0629.0"></script><script src="/assets/core/content.js?v=110.0629.0"></script><script src="/assets/core/api.js?v=110.0629.0"></script><script src="/assets/app.js?v=110.0629.0"></script>
 <script>if('serviceWorker' in navigator){
   let swRefreshing=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
@@ -83,23 +83,24 @@
    if(!r.ok)return;
    const b=await r.json();
    if(!b?.user||!b.user.email||b.user.emailVerified)return;
+   const fr=(localStorage.getItem('mordheimunda_site_language')||'en')==='fr';const L=(e,f)=>fr?f:e;
    const bar=document.createElement('div');
-   bar.setAttribute('data-testid','email-verify-banner');
+   bar.setAttribute('data-testid','email-verify-banner');bar.className='mt-skip';
    bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(180deg,#4a2717,#2f1809);border-bottom:1px solid #c98a5a;color:#f2e4c3;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;padding:10px 16px;display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;box-shadow:0 6px 14px rgba(0,0,0,.35)';
-   bar.innerHTML='<span style="letter-spacing:.06em">Confirm your email <strong style="color:#e8d9b5">'+String(b.user.email).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))+'</strong> so password recovery stays available.</span><button type="button" data-testid="email-verify-resend-btn" style="cursor:pointer;background:#3a1f10;border:1px solid #c98a5a;color:#f2e4c3;font-family:\'Cinzel\',Georgia,serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:6px 12px;border-radius:2px">Resend email</button><button type="button" aria-label="Dismiss" data-testid="email-verify-dismiss-btn" style="cursor:pointer;background:transparent;border:0;color:#c98a5a;font-size:18px;line-height:1;padding:0 4px">×</button>';
+   bar.innerHTML='<span style="letter-spacing:.06em">'+L('Confirm your email','Confirme ton e-mail')+' <strong style="color:#e8d9b5">'+String(b.user.email).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))+'</strong> '+L('so password recovery stays available.','pour pouvoir récupérer ton mot de passe.')+'</span><button type="button" data-testid="email-verify-resend-btn" style="cursor:pointer;background:#3a1f10;border:1px solid #c98a5a;color:#f2e4c3;font-family:\'Cinzel\',Georgia,serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:6px 12px;border-radius:2px">'+L('Resend email','Renvoyer l’e-mail')+'</button><button type="button" aria-label="Dismiss" data-testid="email-verify-dismiss-btn" style="cursor:pointer;background:transparent;border:0;color:#c98a5a;font-size:18px;line-height:1;padding:0 4px">×</button>';
    document.body.appendChild(bar);
    document.body.style.paddingTop=(bar.offsetHeight)+'px';
    const [btnResend,btnClose]=bar.querySelectorAll('button');
    btnClose.addEventListener('click',()=>{bar.remove();document.body.style.paddingTop='';sessionStorage.setItem('verifyBannerDismissed','1');});
    if(sessionStorage.getItem('verifyBannerDismissed')==='1'){bar.remove();document.body.style.paddingTop='';return;}
    btnResend.addEventListener('click',async()=>{
-    btnResend.disabled=true;const prev=btnResend.textContent;btnResend.textContent='Sending…';
+    btnResend.disabled=true;const prev=btnResend.textContent;btnResend.textContent=L('Sending…','Envoi…');
     try{
      const rr=await fetch('/api/auth/resend-verification',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}});
-     if(rr.ok){btnResend.textContent='Email sent';}
-     else if(rr.status===429){btnResend.textContent='Try later';}
-     else{btnResend.textContent='Failed'; setTimeout(()=>{btnResend.disabled=false;btnResend.textContent=prev;},2500);}
-    }catch(e){btnResend.textContent='Network err'; setTimeout(()=>{btnResend.disabled=false;btnResend.textContent=prev;},2500);}
+     if(rr.ok){btnResend.textContent=L('Email sent','E-mail envoyé');}
+     else if(rr.status===429){btnResend.textContent=L('Try later','Réessaie plus tard');}
+     else{btnResend.textContent=L('Failed','Échec'); setTimeout(()=>{btnResend.disabled=false;btnResend.textContent=prev;},2500);}
+    }catch(e){btnResend.textContent=L('Network err','Erreur réseau'); setTimeout(()=>{btnResend.disabled=false;btnResend.textContent=prev;},2500);}
    });
   }catch(e){}
  }

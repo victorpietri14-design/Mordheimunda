@@ -543,3 +543,40 @@ CREATE TABLE IF NOT EXISTS rule_images (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- V-HISTORY: automatic snapshots of an account's data (see snapshotUserData
+-- in server.js) so a single warband can be restored as it was.
+CREATE TABLE IF NOT EXISTS user_data_history (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  revision BIGINT,
+  payload JSONB NOT NULL,
+  summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS user_data_history_user_saved ON user_data_history(user_id,saved_at DESC);
+
+-- V-SHARE: read-only share links for one warband (revocable).
+CREATE TABLE IF NOT EXISTS warband_shares (
+  token TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  roster_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS warband_shares_user ON warband_shares(user_id);
+
+-- V-AUTOTRANSLATE: machine translations (Google), kept forever so each text
+-- is only ever sent to the translation service once.
+CREATE TABLE IF NOT EXISTS translations (
+  hash TEXT NOT NULL,
+  target_lang TEXT NOT NULL,
+  source TEXT NOT NULL,
+  translated TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (hash,target_lang)
+);
+-- V-MTEDIT: an admin's hand correction of a machine translation (kept, never
+-- overwritten by the service).
+ALTER TABLE translations ADD COLUMN IF NOT EXISTS edited_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE translations ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;

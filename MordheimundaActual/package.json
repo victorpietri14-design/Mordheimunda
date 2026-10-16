@@ -6,7 +6,8 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "dev": "node api/_lib/server.js",
-    "start": "node api/_lib/server.js"
+    "start": "node api/_lib/server.js",
+    "test:smoke": "node tests/smoke.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

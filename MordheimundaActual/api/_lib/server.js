@@ -474,6 +474,127 @@ app.post('/api/account/sessions/revoke-others',requireDb,requireSameOrigin,auth,
 const toInt=v=>{const n=typeof v==='string'?parseInt(v,10):v;return Number.isInteger(n)?n:null;};
 app.get('/api/account/data',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT schema_version,payload,revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{schema_version:4,payload:{rosters:[],active:null},revision:1,updated_at:null})}catch(e){next(e)}});
 app.get('/api/account/data/revision',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{revision:1,updated_at:null})}catch(e){next(e)}});
+// V-HISTORY: automatic warband history. Before a save overwrites an
+// account's data, the current payload is kept as a snapshot (at most one
+// every 20 minutes, the 40 newest per account) with a small per-warband
+// summary, so a player — or an admin viewing the account — can bring one
+// warband back as it was. A snapshot failure never blocks the save.
+const HISTORY_EVERY_MS=20*60*1000,HISTORY_KEEP=40;
+async function snapshotUserData(userId){
+  try{
+    const last=await pool.query('SELECT saved_at FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT 1',[userId]);
+    if(last.rowCount&&Date.now()-new Date(last.rows[0].saved_at).getTime()<HISTORY_EVERY_MS)return;
+    const cur=await pool.query('SELECT payload,revision::int AS revision FROM user_data WHERE user_id=$1',[userId]);if(!cur.rowCount)return;
+    const p=cur.rows[0].payload||{};if(!Array.isArray(p.rosters)||!p.rosters.length)return; // nothing to restore yet
+    const summary={rosters:(Array.isArray(p.rosters)?p.rosters:[]).map(r=>({id:String(r?.id??''),name:String(r?.name||'').slice(0,120),factionId:String(r?.factionId||'').slice(0,120),fighters:Array.isArray(r?.fighters)?r.fighters.length:0,gold:Number(r?.gold||0)||0,reputation:Number(r?.reputation||0)||0}))};
+    await pool.query('INSERT INTO user_data_history(id,user_id,revision,payload,summary,saved_at) VALUES($1,$2,$3,$4,$5,NOW())',[crypto.randomUUID(),userId,cur.rows[0].revision,JSON.stringify(p),JSON.stringify(summary)]);
+    await pool.query('DELETE FROM user_data_history WHERE user_id=$1 AND id NOT IN (SELECT id FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT $2)',[userId,HISTORY_KEEP]);
+  }catch(e){console.error('history snapshot',e)}
+}
+const historyList=async userId=>(await pool.query('SELECT id,revision::int AS revision,summary,saved_at FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT $2',[userId,HISTORY_KEEP])).rows.map(r=>({id:r.id,revision:r.revision,savedAt:r.saved_at,rosters:r.summary?.rosters||[]}));
+const historyGet=async(userId,id)=>{if(!/^[0-9a-f-]{36}$/i.test(String(id)))return null;const q=await pool.query('SELECT id,payload,saved_at FROM user_data_history WHERE user_id=$1 AND id=$2',[userId,id]);return q.rows[0]?{id:q.rows[0].id,savedAt:q.rows[0].saved_at,payload:q.rows[0].payload}:null};
+app.get('/api/account/history',requireDb,auth,async(req,res,next)=>{try{res.json({snapshots:await historyList(req.user.user_id)})}catch(e){next(e)}});
+app.get('/api/account/history/:id',requireDb,auth,async(req,res,next)=>{try{const h=await historyGet(req.user.user_id,req.params.id);if(!h)return res.status(404).json({error:'NOT_FOUND'});res.json(h)}catch(e){next(e)}});
+app.get('/api/admin/support/:userId/history',requireDb,auth,requireAdmin,async(req,res,next)=>{try{res.json({snapshots:await historyList(req.params.userId)})}catch(e){next(e)}});
+app.get('/api/admin/support/:userId/history/:id',requireDb,auth,requireAdmin,async(req,res,next)=>{try{const h=await historyGet(req.params.userId,req.params.id);if(!h)return res.status(404).json({error:'NOT_FOUND'});res.json(h)}catch(e){next(e)}});
+
+// V-AUTOTRANSLATE: translate the site's English-only texts (admin-written
+// rules, quests, scenarios…) when a visitor reads the site in French. Each
+// text is sent to the translation service once and kept in the translations table; afterwards
+// it is served from the database. HTML fragments keep their tags
+// (HTML mode). Provider: Google Cloud Translation, or Microsoft Translator
+// as a fallback (see config.js); without a key nothing is translated.
+function translateProvider(){return config.googleTranslateApiKey?'google':config.azureTranslatorKey?'azure':null}
+// Returns the translations in the same order as `texts`, or null on error.
+async function translateWith(provider,texts,{html,target}){
+  const src=target==='FR'?'en':'fr',dst=target==='FR'?'fr':'en';
+  try{
+    if(provider==='google'){
+      const endpoint=(config.googleTranslateApiUrl||'https://translation.googleapis.com/language/translate/v2')+'?key='+encodeURIComponent(config.googleTranslateApiKey);
+      const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:texts,source:src,target:dst,format:html?'html':'text'})});
+      if(!r.ok){console.error('Google Translate',r.status,(await r.text()).slice(0,200));return null}
+      return ((await r.json())?.data?.translations||[]).map(t=>t?.translatedText);
+    }
+    if(provider==='azure'){
+      const endpoint=(config.azureTranslatorUrl||'https://api.cognitive.microsofttranslator.com/translate')+`?api-version=3.0&from=${src}&to=${dst}${html?'&textType=html':''}`;
+      const headers={'Ocp-Apim-Subscription-Key':config.azureTranslatorKey,'Content-Type':'application/json'};if(config.azureTranslatorRegion)headers['Ocp-Apim-Subscription-Region']=config.azureTranslatorRegion;
+      const r=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify(texts.map(t=>({Text:t})))});
+      if(!r.ok){console.error('Microsoft Translator',r.status,(await r.text()).slice(0,200));return null}
+      return ((await r.json())||[]).map(x=>x?.translations?.[0]?.text);
+    }
+  }catch(e){console.error('translate',provider,e.message)}
+  return null;
+}
+const translateLimiter=rateLimit({windowMs:60*1000,max:120,standardHeaders:true,legacyHeaders:false});
+// V-MTEDIT: an admin corrects a French translation by hand. Stored under the
+// same key as the machine translation (hash of the English source), so it
+// replaces it for everyone; the English text itself is never touched.
+app.put('/api/admin/translations',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const source=String(req.body?.source||''),html=!!req.body?.html,target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
+  let translated=String(req.body?.translated||'');
+  if(!source.trim()||!translated.trim()||source.length>6000||translated.length>12000)return res.status(400).json({error:'INVALID_TRANSLATION'});
+  translated=translated.replace(/<\s*\/?\s*(script|iframe|object|embed|style)[^>]*>/gi,'').replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi,m=>/onclick/i.test(m)?m:'');
+  try{const hash=crypto.createHash('sha256').update((html?'h:':'t:')+source).digest('hex');
+    await pool.query('INSERT INTO translations(hash,target_lang,source,translated,edited_by,edited_at) VALUES($1,$2,$3,$4,$5,NOW()) ON CONFLICT(hash,target_lang) DO UPDATE SET translated=EXCLUDED.translated,edited_by=EXCLUDED.edited_by,edited_at=NOW()',[hash,target,source,translated,req.user.user_id]);
+    res.json({ok:true,translated})}catch(e){next(e)}
+});
+app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req,res,next)=>{
+  const target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
+  const html=!!req.body?.html;
+  const texts=(Array.isArray(req.body?.texts)?req.body.texts:[]).slice(0,60).map(t=>String(t??'')).filter(t=>t.trim()&&t.length<=6000);
+  if(!texts.length)return res.json({translations:{}});
+  try{
+    const key=t=>crypto.createHash('sha256').update((html?'h:':'t:')+t).digest('hex');
+    const keys=texts.map(key);const out={};
+    const q=await pool.query('SELECT hash,translated FROM translations WHERE target_lang=$1 AND hash=ANY($2)',[target,keys]);
+    const have=new Map(q.rows.map(r=>[r.hash,r.translated]));
+    const missing=[];texts.forEach((t,i)=>{if(have.has(keys[i]))out[t]=have.get(keys[i]);else if(!missing.includes(t))missing.push(t)});
+    const provider=translateProvider();
+    if(missing.length&&provider){
+      const done=await translateWith(provider,missing,{html,target});
+      if(done)for(let i=0;i<missing.length;i++){const t=done[i];if(typeof t!=='string')continue;out[missing[i]]=t;
+        await pool.query('INSERT INTO translations(hash,target_lang,source,translated) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[key(missing[i]),target,missing[i],t])}
+    }
+    res.json({translations:out,enabled:!!translateProvider()});
+  }catch(e){next(e)}
+});
+
+// V-SHARE: a player can share one warband as a read-only link. The public
+// endpoint returns only that warband plus the player's custom content (so
+// custom fighters/equipment display), never their other warbands.
+app.get('/api/account/shares',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT token,roster_id,created_at FROM warband_shares WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC',[req.user.user_id]);res.json({shares:q.rows.map(r=>({token:r.token,rosterId:r.roster_id,createdAt:r.created_at}))})}catch(e){next(e)}});
+app.post('/api/account/shares',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  const rosterId=String(req.body?.rosterId||'').slice(0,120);if(!rosterId)return res.status(400).json({error:'INVALID_ROSTER'});
+  try{const ex=await pool.query('SELECT token FROM warband_shares WHERE user_id=$1 AND roster_id=$2 AND revoked_at IS NULL LIMIT 1',[req.user.user_id,rosterId]);
+    if(ex.rowCount)return res.json({token:ex.rows[0].token,rosterId});
+    const token=crypto.randomBytes(12).toString('base64url');await pool.query('INSERT INTO warband_shares(token,user_id,roster_id) VALUES($1,$2,$3)',[token,req.user.user_id,rosterId]);res.status(201).json({token,rosterId})}catch(e){next(e)}});
+app.delete('/api/account/shares/:token',requireDb,requireSameOrigin,auth,async(req,res,next)=>{try{await pool.query('UPDATE warband_shares SET revoked_at=NOW() WHERE token=$1 AND user_id=$2 AND revoked_at IS NULL',[req.params.token,req.user.user_id]);res.json({ok:true})}catch(e){next(e)}});
+app.get('/api/shared/:token',requireDb,async(req,res,next)=>{
+  if(!/^[A-Za-z0-9_-]{8,40}$/.test(req.params.token))return res.status(404).json({error:'NOT_FOUND'});
+  try{const q=await pool.query('SELECT s.roster_id,u.username,d.payload FROM warband_shares s JOIN users u ON u.id=s.user_id LEFT JOIN user_data d ON d.user_id=s.user_id WHERE s.token=$1 AND s.revoked_at IS NULL',[req.params.token]);
+    if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    const p=q.rows[0].payload||{};const roster=(Array.isArray(p.rosters)?p.rosters:[]).find(r=>String(r?.id)===String(q.rows[0].roster_id));
+    if(!roster)return res.status(404).json({error:'NOT_FOUND'});
+    const out={rosters:[roster],active:roster.id};for(const [k,v] of Object.entries(p))if(/^custom/.test(k))out[k]=v;
+    res.setHeader('Cache-Control','no-store');res.json({owner:q.rows[0].username,rosterId:roster.id,payload:out})}catch(e){next(e)}});
+
+// V-EXPORT: full backup for an admin, fetched part by part (one table page
+// per request keeps every response small) and assembled into one file by
+// the browser. Never includes password hashes, sessions or reset tokens.
+const EXPORT_TABLES={users:5,official_warbands:20,catalog_overrides:20,weapon_overrides:200,rule_nav_groups:200,faction_race_tags:200,race_stat_maximums:200,faction_categories:200,faction_category_members:500,rule_overrides:50,magic_domain_overrides:100,spell_weapon_profile_overrides:200,campaigns:20,campaign_members:200,campaign_markets:20,campaign_trades:200,campaign_battles:100,scenarios:20,deployment_maps:5,site_news:200,site_settings:20,rule_images:5,friendships:500,user_data_history:0};
+app.get('/api/admin/export',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  const table=String(req.query.table||'');const offset=Math.max(0,Number(req.query.offset)||0);
+  if(!table)return res.json({tables:Object.entries(EXPORT_TABLES).filter(([,n])=>n>0).map(([t,n])=>({table:t,pageSize:n}))});
+  const limit=EXPORT_TABLES[table];if(!limit)return res.status(400).json({error:'UNKNOWN_TABLE'});
+  try{
+    const q=table==='users'
+      ?await pool.query('SELECT u.id,u.username,u.email,u.created_at,d.payload,d.revision::int AS revision,d.updated_at FROM users u LEFT JOIN user_data d ON d.user_id=u.id ORDER BY u.created_at,u.id LIMIT $1 OFFSET $2',[limit,offset])
+      :await pool.query(`SELECT * FROM ${table} ORDER BY 1 LIMIT $1 OFFSET $2`,[limit,offset]);
+    const rows=q.rows.map(r=>{const o={};for(const [k,v] of Object.entries(r))o[k]=Buffer.isBuffer(v)?{base64:v.toString('base64')}:v;return o});
+    res.json({table,offset,rows,done:rows.length<limit});
+  }catch(e){next(e)}
+});
+
 app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
@@ -498,7 +619,7 @@ app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)
     // of an overwrite.
     const q=expectedRevision===null
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.user.user_id,payload])
-      :await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.user.user_id,expectedRevision]);
+      :(await snapshotUserData(req.user.user_id),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.user.user_id,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
   }catch(e){next(e)}
@@ -1830,7 +1951,7 @@ app.put('/api/admin/support/:userId/data',requireDb,requireSameOrigin,auth,requi
     const expectedRevision=toInt(req.body?.expectedRevision);
     const q=expectedRevision===null
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.params.userId,payload])
-      :await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.params.userId,expectedRevision]);
+      :(await snapshotUserData(req.params.userId),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.params.userId,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
     await pool.query('INSERT INTO admin_support_access_log(id,admin_id,target_user_id,action) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),req.user.user_id,req.params.userId,'edit']);
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
