@@ -7,6 +7,9 @@
     if(!base)throw new Error('API_NOT_CONFIGURED');
     const init={credentials:'include',...options,headers:{'Content-Type':'application/json','X-App-Build':(typeof APP_BUILD!=='undefined'?APP_BUILD:''),...(options.headers||{})}};
     if(options.keepalive===true) init.keepalive=true;
+    // V-PUBLICCACHE: shared content is cached a minute by the CDN for players;
+    // an admin always asks for the live version (unique query = never cached).
+    if((!init.method||init.method==='GET')&&typeof isAdminSession==='function'&&isAdminSession())path+=(path.includes('?')?'&':'?')+'_t='+Date.now();
     const res=await fetch(base+path,init);let body=null;try{body=await res.json()}catch{}
     if(!res.ok){const e=new Error(body?.error||`HTTP_${res.status}`);e.status=res.status;throw e}return body;
   }

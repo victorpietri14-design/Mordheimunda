@@ -75,6 +75,18 @@ app.use(cors({origin:config.clientOrigin,credentials:true}));
 app.use(cookieParser());
 app.use(express.json({limit:'6mb'}));
 app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
+// V-PUBLICCACHE: shared content every visitor downloads when opening the site
+// (official warbands, scenarios, maps, rules edits, catalog changes, home
+// news…) is the same for everyone, so Vercel's CDN may keep it for a minute:
+// repeat visits no longer run the server or count against its transfer
+// quota. Admins always get the live version (their requests carry a unique
+// ?_t=, which the CDN never has in cache). Only successful answers are kept.
+const PUBLIC_CACHED_GETS=new Set(['/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+app.use((req,res,next)=>{
+  if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
+  const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
+  next();
+});
 // V-POLLQUOTA: overall cap per visitor on every API route, so one stuck tab
 // or runaway loop can never burn through the host's monthly free quota.
 app.use('/api/',rateLimit({windowMs:10*60*1000,max:600,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
