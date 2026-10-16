@@ -8,6 +8,7 @@ import rateLimit,{ipKeyGenerator} from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { Pool } from 'pg';
+import { APP_BUILD as SERVER_BUILD } from './build.js';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 
@@ -74,9 +75,54 @@ app.use(cors({origin:config.clientOrigin,credentials:true}));
 app.use(cookieParser());
 app.use(express.json({limit:'6mb'}));
 app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
+// V-PUBLICCACHE: shared content every visitor downloads when opening the site
+// (official warbands, scenarios, maps, rules edits, catalog changes, home
+// news…) is the same for everyone, so Vercel's CDN may keep it for a minute:
+// repeat visits no longer run the server or count against its transfer
+// quota. Admins always get the live version (their requests carry a unique
+// ?_t=, which the CDN never has in cache). Only successful answers are kept.
+const PUBLIC_CACHED_GETS=new Set(['/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+app.use((req,res,next)=>{
+  if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
+  const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
+  next();
+});
 // V-POLLQUOTA: overall cap per visitor on every API route, so one stuck tab
 // or runaway loop can never burn through the host's monthly free quota.
 app.use('/api/',rateLimit({windowMs:10*60*1000,max:600,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
+// V-SYNCLOOP: whole-account uploads are the heaviest requests (megabytes
+// each with images); a client stuck saving in a loop is cut off quickly.
+const dataPutLimiter=rateLimit({windowMs:10*60*1000,max:120,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+// V-BUILDGUARD: two devices running different versions of the site can
+// "correct" the same account in opposite ways and send it back and forth
+// (what used up the Vercel quota on Oct 16). A save from a version older
+// than this server's, or older than the version that saved the same account
+// in the last 10 minutes, is refused with APP_OUTDATED; the device updates
+// itself and sends its edit again. Clients too old to say their version are
+// let through (they update themselves within a minute anyway).
+const BUILD_RE=/^\d+(?:\.\d+)*$/;
+const cmpBuild=(a,b)=>{const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d<0?-1:1}return 0};
+async function buildGuard(req,res,userId){
+  const cb=String(req.get('x-app-build')||'');if(!BUILD_RE.test(cb))return true;
+  if(BUILD_RE.test(SERVER_BUILD)&&cmpBuild(cb,SERVER_BUILD)<0){res.status(409).json({error:'APP_OUTDATED',build:SERVER_BUILD});return false}
+  const q=await pool.query("SELECT last_build,(last_build_at>NOW()-INTERVAL '10 minutes') AS recent FROM user_data WHERE user_id=$1",[userId]);
+  const r=q.rows[0];if(r?.recent&&BUILD_RE.test(r.last_build||'')&&cmpBuild(cb,r.last_build)<0){res.status(409).json({error:'APP_OUTDATED',build:r.last_build});return false}
+  return true;
+}
+async function noteBuild(req,userId){const cb=String(req.get('x-app-build')||'');if(BUILD_RE.test(cb))await pool.query('UPDATE user_data SET last_build=$1,last_build_at=NOW() WHERE user_id=$2',[cb,userId]).catch(()=>{})}
+app.put('/api/account/data',dataPutLimiter);app.put('/api/admin/support/:userId/data',dataPutLimiter);
+// Admin content written with a picture inside (scenarios, maps, official
+// warbands, campaigns…) is stored with links instead, whatever the route.
+app.use('/api/admin/',async(req,res,next)=>{
+  if(!pool||!['POST','PUT','PATCH'].includes(req.method)||req.path==='/rule-images'||req.path.startsWith('/media/'))return next();
+  let has=false;try{has=!!req.body&&JSON.stringify(req.body).includes('data:image/')}catch(e){}
+  if(!has)return next();
+  // Only a signed-in admin's pictures are stored (auth answers 401 otherwise).
+  auth(req,res,async()=>{
+    if(req.user?.is_admin){try{const r=await mediaizeDeep(req.body,req.user.user_id);req.body=r.value}catch(e){console.error('media on write',e)}}
+    next();
+  });
+});
 app.use('/api/auth/',rateLimit({windowMs:15*60*1000,max:30,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/account/',rateLimit({windowMs:60*1000,max:120,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 app.use('/api/admin/',rateLimit({windowMs:60*1000,max:60,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
@@ -483,10 +529,10 @@ app.get('/api/account/data/revision',requireDb,auth,async(req,res,next)=>{try{co
 // summary, so a player — or an admin viewing the account — can bring one
 // warband back as it was. A snapshot failure never blocks the save.
 const HISTORY_EVERY_MS=20*60*1000,HISTORY_KEEP=40;
-async function snapshotUserData(userId){
+async function snapshotUserData(userId,{force=false}={}){
   try{
     const last=await pool.query('SELECT saved_at FROM user_data_history WHERE user_id=$1 ORDER BY saved_at DESC LIMIT 1',[userId]);
-    if(last.rowCount&&Date.now()-new Date(last.rows[0].saved_at).getTime()<HISTORY_EVERY_MS)return;
+    if(!force&&last.rowCount&&Date.now()-new Date(last.rows[0].saved_at).getTime()<HISTORY_EVERY_MS)return;
     const cur=await pool.query('SELECT payload,revision::int AS revision FROM user_data WHERE user_id=$1',[userId]);if(!cur.rowCount)return;
     const p=cur.rows[0].payload||{};if(!Array.isArray(p.rosters)||!p.rosters.length)return; // nothing to restore yet
     const summary={rosters:(Array.isArray(p.rosters)?p.rosters:[]).map(r=>({id:String(r?.id??''),name:String(r?.name||'').slice(0,120),factionId:String(r?.factionId||'').slice(0,120),fighters:Array.isArray(r?.fighters)?r.fighters.length:0,gold:Number(r?.gold||0)||0,reputation:Number(r?.reputation||0)||0}))};
@@ -645,6 +691,7 @@ app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
   try{
+    if(!(await buildGuard(req,res,req.user.user_id)))return;
     // Accept a numeric string too (defense in depth: an already-cached old
     // client, or any future BIGINT-as-string slip, should self-heal rather
     // than being permanently locked into the null-revision path).
@@ -667,6 +714,7 @@ app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.user.user_id,payload])
       :(await snapshotUserData(req.user.user_id),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.user.user_id,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
+    await noteBuild(req,req.user.user_id);
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
   }catch(e){next(e)}
 });
@@ -995,7 +1043,7 @@ function validateScenarioDefinition(body){
     campaignSeries:{seriesId:str(body?.campaignSeries?.seriesId,120),seriesName:str(body?.campaignSeries?.seriesName,120),position:str(body?.campaignSeries?.position,20)},
     eventWindow:{start:str(body?.eventWindow?.start,40),end:str(body?.eventWindow?.end,40)},
     // Only real images: an uploaded data:image (png/jpeg/webp/gif) or an https URL.
-    thumbnail:(()=>{const v=str(body?.thumbnail,2*1024*1024);return /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v)||/^https:\/\/[^\s"'<>]+$/.test(v)?v:''})(),
+    thumbnail:(()=>{const v=str(body?.thumbnail,2*1024*1024);return /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v)||/^https:\/\/[^\s"'<>]+$/.test(v)||/^\/api\/rule-images\/[0-9a-f-]{36}$/i.test(v)?v:''})(),
     thumbnailFocus:(()=>{const f=body?.thumbnailFocus;if(!f||typeof f!=='object')return null;const n=(v,lo,hi,d)=>{const x=Number(v);return Number.isFinite(x)?Math.max(lo,Math.min(hi,x)):d};return {x:n(f.x,0,1,0.5),y:n(f.y,0,1,0.5),zoom:n(f.zoom,1,2.5,1)}})()
   };
   const payload=JSON.stringify(definition);
@@ -1404,7 +1452,7 @@ app.get('/api/deployment-maps',requireDb,async(req,res,next)=>{
 app.post('/api/admin/deployment-maps',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const name=String(req.body?.name||'').trim().slice(0,120);
   const image=String(req.body?.image||'');
-  const hasImage=image.startsWith('data:image/');
+  const hasImage=image.startsWith('data:image/')||/^\/api\/rule-images\/[0-9a-f-]{36}$/i.test(image);
   const shapes=validateDeploymentShapes(req.body?.shapes);
   if(!hasImage&&!shapes.items.length)return res.status(400).json({error:'INVALID_MAP'});
   if(hasImage&&Buffer.byteLength(image)>3*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
@@ -1502,7 +1550,78 @@ app.post('/api/admin/rule-images',requireDb,requireSameOrigin,auth,requireAdmin,
 app.get('/api/rule-images/:id',requireDb,async(req,res,next)=>{
   if(!/^[0-9a-f-]{36}$/i.test(req.params.id))return res.status(404).end();
   try{const q=await pool.query('SELECT mime,data FROM rule_images WHERE id=$1',[req.params.id]);if(!q.rowCount)return res.status(404).end();
-    res.setHeader('Content-Type',q.rows[0].mime);res.setHeader('Cache-Control','public, max-age=31536000, immutable');res.send(q.rows[0].data)}catch(e){next(e)}
+    // s-maxage: Vercel's CDN keeps the picture too, so after the first view
+    // it is served without running this function (an id never changes).
+    res.setHeader('Content-Type',q.rows[0].mime);res.setHeader('Cache-Control','public, max-age=31536000, s-maxage=31536000, immutable');res.send(q.rows[0].data)}catch(e){next(e)}
+});
+// V-MEDIA: images used to be written inside the data itself (a player's whole
+// account, scenarios, maps…), so every save re-sent every picture. Now each
+// picture is stored once in rule_images and the data keeps only its link
+// (/api/rule-images/<id>), visible to everyone like any image on the web.
+const MEDIA_RE=/data:(image\/(?:png|jpeg|jpg|webp|gif));base64,([A-Za-z0-9+/=]+)/g;
+const MEDIA_LINK=id=>'/api/rule-images/'+id;
+async function storeMedia(mime,b64,userId){
+  const buf=Buffer.from(b64,'base64');if(!buf.length||buf.length>4*1024*1024)return null;
+  if(mime==='image/jpg')mime='image/jpeg';
+  const sha=crypto.createHash('sha256').update(buf).digest('hex');
+  const id=crypto.randomUUID();
+  await pool.query('INSERT INTO rule_images(id,mime,data,created_by,sha256) VALUES($1,$2,$3,$4,$5) ON CONFLICT (sha256) WHERE sha256 IS NOT NULL DO NOTHING',[id,mime,buf,userId||null,sha]);
+  // Read it back: the link only replaces the picture once it is really stored.
+  const q=await pool.query('SELECT id,octet_length(data)::int AS n FROM rule_images WHERE sha256=$1',[sha]);
+  return q.rowCount&&q.rows[0].n===buf.length?q.rows[0].id:null;
+}
+async function mediaizeString(str,userId){
+  if(typeof str!=='string'||!str.includes('data:image/'))return {value:str,count:0};
+  const found=[...new Set([...str.matchAll(MEDIA_RE)].map(m=>m[0]))];let out=str,count=0;
+  for(const full of found){const m=full.match(/^data:(image\/[a-z]+);base64,(.+)$/);const id=m?await storeMedia(m[1],m[2],userId):null;if(id){out=out.split(full).join(MEDIA_LINK(id));count++}}
+  return {value:out,count};
+}
+async function mediaizeDeep(v,userId){
+  if(typeof v==='string')return mediaizeString(v,userId);
+  if(Array.isArray(v)){let count=0;const out=[];for(const x of v){const r=await mediaizeDeep(x,userId);out.push(r.value);count+=r.count}return {value:out,count}}
+  if(v&&typeof v==='object'){let count=0;const out={};for(const [k,x] of Object.entries(v)){const r=await mediaizeDeep(x,userId);out[k]=r.value;count+=r.count}return {value:out,count}}
+  return {value:v,count:0};
+}
+const mediaLimiter=rateLimit({windowMs:10*60*1000,max:200,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+app.post('/api/media',requireDb,requireSameOrigin,auth,mediaLimiter,async(req,res,next)=>{
+  const m=String(req.body?.dataUrl||'').match(/^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
+  if(!m)return res.status(400).json({error:'INVALID_IMAGE'});
+  try{const id=await storeMedia(m[1],m[2],req.user.user_id);if(!id)return res.status(413).json({error:'IMAGE_TOO_LARGE'});res.status(201).json({id,url:MEDIA_LINK(id)})}catch(e){next(e)}
+});
+// One-shot conversion of everything already stored (run from Admin →
+// Backup). Works in small steps (each call stops after ~15 s and says
+// whether more is left) so it never hits the function time limit. A
+// player's account gets a history snapshot first, so it can be restored.
+const MEDIA_SKIP_TABLES=new Set(['rule_images','user_data_history','translations','sessions','recovery_tokens','schema_migrations','translation_usage','admin_support_access_log']);
+app.post('/api/admin/media/convert',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const started=Date.now(),budget=15000,done={};let images=0,more=false;
+  try{
+    const ud=await pool.query("SELECT user_id FROM user_data WHERE payload::text LIKE '%data:image/%' LIMIT 50");
+    for(const row of ud.rows){
+      if(Date.now()-started>budget){more=true;break}
+      await snapshotUserData(row.user_id,{force:true});
+      const cur=await pool.query('SELECT payload,revision::int AS revision FROM user_data WHERE user_id=$1',[row.user_id]);
+      const r=await mediaizeDeep(cur.rows[0].payload,row.user_id);
+      if(r.count){const u=await pool.query('UPDATE user_data SET payload=$1,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3',[JSON.stringify(r.value),row.user_id,cur.rows[0].revision]);if(u.rowCount){done.user_data=(done.user_data||0)+1;images+=r.count}else more=true}
+    }
+    if(ud.rowCount===50)more=true;
+    const cols=await pool.query("SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND data_type IN ('json','jsonb','text')");
+    for(const c of cols.rows){
+      if(MEDIA_SKIP_TABLES.has(c.table_name)||c.table_name==='user_data')continue;
+      if(Date.now()-started>budget){more=true;break}
+      const t='"'+c.table_name.replace(/"/g,'')+'"',col='"'+c.column_name.replace(/"/g,'')+'"';
+      const rows=await pool.query(`SELECT ctid::text AS rid,${col} AS v FROM ${t} WHERE ${col}::text LIKE '%data:image/%' LIMIT 20`);
+      for(const row of rows.rows){
+        if(Date.now()-started>budget){more=true;break}
+        const r=await mediaizeDeep(row.v,null);if(!r.count)continue;
+        const val=c.data_type==='text'?r.value:JSON.stringify(r.value);
+        await pool.query(`UPDATE ${t} SET ${col}=$1 WHERE ctid=$2::tid`,[val,row.rid]);
+        done[c.table_name]=(done[c.table_name]||0)+1;images+=r.count;
+      }
+      if(rows.rowCount===20)more=true;
+    }
+    res.json({ok:true,images,updated:done,more});
+  }catch(e){next(e)}
 });
 app.delete('/api/admin/rules/overrides/:sectionId/:page',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const page=Number(req.params.page);
@@ -1994,11 +2113,13 @@ app.put('/api/admin/support/:userId/data',requireDb,requireSameOrigin,auth,requi
   try{
     const u=await pool.query('SELECT id FROM users WHERE id=$1',[req.params.userId]);
     if(!u.rows[0])return res.status(404).json({error:'ACCOUNT_NOT_FOUND'});
+    if(!(await buildGuard(req,res,req.params.userId)))return;
     const expectedRevision=toInt(req.body?.expectedRevision);
     const q=expectedRevision===null
       ?await pool.query(`INSERT INTO user_data(user_id,schema_version,payload,revision,updated_at) VALUES($1,4,$2,1,NOW()) ON CONFLICT(user_id) DO NOTHING RETURNING revision::int AS revision,updated_at`,[req.params.userId,payload])
       :(await snapshotUserData(req.params.userId),await pool.query(`UPDATE user_data SET payload=$1,schema_version=4,revision=revision+1,updated_at=NOW() WHERE user_id=$2 AND revision=$3 RETURNING revision::int AS revision,updated_at`,[payload,req.params.userId,expectedRevision]));
     if(!q.rows[0])return res.status(409).json({error:'DATA_CONFLICT'});
+    await noteBuild(req,req.params.userId);
     await pool.query('INSERT INTO admin_support_access_log(id,admin_id,target_user_id,action) VALUES($1,$2,$3,$4)',[crypto.randomUUID(),req.user.user_id,req.params.userId,'edit']);
     res.json({ok:true,revision:q.rows[0].revision,updatedAt:q.rows[0].updated_at});
   }catch(e){next(e)}

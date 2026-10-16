@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS user_data (
   revision BIGINT NOT NULL DEFAULT 1,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- V-BUILDGUARD: site version of the last device that saved this account.
+ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_build TEXT;
+ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_build_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY,
@@ -543,6 +546,11 @@ CREATE TABLE IF NOT EXISTS rule_images (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- V-MEDIA: every image (portraits, warband icons, custom content, scenario
+-- thumbnails, maps…) is stored once here and referenced by link; the same
+-- picture uploaded twice is kept once (sha256).
+ALTER TABLE rule_images ADD COLUMN IF NOT EXISTS sha256 TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS rule_images_sha256_idx ON rule_images(sha256) WHERE sha256 IS NOT NULL;
 
 -- V-HISTORY: automatic snapshots of an account's data (see snapshotUserData
 -- in server.js) so a single warband can be restored as it was.

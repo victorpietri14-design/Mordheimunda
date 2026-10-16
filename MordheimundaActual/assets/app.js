@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0641.0';
+const APP_BUILD='110.0645.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1954,6 +1954,17 @@ function save(silent=false){try{const ar=typeof activeRoster==='function'?active
   queueCloudSave();
   if(!silent)toast(siteLanguage==='en'?'Data saved':'Données sauvegardées');
 }
+// V-SYNCLOOP: automatic corrections the app makes on its own while drawing a
+// page (re-syncing a fighter with the admin's current profile, War Trophies…)
+// must never be pushed to the cloud by themselves. Pushed, each open device
+// "corrected" the account, sent it whole, the other device pulled it,
+// corrected it its own way and sent it back — every few seconds, megabytes
+// each way (this used up the host's free monthly transfer in hours). They are
+// now kept on this device only and travel with the player's next real save.
+function saveLocalOnly(){
+  if(adminViewingUserId||sharedViewToken)return; // in memory only: never pushed to the viewed account
+  try{state=window.MordheimundaStorage.save(state)}catch(e){}
+}
 let cloudSaveTimer=null,cloudSaveBusy=false,cloudSaveAgain=false,cloudRetryTimer=null,cloudRetryAttempt=0;
 // Not persisted (deliberately — it's diagnostic, not app data): the most
 // recent sync failure, so it's visible in the account page's diagnostics
@@ -1971,8 +1982,44 @@ function cloudIsSignedIn(){return !!accountSession();}
 // next tick after the action, so the transmission is driven by the action
 // itself, not by a timer. (delay is still accepted for the rare caller that
 // wants to coalesce several back-to-back mutations, e.g. drag interactions.)
+// V-MEDIA: pictures (portraits, icons, custom content) are sent once to the
+// server and replaced in the account by their link, so a save no longer
+// re-sends every picture. Pictures that fail to upload stay as they are and
+// are retried at the next save — nothing is ever dropped.
+const MEDIA_DATA_RE=/data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+/g;
+const mediaLinkCache=new Map();let mediaSweepBusy=false;
+function hasInlineImages(obj){try{MEDIA_DATA_RE.lastIndex=0;return MEDIA_DATA_RE.test(JSON.stringify(obj))}catch(e){return false}}
+async function mediaSweep(root){
+  if(!root||mediaSweepBusy||!cloudIsSignedIn())return 0;
+  let found;try{found=[...new Set(JSON.stringify(root).match(MEDIA_DATA_RE)||[])]}catch(e){return 0}
+  if(!found.length)return 0;
+  mediaSweepBusy=true;
+  try{for(const d of found){if(mediaLinkCache.has(d))continue;try{const r=await window.MordheimundaAPI.uploadMedia(d);if(r?.url)mediaLinkCache.set(d,r.url)}catch(e){if(e?.status===401||e?.status===429)break}}}
+  finally{mediaSweepBusy=false}
+  let n=0;const walk=o=>{for(const k of Object.keys(o)){const v=o[k];if(typeof v==='string'){if(!v.includes('data:image/'))continue;let nv=v;for(const d of found){const u=mediaLinkCache.get(d);if(u&&nv.includes(d))nv=nv.split(d).join(u)}if(nv!==v){o[k]=nv;n++}}else if(v&&typeof v==='object')walk(v)}};
+  walk(root);return n;
+}
+// V-BUILDGUARD: the server refused a save because this device runs an older
+// version of the site than the server (or than another device that just
+// saved this account). The edit is already kept on this device; uploads
+// pause, the site updates and reloads once, then the edit is sent again.
+function handleAppOutdated(){
+  const en=siteLanguage==='en',k='mu_outdated_reload';let last=0;try{last=Number(sessionStorage.getItem(k))||0}catch(e){}
+  clearTimeout(cloudRetryTimer);cloudRetryTimer=setTimeout(()=>{cloudRetryTimer=null;flushCloudSave()},120000);
+  if(Date.now()-last>120000){
+    try{sessionStorage.setItem(k,String(Date.now()))}catch(e){}
+    toast(en?'A newer version of the site is out — updating…':'Nouvelle version du site — mise à jour…');
+    Promise.resolve(navigator.serviceWorker?.getRegistration?.()).then(r=>r?.update?.()).catch(()=>{}).finally(()=>setTimeout(()=>location.reload(),900));
+  }else toast(en?'Another device uses a newer version of the site: your changes stay on this device and will be sent once this one is up to date.':'Un autre appareil utilise une version plus récente du site : tes modifications restent sur cet appareil et partiront une fois celui-ci à jour.');
+}
+const cloudPushTimes=[];
 function queueCloudSave(delay=0){
   if(!cloudIsSignedIn())return;
+  // V-SYNCLOOP: several changes within ~1.5 s go out as one upload, and if
+  // something keeps saving non-stop (over 40 uploads in 5 min) uploads slow
+  // down to one every 20 s instead of flooding the server.
+  const now=Date.now();while(cloudPushTimes.length&&now-cloudPushTimes[0]>5*60*1000)cloudPushTimes.shift();
+  delay=Math.max(delay,cloudPushTimes.length>40?20000:1500);
   clearTimeout(cloudSaveTimer);
   clearTimeout(cloudRetryTimer);
   cloudSaveTimer=setTimeout(flushCloudSave,Math.max(0,delay));
@@ -2004,7 +2051,7 @@ async function flushCloudSave(){
   // up and re-pushes it once the admin exits the foreign session.
   if(adminViewingUserId||sharedViewToken)return;
   if(cloudSaveBusy){cloudSaveAgain=true;return}
-  cloudSaveBusy=true;
+  cloudSaveBusy=true;cloudPushTimes.push(Date.now());
   // Pin down which state object this push is actually for. adminViewingUserId
   // can still flip true while saveData() is awaiting the network below (the
   // guard above only covers the moment this call started) — checking that
@@ -2013,6 +2060,10 @@ async function flushCloudSave(){
   // pinned reference is what actually proves nothing hijacked it meanwhile.
   const stateAtStart=state;
   try{
+    // V-MEDIA: swap any picture still written inside the account for its link
+    // before sending (kept on this device too; `state` stays the same object).
+    if(hasInlineImages(stateAtStart)){try{if(await mediaSweep(stateAtStart)&&state===stateAtStart)window.MordheimundaStorage.save(stateAtStart)}catch(e){}}
+    if(adminViewingUserId||sharedViewToken||state!==stateAtStart){cloudSaveBusy=false;return}
     const expectedRevision=toRev(stateAtStart?.meta?.cloudRevision);
     const result=await window.MordheimundaAPI.saveData(stateAtStart,expectedRevision);
     if(adminViewingUserId||sharedViewToken||state!==stateAtStart){cloudRetryAttempt=0;cloudSaveAgain=false;clearCloudError();return}
@@ -2027,7 +2078,9 @@ async function flushCloudSave(){
   }catch(e){
     console.warn('Cloud save failed',e);
     recordCloudError('flushCloudSave',e);
-    if(e.status===409){
+    if(e.status===409&&e.message==='APP_OUTDATED'){
+      handleAppOutdated();
+    }else if(e.status===409){
       await resolveCloudConflictAndRetry();
     }else if(e.status===401){
       localStorage.removeItem(ACCOUNT_SESSION_KEY);
@@ -2116,7 +2169,7 @@ function queueAdminForeignSave(delay=0){
   if(!adminViewingUserId)return;
   clearTimeout(adminForeignSaveTimer);
   clearTimeout(adminForeignRetryTimer);
-  adminForeignSaveTimer=setTimeout(flushAdminForeignSave,Math.max(0,delay));
+  adminForeignSaveTimer=setTimeout(flushAdminForeignSave,Math.max(1500,delay));
 }
 async function flushAdminForeignSave(){
   if(!adminViewingUserId)return;
@@ -2124,12 +2177,15 @@ async function flushAdminForeignSave(){
   adminForeignSaveBusy=true;
   const userId=adminViewingUserId;
   try{
+    if(hasInlineImages(state)){try{await mediaSweep(state)}catch(e){}}
+    if(adminViewingUserId!==userId)return;
     const res=await window.MordheimundaAPI.adminSupportSaveData(userId,state,adminViewingRevision);
     if(adminViewingUserId===userId)adminViewingRevision=res.revision;
     adminForeignRetryAttempt=0;adminForeignSaveAgain=false;
   }catch(e){
     console.warn('Admin foreign save failed',e);
     if(adminViewingUserId!==userId)return; // session was exited/switched meanwhile
+    if(e.status===409&&e.message==='APP_OUTDATED'){handleAppOutdated();return}
     if(e.status===409){
       try{
         // The viewed account changed since this session opened it (that
@@ -2777,7 +2833,7 @@ function activeRoster(){
   // rewriting (e.g. equipmentAccessGroups "ALL" vs []) used to re-mark the
   // roster dirty on every call and recurse save→activeRoster→save until the
   // stack overflowed — warband pages then failed to open. Never re-enter.
-  if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;if(!__arRetroSaving){__arRetroSaving=true;try{save(true);}catch(e){console.warn('Admin retroactive sync save skipped',e);}finally{__arRetroSaving=false}}}
+  if(r.__adminRetroSyncDirty){delete r.__adminRetroSyncDirty;if(!__arRetroSaving){__arRetroSaving=true;try{saveLocalOnly();}catch(e){console.warn('Admin retroactive sync save skipped',e);}finally{__arRetroSaving=false}}}
   // save() replaces `state` with a fresh copy, so hand back that copy's
   // roster — callers that edit the returned object (e.g. drag-reorder
   // setting r.fighters) would otherwise write to a detached object and lose
@@ -4500,6 +4556,9 @@ async function bootstrapAccountSession(){
       }
     }
     startCloudPolling();
+    // V-MEDIA: an account that still carries pictures inside it gets them
+    // converted to links once (uploaded one by one, then one light save).
+    if(!foreignStateOpen()&&hasInlineImages(state)){state.meta=state.meta||{};state.meta.cloudDirty=true;queueCloudSave(3000)}
   }catch(e){
     if(e.status===401){
       localStorage.removeItem(ACCOUNT_SESSION_KEY);
@@ -12816,7 +12875,8 @@ function campaignStandingUnit(k){return {points:'pts',wins:'',rating:'GC',gold:'
 function campaignStandingValue(m,k){const st=m?.stats||{};return k==='artifacts'?(Array.isArray(st.artifacts)?st.artifacts.length:0):Number(st[k]||0)}
 async function setCampaignStandings(cid,k){if(!CAMPAIGN_STANDING_KEYS.includes(k))return;await saveCampaignDefinition(cid,def=>{def.standings=k})}
 // The warband's public line in the campaign (name, value, reputation…).
-function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),items:rosterItemCounts(r),residence:r.campaignResidence||null,greatQuest:greatQuestAchieved(r)[0]?.name||null,greatQuestTrophy:greatQuestAchieved(r)[0]?.trophy||null,greatQuestColor:greatQuestAchieved(r)[0]?gqColor(greatQuestAchieved(r)[0].color):null};const sig=JSON.stringify([r.name,stats]);if(!force&&r.campaignStatsSent===sig)return;r.campaignStatsSent=sig;window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{});try{save(true)}catch(e){}}
+function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),items:rosterItemCounts(r),residence:r.campaignResidence||null,greatQuest:greatQuestAchieved(r)[0]?.name||null,greatQuestTrophy:greatQuestAchieved(r)[0]?.trophy||null,greatQuestColor:greatQuestAchieved(r)[0]?gqColor(greatQuestAchieved(r)[0].color):null};const sig=JSON.stringify([r.name,stats]);if(!force&&campaignStatsSentLocal.get(r.id)===sig)return;campaignStatsSentLocal.set(r.id,sig);window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{})}
+const campaignStatsSentLocal=new Map();
 // Warband → Campaign tab.
 function campaignView(r){
   const en=siteLanguage==='en';
@@ -14813,7 +14873,7 @@ function fixImmuneWarTrophies(){
     const had=(x.customEquipmentStatMods||[]).some(m=>m.index===1&&normName(m.itemId)==='war trophies');
     if(had&&fighterIsImmuneToPsychology(x)){syncCustomEquipmentEffects(x);changed=true}
   }))}catch(e){console.warn('War Trophies fix skipped',e)}
-  if(changed){try{save(true)}catch(e){}}
+  if(changed)saveLocalOnly();
   return changed;
 }
 function standardEquipmentStatEffects(w,x){
@@ -15156,7 +15216,12 @@ async function adminExportAll(){
     for(const t of list){out.tables[t.table]=[];let off=0;for(;;){const pg=await window.MordheimundaAPI.adminExport(t.table,off);out.tables[t.table].push(...(pg.rows||[]));off+=(pg.rows||[]).length;const el=document.getElementById('exportProgress');if(el)el.textContent=`${t.table} · ${out.tables[t.table].length}`;if(pg.done||!(pg.rows||[]).length)break}n++}
     const blob=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`mordheimunda-backup-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
     toast(en?`Backup downloaded — ${n} tables`:`Sauvegarde téléchargée — ${n} tables`)}catch(e){toast(authError(e,en))}finally{exportBusy=false;render('admin')}}
-function adminBackupMarkup(){const en=siteLanguage==='en';return `<div class="card admin-card"><div class="eyebrow">BACKUP</div><p class="custom-field-help">${en?'Downloads everything created on the site in one file: every account’s warbands and custom content, official warbands, rules edits, quests, trophies, scenarios, maps, campaigns and pictures. Passwords and sessions are never included. Keep the file somewhere safe.':'Télécharge tout ce qui a été créé sur le site dans un seul fichier : les bandes et contenus custom de chaque compte, les bandes officielles, les règles modifiées, quêtes, trophées, scénarios, cartes, campagnes et images. Les mots de passe et sessions ne sont jamais inclus. Garde le fichier en lieu sûr.'}</p><div class="custom-actions"><button type="button" class="button primary" ${exportBusy?'disabled':''} onclick="adminExportAll()">⬇ ${exportBusy?(en?'Exporting…':'Export en cours…'):(en?'Download a full backup':'Télécharger une sauvegarde complète')}</button><small id="exportProgress" class="muted"></small></div></div>`}
+function adminBackupMarkup(){const en=siteLanguage==='en';return `<div class="card admin-card"><div class="eyebrow">BACKUP</div><p class="custom-field-help">${en?'Downloads everything created on the site in one file: every account’s warbands and custom content, official warbands, rules edits, quests, trophies, scenarios, maps, campaigns and pictures. Passwords and sessions are never included. Keep the file somewhere safe.':'Télécharge tout ce qui a été créé sur le site dans un seul fichier : les bandes et contenus custom de chaque compte, les bandes officielles, les règles modifiées, quêtes, trophées, scénarios, cartes, campagnes et images. Les mots de passe et sessions ne sont jamais inclus. Garde le fichier en lieu sûr.'}</p><div class="custom-actions"><button type="button" class="button primary" ${exportBusy?'disabled':''} onclick="adminExportAll()">⬇ ${exportBusy?(en?'Exporting…':'Export en cours…'):(en?'Download a full backup':'Télécharger une sauvegarde complète')}</button><small id="exportProgress" class="muted"></small></div></div><div class="card admin-card"><div class="eyebrow">${en?'PICTURES':'IMAGES'}</div><p class="custom-field-help">${en?'Moves every picture still written inside the data (players’ accounts, scenarios, maps, official warbands…) to the picture store, leaving a link in its place. Nothing is deleted: each account is saved in its version history first. Everyone keeps seeing the same pictures; saves become much lighter.':'Range toutes les images encore écrites dans les données (comptes des joueurs, scénarios, cartes, bandes officielles…) dans le stockage d’images et laisse un lien à la place. Rien n’est supprimé : chaque compte est d’abord sauvegardé dans son historique de versions. Tout le monde voit les mêmes images ; les sauvegardes deviennent beaucoup plus légères.'}</p><div class="custom-actions"><button type="button" class="button primary" ${mediaConvertBusy?'disabled':''} onclick="adminConvertMedia()">🖼 ${mediaConvertBusy?(en?'Converting…':'Conversion en cours…'):(en?'Convert pictures':'Convertir les images')}</button><small id="mediaProgress" class="muted"></small></div></div>`}
+let mediaConvertBusy=false;
+async function adminConvertMedia(){const en=siteLanguage==='en';if(mediaConvertBusy)return;mediaConvertBusy=true;render('admin');let total=0,rows=0,rounds=0;const show=t=>{const el=document.getElementById('mediaProgress');if(el)el.textContent=t};
+  try{for(;;){const r=await window.MordheimundaAPI.adminConvertMedia();total+=r.images||0;rows+=Object.values(r.updated||{}).reduce((a,b)=>a+b,0);rounds++;show(en?`${total} picture(s) moved, ${rows} item(s) updated…`:`${total} image(s) rangée(s), ${rows} élément(s) mis à jour…`);if(!r.more||rounds>200)break}
+    toast(en?`Done — ${total} picture(s) moved to the store`:`Terminé — ${total} image(s) rangée(s)`)}
+  catch(e){toast(authError(e,en))}finally{mediaConvertBusy=false;render('admin');setTimeout(()=>show(en?`${total} picture(s) moved, ${rows} item(s) updated.`:`${total} image(s) rangée(s), ${rows} élément(s) mis à jour.`),50)}}
 // V-GREATQUEST: a warband's Great Quests — campaign objectives agreed with
 // its player. Completing one (every step ticked) means the warband has
 // achieved its campaign. Written/edited by an admin only (from the player's
