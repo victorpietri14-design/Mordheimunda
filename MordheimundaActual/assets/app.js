@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0665.0';
+const APP_BUILD='110.0666.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8357,7 +8357,7 @@ function playStartScenarioWithBands(scenarioId,numBands){
   ps.tableSize=sizes[0];
   ps.numBands=Math.max(s.bandsMin||2,Math.min(s.bandsMax||6,numBands||s.bandsMin||2));
   playEnsureSlots(ps,ps.numBands);
-  state.playSession=ps;
+  state.playSession=ps;playCondTab='scenario';
   save();
   closeModal();
   navigateApp(APP_ROUTES.playMode);
@@ -9148,7 +9148,7 @@ function playSessionMarkupTabs(){
   const en=siteLanguage==='en';const cut=html.indexOf('<section class="scn-sec">');if(cut<0)return html;
   let tab=playCondTab;if(tab==='conditions'&&!camp)tab='scenario';if(tab==='quests'&&!mine.length)tab='scenario';
   const qDone=ps.questKey?mine.reduce((n,r)=>n+(r.fighters||[]).reduce((m,x)=>m+(x.questRecord||[]).filter(e=>e.sessionKey===ps.questKey).length,0),0):0;
-  const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button><button type="button" role="tab" class="${tab==='fighters'?'on':''}" onclick="setPlayCondTab('fighters')">⚔ ${en?'FIGHTERS':'COMBATTANTS'}${(()=>{const n=playOwnRosters(ps).reduce((k,r)=>k+(playEngagedMap(ps)[r.id]?.picks||[]).length,0);return n?` · ${n}`:''})()}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">${en?'XP & QUESTS':'XP & QUÊTES'}${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
+  const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}<button type="button" role="tab" class="${tab==='fighters'?'on':''}" onclick="setPlayCondTab('fighters')">⚔ ${en?'FIGHTERS':'COMBATTANTS'}${(()=>{const n=playOwnRosters(ps).reduce((k,r)=>k+(playEngagedMap(ps)[r.id]?.picks||[]).length,0);return n?` · ${n}`:''})()}</button>${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">${en?'XP & QUESTS':'XP & QUÊTES'}${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
   if(tab==='scenario')return html.slice(0,cut)+tabs+html.slice(cut);
   if(tab==='quests')return html.slice(0,cut)+tabs+playQuestsMarkup(ps,mine)+'</div>';
   if(tab==='fighters')return html.slice(0,cut)+tabs+playFightersMarkup(ps)+'</div>';
@@ -11677,7 +11677,7 @@ function playCampStart(){
   const d=playCampDraft;const c=campaignDetailCache.get(d.cid);const s=SCENARIOS_CACHE.find(x=>x.id===d.scenarioId);if(!c||!s||d.picks.length<2)return;
   const ps=blankPlaySession();ps.scenarioId=s.id;ps.campaignId=c.id;const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];ps.tableSize=sizes[0];ps.numBands=d.picks.length;
   const members=c.members||[];ps.slots=d.picks.map((rid,i)=>{const r=(state.rosters||[]).find(x=>x.id===rid);if(r)return {...playSlotDefault(i),source:'own',rosterId:r.id,rosterName:r.name};const m=members.find(x=>x.rosterId===rid)||{};return {...playSlotDefault(i),source:'campaign',rosterId:rid,friendWarbandName:m.rosterName||'',friendUsername:m.username||''}});
-  state.playSession=ps;playCondTab=campaignFeatureOn(c,'conditions')?'conditions':'scenario';save();
+  state.playSession=ps;playCondTab='scenario';save();
   // Weather is rolled at once; hazards too when every warband's fighters are known here (other players' warbands need their Hero/Henchman count typed in first).
   if(campaignFeatureOn(c,'conditions')){rollPlayWeather();if(ps.slots.every(sl=>playSlotRoster(sl)))rollPlayHazards()}
   render('playMode');
@@ -11783,7 +11783,7 @@ async function playJoinGame(id){
   const en=siteLanguage==='en';const cur=state.playSession;
   if(cur&&cur.shared?.id!==id&&!confirm(en?'Leave the game set up on this device to join this one?':'Quitter la partie en cours sur cet appareil pour rejoindre celle-ci ?'))return;
   try{const r=await window.MordheimundaAPI.playAction(id,'join');if(!r?.game)throw new Error('GAME_NOT_FOUND');if(cur?.shared?.role==='guest'&&cur.shared.id!==id)window.MordheimundaAPI.playAction(cur.shared.id,'leave').catch(()=>{});
-    playApplyShared(r.game);playCondTab=r.game.data?.conditions?'conditions':'scenario';playInvitesAt=0;navigateApp(APP_ROUTES.playMode);render('playMode')}
+    playApplyShared(r.game);playCondTab='scenario';playInvitesAt=0;navigateApp(APP_ROUTES.playMode);render('playMode')}
   catch(e){toast(e?.message==='GAME_NOT_FOUND'?(en?'This game no longer exists':'Cette partie n’existe plus'):authError(e,en));playInvitesAt=0;loadPlayInvites(true)}
 }
 async function playDeclineGame(id){try{await window.MordheimundaAPI.playAction(id,'decline')}catch(e){}playInvites=(playInvites||[]).filter(v=>v.id!==id);renderCurrentRoute()}
@@ -11994,7 +11994,7 @@ function playBackSync(){
 }
 function playJumpCard(id){if(!id)return;const el=document.getElementById(id);if(!el)return;el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('fighter-card-jump-highlight');setTimeout(()=>el.classList.remove('fighter-card-jump-highlight'),1400)}
 // --- phone: swipe left / right moves between the game's tabs
-function playTabOrder(ps){const t=['scenario','fighters'];if(ps&&playConditionsCampaign(ps))t.push('conditions');if(ps&&playQuestRosters(ps).length)t.push('quests');return t}
+function playTabOrder(ps){const t=['scenario'];if(ps&&playConditionsCampaign(ps))t.push('conditions');t.push('fighters');if(ps&&playQuestRosters(ps).length)t.push('quests');return t}
 (()=>{let sx=0,sy=0,st=0,ok=false;
  document.addEventListener('touchstart',e=>{ok=false;if(location.pathname!==APP_ROUTES.playMode||!state.playSession||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,.pool-row-stats,.ud-table-wrap,.profile-scroll,[data-noswipe]'))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
  document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*0.6)return;const order=playTabOrder(state.playSession);const i=Math.max(0,order.indexOf(playCondTab));const j=i+(dx<0?1:-1);if(j<0||j>=order.length)return;setPlayCondTab(order[j]);window.scrollTo({top:0,behavior:'smooth'})},{passive:true});
