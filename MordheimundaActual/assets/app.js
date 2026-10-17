@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0656.0';
+const APP_BUILD='110.0657.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2405,6 +2405,7 @@ function applyRemoteData(remoteData,remoteRevision,{announce=false}={}){
   next.meta={...keepMeta,cloudRevision:toRev(remoteRevision)??keepMeta.cloudRevision,cloudUpdatedAt:new Date().toISOString()};
   state=window.MordheimundaStorage.save(next);
   fixImmuneWarTrophies();
+  applyPriceRuleRefunds();
   scheduleRemoteRerender();
   if(announce)toast(siteLanguage==='en'?'Synced from your other device':'Synchronisé depuis votre autre appareil');
 }
@@ -2533,6 +2534,7 @@ async function syncAccountAfterLogin(user){
       state=window.MordheimundaStorage.save(state);
       await flushCloudSave();
     }
+    try{applyPriceRuleRefunds()}catch(e){}
     startCloudPolling();
     return true;
   }catch(e){console.warn('Cloud sync failed',e);return false;}
@@ -14957,6 +14959,24 @@ function fixImmuneWarTrophies(){
   if(changed)saveLocalOnly();
   return changed;
 }
+// V-PRICEREFUND: a special price is retroactive. Items a warband already
+// owns that were paid more than the special price give the difference back
+// to its treasury once (the item's paid is lowered to the special price, so
+// it never refunds twice, on this device or another). Fighter items use the
+// fighter's rule, the warband stash the whole-warband rule. Found or free
+// items (paid 0), innate weapons and Hired Swords' kit are left alone.
+function applyPriceRuleRefunds(){
+  if(!priceRules.length||!Array.isArray(state?.rosters))return 0;let total=0;const notes=[];
+  try{state.rosters.forEach(r=>{const f=faction(r);if(!f)return;let back=0;
+    const refund=(e,x)=>{if(!e||e.intrinsic||e.bandOnlyIntrinsic)return;const paid=Number(e.paid);if(!Number.isFinite(paid)||paid<=0)return;const pr=priceRuleFor(e.name,f,x);if(!pr||pr.price==null||paid<=pr.price)return;
+      back+=paid-pr.price;e.priceRefund={from:paid,to:pr.price,at:new Date().toISOString()};e.paid=pr.price};
+    (r.fighters||[]).forEach(x=>{if(isHiredSword(x))return;const seen=new Set();[...(x.equipmentStash||[]),...(x.equipmentSelected||[])].forEach(e=>{if(seen.has(e))return;seen.add(e);refund(e,x)})});
+    (r.reserve||[]).forEach(e=>refund(e,null));
+    if(back>0){r.gold=Number(r.gold||0)+back;total+=back;notes.push(`${r.name||'—'} +${back} GC`)}
+  })}catch(e){console.warn('Price refund skipped',e)}
+  if(total>0){save(true);toast(siteLanguage==='en'?`Special prices: refunded ${notes.join(', ')}`:`Prix spéciaux : remboursé ${notes.join(', ')}`)}
+  return total;
+}
 function standardEquipmentStatEffects(w,x){
   const n=normName(w?.name);
   const out=[];
@@ -15352,7 +15372,7 @@ function adminPriceRulesMarkup(){const en=siteLanguage==='en';const facs=[...(D.
   </div>
   ${groups.size?[...groups.entries()].map(([fid,list])=>`<h4 style="margin:14px 0 4px">${esc(prFactionName(fid))}</h4><table style="width:100%;font-size:12.5px">${list.map(({r,i})=>{const b=book(r.item);return `<tr><td>${esc(r.warriorId?prWarriorName(fid,r.warriorId):(en?'Whole warband':'Toute la bande'))}</td><td><b>${esc(r.item)}</b>${b?` <small class="muted">(${en?'normally':'normalement'} ${b.price} GC)</small>`:''}</td><td>${r.price!=null?r.price+' GC':'—'}</td><td>${en?'value':'valeur'} ${r.value!=null?r.value:(r.price!=null?r.price:'—')} GC</td><td style="text-align:right"><button type="button" class="button secondary tiny" onclick="deletePriceRule(${i})">✕</button></td></tr>`}).join('')}</table>`).join(''):`<p class="muted" style="margin-top:12px">${en?'No special price yet.':'Aucun prix spécial pour l’instant.'}</p>`}
   </div>`}
-async function savePriceRules(next,msg){const en=siteLanguage==='en';try{const r=await window.MordheimundaAPI.adminSavePriceRules(next);priceRules=Array.isArray(r?.rules)?r.rules:next;render('admin');if(msg)toast(msg)}catch(e){toast(authError(e,en))}}
+async function savePriceRules(next,msg){const en=siteLanguage==='en';try{const r=await window.MordheimundaAPI.adminSavePriceRules(next);priceRules=Array.isArray(r?.rules)?r.rules:next;applyPriceRuleRefunds();render('admin');if(msg)toast(msg)}catch(e){toast(authError(e,en))}}
 function addPriceRule(){const en=siteLanguage==='en';const factionId=$('#prFaction')?.value||'',warriorId=$('#prWarrior')?.value||null,item=($('#prItem')?.value||'').trim();const pv=$('#prPrice')?.value,vv=$('#prValue')?.value;
   if(!factionId||!item)return toast(en?'Choose a warband and an item':'Choisis une bande et un objet');if(pv===''&&vv==='')return toast(en?'Enter a price or a value':'Indique un prix ou une valeur');
   const rule={factionId,warriorId:warriorId||null,item,price:pv===''?null:Math.max(0,Math.round(Number(pv))),value:vv===''?null:Math.max(0,Math.round(Number(vv)))};
@@ -19247,9 +19267,9 @@ const bootTimeout=new Promise(resolve=>setTimeout(resolve,1500));
 const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands(),loadPriceRules()]);
 costAffectingLoadsReady.then(()=>renderCurrentRoute());
 if(hasStoredAccountSession){
-  Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{renderCurrentRoute();showPasswordReset();});
+  Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{try{applyPriceRuleRefunds()}catch(e){}renderCurrentRoute();showPasswordReset();});
 }else{
-  Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{if(fixImmuneWarTrophies())try{__arCache=null}catch(e){}renderCurrentRoute();showPasswordReset();if(!/^\/share\//.test(location.pathname))bootstrapAccountSession();});
+  Promise.race([costAffectingLoadsReady,bootTimeout]).finally(()=>{if(fixImmuneWarTrophies())try{__arCache=null}catch(e){}try{applyPriceRuleRefunds()}catch(e){}renderCurrentRoute();showPasswordReset();if(!/^\/share\//.test(location.pathname))bootstrapAccountSession();});
 }
 startI18nObserver();loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadTrophyLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());
