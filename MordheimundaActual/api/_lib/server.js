@@ -2148,13 +2148,28 @@ app.post('/api/play-games/:id/engaged',requireDb,requireSameOrigin,auth,async(re
     if(g.row.status!=='active')return res.status(409).json({error:'GAME_ENDED'});
     const rid=String(req.body?.rosterId||'').slice(0,80);if(!rid)return res.status(400).json({error:'INVALID_ROSTER'});
     let ok=false;
-    if(g.isHost){const slots=Array.isArray(g.row.data?.slots)?g.row.data.slots:[];ok=slots.some(sl=>String(sl?.rosterId||'')===rid&&sl?.source==='own')}
+    if(g.isHost){const slots=Array.isArray(g.row.data?.slots)?g.row.data.slots:[];ok=slots.some(sl=>String(sl?.rosterId||'')===rid&&sl?.source==='own');if(!ok){const p=await pool.query("SELECT 1 FROM play_game_players WHERE game_id=$1 AND status<>'joined' AND $2=ANY(roster_ids)",[g.row.id,rid]);ok=!!p.rows[0]}}
     else{const p=await pool.query('SELECT roster_ids FROM play_game_players WHERE game_id=$1 AND user_id=$2',[g.row.id,req.user.user_id]);ok=(p.rows[0]?.roster_ids||[]).includes(rid)}
     if(!ok)return res.status(403).json({error:'NOT_YOUR_WARBAND'});
     const entry=req.body?.entry==null?null:playClip(req.body.entry);if(req.body?.entry!=null&&!entry)return res.status(413).json({error:'GAME_TOO_LARGE'});
     const u=entry?await pool.query("UPDATE play_games SET engaged=jsonb_set(engaged,ARRAY[$2::text],$3::jsonb,true),revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision",[g.row.id,rid,JSON.stringify(entry)])
       :await pool.query("UPDATE play_games SET engaged=engaged-$2::text,revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision",[g.row.id,rid]);
     res.json({revision:u.rows[0].revision});
+  }catch(e){next(e)}
+});
+// The host picks the fighters of a warband whose owner hasn't joined yet:
+// the owner's warband is read (fighters only, no pictures), only for a
+// warband invited in this game and only while its owner is away.
+app.get('/api/play-games/:id/roster/:rid',requireDb,auth,async(req,res,next)=>{
+  try{
+    const g=await playGameFor(req.params.id,req.user.user_id);if(!g||!g.isHost)return res.status(404).json({error:'GAME_NOT_FOUND'});
+    const rid=String(req.params.rid||'').slice(0,80);
+    const p=await pool.query("SELECT user_id,status FROM play_game_players WHERE game_id=$1 AND $2=ANY(roster_ids)",[g.row.id,rid]);const row=p.rows[0];
+    if(!row)return res.status(404).json({error:'NOT_IN_GAME'});if(row.status==='joined')return res.status(409).json({error:'OWNER_JOINED'});
+    const d=await pool.query('SELECT payload FROM user_data WHERE user_id=$1',[row.user_id]);
+    const r=(Array.isArray(d.rows[0]?.payload?.rosters)?d.rows[0].payload.rosters:[]).find(x=>String(x?.id)===rid);if(!r)return res.status(404).json({error:'ROSTER_NOT_FOUND'});
+    const fighters=(Array.isArray(r.fighters)?r.fighters:[]).map(x=>{const c={...x};if(typeof c.image==='string'&&c.image.startsWith('data:'))c.image='';return c});
+    res.json({roster:{id:r.id,name:r.name||'',factionId:r.factionId||'',campaignId:r.campaignId||null,fighters}});
   }catch(e){next(e)}
 });
 // Small: revision, status and the players' statuses — polled while a game is open.

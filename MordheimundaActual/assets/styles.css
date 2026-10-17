@@ -4918,3 +4918,21 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .play-card.reinf-wait .owned-card{border-style:dashed;border-color:var(--gold,#f2c94c)}
 .eng-end{border:1px dashed var(--accent);border-radius:8px;padding:10px 14px;font-size:13px}
 .eng-groups{display:grid;gap:10px}.eng-group .section-label{margin:0 2px 6px}
+/* V-ENGAGED: phones — never wider than the screen */
+.eng-page,.eng-page>*,.eng-box,.eng-groups,.eng-group,.eng-list,.ud-shop,.ud-shop-wrap{min-width:0;max-width:100%}
+.eng-box{overflow:hidden}
+.eng-list{grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr))}
+.ud-shop{grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr))}
+.eng-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.eng-row small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eng-row span{flex:none}
+@media (max-width:700px){.eng-box{padding:11px}.eng-box h3{font-size:19px}.eng-total b{font-size:24px}.ud-table{font-size:12px}.ud-table td,.ud-table th{padding:5px 4px}.ud-bon{flex-wrap:wrap}.ud-bon>div{flex-basis:100%}}
+.play-cond-tabs{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}.play-cond-tabs::-webkit-scrollbar{display:none}.play-cond-tabs button{flex:none;white-space:nowrap}
+.eng-fold>summary{list-style:none;cursor:pointer;position:relative;padding-right:26px}
+.eng-fold>summary::-webkit-details-marker{display:none}
+.eng-fold .eng-chev{position:absolute;right:0;top:4px;font-size:14px;color:var(--muted);transition:transform .15s}
+.eng-fold:not([open]) .eng-chev{transform:rotate(-90deg)}
+.eng-fold:not([open])>summary h3{font-size:18px}
+.eng-fold:not([open])>summary>div:first-child>small{display:none}
+.eng-fold:not([open])>summary{align-items:center}
+.eng-fold:not([open]) .eng-total b{font-size:20px}

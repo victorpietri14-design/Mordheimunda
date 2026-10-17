@@ -29,6 +29,7 @@
   playGet:id=>request('/api/play-games/'+encodeURIComponent(id)),
   playAction:(id,action)=>request('/api/play-games/'+encodeURIComponent(id)+'/'+action,{method:'POST'}),
   playInvites:()=>request('/api/play-invites'),
+  playForeignRoster:(id,rid)=>request('/api/play-games/'+encodeURIComponent(id)+'/roster/'+encodeURIComponent(rid)),
   playEngaged:(id,rosterId,entry)=>request('/api/play-games/'+encodeURIComponent(id)+'/engaged',{method:'POST',body:JSON.stringify({rosterId,entry})}),
   sendFriendRequest:identifier=>request('/api/friends/requests',{method:'POST',body:JSON.stringify({identifier})}),
   acceptFriendRequest:id=>request('/api/friends/requests/'+encodeURIComponent(id)+'/accept',{method:'POST'}),
