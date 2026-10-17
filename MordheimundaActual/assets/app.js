@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0663.0';
+const APP_BUILD='110.0665.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11663,7 +11663,7 @@ function playCampaignSetupMarkup(){
         <label class="custom-field"><span>${en?'Or choose any scenario':'Ou choisis n’importe quel scénario'}</span><select onchange="playCampScenario(this.value)"><option value="">—</option>${SCENARIOS_CACHE.map(x=>`<option value="${esc(x.id)}" ${x.id===d.scenarioId?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
         ${sel?`<div class="pc-chosen">${en?'Scenario':'Scénario'} : <b>${esc(sel.name)}</b></div>`:''}`;
       const condOn=campaignFeatureOn(c,'conditions'),explOn=campaignFeatureOn(c,'exploration');
-      const rules=[[en?'Weather':'Météo',condOn,en?'START · 2D6':'DÉBUT · 2D6',en?'Rolled once on the campaign weather chart; shown on the game screen.':'Lancée une fois sur la table météo de la campagne ; affichée pendant la partie.'],[en?'Hazards':'Dangers',condOn,en?'START · D6 EACH':'DÉBUT · D6 CHACUN',en?'One D6 per Hero and per Henchman group: every 1 is a hazard (3D6).':'Un D6 par Héros et par groupe de Henchmen : chaque 1 est un danger (3D6).'],[en?'Residence':'Résidence',setts.length>0,en?'ALWAYS':'TOUJOURS',en?'Each warband’s settlement bonuses apply to its fighters and its market.':'Les bonus de la colonie de chaque bande s’appliquent à ses combattants et à son marché.'],[en?'Exploration':'Exploration',explOn,en?'POST-BATTLE':'POST-BATAILLE',en?'The campaign’s exploration chart replaces the basic one.':'La table d’exploration de la campagne remplace celle de base.'],[en?'Market':'Marché',true,en?'POST-BATTLE':'POST-BATAILLE',en?'Shared campaign stock; Band List purchases arrive after the next game.':'Stock partagé de la campagne ; les achats Band List arrivent après la partie suivante.'],[en?'Result':'Résultat',true,en?'END':'FIN',en?'Recorded in the campaign’s Battles for the other players to confirm.':'Enregistré dans les Batailles de la campagne, à confirmer par les autres joueurs.']];
+      const rules=[[en?'Weather':'Météo',condOn,en?'START · 2D6':'DÉBUT · 2D6',en?'Rolled once on the campaign weather chart; shown on the game screen.':'Lancée une fois sur la table météo de la campagne ; affichée pendant la partie.'],[en?'Hazards':'Dangers',condOn,en?'START · D6 EACH':'DÉBUT · D6 CHACUN',en?'One D6 per fighter taking part: every 1 is a hazard (3D6).':'Un D6 par combattant qui prend part : chaque 1 est un danger (3D6).'],[en?'Residence':'Résidence',setts.length>0,en?'ALWAYS':'TOUJOURS',en?'Each warband’s settlement bonuses apply to its fighters and its market.':'Les bonus de la colonie de chaque bande s’appliquent à ses combattants et à son marché.'],[en?'Exploration':'Exploration',explOn,en?'POST-BATTLE':'POST-BATAILLE',en?'The campaign’s exploration chart replaces the basic one.':'La table d’exploration de la campagne remplace celle de base.'],[en?'Market':'Marché',true,en?'POST-BATTLE':'POST-BATAILLE',en?'Shared campaign stock; Band List purchases arrive after the next game.':'Stock partagé de la campagne ; les achats Band List arrivent après la partie suivante.'],[en?'Result':'Résultat',true,en?'END':'FIN',en?'Recorded in the campaign’s Battles for the other players to confirm.':'Enregistré dans les Batailles de la campagne, à confirmer par les autres joueurs.']];
       const ready=d.picks.length>=2&&sel;
       rest=`<div class="pc-two"><section class="hub-panel"><div class="hub-panel-head"><h2>2 · ${en?'Warbands':'Bandes'}</h2><small>${d.picks.length} ${en?'chosen':'choisie(s)'}</small></div><small class="muted">${en?'Only the warbands entered in this campaign.':'Seulement les bandes inscrites dans cette campagne.'}</small>${bands}</section>
         <section class="hub-panel"><div class="hub-panel-head"><h2>3 · ${en?'Scenario':'Scénario'}</h2></div>${scn}</section></div>
@@ -11829,6 +11829,8 @@ function playLoadForeign(rid){const ps=state.playSession;if(!ps?.shared||playFor
 function playEngPublish(ps,r){
   const e=playEngEntry(ps,r);e.total=playEngTotal(e,r);
   delete e.cards;
+  // names only (no cards), so the host's hazard roll can say who it hits
+  e.names=[...e.picks,...e.ud.reinf.filter(v=>v.arrived).map(v=>v.instance)].map(id=>(r.fighters||[]).find(x=>x.instance===id)?.name).filter(Boolean).concat((e.ud.temps||[]).map(t=>t.fighter?.name).filter(Boolean));
   const away=playAwayRows(ps).find(v=>v.rid===String(r.id));if(away){e.owner=away.player.username;e.byHost=true}else{e.owner=accountSession()?.username||'';delete e.byHost}save();
   if(ps.shared&&ps.shared.id){clearTimeout(playEngTimers[r.id]);playEngTimers[r.id]=setTimeout(async()=>{try{const live=state.playSession;if(!live?.shared||live.shared.id!==ps.shared.id)return;const cur=live.engaged?.[r.id];if(!cur)return;const light={...cur,ud:{...cur.ud,temps:(cur.ud.temps||[]).map(t=>({kind:t.kind,wid:t.wid,cost:t.cost,name:t.fighter?.name||''}))}};await window.MordheimundaAPI.playEngaged(live.shared.id,r.id,light)}catch(err){console.warn('Engaged not sent',err)}},600)}
 }
@@ -12008,7 +12010,7 @@ function playRecordCampaignResult(){
 // A campaign can carry random conditions (definition.conditions: weather 2D6
 // + hazards 3D6). When a Play game includes a warband of that campaign, a
 // "Conditions" tab appears. Everything is rolled once, at the start of the
-// game: the weather, then one D6 per Hero and per Henchman group of each
+// game: the weather, then one D6 per fighter taking part in each
 // warband — every 1 is a hazard (3D6), they stack. Hazard creatures are
 // neutral. Profiles show 12 columns, Cl/Wil/Int equal to Ld.
 const LUSTRIA_WEATHER=[
@@ -12050,12 +12052,15 @@ function playConditionsCampaign(ps){
   for(const sl of ps?.slots||[]){const r=playSlotRoster(sl);if(!r?.campaignId)continue;const c=campaignDetailCache.get(r.campaignId);if(!c){loadCampaignDetail(r.campaignId,'playMode');continue}if(!c.missing&&campaignFeatureOn(c,'conditions'))return c}
   return null;
 }
-// One D6 per Hero (Hired Swords included) and per Henchman group (same profile) able to move.
-function playHazardUnits(r){
-  const en=siteLanguage==='en';const live=(r?.fighters||[]).filter(x=>!x.hsLeft&&!fighterStatus(x).dead&&!fighterStatus(x).captured&&!fighterStatus(x).recovery);
-  const heroes=live.filter(x=>!['Henchman','Animal'].includes(x.type)).map(x=>({key:x.instance,who:x.name}));
-  const groups=new Map();live.filter(x=>['Henchman','Animal'].includes(x.type)).forEach(x=>{const k=x.wid||x.sourceName||x.name;const g=groups.get(k)||{key:'g:'+k,who:x.sourceName||x.name,n:0};g.n++;groups.set(k,g)});
-  return [...heroes,...[...groups.values()].map(g=>({key:g.key,who:`${g.who} ×${g.n}`}))];
+// One D6 per fighter able to move (Hired Swords included). Once the
+// warband's engaged fighters are chosen (Fighters tab), only they roll —
+// with the reinforcements that arrived and a temporary hire.
+function playHazardUnits(r,ps=state.playSession){
+  const live=(r?.fighters||[]).filter(x=>!x.hsLeft&&!fighterStatus(x).dead&&!fighterStatus(x).captured&&!fighterStatus(x).recovery);
+  const e=ps?.engaged?.[r?.id];const picked=e&&(e.picks||[]).length?new Set([...e.picks,...(e.ud?.reinf||[]).filter(v=>v.arrived).map(v=>v.instance)]):null;
+  const out=(picked?live.filter(x=>picked.has(x.instance)):live).map(x=>({key:x.instance,who:x.name}));
+  if(picked)(e.ud?.temps||[]).forEach(t=>{if(t.fighter)out.push({key:t.fighter.instance,who:t.fighter.name})});
+  return out;
 }
 function playConditions(ps){if(!ps.conditions||typeof ps.conditions!=='object')ps.conditions={rolls:{},hazards:[],manual:{}};const c=ps.conditions;c.rolls=c.rolls||{};c.hazards=c.hazards||[];c.manual=c.manual||{};return c}
 function rollPlayWeather(){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;const pc=playConditions(ps);const d=[postBattleRoll(),postBattleRoll()];const total=d[0]+d[1];const w=(camp.definition.conditions.weather||[]).find(x=>total>=x.min&&total<=x.max)||null;const sub=w?.sub?postBattleRoll():null;pc.weather={dice:d,total,name:w?.name||'—',text:w?.text||'',sub,subText:w?.sub?(w.sub.find(s=>sub>=s[0]&&sub<=s[1])||[])[2]||'':''};save();render('playMode')}
@@ -12064,7 +12069,7 @@ function rollPlayHazards(){
   if(playGuestBlocked())return;
   const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;const pc=playConditions(ps);const table=camp.definition.conditions.hazards||[];
   pc.rolls={};pc.hazards=[];
-  ps.slots.forEach((sl,i)=>{const r=playSlotRoster(sl);const units=r?playHazardUnits(r):Array.from({length:Number(pc.manual[i]||0)},(_,k)=>({key:'m'+k,who:(siteLanguage==='en'?'Model ':'Figurine ')+(k+1)}));
+  ps.slots.forEach((sl,i)=>{const r=playSlotRoster(sl);const oe=!r&&ps.engaged?.[String(sl.rosterId||sl.friendWarbandId||'')];const n=oe&&(oe.picks||[]).length?(oe.picks.length+(oe.ud?.reinf||[]).filter(v=>v.arrived).length+(oe.ud?.temps||[]).length):Number(pc.manual[i]||0);const names=oe&&Array.isArray(oe.names)&&oe.names.length?oe.names:null;const units=r?playHazardUnits(r):names?names.map((nm,k)=>({key:'n'+k,who:nm})):Array.from({length:n},(_,k)=>({key:'m'+k,who:(siteLanguage==='en'?'Model ':'Figurine ')+(k+1)}));
     pc.rolls[i]=units.map(u=>{const d=postBattleRoll();if(d===1){const dice=[postBattleRoll(),postBattleRoll(),postBattleRoll()];const total=dice.reduce((a,b)=>a+b,0);const h=table.find(x=>Number(x.roll)===total)||null;const count=h?.count?rollDiceFormula(h.count).total:1;pc.hazards.push({slot:i,who:u.who,band:playSlotDisplayName(sl,ps),dice,total,name:h?.name||'—',count})}return {who:u.who,d}})});
   pc.rolledAt=Date.now();save();render('playMode');
 }
@@ -12075,12 +12080,12 @@ function hazardProfileTable(p){const full=[...p.slice(0,9),p[8],p[8],p[8]];const
 function playConditionsMarkup(ps,camp){
   const en=siteLanguage==='en';const pc=playConditions(ps);const table=camp.definition.conditions.hazards||[];const w=pc.weather;
   const bands=ps.slots.map((sl,i)=>{const r=playSlotRoster(sl);const rolls=pc.rolls[i]||[];const name=playSlotDisplayName(sl,ps);
-    return `<div class="cond-band"><b>${esc(name)}</b>${r?'':`<label class="cond-manual">${en?'Heroes + Henchman groups':'Héros + groupes de Henchmen'} <input type="number" min="0" max="30" value="${Number(pc.manual[i]||0)}" onchange="setPlayManualUnits(${i},this.value)"></label>`}<div class="cond-chips">${rolls.map(x=>`<span class="cond-chip${x.d===1?' hit':''}">${esc(x.who)} <b>${x.d}</b></span>`).join('')||`<small class="muted">${r?(en?`${playHazardUnits(r).length} dice to roll`:`${playHazardUnits(r).length} dés à lancer`):''}</small>`}</div></div>`}).join('');
+    return `<div class="cond-band"><b>${esc(name)}</b>${r?'':`<label class="cond-manual">${en?'Fighters':'Combattants'} <input type="number" min="0" max="30" value="${Number(pc.manual[i]||0)}" onchange="setPlayManualUnits(${i},this.value)"></label>`}<div class="cond-chips">${rolls.map(x=>`<span class="cond-chip${x.d===1?' hit':''}">${esc(x.who)} <b>${x.d}</b></span>`).join('')||`<small class="muted">${r?(en?`${playHazardUnits(r).length} dice to roll`:`${playHazardUnits(r).length} dés à lancer`):''}</small>`}</div></div>`}).join('');
   const hz=pc.hazards.map(h=>{const def=table.find(x=>x.name===h.name)||{};return `<section class="hz-card"><div class="hz-top"><span>${esc(h.who)} · ${esc(h.band)}</span><span class="hz-neutral">${en?'NEUTRAL':'NEUTRE'}</span></div><div class="hz-title"><h3>${esc(h.name)}</h3><span>3D6 = <b>${h.total}</b>${def.count?` · ${esc(def.count)} = ${h.count} ${en?'models':'figurines'}`:''}</span></div><div class="hz-text">${ruleTextMarkup(def.text||'',{noTitle:true})}</div>${def.profile?hazardProfileTable(def.profile):''}${(def.rules||[]).length?`<div class="hz-rules">${def.rules.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:''}${def.gear?`<small>${en?'Equipment':'Équipement'}: ${esc(def.gear)}</small>`:''}</section>`}).join('');
   return `<div class="cond-grid"><div class="cond-col"><section class="cond-panel"><span class="micro-label">${en?'START OF THE GAME':'DÉBUT DE LA PARTIE'} · ${esc(camp.name)}</span>
     <div class="cond-weather"><div><small>${en?'Weather':'Météo'}${w?` · 2D6 = ${w.total}`:''}</small><b>${w?esc(w.name):(en?'Not rolled yet':'Pas encore lancée')}</b>${w?`<div class="cond-wtext">${ruleTextMarkup(w.text||'',{noTitle:true})}</div>${w.sub?`<span class="cond-sub">D6 = ${w.sub}: ${esc(w.subText)}</span>`:''}`:''}</div><button type="button" class="button ${w?'secondary':'primary'}" onclick="rollPlayWeather()">${w?(en?'Reroll':'Relancer'):(en?'Roll 2D6':'Lancer 2D6')}</button></div>
     <button type="button" class="button primary cond-roll" onclick="rollPlayHazards()">${pc.rolledAt?(en?'↻ Reroll hazards':'↻ Relancer les dangers'):(en?'Roll hazards':'Lancer les dangers')}</button>
-    <small class="muted">${en?'One D6 per Hero and per Henchman group able to move. Every 1 is a hazard (3D6) — several can happen in the same game.':'Un D6 par Héros et par groupe de Henchmen pouvant bouger. Chaque 1 est un danger (3D6) — plusieurs peuvent arriver dans la même partie.'}</small>${bands}</section></div>
+    <small class="muted">${en?'One D6 per fighter taking part (the engaged ones once chosen). Every 1 is a hazard (3D6) — several can happen in the same game.':'Un D6 par combattant qui prend part (les engagés, une fois choisis). Chaque 1 est un danger (3D6) — plusieurs peuvent arriver dans la même partie.'}</small>${bands}</section></div>
    <div class="cond-col"><div class="hz-head"><span class="micro-label hz-label">${en?'HAZARDS THIS GAME':'DANGERS DE LA PARTIE'} · ${pc.hazards.length}</span><small class="muted">${en?'Neutral models — they belong to no warband':'Figurines neutres — elles n’appartiennent à aucune bande'}</small></div>${hz||`<p class="muted">${pc.rolledAt?(en?'No 1 rolled: no hazard this game.':'Aucun 1 : pas de danger cette partie.'):(en?'Roll the hazards at the start of the game.':'Lance les dangers au début de la partie.')}</p>`}${pc.rolledAt||w?`<button type="button" class="button secondary small" onclick="clearPlayConditions()">${en?'Clear conditions':'Effacer les conditions'}</button>`:''}</div></div>`;
 }
 // --- scenario roll (2D6) from the campaign table, in the warband's Campaign tab
@@ -12895,7 +12900,7 @@ function campaignMechanicsList(c){
    {on:st.length>0,icon:'🤝',title:en?'Auction house':'Hôtel des ventes',where:en?'Warband › Campaign tab':'Bande › onglet Campagne',text:en?'Offers (an item from the Stash) and requests (gold set aside) between the warbands of the campaign.':'Offres (un objet de la réserve) et demandes (or mis de côté) entre les bandes de la campagne.'},
    {on:campaignFeatureOn(c,'exploration'),icon:'🧭',title:en?'Campaign post-battle':'Post-bataille de campagne',where:en?'Post-battle › Step 3':'Post-bataille › étape 3',text:en?'Wyrdstone becomes Treasure. A Hero leads the search; every multiple gives its result from the chart below; finds go to the Stash under their own name with their base item’s rules and resale roll.':'Le Wyrdstone devient Treasure. Un Héros mène la recherche ; chaque multiple donne son résultat dans la table ci-dessous ; les trouvailles vont en réserve sous leur nom avec les règles de leur objet de base et leur jet de revente.'},
    {on:campaignFeatureOn(c,'exploration'),icon:'✦',title:en?'Artifacts':'Artefacts',where:en?'Post-battle › Step 3 (Roll 4D6)':'Post-bataille › étape 3 (Lancer 4D6)',text:en?`${arts.length} artifacts. 4D6 on the Minor table, four of a kind adds a Major roll. Unique in the campaign: one already held gives nothing.`:`${arts.length} artefacts. 4D6 sur la table Mineure, un carré ajoute un jet Majeur. Uniques dans la campagne : un artefact déjà détenu ne donne rien.`,link:'artifacts'},
-   {on:campaignFeatureOn(c,'conditions'),icon:'🌦',title:en?'Game conditions':'Conditions de partie',where:en?'Play › Conditions tab':'Play › onglet Conditions',text:en?'Rolled once at the start of the game: weather (2D6), then one D6 per Hero and per Henchman group — every 1 is a hazard (3D6). Hazard creatures are neutral.':'Lancées une fois en début de partie : météo (2D6), puis un D6 par Héros et par groupe de Henchmen — chaque 1 est un danger (3D6). Les créatures sont neutres.'},
+   {on:campaignFeatureOn(c,'conditions'),icon:'🌦',title:en?'Game conditions':'Conditions de partie',where:en?'Play › Conditions tab':'Play › onglet Conditions',text:en?'Rolled once at the start of the game: weather (2D6), then one D6 per fighter taking part — every 1 is a hazard (3D6). Hazard creatures are neutral.':'Lancées une fois en début de partie : météo (2D6), puis un D6 par combattant qui prend part — chaque 1 est un danger (3D6). Les créatures sont neutres.'},
    {on:campaignFeatureOn(c,'scenarioTable'),icon:'🎲',title:en?'Scenario roll':'Jet de scénario',where:en?'Warband › Campaign tab':'Bande › onglet Campagne',text:en?'2D6 on the two-player or multiplayer table; a published scenario of the same name can be started from there.':'2D6 sur la table deux joueurs ou multijoueur ; un scénario publié du même nom peut être lancé de là.'},
    {on:true,icon:'🏆',title:en?'Standings':'Classement',where:en?'Warband › Campaign tab · Overview':'Bande › onglet Campagne · Présentation',text:(en?'Ranked by: ':'Classement par : ')+campaignStandingLabel(campaignStandingKey(c))}
   ];
