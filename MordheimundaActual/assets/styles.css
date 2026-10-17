@@ -4941,3 +4941,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .play-back-btn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:900;box-shadow:0 8px 24px rgba(0,0,0,.45);padding:10px 18px}
 .hs-fought{border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:0 0 12px;background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .hs-fought-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.hs-fought-row>div{flex:1;min-width:160px}.hs-fought-row small{display:block;color:var(--muted)}
+.cpb-art-credit{border:1px solid var(--gold,#f2c94c);background:rgba(242,201,76,.08);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px}.cpb-art-credit small{color:var(--muted)}
