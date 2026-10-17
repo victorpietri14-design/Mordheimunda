@@ -1659,6 +1659,25 @@ app.get('/api/admin/traffic',requireDb,auth,requireAdmin,async(req,res,next)=>{
       days:days.rows.map(r=>({day:r.day,bytes:N(r.bytes),calls:N(r.calls)})),limits:{accountDailyMb:config.trafficAccountDailyMb,siteDailyMb:config.trafficSiteDailyMb},paused:t.paused,pausedReason:t.pausedReason});
   }catch(e){next(e)}
 });
+// Per-account traffic over a period, every account (not only the top 10),
+// and one account's detail by route and by day — to see where an unusual
+// amount of data comes from.
+app.get('/api/admin/traffic/accounts',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  const days=[1,7,30].includes(Number(req.query.days))?Number(req.query.days):1;
+  try{await flushTraffic();
+    const q=await pool.query("SELECT t.who,u.username,u.email,SUM(t.calls)::bigint AS calls,SUM(t.bytes_in)::bigint AS bin,SUM(t.bytes_out)::bigint AS bout,MAX(t.day)::text AS last FROM traffic_usage t LEFT JOIN users u ON t.who=u.id::text WHERE t.day>CURRENT_DATE-$1::int GROUP BY t.who,u.username,u.email ORDER BY SUM(t.bytes_in+t.bytes_out) DESC LIMIT 500",[days]);
+    res.json({days,accounts:q.rows.map(r=>({who:r.who,name:r.username||(String(r.who).startsWith('ip:')?'visiteur ('+String(r.who).slice(3)+')':r.who),email:r.email||'',calls:Number(r.calls),in:Number(r.bin),out:Number(r.bout),last:r.last}))});
+  }catch(e){next(e)}
+});
+app.get('/api/admin/traffic/account',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  const who=String(req.query.who||'').slice(0,200);const days=[1,7,30].includes(Number(req.query.days))?Number(req.query.days):7;
+  if(!who)return res.status(400).json({error:'INVALID_ACCOUNT'});
+  try{await flushTraffic();
+    const routes=await pool.query('SELECT route,SUM(calls)::bigint AS calls,SUM(bytes_in)::bigint AS bin,SUM(bytes_out)::bigint AS bout FROM traffic_usage WHERE who=$1 AND day>CURRENT_DATE-$2::int GROUP BY route ORDER BY SUM(bytes_in+bytes_out) DESC LIMIT 30',[who,days]);
+    const byDay=await pool.query('SELECT day::text AS day,SUM(calls)::bigint AS calls,SUM(bytes_in+bytes_out)::bigint AS bytes FROM traffic_usage WHERE who=$1 AND day>CURRENT_DATE-$2::int GROUP BY day ORDER BY day',[who,days]);
+    res.json({who,days,routes:routes.rows.map(r=>({route:r.route,calls:Number(r.calls),in:Number(r.bin),out:Number(r.bout)})),byDay:byDay.rows.map(r=>({day:r.day,calls:Number(r.calls),bytes:Number(r.bytes)}))});
+  }catch(e){next(e)}
+});
 app.put('/api/admin/sync-pause',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const on=!!req.body?.on;await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('syncPaused',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({on,reason:on?'admin':''})]);trafficCache.at=0;res.json({ok:true,paused:on})}catch(e){next(e)}
 });
