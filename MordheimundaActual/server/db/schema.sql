@@ -634,3 +634,6 @@ CREATE TABLE IF NOT EXISTS play_game_players (
   PRIMARY KEY (game_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS play_game_players_user_idx ON play_game_players(user_id);
+-- V-ENGAGED: each player's engaged fighters + underdog purchases, keyed by
+-- roster id; written by that warband's owner, never by the host's PUT.
+ALTER TABLE play_games ADD COLUMN IF NOT EXISTS engaged JSONB NOT NULL DEFAULT '{}'::jsonb;
