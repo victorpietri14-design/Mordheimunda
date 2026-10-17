@@ -101,6 +101,22 @@ const MB=1024*1024;
 const trafficPending=new Map();let trafficFlushTimer=null;
 const routeKey=req=>req.method+' '+(req.baseUrl+req.path).replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,':id').replace(/\/\d+(?=\/|$)/g,'/:n').slice(0,120);
 const trafficWho=req=>req.user?.user_id?String(req.user.user_id):'ip:'+String(req.ip||'?');
+// Public routes (rules, catalog, pictures, translations…) don't check the
+// login, so a signed-in player's reads there would land under their IP.
+// When the request carries a session cookie, look its account up once
+// (cached 10 min) so each player's whole usage shows under their account.
+const trafficSessionWho=new Map();
+async function trafficWhoFull(req){
+  if(req.user?.user_id)return String(req.user.user_id);
+  const raw=req.cookies?.mordheimunda_session;if(!raw||!pool)return trafficWho(req);
+  const h=hash(raw),c=trafficSessionWho.get(h);
+  if(c&&Date.now()-c.at<600000)return c.who||trafficWho(req);
+  let who=null;
+  try{const q=await pool.query('SELECT user_id FROM sessions WHERE token_hash=$1 AND expires_at>NOW()',[h]);who=q.rows[0]?String(q.rows[0].user_id):null}catch(e){}
+  if(trafficSessionWho.size>2000)trafficSessionWho.clear();
+  trafficSessionWho.set(h,{who,at:Date.now()});
+  return who||trafficWho(req);
+}
 async function flushTraffic(){
   clearTimeout(trafficFlushTimer);trafficFlushTimer=null;if(!pool||!trafficPending.size)return;
   const rows=[...trafficPending.entries()];trafficPending.clear();
@@ -112,10 +128,11 @@ app.use('/api/',(req,res,next)=>{
   let out=0;const w=res.write.bind(res),e=res.end.bind(res);
   res.write=(c,...a)=>{if(c)out+=Buffer.isBuffer(c)?c.length:Buffer.byteLength(String(c));return w(c,...a)};
   res.end=(c,...a)=>{if(c&&typeof c!=='function')out+=Buffer.isBuffer(c)?c.length:Buffer.byteLength(String(c));return e(c,...a)};
-  res.on('finish',()=>{
-    const k=trafficWho(req)+'\u0000'+routeKey(req);const v=trafficPending.get(k)||{calls:0,bin:0,bout:0};
+  res.on('finish',async()=>{
+    const who=await trafficWhoFull(req);
+    const k=who+'\u0000'+routeKey(req);const v=trafficPending.get(k)||{calls:0,bin:0,bout:0};
     v.calls++;v.bin+=Number(req.headers['content-length']||0)||0;v.bout+=out;trafficPending.set(k,v);
-    const n=v.bin+v.bout;bumpTrafficCache(trafficWho(req),Number(req.headers['content-length']||0)+out);
+    const n=v.bin+v.bout;bumpTrafficCache(who,Number(req.headers['content-length']||0)+out);
     if(n>256*1024||trafficPending.size>40)flushTraffic();else if(!trafficFlushTimer)trafficFlushTimer=setTimeout(flushTraffic,15000);
   });
   next();
@@ -1653,7 +1670,7 @@ app.get('/api/admin/traffic',requireDb,auth,requireAdmin,async(req,res,next)=>{
     await flushTraffic();const t=await trafficTotals();
     const day=await pool.query('SELECT COALESCE(SUM(bytes_in),0)::bigint AS i,COALESCE(SUM(bytes_out),0)::bigint AS o,COALESCE(SUM(calls),0)::bigint AS c FROM traffic_usage WHERE day=CURRENT_DATE');
     const month=await pool.query("SELECT COALESCE(SUM(bytes_in),0)::bigint AS i,COALESCE(SUM(bytes_out),0)::bigint AS o,COALESCE(SUM(calls),0)::bigint AS c FROM traffic_usage WHERE day>=date_trunc('month',CURRENT_DATE)");
-    const routes=await pool.query('SELECT route,SUM(calls)::bigint AS calls,SUM(bytes_in)::bigint AS bin,SUM(bytes_out)::bigint AS bout FROM traffic_usage WHERE day=CURRENT_DATE GROUP BY route ORDER BY SUM(bytes_in+bytes_out) DESC LIMIT 10');
+    const routes=await pool.query('SELECT route,SUM(calls)::bigint AS calls,SUM(bytes_in)::bigint AS bin,SUM(bytes_out)::bigint AS bout FROM traffic_usage WHERE day=CURRENT_DATE GROUP BY route ORDER BY SUM(bytes_in+bytes_out) DESC LIMIT 300');
     const who=await pool.query("SELECT t.who,u.username,SUM(t.calls)::bigint AS calls,SUM(t.bytes_in+t.bytes_out)::bigint AS bytes FROM traffic_usage t LEFT JOIN users u ON t.who=u.id::text WHERE t.day=CURRENT_DATE GROUP BY t.who,u.username ORDER BY SUM(t.bytes_in+t.bytes_out) DESC LIMIT 10");
     const days=await pool.query("SELECT day::text AS day,SUM(bytes_in+bytes_out)::bigint AS bytes,SUM(calls)::bigint AS calls FROM traffic_usage WHERE day>CURRENT_DATE-14 GROUP BY day ORDER BY day");
     const N=x=>Number(x||0);
@@ -1669,7 +1686,12 @@ app.get('/api/admin/traffic/accounts',requireDb,auth,requireAdmin,async(req,res,
   const days=[1,7,30].includes(Number(req.query.days))?Number(req.query.days):1;
   try{await flushTraffic();
     const q=await pool.query("SELECT t.who,u.username,u.email,SUM(t.calls)::bigint AS calls,SUM(t.bytes_in)::bigint AS bin,SUM(t.bytes_out)::bigint AS bout,MAX(t.day)::text AS last FROM traffic_usage t LEFT JOIN users u ON t.who=u.id::text WHERE t.day>CURRENT_DATE-$1::int GROUP BY t.who,u.username,u.email ORDER BY SUM(t.bytes_in+t.bytes_out) DESC LIMIT 500",[days]);
-    res.json({days,accounts:q.rows.map(r=>({who:r.who,name:r.username||(String(r.who).startsWith('ip:')?'visiteur ('+String(r.who).slice(3)+')':r.who),email:r.email||'',calls:Number(r.calls),in:Number(r.bin),out:Number(r.bout),last:r.last}))});
+    // A visitor row is an IP: name the accounts that have signed in from it,
+    // so the admin can tell their own devices from strangers.
+    const ips=[...new Set(q.rows.filter(r=>String(r.who).startsWith('ip:')).map(r=>String(r.who).slice(3).replace(/^::ffff:/,'')))];
+    const likely=new Map();
+    if(ips.length){const l=await pool.query('SELECT DISTINCT s.ip,u.username FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.ip=ANY($1::text[])',[ips]).catch(()=>({rows:[]}));for(const r of l.rows){const k=String(r.ip);likely.set(k,[...(likely.get(k)||[]),r.username])}}
+    res.json({days,accounts:q.rows.map(r=>{const ip=String(r.who).startsWith('ip:')?String(r.who).slice(3).replace(/^::ffff:/,''):null;return {who:r.who,name:r.username||(ip?'visiteur ('+ip+')':r.who),email:r.email||'',visitor:!!ip,likely:ip?(likely.get(ip)||[]):[],calls:Number(r.calls),in:Number(r.bin),out:Number(r.bout),last:r.last}})});
   }catch(e){next(e)}
 });
 app.get('/api/admin/traffic/account',requireDb,auth,requireAdmin,async(req,res,next)=>{
