@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0657.0';
+const APP_BUILD='110.0658.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -15357,6 +15357,9 @@ let prFactionSel='';
 function prItemNames(){const set=new Set();(D.weapons||[]).forEach(w=>w?.name&&set.add(w.name));(D.factions||[]).forEach(f=>(f.equipment||[]).forEach(e=>{const n=typeof e==='string'?e:e?.name;if(n)set.add(n)}));return [...set].sort((a,b)=>a.localeCompare(b))}
 function prFactionName(id){return D.factions.find(f=>String(f.id)===String(id))?.displayName||id}
 function prWarriorName(fid,wid){const f=D.factions.find(x=>String(x.id)===String(fid));return f?.warriors?.find(w=>String(w.id)===String(wid))?.name||wid}
+// Warbands whose special-price list is unfolded (closed by default; the
+// warband you add a rule to opens so you see it land).
+const prOpenFactions=new Set();
 function adminPriceRulesMarkup(){const en=siteLanguage==='en';const facs=[...(D.factions||[])].sort((a,b)=>String(a.displayName).localeCompare(String(b.displayName)));if(!prFactionSel&&facs[0])prFactionSel=String(facs[0].id);
   const fac=facs.find(f=>String(f.id)===prFactionSel);const book=n=>D.weapons.find(w=>normName(w.name)===normName(n));
   const groups=new Map();priceRules.forEach((r,i)=>{const k=r.factionId;if(!groups.has(k))groups.set(k,[]);groups.get(k).push({r,i})});
@@ -15370,13 +15373,13 @@ function adminPriceRulesMarkup(){const en=siteLanguage==='en';const facs=[...(D.
    <label class="custom-field"><span>${en?'Value (GC, optional)':'Valeur (CO, facultatif)'}</span><input id="prValue" type="number" min="0" step="1"></label>
    <button type="button" class="button primary" onclick="addPriceRule()">＋ ${en?'Add':'Ajouter'}</button>
   </div>
-  ${groups.size?[...groups.entries()].map(([fid,list])=>`<h4 style="margin:14px 0 4px">${esc(prFactionName(fid))}</h4><table style="width:100%;font-size:12.5px">${list.map(({r,i})=>{const b=book(r.item);return `<tr><td>${esc(r.warriorId?prWarriorName(fid,r.warriorId):(en?'Whole warband':'Toute la bande'))}</td><td><b>${esc(r.item)}</b>${b?` <small class="muted">(${en?'normally':'normalement'} ${b.price} GC)</small>`:''}</td><td>${r.price!=null?r.price+' GC':'—'}</td><td>${en?'value':'valeur'} ${r.value!=null?r.value:(r.price!=null?r.price:'—')} GC</td><td style="text-align:right"><button type="button" class="button secondary tiny" onclick="deletePriceRule(${i})">✕</button></td></tr>`}).join('')}</table>`).join(''):`<p class="muted" style="margin-top:12px">${en?'No special price yet.':'Aucun prix spécial pour l’instant.'}</p>`}
+  ${groups.size?[...groups.entries()].sort((a,b)=>String(prFactionName(a[0])).localeCompare(String(prFactionName(b[0])))).map(([fid,list])=>`<details class="custom-collapse" style="margin-top:8px"${prOpenFactions.has(fid)?' open':''} ontoggle="if(this.open)prOpenFactions.add('${esc(fid)}');else prOpenFactions.delete('${esc(fid)}')"><summary><span>${esc(prFactionName(fid))}</span><small>${list.length} ${en?(list.length>1?'rules':'rule'):(list.length>1?'règles':'règle')}</small></summary><table style="width:100%;font-size:12.5px">${list.map(({r,i})=>{const b=book(r.item);return `<tr><td>${esc(r.warriorId?prWarriorName(fid,r.warriorId):(en?'Whole warband':'Toute la bande'))}</td><td><b>${esc(r.item)}</b>${b?` <small class="muted">(${en?'normally':'normalement'} ${b.price} GC)</small>`:''}</td><td>${r.price!=null?r.price+' GC':'—'}</td><td>${en?'value':'valeur'} ${r.value!=null?r.value:(r.price!=null?r.price:'—')} GC</td><td style="text-align:right"><button type="button" class="button secondary tiny" onclick="deletePriceRule(${i})">✕</button></td></tr>`}).join('')}</table></details>`).join(''):`<p class="muted" style="margin-top:12px">${en?'No special price yet.':'Aucun prix spécial pour l’instant.'}</p>`}
   </div>`}
 async function savePriceRules(next,msg){const en=siteLanguage==='en';try{const r=await window.MordheimundaAPI.adminSavePriceRules(next);priceRules=Array.isArray(r?.rules)?r.rules:next;applyPriceRuleRefunds();render('admin');if(msg)toast(msg)}catch(e){toast(authError(e,en))}}
 function addPriceRule(){const en=siteLanguage==='en';const factionId=$('#prFaction')?.value||'',warriorId=$('#prWarrior')?.value||null,item=($('#prItem')?.value||'').trim();const pv=$('#prPrice')?.value,vv=$('#prValue')?.value;
   if(!factionId||!item)return toast(en?'Choose a warband and an item':'Choisis une bande et un objet');if(pv===''&&vv==='')return toast(en?'Enter a price or a value':'Indique un prix ou une valeur');
   const rule={factionId,warriorId:warriorId||null,item,price:pv===''?null:Math.max(0,Math.round(Number(pv))),value:vv===''?null:Math.max(0,Math.round(Number(vv)))};
-  const next=priceRules.filter(r=>!(r.factionId===rule.factionId&&(r.warriorId||null)===rule.warriorId&&normName(r.item)===normName(rule.item)));next.push(rule);
+  const next=priceRules.filter(r=>!(r.factionId===rule.factionId&&(r.warriorId||null)===rule.warriorId&&normName(r.item)===normName(rule.item)));next.push(rule);prOpenFactions.add(rule.factionId);
   savePriceRules(next,en?'Special price saved':'Prix spécial enregistré')}
 function deletePriceRule(i){const en=siteLanguage==='en';const next=priceRules.filter((_,k)=>k!==i);savePriceRules(next,en?'Special price removed':'Prix spécial supprimé')}
 // V-MTEXCLUDE admin: words never translated + this month's usage.
