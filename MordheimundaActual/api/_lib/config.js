@@ -36,6 +36,10 @@ export const config={
   // Hard caps on characters sent for translation (Google's free allowance
   // is 500,000 a month): beyond them the site simply stops sending new texts
   // until the next day / month; texts already translated stay available.
+  // V-TRAFFICCAP: hard daily ceilings on heavy traffic (MB), so no bug can
+  // ever use up the host's or the database's monthly transfer allowance.
+  trafficAccountDailyMb:Math.max(1,Number(process.env.TRAFFIC_ACCOUNT_DAILY_MB||200)),
+  trafficSiteDailyMb:Math.max(1,Number(process.env.TRAFFIC_SITE_DAILY_MB||2048)),
   translateDailyCharLimit:Math.max(0,Number(process.env.TRANSLATE_DAILY_CHAR_LIMIT||15000)),
   translateMonthlyCharLimit:Math.max(0,Number(process.env.TRANSLATE_MONTHLY_CHAR_LIMIT||450000)),
   googleTranslateApiUrl:process.env.GOOGLE_TRANSLATE_API_URL||'',

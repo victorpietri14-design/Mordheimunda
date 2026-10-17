@@ -595,3 +595,15 @@ CREATE TABLE IF NOT EXISTS translation_usage (
   day DATE PRIMARY KEY,
   chars INTEGER NOT NULL DEFAULT 0
 );
+
+-- V-TRAFFICCAP: per-day traffic per account (or visitor) and per route, for
+-- the admin Traffic panel and the daily ceilings.
+CREATE TABLE IF NOT EXISTS traffic_usage (
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  who TEXT NOT NULL,
+  route TEXT NOT NULL,
+  calls INTEGER NOT NULL DEFAULT 0,
+  bytes_in BIGINT NOT NULL DEFAULT 0,
+  bytes_out BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, who, route)
+);
