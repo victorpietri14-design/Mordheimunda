@@ -38,8 +38,8 @@ export const config={
   // until the next day / month; texts already translated stay available.
   // V-TRAFFICCAP: hard daily ceilings on heavy traffic (MB), so no bug can
   // ever use up the host's or the database's monthly transfer allowance.
-  trafficAccountDailyMb:Math.max(1,Number(process.env.TRAFFIC_ACCOUNT_DAILY_MB||80)),
-  trafficSiteDailyMb:Math.max(1,Number(process.env.TRAFFIC_SITE_DAILY_MB||250)),
+  trafficAccountDailyMb:Math.max(1,Number(process.env.TRAFFIC_ACCOUNT_DAILY_MB||100)),
+  trafficSiteDailyMb:Math.max(1,Number(process.env.TRAFFIC_SITE_DAILY_MB||300)),
   translateDailyCharLimit:Math.max(0,Number(process.env.TRANSLATE_DAILY_CHAR_LIMIT||15000)),
   translateMonthlyCharLimit:Math.max(0,Number(process.env.TRANSLATE_MONTHLY_CHAR_LIMIT||450000)),
   googleTranslateApiUrl:process.env.GOOGLE_TRANSLATE_API_URL||'',
