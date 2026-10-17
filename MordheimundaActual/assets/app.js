@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0655.0';
+const APP_BUILD='110.0656.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8925,6 +8925,9 @@ function questScopeMatch(sc,x,f){
   const nm=normName(x?.sourceName||x?.name);
   return (sc.fighters||[]).some(e=>normName(e.name)===nm&&(isHiredSword(x)?e.factionId==='__hs':(!e.factionId||ids.includes(e.factionId))));
 }
+// Leader-only tree: only the warband's Leader may take it, whatever skill
+// trees other heroes have. Commander is leader-only unless an admin unticks it.
+function questLeaderOnly(t){return typeof t?.leaderOnly==='boolean'?t.leaderOnly:t?.id==='commander'}
 function questsForFighter(t,x,f){return (t.quests||[]).filter(q=>questScopeMatch(q.scope,x,f))}
 // {slots, available:[{tree,why,level}], unavailable:[tree], locked:[ids], chosen:[ids]}
 function fighterQuestInfo(x){
@@ -8932,6 +8935,7 @@ function fighterQuestInfo(x){
   const available=[],unavailable=[];const fq=faction(activeRoster());
   questTrees().forEach(t=>{
     if(!questScopeMatch(t.scope,x,fq))return; // not for this warband / fighter: hidden
+    if(questLeaderOnly(t)&&(isHiredSword(x)||advancementRole(x)!=='Leader'))return; // leader-only tree: hidden for others
     if(!questsForFighter(t,x,fq).length)return;
     if(t.ignoreSkills&&!questScopeEmpty(t.scope)){available.push({tree:t,level:'Primary',why:en?'Exclusive':'Exclusif'});return}
     if(t.caster&&caster){available.push({tree:t,level:'Primary',why:en?'Wizard / Priest':'Wizard / Prêtre'});return}
@@ -9046,8 +9050,8 @@ function adminQuestsMarkup(){
    <p class="custom-field-help">${en?'Shown in Play Mode → XP & Quests for every fighter who can earn experience, before the scenario’s own Experience lines. “Each” lines are counted with − / +.':'Affiché dans Play Mode → XP & Quêtes pour chaque combattant qui peut gagner de l’expérience, avant les lignes Expérience du scénario. Les lignes « chacun » se comptent avec − / +.'}</p>
    ${d.universalXp.map((l,i)=>`<div class="qa-quest qa-ux"><input value="${esc(l.name||'')}" placeholder="${en?'What earns it':'Ce qui la rapporte'}" onchange="adminUxSet(${i},'name',this.value)"><input type="number" min="0" max="10" value="${Number(l.xp||0)}" title="XP" onchange="adminUxSet(${i},'xp',this.value)"><button type="button" class="button secondary" title="${en?'Remove':'Retirer'}" onclick="adminUxRemove(${i})">🗑</button><label class="qa-chip${l.repeatable?' on':''}"><input type="checkbox" ${l.repeatable?'checked':''} onchange="adminUxSet(${i},'repeatable',this.checked)"> <span>${en?'Each (counted with − / +)':'Chacun (compté avec − / +)'}</span></label></div>`).join('')}
    <div class="custom-actions"><button type="button" class="button secondary" onclick="adminUxAdd()">＋ ${en?'Add a line':'Ajouter une ligne'}</button></div></details>`;
-  const trees=d.trees.map((t,ti)=>`<details class="custom-collapse"${t.__open?' open':''} ontoggle="adminQuestDraft.trees[${ti}].__open=this.open"><summary><span>${esc(t.icon||'◆')} ${esc(t.name||'—')}</span><small>${questScopeEmpty(t.scope)?'':`<b class="qa-excl">${esc(questScopeLabel(t.scope,en))}</b> · `}${(t.quests||[]).length} quests · ${t.caster?(en?'Wizard / Priest':'Wizard / Prêtre'):esc((t.skillTrees||[]).join(t.requireAll?' + ':', ')||'—')}</small></summary>
-   <div class="custom-form-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input value="${esc(t.name||'')}" onchange="adminQuestSet(${ti},-1,'name',this.value)"></label><label class="custom-field"><span>${en?'Icon':'Icône'}</span><input value="${esc(t.icon||'')}" maxlength="3" onchange="adminQuestSet(${ti},-1,'icon',this.value)"></label><label class="custom-field"><span>${en?'Colour':'Couleur'}</span><input type="color" value="${esc(t.color||'#99d65d')}" onchange="adminQuestSet(${ti},-1,'color',this.value)"></label>
+  const trees=d.trees.map((t,ti)=>`<details class="custom-collapse"${t.__open?' open':''} ontoggle="adminQuestDraft.trees[${ti}].__open=this.open"><summary><span>${esc(t.icon||'◆')} ${esc(t.name||'—')}</span><small>${questLeaderOnly(t)?`<b class="qa-excl">${en?'Leader only':'Chef uniquement'}</b> · `:''}${questScopeEmpty(t.scope)?'':`<b class="qa-excl">${esc(questScopeLabel(t.scope,en))}</b> · `}${(t.quests||[]).length} quests · ${t.caster?(en?'Wizard / Priest':'Wizard / Prêtre'):esc((t.skillTrees||[]).join(t.requireAll?' + ':', ')||'—')}</small></summary>
+   <div class="custom-form-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input value="${esc(t.name||'')}" onchange="adminQuestSet(${ti},-1,'name',this.value)"></label><label class="custom-field"><span>${en?'Icon':'Icône'}</span><input value="${esc(t.icon||'')}" maxlength="3" onchange="adminQuestSet(${ti},-1,'icon',this.value)"></label><label class="custom-field"><span>${en?'Colour':'Couleur'}</span><input type="color" value="${esc(t.color||'#99d65d')}" onchange="adminQuestSet(${ti},-1,'color',this.value)"></label><label class="custom-field"><span>${en?'Who':'Qui'}</span><label class="qa-chip${questLeaderOnly(t)?' on':''}"><input type="checkbox" ${questLeaderOnly(t)?'checked':''} onchange="adminQuestSet(${ti},-1,'leaderOnly',this.checked);render('admin')"> <span>${en?'Leader only':'Chef uniquement'}</span></label></label>
    <div class="custom-field wide"><span>${en?'Linked skill trees — Primary or Secondary unlocks it':'Arbres de compétences liés — Primary ou Secondary le débloque'}</span>
     <div class="qa-mode"><label><input type="radio" name="qamode${ti}" ${t.requireAll?'':'checked'} onchange="adminQuestSet(${ti},-1,'requireAll',false)"> ${en?'Any one of them is enough':'Un seul suffit'}</label><label><input type="radio" name="qamode${ti}" ${t.requireAll?'checked':''} onchange="adminQuestSet(${ti},-1,'requireAll',true)"> ${en?'Combination — all of them needed':'Combinaison — tous sont nécessaires'}</label></div>
     <div class="qa-trees">${questSkillTreeOptions(t.skillTrees).map(n=>{const on=(t.skillTrees||[]).some(x=>normName(x)===normName(n));return `<label class="qa-chip${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="adminQuestToggleSkill(${ti},'${esc(n).replace(/'/g,"\\'")}',this.checked)"> <span>${esc(skillTreeDisplayName(n))}</span></label>`}).join('')}</div></div>
@@ -9089,7 +9093,7 @@ function questScopeToggleFaction(id,on){const d=questScopeEdit.draft;d.factions=
 function questScopeToggleFighter(fid,name,on){const d=questScopeEdit.draft;d.fighters=(d.fighters||[]).filter(y=>!(normName(y.name)===normName(name)&&y.factionId===fid));if(on)d.fighters.push({factionId:fid,name});renderQuestScopeEditor()}
 function questScopeRemoveFighter(i){questScopeEdit.draft.fighters.splice(i,1);renderQuestScopeEditor()}
 function applyQuestScope(){if(adminQuestDraft)adminQuestDraft.__dirty=true;const e=questScopeEdit;const tgt=questScopeTarget();if(!tgt)return closeModal();tgt.scope=questScopeEmpty(e.draft)?undefined:e.draft;if(e.qi<0)adminQuestDraft.trees[e.ti].ignoreSkills=!!e.ignoreSkills&&!questScopeEmpty(e.draft);adminQuestDraft.trees[e.ti].__open=true;questScopeEdit=null;closeModal();render('admin')}
-function adminQuestSet(ti,qi,field,v){if(adminQuestDraft)adminQuestDraft.__dirty=true;const t=adminQuestDraft?.trees?.[ti];if(!t)return;if(qi<0){if(field==='skillTrees')t.skillTrees=String(v).split(',').map(s=>s.trim()).filter(Boolean);else if(field==='caster'||field==='requireAll')t[field]=!!v;else t[field]=String(v)}else{const q=t.quests?.[qi];if(!q)return;q[field]=field==='xp'?Math.max(0,Math.min(10,Math.round(Number(v)||0))):String(v)}if(field==='name'||field==='icon'||field==='caster'||field==='skillTrees'||field==='requireAll'){t.__open=true;render('admin')}}
+function adminQuestSet(ti,qi,field,v){if(adminQuestDraft)adminQuestDraft.__dirty=true;const t=adminQuestDraft?.trees?.[ti];if(!t)return;if(qi<0){if(field==='skillTrees')t.skillTrees=String(v).split(',').map(s=>s.trim()).filter(Boolean);else if(field==='caster'||field==='requireAll'||field==='leaderOnly')t[field]=!!v;else t[field]=String(v)}else{const q=t.quests?.[qi];if(!q)return;q[field]=field==='xp'?Math.max(0,Math.min(10,Math.round(Number(v)||0))):String(v)}if(field==='name'||field==='icon'||field==='caster'||field==='skillTrees'||field==='requireAll'){t.__open=true;render('admin')}}
 function adminQuestAdd(ti){if(adminQuestDraft)adminQuestDraft.__dirty=true;const t=adminQuestDraft.trees[ti];t.quests=t.quests||[];t.quests.push({id:'q-'+crypto.randomUUID().slice(0,8),name:'',text:'',xp:1});t.__open=true;render('admin')}
 function adminQuestRemove(ti,qi){if(adminQuestDraft)adminQuestDraft.__dirty=true;const t=adminQuestDraft.trees[ti];t.quests.splice(qi,1);t.__open=true;render('admin')}
 function adminQuestAddTree(){if(adminQuestDraft)adminQuestDraft.__dirty=true;adminQuestDraft.trees.push({id:'t-'+crypto.randomUUID().slice(0,8),name:siteLanguage==='en'?'New tree':'Nouvel arbre',icon:'◆',color:'#99d65d',skillTrees:[],quests:[],__open:true});render('admin')}
