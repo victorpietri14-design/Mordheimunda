@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0648.0';
+const APP_BUILD='110.0649.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4920,8 +4920,21 @@ function activeAdminEditData(){return adminRulesEditData||adminCatalogEditData}
 // into a slim accordion (one category open at a time); category bodies
 // still hold the exact same cards/markup as before, just shown on demand.
 let adminOpenCategory=null;
-function setAdminOpenCategory(id){adminOpenCategory=(adminOpenCategory===id)?null:id;render('admin')}
+// V-ADMINPAGES: the admin sections are grouped in three pages — the site
+// itself (admins, traffic, translation, backup), the game content
+// (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
+// players (support). Opening a section from elsewhere switches to its page.
+const ADMIN_GROUPS={site:['accounts','traffic','translate','backup'],content:['warband','gear','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
+const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
+function adminCurrentSection(){return (adminOpenCategory&&adminGroupOf(adminOpenCategory))||adminSection}
+function setAdminSection(k){if(!ADMIN_GROUPS[k])return;adminSection=k;adminOpenCategory=null;try{localStorage.setItem('mu_ui_adminSection',k)}catch(e){}render('admin')}
+function adminSectionTabsMarkup(){const en=siteLanguage==='en',cur=adminCurrentSection();const L={site:en?'Site':'Gestion du site',content:en?'Content':'Gestion du contenu',players:en?'Players':'Joueurs'},H={site:en?'Admins, traffic, translation, backup':'Admins, trafic, traduction, sauvegarde',content:en?'Warbands, gear, rules, scenarios, quests, trophies':'Warbands, équipement, règles, scénarios, quêtes, trophées',players:en?'Players’ warbands (support)':'Bandes des joueurs (support)'};
+  return `<div class="admin-section-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px">${Object.keys(ADMIN_GROUPS).map(k=>`<button type="button" class="button ${k===cur?'primary':'secondary'}" style="flex:1 1 160px;text-align:left;padding:10px 14px" onclick="setAdminSection('${k}')"><strong>${L[k]}</strong><br><small style="opacity:.75;font-weight:400">${H[k]}</small></button>`).join('')}</div>`}
+function setAdminOpenCategory(id){adminOpenCategory=(adminOpenCategory===id)?null:id;const g=adminGroupOf(id);if(g){adminSection=g;try{localStorage.setItem('mu_ui_adminSection',g)}catch(e){}}render('admin')}
 function adminCategoryBar(id,label,hint,open){
+  if(adminGroupOf(id)&&adminGroupOf(id)!==adminCurrentSection())return '';
+  label=String(label).replace(/^(Gestion|Manage) · /,''); // the page title already says it
   return `<button type="button" class="admin-category-bar${open?' open':''}" onclick="setAdminOpenCategory('${id}')"><span class="admin-category-label"><strong>${esc(label)}</strong>${hint?`<small>${esc(hint)}</small>`:''}</span><span class="admin-category-chevron">${open?'▾':'▸'}</span></button>`;
 }
 async function loadAdminData(){
@@ -4959,6 +4972,7 @@ function admin(){
     <div class="page-intro"><div><div class="eyebrow">ADMIN / CONTROL</div><h2>${en?'Admin':'Admin'}</h2><p>${en?'Grant admin access and turn one of your custom warbands into an official warband available to every account.':'Accorde le statut admin et transforme une de tes warbands custom en bande officielle disponible pour tous les comptes.'}</p></div></div>
     <div class="ad-strip"><span class="dot"></span><b>${en?'Admins only':'Accès admin uniquement'}</b><span class="d">${en?'— this page is hidden for any account without the Admin role.':'— cette page est masquée pour tout compte sans le rôle Admin.'}</span></div>
     ${trafficAlertMarkup()}
+    ${adminSectionTabsMarkup()}
     <div class="admin-categories">
       ${adminCategoryBar('accounts',en?'Admin accounts':'Comptes admin',en?`${admins.length} admin${admins.length!==1?'s':''}`:`${admins.length} admin${admins.length!==1?'s':''}`,adminOpenCategory==='accounts')}
       ${adminOpenCategory==='accounts'?`<div class="admin-category-body">

@@ -90,8 +90,11 @@ app.use((req,res,next)=>{
 // V-TRAFFICCAP: every API call is counted (calls, bytes in, bytes out) per
 // day, per account (or visitor) and per route. Heavy routes — whole-account
 // loads/saves, admin support, pictures, translation, shared warbands — are
-// refused once an account has moved TRAFFIC_ACCOUNT_DAILY_MB today, or the
-// whole site TRAFFIC_SITE_DAILY_MB, and while an admin has paused sync. The
+// refused once an account has moved TRAFFIC_ACCOUNT_DAILY_MB today (x2.5 for
+// an admin), or the whole site TRAFFIC_SITE_DAILY_MB (admins included: it is
+// the absolute ceiling, sized to stay inside the FREE monthly allowances of
+// Vercel Hobby and Neon even if a bug ran all month), and while an admin has
+// paused sync. The
 // device then keeps working on its own copy and sends it later: the worst
 // case is a delayed save, never an exhausted allowance or a surprise bill.
 const MB=1024*1024;
@@ -135,8 +138,8 @@ async function trafficGuard(req,res,next){
   try{
     const t=await trafficTotals();const admin=!!req.user?.is_admin;
     if(t.paused&&!admin)return res.status(503).json({error:'SYNC_PAUSED',reason:t.pausedReason||'admin'});
-    if(t.site>=config.trafficSiteDailyMb*MB&&!admin)return res.status(503).json({error:'SYNC_PAUSED',reason:'site-limit'});
-    if((t.who.get(trafficWho(req))||0)>=config.trafficAccountDailyMb*MB*(admin?5:1))return res.status(429).json({error:'TRAFFIC_LIMIT_ACCOUNT'});
+    if(t.site>=config.trafficSiteDailyMb*MB)return res.status(503).json({error:'SYNC_PAUSED',reason:'site-limit'});
+    if((t.who.get(trafficWho(req))||0)>=config.trafficAccountDailyMb*MB*(admin?2.5:1))return res.status(429).json({error:'TRAFFIC_LIMIT_ACCOUNT'});
   }catch(e){console.error('traffic guard',e)}
   next();
 }
