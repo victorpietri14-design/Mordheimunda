@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0664.0';
+const APP_BUILD='110.0665.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11829,6 +11829,8 @@ function playLoadForeign(rid){const ps=state.playSession;if(!ps?.shared||playFor
 function playEngPublish(ps,r){
   const e=playEngEntry(ps,r);e.total=playEngTotal(e,r);
   delete e.cards;
+  // names only (no cards), so the host's hazard roll can say who it hits
+  e.names=[...e.picks,...e.ud.reinf.filter(v=>v.arrived).map(v=>v.instance)].map(id=>(r.fighters||[]).find(x=>x.instance===id)?.name).filter(Boolean).concat((e.ud.temps||[]).map(t=>t.fighter?.name).filter(Boolean));
   const away=playAwayRows(ps).find(v=>v.rid===String(r.id));if(away){e.owner=away.player.username;e.byHost=true}else{e.owner=accountSession()?.username||'';delete e.byHost}save();
   if(ps.shared&&ps.shared.id){clearTimeout(playEngTimers[r.id]);playEngTimers[r.id]=setTimeout(async()=>{try{const live=state.playSession;if(!live?.shared||live.shared.id!==ps.shared.id)return;const cur=live.engaged?.[r.id];if(!cur)return;const light={...cur,ud:{...cur.ud,temps:(cur.ud.temps||[]).map(t=>({kind:t.kind,wid:t.wid,cost:t.cost,name:t.fighter?.name||''}))}};await window.MordheimundaAPI.playEngaged(live.shared.id,r.id,light)}catch(err){console.warn('Engaged not sent',err)}},600)}
 }
@@ -12067,7 +12069,7 @@ function rollPlayHazards(){
   if(playGuestBlocked())return;
   const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;const pc=playConditions(ps);const table=camp.definition.conditions.hazards||[];
   pc.rolls={};pc.hazards=[];
-  ps.slots.forEach((sl,i)=>{const r=playSlotRoster(sl);const oe=!r&&ps.engaged?.[String(sl.rosterId||sl.friendWarbandId||'')];const n=oe&&(oe.picks||[]).length?(oe.picks.length+(oe.ud?.reinf||[]).filter(v=>v.arrived).length+(oe.ud?.temps||[]).length):Number(pc.manual[i]||0);const units=r?playHazardUnits(r):Array.from({length:n},(_,k)=>({key:'m'+k,who:(siteLanguage==='en'?'Model ':'Figurine ')+(k+1)}));
+  ps.slots.forEach((sl,i)=>{const r=playSlotRoster(sl);const oe=!r&&ps.engaged?.[String(sl.rosterId||sl.friendWarbandId||'')];const n=oe&&(oe.picks||[]).length?(oe.picks.length+(oe.ud?.reinf||[]).filter(v=>v.arrived).length+(oe.ud?.temps||[]).length):Number(pc.manual[i]||0);const names=oe&&Array.isArray(oe.names)&&oe.names.length?oe.names:null;const units=r?playHazardUnits(r):names?names.map((nm,k)=>({key:'n'+k,who:nm})):Array.from({length:n},(_,k)=>({key:'m'+k,who:(siteLanguage==='en'?'Model ':'Figurine ')+(k+1)}));
     pc.rolls[i]=units.map(u=>{const d=postBattleRoll();if(d===1){const dice=[postBattleRoll(),postBattleRoll(),postBattleRoll()];const total=dice.reduce((a,b)=>a+b,0);const h=table.find(x=>Number(x.roll)===total)||null;const count=h?.count?rollDiceFormula(h.count).total:1;pc.hazards.push({slot:i,who:u.who,band:playSlotDisplayName(sl,ps),dice,total,name:h?.name||'—',count})}return {who:u.who,d}})});
   pc.rolledAt=Date.now();save();render('playMode');
 }
