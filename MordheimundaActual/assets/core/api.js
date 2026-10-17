@@ -23,6 +23,12 @@
   loadData:()=>request('/api/account/data'),dataRevision:()=>request('/api/account/data/revision'),saveData:(data,expectedRevision=null)=>request('/api/account/data',{method:'PUT',body:JSON.stringify({data,...(Number.isInteger(expectedRevision)?{expectedRevision}:{})})}),officialWarbands:()=>request('/api/warbands/official'),adminListWarbands:()=>request('/api/admin/warbands'),adminGetWarband:id=>request('/api/admin/warbands/'+encodeURIComponent(id)),adminOfficializeWarband:p=>request('/api/admin/warbands',{method:'POST',body:JSON.stringify(p)}),adminUpdateOfficialWarband:(id,p)=>request('/api/admin/warbands/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(p)}),adminSetOfficialWarbandStatus:(id,status)=>request('/api/admin/warbands/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status})}),adminSetWarbandSupplement:(id,baseFactionId)=>request('/api/admin/warbands/'+encodeURIComponent(id)+'/supplement',{method:'PATCH',body:JSON.stringify({baseFactionId:baseFactionId||null})}),adminDeleteOfficialWarband:id=>request('/api/admin/warbands/'+encodeURIComponent(id),{method:'DELETE'}),adminListAdmins:()=>request('/api/admin/admins'),adminPromote:identifier=>request('/api/admin/promote',{method:'POST',body:JSON.stringify({identifier})}),adminDemote:identifier=>request('/api/admin/demote',{method:'POST',body:JSON.stringify({identifier})}),
   /* Friends (V89) — contact list only, never grants warband/custom-content access. */
   friends:()=>request('/api/friends'),
+  playCreate:(data,campaignId)=>request('/api/play-games',{method:'POST',body:JSON.stringify({data,campaignId})}),
+  playPush:(id,data)=>request('/api/play-games/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify({data})}),
+  playState:id=>request('/api/play-games/'+encodeURIComponent(id)+'/state'),
+  playGet:id=>request('/api/play-games/'+encodeURIComponent(id)),
+  playAction:(id,action)=>request('/api/play-games/'+encodeURIComponent(id)+'/'+action,{method:'POST'}),
+  playInvites:()=>request('/api/play-invites'),
   sendFriendRequest:identifier=>request('/api/friends/requests',{method:'POST',body:JSON.stringify({identifier})}),
   acceptFriendRequest:id=>request('/api/friends/requests/'+encodeURIComponent(id)+'/accept',{method:'POST'}),
   declineFriendRequest:id=>request('/api/friends/requests/'+encodeURIComponent(id)+'/decline',{method:'POST'}),
