@@ -2082,6 +2082,91 @@ app.delete('/api/admin/rules/nav-groups',requireDb,requireSameOrigin,auth,requir
 app.use('/api/friends',rateLimit({windowMs:60*1000,max:60,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
 const pubFriend=u=>({id:u.id,username:u.username});
 
+// V-SHAREDPLAY: shared Play Mode games (see schema.sql). The host creates
+// the game when it includes another account's warband; the owners of those
+// warbands (campaign members, or friends for a skirmish) are invited and can
+// join to follow the same scenario, deployment and conditions. Only the host
+// changes the game. Clients ask GET …/state (a few bytes) and fetch the
+// whole game only when its revision moved.
+const PLAY_DATA_MAX=300*1024;
+const playClip=v=>{const t=JSON.stringify(v??{});return t.length>PLAY_DATA_MAX?null:JSON.parse(t)};
+// Who owns the other warbands of the game: campaign members of its campaign,
+// or friends of the host picked in a slot. Returns Map userId -> [rosterIds].
+async function playGameInvitees(hostId,campaignId,data){
+  const out=new Map();const slots=Array.isArray(data?.slots)?data.slots:[];
+  const add=(uid,rid)=>{uid=String(uid);if(uid===String(hostId))return;if(!out.has(uid))out.set(uid,[]);if(rid&&!out.get(uid).includes(String(rid)))out.get(uid).push(String(rid))};
+  const ids=slots.map(sl=>sl?.rosterId).filter(Boolean).map(String);
+  if(campaignId&&ids.length){const q=await pool.query('SELECT roster_id,user_id FROM campaign_members WHERE campaign_id=$1 AND roster_id=ANY($2::text[]) AND left_at IS NULL',[campaignId,ids]);q.rows.forEach(r=>add(r.user_id,r.roster_id))}
+  const friendIds=[...new Set(slots.filter(sl=>sl?.source==='friend'&&sl.friendId).map(sl=>String(sl.friendId)))];
+  if(friendIds.length){const q=await pool.query('SELECT friend_id FROM friendships WHERE user_id=$1 AND friend_id::text=ANY($2::text[])',[hostId,friendIds]);const ok=new Set(q.rows.map(r=>String(r.friend_id)));slots.forEach(sl=>{if(sl?.source==='friend'&&ok.has(String(sl.friendId)))add(sl.friendId,sl.friendWarbandId)})}
+  return out;
+}
+async function playSyncPlayers(gameId,inv){
+  const keep=[...inv.keys()];
+  await pool.query("DELETE FROM play_game_players WHERE game_id=$1 AND NOT (user_id::text=ANY($2::text[]))",[gameId,keep]);
+  for(const [uid,rids] of inv)await pool.query("INSERT INTO play_game_players(game_id,user_id,roster_ids) VALUES($1,$2,$3) ON CONFLICT(game_id,user_id) DO UPDATE SET roster_ids=EXCLUDED.roster_ids",[gameId,uid,rids]);
+}
+async function playPlayers(gameId){const q=await pool.query('SELECT p.user_id,u.username,p.status,p.roster_ids FROM play_game_players p JOIN users u ON u.id=p.user_id WHERE p.game_id=$1 ORDER BY u.username',[gameId]);return q.rows.map(r=>({userId:r.user_id,username:r.username,status:r.status,rosterIds:r.roster_ids}))}
+// The game as seen by the host or one of its players; null when not theirs.
+async function playGameFor(id,uid){
+  if(!/^[0-9a-f-]{36}$/i.test(String(id||'')))return null;
+  const g=await pool.query('SELECT g.*,u.username AS host_name FROM play_games g JOIN users u ON u.id=g.host_id WHERE g.id=$1',[id]);const row=g.rows[0];if(!row)return null;
+  const isHost=String(row.host_id)===String(uid);
+  if(!isHost){const p=await pool.query('SELECT 1 FROM play_game_players WHERE game_id=$1 AND user_id=$2',[id,uid]);if(!p.rows[0])return null}
+  return {row,isHost};
+}
+const playOut=(row,players,withData,uid)=>({you:uid?String(uid):undefined,id:row.id,hostId:row.host_id,hostName:row.host_name,campaignId:row.campaign_id,revision:row.revision,status:row.status,updatedAt:row.updated_at,players,...(withData?{data:row.data}:{})});
+app.post('/api/play-games',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{
+    const data=playClip(req.body?.data);if(!data)return res.status(413).json({error:'GAME_TOO_LARGE'});
+    const campaignId=/^[0-9a-f-]{36}$/i.test(String(req.body?.campaignId||''))?req.body.campaignId:null;
+    const inv=await playGameInvitees(req.user.user_id,campaignId,data);
+    if(!inv.size)return res.json({game:null});
+    const id=crypto.randomUUID();
+    await pool.query('INSERT INTO play_games(id,host_id,campaign_id,data) VALUES($1,$2,$3,$4)',[id,req.user.user_id,campaignId,data]);
+    await playSyncPlayers(id,inv);
+    const g=await playGameFor(id,req.user.user_id);
+    res.json({game:playOut(g.row,await playPlayers(id),false)});
+  }catch(e){next(e)}
+});
+app.put('/api/play-games/:id',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{
+    const g=await playGameFor(req.params.id,req.user.user_id);if(!g||!g.isHost)return res.status(404).json({error:'GAME_NOT_FOUND'});
+    if(g.row.status!=='active')return res.status(409).json({error:'GAME_ENDED'});
+    const data=playClip(req.body?.data);if(!data)return res.status(413).json({error:'GAME_TOO_LARGE'});
+    const u=await pool.query('UPDATE play_games SET data=$2,revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision',[g.row.id,data]);
+    await playSyncPlayers(g.row.id,await playGameInvitees(req.user.user_id,g.row.campaign_id,data));
+    res.json({revision:u.rows[0].revision,players:await playPlayers(g.row.id)});
+  }catch(e){next(e)}
+});
+// Small: revision, status and the players' statuses — polled while a game is open.
+app.get('/api/play-games/:id/state',requireDb,auth,async(req,res,next)=>{
+  try{const g=await playGameFor(req.params.id,req.user.user_id);if(!g)return res.status(404).json({error:'GAME_NOT_FOUND'});res.json({game:playOut(g.row,await playPlayers(g.row.id),false,req.user.user_id)})}catch(e){next(e)}
+});
+app.get('/api/play-games/:id',requireDb,auth,async(req,res,next)=>{
+  try{const g=await playGameFor(req.params.id,req.user.user_id);if(!g)return res.status(404).json({error:'GAME_NOT_FOUND'});res.json({game:playOut(g.row,await playPlayers(g.row.id),true,req.user.user_id)})}catch(e){next(e)}
+});
+// Games this account is invited to and hasn't answered (or joined), still
+// active and touched in the last 2 days.
+app.get('/api/play-invites',requireDb,auth,async(req,res,next)=>{
+  try{
+    const q=await pool.query(`SELECT g.id,g.campaign_id,g.data->>'scenarioName' AS scenario_name,g.data->>'campaignName' AS campaign_name,g.data->'slots' AS slots,g.updated_at,u.username AS host_name,p.status,p.roster_ids FROM play_game_players p JOIN play_games g ON g.id=p.game_id JOIN users u ON u.id=g.host_id
+      WHERE p.user_id=$1 AND p.status IN ('invited','joined','left') AND g.status='active' AND g.updated_at>NOW()-INTERVAL '2 days' ORDER BY g.updated_at DESC LIMIT 10`,[req.user.user_id]);
+    res.json({invites:q.rows.map(r=>({id:r.id,campaignId:r.campaign_id,scenarioName:r.scenario_name||'',campaignName:r.campaign_name||'',bands:Array.isArray(r.slots)?r.slots.length:0,hostName:r.host_name,status:r.status,rosterIds:r.roster_ids,updatedAt:r.updated_at}))});
+  }catch(e){next(e)}
+});
+app.post('/api/play-games/:id/:action',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  if(!['join','decline','leave','end'].includes(req.params.action))return res.status(404).json({error:'NOT_FOUND'});
+  try{
+    const g=await playGameFor(req.params.id,req.user.user_id);if(!g)return res.status(404).json({error:'GAME_NOT_FOUND'});const a=req.params.action;
+    if(a==='end'){if(!g.isHost)return res.status(403).json({error:'HOST_ONLY'});await pool.query("UPDATE play_games SET status='ended',revision=revision+1,updated_at=NOW() WHERE id=$1",[g.row.id]);return res.json({ok:true})}
+    if(g.isHost)return res.status(400).json({error:'HOST_CANNOT'});
+    const st={join:'joined',decline:'declined',leave:'left'}[a];
+    await pool.query('UPDATE play_game_players SET status=$3,updated_at=NOW() WHERE game_id=$1 AND user_id=$2',[g.row.id,req.user.user_id,st]);
+    if(a==='join'){const g2=await playGameFor(g.row.id,req.user.user_id);return res.json({game:playOut(g2.row,await playPlayers(g.row.id),true,req.user.user_id)})}
+    res.json({ok:true});
+  }catch(e){next(e)}
+});
 app.get('/api/friends',requireDb,auth,async(req,res,next)=>{
   try{
     const friends=await pool.query(`SELECT u.id,u.username FROM friendships f JOIN users u ON u.id=f.friend_id WHERE f.user_id=$1 ORDER BY u.username ASC`,[req.user.user_id]);

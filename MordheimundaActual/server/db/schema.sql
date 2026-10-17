@@ -607,3 +607,30 @@ CREATE TABLE IF NOT EXISTS traffic_usage (
   bytes_out BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (day, who, route)
 );
+
+-- V-SHAREDPLAY: a Play Mode game shared with the owners of the other
+-- warbands in it. The host (who started it) is the only one who changes
+-- `data` (scenario, table, slots, deployment, campaign conditions); every
+-- change bumps `revision` so the others' devices fetch it only when it
+-- moved. play_game_players: one row per invited account (owner of a
+-- warband in the game), status invited | joined | declined | left.
+CREATE TABLE IF NOT EXISTS play_games (
+  id UUID PRIMARY KEY,
+  host_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  campaign_id UUID,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  revision INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS play_games_host_idx ON play_games(host_id);
+CREATE TABLE IF NOT EXISTS play_game_players (
+  game_id UUID NOT NULL REFERENCES play_games(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  roster_ids TEXT[] NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'invited',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (game_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS play_game_players_user_idx ON play_game_players(user_id);
