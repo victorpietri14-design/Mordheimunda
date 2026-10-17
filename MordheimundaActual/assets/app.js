@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0662.0';
+const APP_BUILD='110.0663.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7784,7 +7784,7 @@ function applySiteLanguage(root){
 // only two moments the sidebar/static chrome actually needs re-translating.
 let i18nNeedsFullPass=true;
 function setSiteLanguage(v){siteLanguage=v==='fr'?'fr':'en';localStorage.setItem(SITE_LANGUAGE_KEY,siteLanguage);i18nNeedsFullPass=true;renderCurrentRoute();}
-function render(view='dashboard',opts={}){ensureFrRules();try{view=playTempSheetCleanup(view)}catch(e){}if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
+function render(view='dashboard',opts={}){ensureFrRules();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
   const next=routeForView(view);
   if(opts.history!==false&&next!==appPath(location.pathname)){history.pushState({mordheimunda:true,view},'',next)}
   // A handful of search/filter fields call render() straight from their
@@ -11907,7 +11907,7 @@ function playUdTempConfirm(rid,k,wid){const en=siteLanguage==='en';const r=(stat
 // playTempSheetCleanup), so it never stays on the warband page.
 let playTempReturn=false;
 function playUdOpenTempSheet(rid,k){const ps=state.playSession;const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));if(!ps||!r)return;const e=playEngEntry(ps,r);const t=e.ud.temps.find(q=>q.kind===k);if(!t?.fighter)return;
-  const x=t.fighter;x.__udTemp={rid:String(rid),kind:k};r.fighters.push(x);state.active=r.id;playTempReturn=true;
+  const x=t.fighter;x.__udTemp={rid:String(rid),kind:k};r.fighters.push(x);state.active=r.id;playTempReturn=true;playReturnToGame=true;
   openFighterCard(r.fighters.length-1)}
 function playTempSheetCleanup(view){
   if(view==='fighter')return view;
@@ -11934,8 +11934,9 @@ function playUdApplyEnd(ps){
   if(notes.length){save(true);toast((en?'Underdog applied: ':'Underdog appliqué : ')+notes.join(' · '))}
 }
 // --- markup
-function playCardMarkup(x,f,badge,anchor,extraClass,pts){let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}" id="${esc(anchor)}">${h}</div>`}
+function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${esc(openRid)}','${esc(x.instance)}')"`:''}>${h}</div>`}
 function playFightersMarkup(ps){
+  try{playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(e&&(e.picks||[]).length&&Number(e.total)!==playEngTotal(playEngEntry(ps,r),r))setTimeout(()=>playEngPublish(state.playSession,r),0)})}catch(err){}
   const en=siteLanguage==='en';const s=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId);const rows=playEngRows(ps);const std=playEngStandard(rows);
   // 1 · selection for each of my warbands
   const away=playAwayRows(ps);away.forEach(v=>{if(!playForeign[v.rid])playLoadForeign(v.rid)});
@@ -11956,11 +11957,11 @@ function playFightersMarkup(ps){
   const myPts=playOwnRosters(ps).map(r=>{const b=playUdBudget(ps,r.id);return b>0?`${b-playUdSpent(playEngEntry(ps,r),r)} / ${b} pts`:''}).filter(Boolean).join(' · ');
   const ud=`<details class="eng-box eng-fold"${playEngFolded('ud')?'':' open'} ontoggle="playEngFold('ud',this.open)"><summary class="eng-head"><div><span class="micro-label">2 · UNDERDOG</span><h3>${en?'Engaged value gap':'Écart de valeur engagée'}</h3></div>${myPts?`<div class="eng-total"><small class="muted">${en?'Your points left':'Tes points restants'}</small><b class="ud-pts">${esc(myPts)}</b></div>`:''}<span class="eng-chev" aria-hidden="true">▾</span></summary><div class="ud-table-wrap"><table class="ud-table"><tr><th>${en?'Warband':'Bande'}</th><th>${en?'Player':'Joueur'}</th><th>${en?'Engaged':'Engagée'}</th><th>${en?'Gap':'Écart'}</th><th>${en?'Underdog points':'Points Underdog'}</th></tr>${udRows}</table></div>${shops||`<p class="muted eng-note">${en?'The biggest engaged warband is the yardstick; every smaller one gets the gap as points to spend here.':'La plus grande bande engagée sert d’étalon ; chaque bande plus petite reçoit l’écart en points à dépenser ici.'}</p>`}</details>`;
   // 3 · cards
-  const groups=[];const tag=(t,c,click)=>`<span class="eng-badge${click?' click':''}" style="--bc:${c}"${click?` role="button" tabindex="0" onclick="${click}"`:''}>${t}</span>`;
+  const groups=[];const tag=(t,c,click)=>`<span class="eng-badge${click?' click':''}" style="--bc:${c}"${click?` role="button" tabindex="0" onclick="event.stopPropagation();${click}"`:''}>${t}</span>`;
   playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);const f=faction(r);const fx=id=>r.fighters.find(x=>x.instance===id);const rit=e.ud.ritual;const rb=x=>x.instance===rit?tag('🜂 RITUAL OF SURVIVAL','#c9a0ff'):'';
     // same sections and order as the warband page (role groups, drag order)
-    rosterGroupedIndices(r).forEach(g=>{const xs=g.indices.map(i=>r.fighters[i]).filter(x=>x&&e.picks.includes(x.instance));if(xs.length)groups.push({id:`eng-${r.id}-${rosterRoleSlug(g.role)}`,label:`${r.name} · ${rosterRoleLabel(g.role,en)}`,cards:xs.map(x=>playCardMarkup(x,f,rb(x),`engc-${x.instance}`))})});
-    const re=e.ud.reinf.filter(v=>fx(v.instance));if(re.length)groups.push({id:`eng-${r.id}-r`,label:`${r.name} · ${en?'Reinforcements':'Renforts'}`,cards:re.map(v=>{const x=fx(v.instance);return playCardMarkup(x,f,tag(v.arrived?(en?'✓ REINFORCEMENT · arrived':'✓ RENFORT · arrivé'):(en?'⇢ REINFORCEMENT · not arrived yet — tap when it arrives':'⇢ RENFORT · pas encore arrivé — toucher quand il arrive'),v.arrived?'#99d65d':'#f2c94c',`playUdArrived('${esc(r.id)}','${esc(v.instance)}')`)+rb(x),`engc-${x.instance}`,v.arrived?'':'reinf-wait')})});
+    rosterGroupedIndices(r).forEach(g=>{const xs=g.indices.map(i=>r.fighters[i]).filter(x=>x&&e.picks.includes(x.instance));if(xs.length)groups.push({id:`eng-${r.id}-${rosterRoleSlug(g.role)}`,label:`${r.name} · ${rosterRoleLabel(g.role,en)}`,cards:xs.map(x=>playCardMarkup(x,f,rb(x),`engc-${x.instance}`,'',null,r.id))})});
+    const re=e.ud.reinf.filter(v=>fx(v.instance));if(re.length)groups.push({id:`eng-${r.id}-r`,label:`${r.name} · ${en?'Reinforcements':'Renforts'}`,cards:re.map(v=>{const x=fx(v.instance);return playCardMarkup(x,f,tag(v.arrived?(en?'✓ REINFORCEMENT · arrived':'✓ RENFORT · arrivé'):(en?'⇢ REINFORCEMENT · not arrived yet — tap when it arrives':'⇢ RENFORT · pas encore arrivé — toucher quand il arrive'),v.arrived?'#99d65d':'#f2c94c',`playUdArrived('${esc(r.id)}','${esc(v.instance)}')`)+rb(x),`engc-${x.instance}`,v.arrived?'':'reinf-wait',null,r.id)})});
     if(e.ud.temps.length)groups.push({id:`eng-${r.id}-t`,label:`${r.name} · ${en?'Temporary':'Provisoire'}`,cards:e.ud.temps.map(t=>playCardMarkup(t.fighter,f,tag(en?'⏳ TEMPORARY HIRED SWORD · leaves after the battle':'⏳ HIRED SWORD PROVISOIRE · repart après la bataille','#6fb3e0')+tag(en?'📄 Open the sheet':'📄 Ouvrir la fiche','#99d65d',`playUdOpenTempSheet('${esc(r.id)}','${t.kind}')`),`engc-${t.fighter.instance}`,'',t.cost))});
   });
   const waiting='';
@@ -11976,6 +11977,19 @@ function playFightersMarkup(ps){
 // Folded blocks of the Fighters tab (per device, kept with the game).
 function playEngFolded(k){return (state.playSession?.engFold||[]).includes(k)}
 function playEngFold(k,open){const ps=state.playSession;if(!ps)return;const set=new Set(ps.engFold||[]);if(open)set.delete(k);else set.add(k);ps.engFold=[...set];try{saveLocalOnly()}catch(e){}}
+// A card opens the fighter's real sheet (injuries, XP… in real time); a
+// floating "Back to the game" button stays until the game screen is back.
+let playReturnToGame=false;
+function playOpenFighter(rid,inst){const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));if(!r)return;const i=r.fighters.findIndex(x=>x.instance===inst);if(i<0)return;state.active=r.id;playReturnToGame=true;openFighterCard(i)}
+function playBackToGame(){playReturnToGame=false;playBackSync();navigateApp(APP_ROUTES.playMode)}
+function playBackSync(){
+  let btn=document.getElementById('playBackBtn');const v=parseAppRoute().view;
+  if(location.pathname===APP_ROUTES.playMode||!state.playSession)playReturnToGame=false;
+  const show=playReturnToGame&&(v==='fighter'||v==='builder');
+  if(!show){btn?.remove();return}
+  if(!btn){btn=document.createElement('button');btn.id='playBackBtn';btn.type='button';btn.className='button primary play-back-btn';btn.onclick=playBackToGame;document.body.appendChild(btn)}
+  btn.textContent=siteLanguage==='en'?'← Back to the game':'← Retour à la partie';
+}
 function playJumpCard(id){if(!id)return;const el=document.getElementById(id);if(!el)return;el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('fighter-card-jump-highlight');setTimeout(()=>el.classList.remove('fighter-card-jump-highlight'),1400)}
 // --- phone: swipe left / right moves between the game's tabs
 function playTabOrder(ps){const t=['scenario','fighters'];if(ps&&playConditionsCampaign(ps))t.push('conditions');if(ps&&playQuestRosters(ps).length)t.push('quests');return t}
