@@ -4887,3 +4887,33 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .play-share-guest button{margin-left:auto}
 .play-share-line{font-size:12px;color:var(--muted);margin:-6px 0 12px}
 [data-guest-off]{opacity:.4;cursor:not-allowed}
+/* V-ENGAGED: Fighters tab of a game (engaged fighters + Underdog) */
+.eng-page{display:grid;gap:14px;margin-top:6px}
+.eng-box{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:14px}
+.eng-box h3{margin:2px 0 4px;font:800 22px 'Cinzel',serif}
+.eng-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.eng-total{text-align:right}.eng-total b{display:block;font:700 28px 'IBM Plex Mono',monospace;color:var(--accent);line-height:1.1}
+.eng-modes{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.eng-ok{color:var(--accent);font-weight:700;font-size:13px}
+.eng-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px}
+.eng-row{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px;cursor:pointer}
+.eng-row.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.eng-row.off{opacity:.45;cursor:not-allowed}
+.eng-row small{color:var(--muted)}.eng-row span{margin-left:auto;font-family:'IBM Plex Mono',monospace}
+.eng-note{font-size:12px;margin:8px 0 0}
+.ud-table-wrap{overflow-x:auto}
+.ud-table{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.ud-table td,.ud-table th{padding:6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ud-table th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.ud-table tr.me td{font-weight:700}
+.ud-pts{color:var(--gold,#f2c94c)}
+.ud-budget{display:flex;gap:10px;align-items:center;margin:10px 0;font-size:14px;flex-wrap:wrap}.ud-budget i{flex:1;min-width:80px;height:8px;border-radius:4px;background:var(--line);position:relative;overflow:hidden}.ud-budget i:after{content:'';position:absolute;inset:0;width:var(--p);background:var(--accent)}.ud-budget .neg{color:var(--danger)}
+.ud-shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px}
+.ud-bon{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:7px 9px}.ud-bon>div{flex:1;min-width:0}.ud-bon small{display:block;color:var(--muted);font-size:11.5px;line-height:1.35}.ud-bon.on{border-color:var(--gold,#f2c94c);background:rgba(242,201,76,.07)}.ud-bon.dis{opacity:.45}
+.ud-sel,.ud-cost{font:600 12px 'IBM Plex Mono',monospace;color:var(--muted);min-width:34px;text-align:right}
+.ud-modal .pool-list{display:grid;gap:6px;margin:10px 0}
+.ud-pick-list{display:grid;gap:6px;margin:10px 0}
+.ud-left{color:var(--gold,#f2c94c)}
+.play-cards .owned-card{cursor:default}
+.play-cards .owned-card button,.play-cards .owned-card [onclick]:not(.eng-badge),.play-cards .owned-card input{pointer-events:none}
+.eng-badge{display:inline-block;font:700 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.05em;padding:4px 9px;border-radius:10px;background:var(--bc);color:#111;margin:8px 0 0 10px}
+.eng-badge.click{cursor:pointer;pointer-events:auto}
+.play-card.reinf-wait .owned-card{border-style:dashed;border-color:var(--gold,#f2c94c)}
+.eng-end{border:1px dashed var(--accent);border-radius:8px;padding:10px 14px;font-size:13px}

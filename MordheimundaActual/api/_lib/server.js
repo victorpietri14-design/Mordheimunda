@@ -2115,7 +2115,7 @@ async function playGameFor(id,uid){
   if(!isHost){const p=await pool.query('SELECT 1 FROM play_game_players WHERE game_id=$1 AND user_id=$2',[id,uid]);if(!p.rows[0])return null}
   return {row,isHost};
 }
-const playOut=(row,players,withData,uid)=>({you:uid?String(uid):undefined,id:row.id,hostId:row.host_id,hostName:row.host_name,campaignId:row.campaign_id,revision:row.revision,status:row.status,updatedAt:row.updated_at,players,...(withData?{data:row.data}:{})});
+const playOut=(row,players,withData,uid)=>({you:uid?String(uid):undefined,id:row.id,hostId:row.host_id,hostName:row.host_name,campaignId:row.campaign_id,revision:row.revision,status:row.status,updatedAt:row.updated_at,players,...(withData?{data:row.data,engaged:row.engaged||{}}:{})});
 app.post('/api/play-games',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{
     const data=playClip(req.body?.data);if(!data)return res.status(413).json({error:'GAME_TOO_LARGE'});
@@ -2137,6 +2137,24 @@ app.put('/api/play-games/:id',requireDb,requireSameOrigin,auth,async(req,res,nex
     const u=await pool.query('UPDATE play_games SET data=$2,revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision',[g.row.id,data]);
     await playSyncPlayers(g.row.id,await playGameInvitees(req.user.user_id,g.row.campaign_id,data));
     res.json({revision:u.rows[0].revision,players:await playPlayers(g.row.id)});
+  }catch(e){next(e)}
+});
+// V-ENGAGED: a warband's engaged fighters and underdog purchases. Its owner
+// writes it (a player for the warbands they were invited with, the host for
+// their own); it lives beside the host's data so neither overwrites the other.
+app.post('/api/play-games/:id/engaged',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{
+    const g=await playGameFor(req.params.id,req.user.user_id);if(!g)return res.status(404).json({error:'GAME_NOT_FOUND'});
+    if(g.row.status!=='active')return res.status(409).json({error:'GAME_ENDED'});
+    const rid=String(req.body?.rosterId||'').slice(0,80);if(!rid)return res.status(400).json({error:'INVALID_ROSTER'});
+    let ok=false;
+    if(g.isHost){const slots=Array.isArray(g.row.data?.slots)?g.row.data.slots:[];ok=slots.some(sl=>String(sl?.rosterId||'')===rid&&sl?.source==='own')}
+    else{const p=await pool.query('SELECT roster_ids FROM play_game_players WHERE game_id=$1 AND user_id=$2',[g.row.id,req.user.user_id]);ok=(p.rows[0]?.roster_ids||[]).includes(rid)}
+    if(!ok)return res.status(403).json({error:'NOT_YOUR_WARBAND'});
+    const entry=req.body?.entry==null?null:playClip(req.body.entry);if(req.body?.entry!=null&&!entry)return res.status(413).json({error:'GAME_TOO_LARGE'});
+    const u=entry?await pool.query("UPDATE play_games SET engaged=jsonb_set(engaged,ARRAY[$2::text],$3::jsonb,true),revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision",[g.row.id,rid,JSON.stringify(entry)])
+      :await pool.query("UPDATE play_games SET engaged=engaged-$2::text,revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision",[g.row.id,rid]);
+    res.json({revision:u.rows[0].revision});
   }catch(e){next(e)}
 });
 // Small: revision, status and the players' statuses — polled while a game is open.
