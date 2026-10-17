@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0650.0';
+const APP_BUILD='110.0651.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7669,7 +7669,12 @@ function translateSiteText(v){const text=String(v);if(siteLanguage==='fr'){const
 // off. Switching language re-renders, which brings the original back.
 const MT_OFF_KEY='mu_mt_off';
 let mtEnabled=(()=>{try{return localStorage.getItem(MT_OFF_KEY)!=='1'}catch(e){return true}})();
-const mtCache=new Map();let mtPending=new Map();let mtTimer=null;let mtServerOff=false;
+const mtCache=new Map();let mtPending=new Map();let mtTimer=null;
+// V-MTCAP: once the server says today's translation allowance is used up,
+// this device stops asking until tomorrow instead of re-sending every
+// untranslated text at each redraw (which only cost server traffic).
+const mtTodayKey=()=>new Date().toISOString().slice(0,10);
+let mtServerOff=(()=>{try{return localStorage.getItem('mu_mt_capped')===mtTodayKey()}catch(e){return false}})();
 const MT_EN_WORDS=new Set('the and of to in is are with for on this that may must can each when if his their your any from by as be it at or not all an has have will who its into than then they them only also after before during instead until while which'.split(' '));
 const MT_FR_WORDS=new Set('le la les de des du d l une est sont pour avec dans sur sous pas aucun aucune cette ces leur leurs chaque peut doit lors ainsi qui que il elle ils elles ses son sa au aux et ou en un vue ligne règles combattant combattants bande'.split(' '));
 // Inside rule text, headings such as "FIGHTER VISION ARCS" carry no
@@ -7694,9 +7699,15 @@ function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||mtServerOff
 function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
 function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src&&!target.el.querySelector('[data-mt-done]')&&!target.el.closest('[data-mt-done]')){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.__mtSrc=src;target.el.classList.add('mt-done');mtAddEditButton(target.el)}}else if(target.node.isConnected&&target.node.nodeValue===src&&!target.node.parentElement?.closest('.mt-done')){target.node.nodeValue=fr;target.node.__mtDone=true;if(target.node.parentElement)target.node.parentElement.dataset.mtDone='1'}}
 async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;
-  for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
-    try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;const tr=r?.translations||{};
-      chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){mtServerOff=true;console.warn('Auto-translation unavailable',e);return}}}}
+  for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){if(mtServerOff)return;const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
+    try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;if(r?.capped){mtServerOff=true;try{localStorage.setItem('mu_mt_capped',mtTodayKey())}catch(e){}}const tr=r?.translations||{};
+      chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){
+      // V-MTRETRY: a failed request used to switch automatic translation off
+      // until the next reload, silently — a page then stayed half English.
+      // Now it pauses a minute and tries again; an admin sees the reason.
+      console.warn('Auto-translation unavailable',e);mtServerOff=true;
+      if(isAdminSession())toast('Traduction auto : erreur '+(e?.status||'')+' '+(e?.message||''));
+      setTimeout(()=>{if(localStorage.getItem('mu_mt_capped')===mtTodayKey())return;mtServerOff=false;try{autoTranslateScan(document.getElementById('content'))}catch(x){}},60000);return}}}}
 // V-MTEDIT: admin hand-correction of an automatic French translation. A ✎
 // on each translated block opens the English original next to the French,
 // editable in place (links and formatting kept); saving replaces the
