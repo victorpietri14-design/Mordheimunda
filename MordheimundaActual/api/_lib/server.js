@@ -87,6 +87,62 @@ app.use((req,res,next)=>{
   const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
   next();
 });
+// V-TRAFFICCAP: every API call is counted (calls, bytes in, bytes out) per
+// day, per account (or visitor) and per route. Heavy routes — whole-account
+// loads/saves, admin support, pictures, translation, shared warbands — are
+// refused once an account has moved TRAFFIC_ACCOUNT_DAILY_MB today (x2.5 for
+// an admin), or the whole site TRAFFIC_SITE_DAILY_MB (admins included: it is
+// the absolute ceiling, sized to stay inside the FREE monthly allowances of
+// Vercel Hobby and Neon even if a bug ran all month), and while an admin has
+// paused sync. The
+// device then keeps working on its own copy and sends it later: the worst
+// case is a delayed save, never an exhausted allowance or a surprise bill.
+const MB=1024*1024;
+const trafficPending=new Map();let trafficFlushTimer=null;
+const routeKey=req=>req.method+' '+(req.baseUrl+req.path).replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,':id').replace(/\/\d+(?=\/|$)/g,'/:n').slice(0,120);
+const trafficWho=req=>req.user?.user_id?String(req.user.user_id):'ip:'+String(req.ip||'?');
+async function flushTraffic(){
+  clearTimeout(trafficFlushTimer);trafficFlushTimer=null;if(!pool||!trafficPending.size)return;
+  const rows=[...trafficPending.entries()];trafficPending.clear();
+  for(const [k,v] of rows){const [who,route]=k.split('\u0000');
+    await pool.query('INSERT INTO traffic_usage(day,who,route,calls,bytes_in,bytes_out) VALUES(CURRENT_DATE,$1,$2,$3,$4,$5) ON CONFLICT(day,who,route) DO UPDATE SET calls=traffic_usage.calls+EXCLUDED.calls,bytes_in=traffic_usage.bytes_in+EXCLUDED.bytes_in,bytes_out=traffic_usage.bytes_out+EXCLUDED.bytes_out',[who,route,v.calls,v.bin,v.bout]).catch(()=>{})}
+}
+app.use('/api/',(req,res,next)=>{
+  if(!pool)return next();
+  let out=0;const w=res.write.bind(res),e=res.end.bind(res);
+  res.write=(c,...a)=>{if(c)out+=Buffer.isBuffer(c)?c.length:Buffer.byteLength(String(c));return w(c,...a)};
+  res.end=(c,...a)=>{if(c&&typeof c!=='function')out+=Buffer.isBuffer(c)?c.length:Buffer.byteLength(String(c));return e(c,...a)};
+  res.on('finish',()=>{
+    const k=trafficWho(req)+'\u0000'+routeKey(req);const v=trafficPending.get(k)||{calls:0,bin:0,bout:0};
+    v.calls++;v.bin+=Number(req.headers['content-length']||0)||0;v.bout+=out;trafficPending.set(k,v);
+    const n=v.bin+v.bout;bumpTrafficCache(trafficWho(req),Number(req.headers['content-length']||0)+out);
+    if(n>256*1024||trafficPending.size>40)flushTraffic();else if(!trafficFlushTimer)trafficFlushTimer=setTimeout(flushTraffic,15000);
+  });
+  next();
+});
+// Today's totals, refreshed from the database at most every 20 s and bumped
+// locally in between, so a check never costs a query per request.
+let trafficCache={at:0,day:'',site:0,who:new Map(),paused:false,pausedReason:''};
+function bumpTrafficCache(who,n){if(!n)return;trafficCache.site+=n;trafficCache.who.set(who,(trafficCache.who.get(who)||0)+n)}
+async function trafficTotals(){
+  const day=new Date().toISOString().slice(0,10);
+  if(Date.now()-trafficCache.at<20000&&trafficCache.day===day)return trafficCache;
+  await flushTraffic();
+  const t=await pool.query('SELECT who,SUM(bytes_in+bytes_out)::bigint AS n FROM traffic_usage WHERE day=CURRENT_DATE GROUP BY who');
+  const p=await pool.query("SELECT value FROM site_settings WHERE key='syncPaused'");
+  const who=new Map(t.rows.map(r=>[r.who,Number(r.n)]));
+  trafficCache={at:Date.now(),day,site:[...who.values()].reduce((a,b)=>a+b,0),who,paused:!!p.rows[0]?.value?.on,pausedReason:String(p.rows[0]?.value?.reason||'')};
+  return trafficCache;
+}
+async function trafficGuard(req,res,next){
+  try{
+    const t=await trafficTotals();const admin=!!req.user?.is_admin;
+    if(t.paused&&!admin)return res.status(503).json({error:'SYNC_PAUSED',reason:t.pausedReason||'admin'});
+    if(t.site>=config.trafficSiteDailyMb*MB)return res.status(503).json({error:'SYNC_PAUSED',reason:'site-limit'});
+    if((t.who.get(trafficWho(req))||0)>=config.trafficAccountDailyMb*MB*(admin?2.5:1))return res.status(429).json({error:'TRAFFIC_LIMIT_ACCOUNT'});
+  }catch(e){console.error('traffic guard',e)}
+  next();
+}
 // V-POLLQUOTA: overall cap per visitor on every API route, so one stuck tab
 // or runaway loop can never burn through the host's monthly free quota.
 app.use('/api/',rateLimit({windowMs:10*60*1000,max:600,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}}));
@@ -521,7 +577,7 @@ app.post('/api/account/sessions/revoke-others',requireDb,requireSameOrigin,auth,
 // integer here means every revision this API ever returns is a genuine JS
 // number, which is more than enough range for a per-account save counter.
 const toInt=v=>{const n=typeof v==='string'?parseInt(v,10):v;return Number.isInteger(n)?n:null;};
-app.get('/api/account/data',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT schema_version,payload,revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{schema_version:4,payload:{rosters:[],active:null},revision:1,updated_at:null})}catch(e){next(e)}});
+app.get('/api/account/data',requireDb,auth,trafficGuard,async(req,res,next)=>{try{const q=await pool.query('SELECT schema_version,payload,revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{schema_version:4,payload:{rosters:[],active:null},revision:1,updated_at:null})}catch(e){next(e)}});
 app.get('/api/account/data/revision',requireDb,auth,async(req,res,next)=>{try{const q=await pool.query('SELECT revision::int AS revision,updated_at FROM user_data WHERE user_id=$1',[req.user.user_id]);res.json(q.rows[0]||{revision:1,updated_at:null})}catch(e){next(e)}});
 // V-HISTORY: automatic warband history. Before a save overwrites an
 // account's data, the current payload is kept as a snapshot (at most one
@@ -618,7 +674,7 @@ app.put('/api/admin/translations',requireDb,requireSameOrigin,auth,requireAdmin,
     await pool.query('INSERT INTO translations(hash,target_lang,source,translated,edited_by,edited_at) VALUES($1,$2,$3,$4,$5,NOW()) ON CONFLICT(hash,target_lang) DO UPDATE SET translated=EXCLUDED.translated,edited_by=EXCLUDED.edited_by,edited_at=NOW()',[hash,target,source,translated,req.user.user_id]);
     res.json({ok:true,translated})}catch(e){next(e)}
 });
-app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,async(req,res,next)=>{
+app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,trafficGuard,async(req,res,next)=>{
   const target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
   const html=!!req.body?.html;
   const texts=(Array.isArray(req.body?.texts)?req.body.texts:[]).slice(0,60).map(t=>String(t??'')).filter(t=>t.trim()&&t.length<=6000);
@@ -661,7 +717,7 @@ app.post('/api/account/shares',requireDb,requireSameOrigin,auth,async(req,res,ne
     if(ex.rowCount)return res.json({token:ex.rows[0].token,rosterId});
     const token=crypto.randomBytes(12).toString('base64url');await pool.query('INSERT INTO warband_shares(token,user_id,roster_id) VALUES($1,$2,$3)',[token,req.user.user_id,rosterId]);res.status(201).json({token,rosterId})}catch(e){next(e)}});
 app.delete('/api/account/shares/:token',requireDb,requireSameOrigin,auth,async(req,res,next)=>{try{await pool.query('UPDATE warband_shares SET revoked_at=NOW() WHERE token=$1 AND user_id=$2 AND revoked_at IS NULL',[req.params.token,req.user.user_id]);res.json({ok:true})}catch(e){next(e)}});
-app.get('/api/shared/:token',requireDb,async(req,res,next)=>{
+app.get('/api/shared/:token',requireDb,trafficGuard,async(req,res,next)=>{
   if(!/^[A-Za-z0-9_-]{8,40}$/.test(req.params.token))return res.status(404).json({error:'NOT_FOUND'});
   try{const q=await pool.query('SELECT s.roster_id,u.username,d.payload FROM warband_shares s JOIN users u ON u.id=s.user_id LEFT JOIN user_data d ON d.user_id=s.user_id WHERE s.token=$1 AND s.revoked_at IS NULL',[req.params.token]);
     if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});
@@ -687,7 +743,7 @@ app.get('/api/admin/export',requireDb,auth,requireAdmin,async(req,res,next)=>{
   }catch(e){next(e)}
 });
 
-app.put('/api/account/data',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+app.put('/api/account/data',requireDb,requireSameOrigin,auth,trafficGuard,async(req,res,next)=>{
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
   try{
@@ -1583,7 +1639,7 @@ async function mediaizeDeep(v,userId){
   return {value:v,count:0};
 }
 const mediaLimiter=rateLimit({windowMs:10*60*1000,max:200,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
-app.post('/api/media',requireDb,requireSameOrigin,auth,mediaLimiter,async(req,res,next)=>{
+app.post('/api/media',requireDb,requireSameOrigin,auth,mediaLimiter,trafficGuard,async(req,res,next)=>{
   const m=String(req.body?.dataUrl||'').match(/^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
   if(!m)return res.status(400).json({error:'INVALID_IMAGE'});
   try{const id=await storeMedia(m[1],m[2],req.user.user_id);if(!id)return res.status(413).json({error:'IMAGE_TOO_LARGE'});res.status(201).json({id,url:MEDIA_LINK(id)})}catch(e){next(e)}
@@ -1592,7 +1648,43 @@ app.post('/api/media',requireDb,requireSameOrigin,auth,mediaLimiter,async(req,re
 // Backup). Works in small steps (each call stops after ~15 s and says
 // whether more is left) so it never hits the function time limit. A
 // player's account gets a history snapshot first, so it can be restored.
-const MEDIA_SKIP_TABLES=new Set(['rule_images','user_data_history','translations','sessions','recovery_tokens','schema_migrations','translation_usage','admin_support_access_log']);
+app.get('/api/admin/traffic',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{
+    await flushTraffic();const t=await trafficTotals();
+    const day=await pool.query('SELECT COALESCE(SUM(bytes_in),0)::bigint AS i,COALESCE(SUM(bytes_out),0)::bigint AS o,COALESCE(SUM(calls),0)::bigint AS c FROM traffic_usage WHERE day=CURRENT_DATE');
+    const month=await pool.query("SELECT COALESCE(SUM(bytes_in),0)::bigint AS i,COALESCE(SUM(bytes_out),0)::bigint AS o,COALESCE(SUM(calls),0)::bigint AS c FROM traffic_usage WHERE day>=date_trunc('month',CURRENT_DATE)");
+    const routes=await pool.query('SELECT route,SUM(calls)::bigint AS calls,SUM(bytes_in)::bigint AS bin,SUM(bytes_out)::bigint AS bout FROM traffic_usage WHERE day=CURRENT_DATE GROUP BY route ORDER BY SUM(bytes_in+bytes_out) DESC LIMIT 10');
+    const who=await pool.query("SELECT t.who,u.username,SUM(t.calls)::bigint AS calls,SUM(t.bytes_in+t.bytes_out)::bigint AS bytes FROM traffic_usage t LEFT JOIN users u ON t.who=u.id::text WHERE t.day=CURRENT_DATE GROUP BY t.who,u.username ORDER BY SUM(t.bytes_in+t.bytes_out) DESC LIMIT 10");
+    const days=await pool.query("SELECT day::text AS day,SUM(bytes_in+bytes_out)::bigint AS bytes,SUM(calls)::bigint AS calls FROM traffic_usage WHERE day>CURRENT_DATE-14 GROUP BY day ORDER BY day");
+    const N=x=>Number(x||0);
+    res.json({today:{in:N(day.rows[0].i),out:N(day.rows[0].o),calls:N(day.rows[0].c)},month:{in:N(month.rows[0].i),out:N(month.rows[0].o),calls:N(month.rows[0].c)},
+      routes:routes.rows.map(r=>({route:r.route,calls:N(r.calls),in:N(r.bin),out:N(r.bout)})),accounts:who.rows.map(r=>({who:r.username||(String(r.who).startsWith('ip:')?'visiteur':r.who),calls:N(r.calls),bytes:N(r.bytes)})),
+      days:days.rows.map(r=>({day:r.day,bytes:N(r.bytes),calls:N(r.calls)})),limits:{accountDailyMb:config.trafficAccountDailyMb,siteDailyMb:config.trafficSiteDailyMb},paused:t.paused,pausedReason:t.pausedReason});
+  }catch(e){next(e)}
+});
+// Per-account traffic over a period, every account (not only the top 10),
+// and one account's detail by route and by day — to see where an unusual
+// amount of data comes from.
+app.get('/api/admin/traffic/accounts',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  const days=[1,7,30].includes(Number(req.query.days))?Number(req.query.days):1;
+  try{await flushTraffic();
+    const q=await pool.query("SELECT t.who,u.username,u.email,SUM(t.calls)::bigint AS calls,SUM(t.bytes_in)::bigint AS bin,SUM(t.bytes_out)::bigint AS bout,MAX(t.day)::text AS last FROM traffic_usage t LEFT JOIN users u ON t.who=u.id::text WHERE t.day>CURRENT_DATE-$1::int GROUP BY t.who,u.username,u.email ORDER BY SUM(t.bytes_in+t.bytes_out) DESC LIMIT 500",[days]);
+    res.json({days,accounts:q.rows.map(r=>({who:r.who,name:r.username||(String(r.who).startsWith('ip:')?'visiteur ('+String(r.who).slice(3)+')':r.who),email:r.email||'',calls:Number(r.calls),in:Number(r.bin),out:Number(r.bout),last:r.last}))});
+  }catch(e){next(e)}
+});
+app.get('/api/admin/traffic/account',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  const who=String(req.query.who||'').slice(0,200);const days=[1,7,30].includes(Number(req.query.days))?Number(req.query.days):7;
+  if(!who)return res.status(400).json({error:'INVALID_ACCOUNT'});
+  try{await flushTraffic();
+    const routes=await pool.query('SELECT route,SUM(calls)::bigint AS calls,SUM(bytes_in)::bigint AS bin,SUM(bytes_out)::bigint AS bout FROM traffic_usage WHERE who=$1 AND day>CURRENT_DATE-$2::int GROUP BY route ORDER BY SUM(bytes_in+bytes_out) DESC LIMIT 30',[who,days]);
+    const byDay=await pool.query('SELECT day::text AS day,SUM(calls)::bigint AS calls,SUM(bytes_in+bytes_out)::bigint AS bytes FROM traffic_usage WHERE who=$1 AND day>CURRENT_DATE-$2::int GROUP BY day ORDER BY day',[who,days]);
+    res.json({who,days,routes:routes.rows.map(r=>({route:r.route,calls:Number(r.calls),in:Number(r.bin),out:Number(r.bout)})),byDay:byDay.rows.map(r=>({day:r.day,calls:Number(r.calls),bytes:Number(r.bytes)}))});
+  }catch(e){next(e)}
+});
+app.put('/api/admin/sync-pause',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const on=!!req.body?.on;await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('syncPaused',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({on,reason:on?'admin':''})]);trafficCache.at=0;res.json({ok:true,paused:on})}catch(e){next(e)}
+});
+const MEDIA_SKIP_TABLES=new Set(['traffic_usage','rule_images','user_data_history','translations','sessions','recovery_tokens','schema_migrations','translation_usage','admin_support_access_log']);
 app.post('/api/admin/media/convert',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const started=Date.now(),budget=15000,done={};let images=0,more=false;
   try{
@@ -2086,7 +2178,7 @@ app.get('/api/admin/support/all',requireDb,auth,requireAdmin,async(req,res,next)
   }catch(e){next(e)}
 });
 
-app.get('/api/admin/support/:userId',requireDb,auth,requireAdmin,async(req,res,next)=>{
+app.get('/api/admin/support/:userId',requireDb,auth,requireAdmin,trafficGuard,async(req,res,next)=>{
   try{
     const u=await pool.query('SELECT id,username,email FROM users WHERE id=$1',[req.params.userId]);
     if(!u.rows[0])return res.status(404).json({error:'ACCOUNT_NOT_FOUND'});
@@ -2107,7 +2199,7 @@ app.get('/api/admin/support/:userId',requireDb,auth,requireAdmin,async(req,res,n
 // this returns 409 so the admin reloads the latest copy before overwriting
 // anything). Every write is logged the same way a read is, but as its own
 // 'edit' action, so the consulted player can tell a lookup from a change.
-app.put('/api/admin/support/:userId/data',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+app.put('/api/admin/support/:userId/data',requireDb,requireSameOrigin,auth,requireAdmin,trafficGuard,async(req,res,next)=>{
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
   try{

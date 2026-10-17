@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0646.0';
+const APP_BUILD='110.0650.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1994,7 +1994,7 @@ async function mediaSweep(root){
   let found;try{found=[...new Set(JSON.stringify(root).match(MEDIA_DATA_RE)||[])]}catch(e){return 0}
   if(!found.length)return 0;
   mediaSweepBusy=true;
-  try{for(const d of found){if(mediaLinkCache.has(d))continue;try{const r=await window.MordheimundaAPI.uploadMedia(d);if(r?.url)mediaLinkCache.set(d,r.url)}catch(e){if(e?.status===401||e?.status===429)break}}}
+  try{for(const d of found){if(mediaLinkCache.has(d))continue;try{const r=await window.MordheimundaAPI.uploadMedia(d);if(r?.url)mediaLinkCache.set(d,r.url)}catch(e){if(e?.status===401||e?.status===429||e?.status===503)break}}}
   finally{mediaSweepBusy=false}
   let n=0;const walk=o=>{for(const k of Object.keys(o)){const v=o[k];if(typeof v==='string'){if(!v.includes('data:image/'))continue;let nv=v;for(const d of found){const u=mediaLinkCache.get(d);if(u&&nv.includes(d))nv=nv.split(d).join(u)}if(nv!==v){o[k]=nv;n++}}else if(v&&typeof v==='object')walk(v)}};
   walk(root);return n;
@@ -2012,6 +2012,23 @@ function handleAppOutdated(){
     Promise.resolve(navigator.serviceWorker?.getRegistration?.()).then(r=>r?.update?.()).catch(()=>{}).finally(()=>setTimeout(()=>location.reload(),900));
   }else toast(en?'Another device uses a newer version of the site: your changes stay on this device and will be sent once this one is up to date.':'Un autre appareil utilise une version plus récente du site : tes modifications restent sur cet appareil et partiront une fois celui-ci à jour.');
 }
+// V-TRAFFICCAP: the server refused a heavy request (daily ceiling reached, or
+// an admin paused sync). This device switches to local mode for a while: it
+// keeps every change on itself and stops asking the server, then tries again.
+let cloudHoldUntil=0,cloudHoldReason='';
+function cloudHeld(){return Date.now()<cloudHoldUntil}
+function holdCloud(e){
+  const why=e?.message||'';const ms=why==='TRAFFIC_LIMIT_ACCOUNT'?60*60*1000:why==='SYNC_PAUSED'?15*60*1000:2*60*1000;
+  const first=!cloudHeld();cloudHoldUntil=Date.now()+ms;cloudHoldReason=why;
+  clearTimeout(cloudRetryTimer);cloudRetryTimer=setTimeout(()=>{cloudRetryTimer=null;flushCloudSave()},ms+1000);
+  if(first){const en=siteLanguage==='en';toast(why==='SYNC_PAUSED'?(en?'Sync is paused for now — your changes stay on this device and will be sent later.':'Synchro en pause pour le moment — tes modifications restent sur cet appareil et partiront plus tard.'):(en?'Too much sync today — your changes stay on this device and will be sent later.':'Trop de synchro aujourd’hui — tes modifications restent sur cet appareil et partiront plus tard.'))}
+  try{updateCloudHoldBanner()}catch(x){}
+}
+const isHoldError=e=>(e?.status===503&&e.message==='SYNC_PAUSED')||(e?.status===429&&(e.message==='TRAFFIC_LIMIT_ACCOUNT'||e.message==='RATE_LIMITED'));
+function updateCloudHoldBanner(){let el=document.getElementById('cloudHoldBanner');if(!cloudHeld()){if(el)el.remove();return}
+  const en=siteLanguage==='en';if(!el){el=document.createElement('div');el.id='cloudHoldBanner';el.className='mt-skip';el.setAttribute('style','position:sticky;top:0;z-index:39;padding:7px 14px;background:#3a2a0d;border-bottom:1px solid #6b4f1a;color:#f0dcb0;font-size:12px;text-align:center');const c=document.getElementById('content');if(c?.parentElement)c.parentElement.insertBefore(el,c);else document.body.prepend(el)}
+  el.textContent=en?'⏸ Sync paused — your changes are kept on this device and will be sent automatically.':'⏸ Synchro en pause — tes modifications sont gardées sur cet appareil et partiront automatiquement.';
+  setTimeout(updateCloudHoldBanner,Math.max(5000,cloudHoldUntil-Date.now()+500))}
 const cloudPushTimes=[];
 function queueCloudSave(delay=0){
   if(!cloudIsSignedIn())return;
@@ -2020,6 +2037,7 @@ function queueCloudSave(delay=0){
   // down to one every 20 s instead of flooding the server.
   const now=Date.now();while(cloudPushTimes.length&&now-cloudPushTimes[0]>5*60*1000)cloudPushTimes.shift();
   delay=Math.max(delay,cloudPushTimes.length>40?20000:1500);
+  if(cloudHeld())delay=Math.max(delay,cloudHoldUntil-now+1000); // local mode: send once the hold ends
   clearTimeout(cloudSaveTimer);
   clearTimeout(cloudRetryTimer);
   cloudSaveTimer=setTimeout(flushCloudSave,Math.max(0,delay));
@@ -2050,6 +2068,7 @@ async function flushCloudSave(){
   // this push — normal dirty-detection (hasUnsavedLocalEdits) picks it back
   // up and re-pushes it once the admin exits the foreign session.
   if(adminViewingUserId||sharedViewToken)return;
+  if(cloudHeld())return; // its retry timer sends it once the hold ends
   if(cloudSaveBusy){cloudSaveAgain=true;return}
   cloudSaveBusy=true;cloudPushTimes.push(Date.now());
   // Pin down which state object this push is actually for. adminViewingUserId
@@ -2078,7 +2097,9 @@ async function flushCloudSave(){
   }catch(e){
     console.warn('Cloud save failed',e);
     recordCloudError('flushCloudSave',e);
-    if(e.status===409&&e.message==='APP_OUTDATED'){
+    if(isHoldError(e)){
+      holdCloud(e);
+    }else if(e.status===409&&e.message==='APP_OUTDATED'){
       handleAppOutdated();
     }else if(e.status===409){
       await resolveCloudConflictAndRetry();
@@ -2185,6 +2206,7 @@ async function flushAdminForeignSave(){
   }catch(e){
     console.warn('Admin foreign save failed',e);
     if(adminViewingUserId!==userId)return; // session was exited/switched meanwhile
+    if(isHoldError(e)){holdCloud(e);return}
     if(e.status===409&&e.message==='APP_OUTDATED'){handleAppOutdated();return}
     if(e.status===409){
       try{
@@ -2403,7 +2425,7 @@ async function pollCloudRevision(){
   // of THIS admin's own cloud data must not overwrite it (applyRemoteData
   // would otherwise silently replace the player's roster being edited with
   // this admin's own warbands mid-session).
-  if(adminViewingUserId||sharedViewToken||!cloudIsSignedIn()||document.hidden||cloudPollBusy||cloudSaveBusy||hasUnsavedLocalEdits())return;
+  if(adminViewingUserId||sharedViewToken||!cloudIsSignedIn()||document.hidden||cloudPollBusy||cloudSaveBusy||hasUnsavedLocalEdits()||cloudHeld())return;
   cloudPollBusy=true;cloudPollLastAt=Date.now();
   try{
     const r=await window.MordheimundaAPI.dataRevision();
@@ -4898,8 +4920,21 @@ function activeAdminEditData(){return adminRulesEditData||adminCatalogEditData}
 // into a slim accordion (one category open at a time); category bodies
 // still hold the exact same cards/markup as before, just shown on demand.
 let adminOpenCategory=null;
-function setAdminOpenCategory(id){adminOpenCategory=(adminOpenCategory===id)?null:id;render('admin')}
+// V-ADMINPAGES: the admin sections are grouped in three pages — the site
+// itself (admins, traffic, translation, backup), the game content
+// (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
+// players (support). Opening a section from elsewhere switches to its page.
+const ADMIN_GROUPS={site:['accounts','traffic','translate','backup'],content:['warband','gear','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
+const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
+function adminCurrentSection(){return (adminOpenCategory&&adminGroupOf(adminOpenCategory))||adminSection}
+function setAdminSection(k){if(!ADMIN_GROUPS[k])return;adminSection=k;adminOpenCategory=null;try{localStorage.setItem('mu_ui_adminSection',k)}catch(e){}render('admin')}
+function adminSectionTabsMarkup(){const en=siteLanguage==='en',cur=adminCurrentSection();const L={site:en?'Site':'Gestion du site',content:en?'Content':'Gestion du contenu',players:en?'Players':'Joueurs'},H={site:en?'Admins, traffic, translation, backup':'Admins, trafic, traduction, sauvegarde',content:en?'Warbands, gear, rules, scenarios, quests, trophies':'Warbands, équipement, règles, scénarios, quêtes, trophées',players:en?'Players’ warbands (support)':'Bandes des joueurs (support)'};
+  return `<div class="admin-section-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px">${Object.keys(ADMIN_GROUPS).map(k=>`<button type="button" class="button ${k===cur?'primary':'secondary'}" style="flex:1 1 160px;text-align:left;padding:10px 14px" onclick="setAdminSection('${k}')"><strong>${L[k]}</strong><br><small style="opacity:.75;font-weight:400">${H[k]}</small></button>`).join('')}</div>`}
+function setAdminOpenCategory(id){adminOpenCategory=(adminOpenCategory===id)?null:id;const g=adminGroupOf(id);if(g){adminSection=g;try{localStorage.setItem('mu_ui_adminSection',g)}catch(e){}}render('admin')}
 function adminCategoryBar(id,label,hint,open){
+  if(adminGroupOf(id)&&adminGroupOf(id)!==adminCurrentSection())return '';
+  label=String(label).replace(/^(Gestion|Manage) · /,''); // the page title already says it
   return `<button type="button" class="admin-category-bar${open?' open':''}" onclick="setAdminOpenCategory('${id}')"><span class="admin-category-label"><strong>${esc(label)}</strong>${hint?`<small>${esc(hint)}</small>`:''}</span><span class="admin-category-chevron">${open?'▾':'▸'}</span></button>`;
 }
 async function loadAdminData(){
@@ -4936,6 +4971,8 @@ function admin(){
   $('#content').innerHTML=`<div class="admin-page">
     <div class="page-intro"><div><div class="eyebrow">ADMIN / CONTROL</div><h2>${en?'Admin':'Admin'}</h2><p>${en?'Grant admin access and turn one of your custom warbands into an official warband available to every account.':'Accorde le statut admin et transforme une de tes warbands custom en bande officielle disponible pour tous les comptes.'}</p></div></div>
     <div class="ad-strip"><span class="dot"></span><b>${en?'Admins only':'Accès admin uniquement'}</b><span class="d">${en?'— this page is hidden for any account without the Admin role.':'— cette page est masquée pour tout compte sans le rôle Admin.'}</span></div>
+    ${trafficAlertMarkup()}
+    ${adminSectionTabsMarkup()}
     <div class="admin-categories">
       ${adminCategoryBar('accounts',en?'Admin accounts':'Comptes admin',en?`${admins.length} admin${admins.length!==1?'s':''}`:`${admins.length} admin${admins.length!==1?'s':''}`,adminOpenCategory==='accounts')}
       ${adminOpenCategory==='accounts'?`<div class="admin-category-body">
@@ -4976,6 +5013,8 @@ function admin(){
       ${adminOpenCategory==='scenarios'?`<div class="admin-category-body">${adminScenariosSectionMarkup(en)}</div>`:''}
       ${adminCategoryBar('quests',en?'Manage · Quests':'Gestion · Quêtes',en?'Quest trees and XP for Heroes, Veterans and Hired Swords':'Arbres de quêtes et XP des Héros, Vétérans et Hired Swords',adminOpenCategory==='quests')}
       ${adminOpenCategory==='quests'?`<div class="admin-category-body">${adminQuestsMarkup()}</div>`:''}
+      ${adminCategoryBar('traffic',en?'Server traffic':'Trafic serveur',en?'What uses the transfer allowance, daily ceilings, emergency sync switch':'Ce qui consomme le transfert, plafonds quotidiens, interrupteur d’urgence de la synchro',adminOpenCategory==='traffic')}
+      ${adminOpenCategory==='traffic'?`<div class="admin-category-body">${adminTrafficMarkup()}</div>`:''}
       ${adminCategoryBar('translate',en?'Automatic translation':'Traduction automatique',en?'Words never translated, usage of the free allowance':'Mots jamais traduits, consommation de la partie gratuite',adminOpenCategory==='translate')}
       ${adminOpenCategory==='translate'?`<div class="admin-category-body">${adminTranslateMarkup()}</div>`:''}
       ${adminCategoryBar('backup',en?'Backup · Export everything':'Sauvegarde · Tout exporter',en?'One file with everything created on the site':'Un fichier avec tout ce qui a été créé sur le site',adminOpenCategory==='backup')}
@@ -15202,6 +15241,39 @@ async function restoreWarbandVersion(snapId,rosterId){
   save();closeModal();navigateApp(warbandPath(copy.id));toast(en?'Warband restored':'Bande restaurée')}
 // V-EXPORT: Admin → Backup — every table, page by page, into one JSON file.
 let exportBusy=false;
+// V-TRAFFICCAP admin: today's/month's traffic, top routes and accounts, the
+// daily ceilings and the emergency switch that puts every device in local
+// mode (they keep working and send their changes once sync is back on).
+let trafficAdminData=null,trafficAdminLoading=false;
+async function loadTrafficAdmin(){if(trafficAdminLoading)return;trafficAdminLoading=true;try{trafficAdminData=await window.MordheimundaAPI.adminTraffic();trafficAdminData.at=Date.now()}catch(e){trafficAdminData={error:authError(e,siteLanguage==='en'),at:Date.now()}}finally{trafficAdminLoading=false;if(currentViewName()==='admin')render('admin')}}
+const fmtBytes=n=>{n=Number(n)||0;return n>=1024**3?(n/1024**3).toFixed(2)+' Go':n>=1024**2?(n/1024**2).toFixed(1)+' Mo':Math.round(n/1024)+' Ko'};
+function trafficAlertMarkup(){const en=siteLanguage==='en';if(!trafficAdminLoading&&(!trafficAdminData||Date.now()-(trafficAdminData.at||0)>5*60*1000))setTimeout(loadTrafficAdmin,0);const d=trafficAdminData;if(!d||d.error)return '';
+  const used=(d.today?.in||0)+(d.today?.out||0),cap=(d.limits?.siteDailyMb||2048)*1024*1024,pct=Math.round(used/cap*100);
+  if(!d.paused&&pct<70)return '';
+  return `<div class="card admin-card" style="border-color:#b33;background:#3a1212"><strong>⚠ ${d.paused?(en?'Sync is paused for everyone':'Synchro en pause pour tout le monde'):(en?`Server traffic today: ${pct}% of the daily ceiling`:`Trafic serveur aujourd’hui : ${pct} % du plafond quotidien`)}</strong> — ${fmtBytes(used)} / ${fmtBytes(cap)}. <button type="button" class="text-button" onclick="adminOpenCategory='traffic';render('admin')">${en?'Details':'Détails'}</button></div>`}
+function adminTrafficMarkup(){const en=siteLanguage==='en';const d=trafficAdminData;if(!d){return `<div class="card admin-card"><p class="muted">${en?'Loading…':'Chargement…'}</p></div>`}if(d.error)return `<div class="card admin-card"><p class="muted">${esc(d.error)}</p><button class="button secondary" onclick="trafficAdminData=null;render('admin')">${en?'Retry':'Réessayer'}</button></div>`;
+  const used=(d.today.in||0)+(d.today.out||0),cap=d.limits.siteDailyMb*1024*1024,pct=Math.min(100,Math.round(used/cap*100));
+  const maxDay=Math.max(1,...(d.days||[]).map(x=>x.bytes));
+  return `<div class="card admin-card"><div class="eyebrow">${en?'SERVER TRAFFIC':'TRAFIC SERVEUR'}</div>
+  <div class="mt-usage"><div><b>${en?'Today':'Aujourd’hui'}</b><span>${fmtBytes(used)} / ${fmtBytes(cap)} · ${d.today.calls.toLocaleString()} ${en?'calls':'appels'}</span><i style="--p:${pct}%"></i></div><div><b>${en?'This month':'Ce mois-ci'}</b><span>${fmtBytes(d.month.in+d.month.out)} · ${d.month.calls.toLocaleString()} ${en?'calls':'appels'}</span></div></div>
+  <p class="custom-field-help">${en?`Ceilings: ${d.limits.accountDailyMb} MB per account per day, ${d.limits.siteDailyMb} MB for the whole site per day. Past them, heavy saves wait (changes stay on the device) — the allowance can never run out.`:`Plafonds : ${d.limits.accountDailyMb} Mo par compte et par jour, ${d.limits.siteDailyMb} Mo pour tout le site par jour. Au-delà, les grosses sauvegardes attendent (les modifications restent sur l’appareil) : le quota ne peut jamais être épuisé.`}</p>
+  <div style="display:flex;gap:3px;align-items:flex-end;height:60px;margin:8px 0">${(d.days||[]).map(x=>`<span title="${esc(x.day)} · ${fmtBytes(x.bytes)}" style="flex:1;background:var(--accent,#c9a35a);opacity:.85;height:${Math.max(3,Math.round(x.bytes/maxDay*100))}%"></span>`).join('')}</div>
+  <h4>${en?'Top routes today':'Routes les plus lourdes aujourd’hui'}</h4><table style="width:100%;font-size:12px">${d.routes.map(r=>`<tr><td>${esc(r.route)}</td><td>${r.calls}×</td><td>↑ ${fmtBytes(r.in)}</td><td>↓ ${fmtBytes(r.out)}</td></tr>`).join('')||`<tr><td class="muted">—</td></tr>`}</table>
+  ${trafficAccountsMarkup()}
+  <div class="custom-actions"><button type="button" class="button ${d.paused?'primary':'secondary'}" onclick="adminToggleSyncPause(${d.paused?'false':'true'})">${d.paused?(en?'▶ Turn sync back on':'▶ Réactiver la synchro'):(en?'⏸ Emergency: pause sync for everyone':'⏸ Urgence : mettre la synchro en pause pour tous')}</button><button type="button" class="button secondary" onclick="trafficAdminData=null;loadTrafficAdmin();loadTrafficAccounts()">↻ ${en?'Refresh':'Actualiser'}</button></div>
+  ${d.paused?`<p class="custom-field-help">${en?'Sync is paused: players keep playing on their own copy; their changes go out when you turn it back on.':'Synchro en pause : les joueurs continuent sur leur copie ; leurs modifications partiront quand tu la réactiveras.'}</p>`:''}</div>`}
+// Every account's traffic over 1/7/30 days, sorted by volume; tap one for
+// its detail by route and by day.
+let trafficAcc={days:1,data:null,loading:false,open:null,detail:null};
+async function loadTrafficAccounts(days){trafficAcc.days=days||trafficAcc.days;trafficAcc.loading=true;try{trafficAcc.data=await window.MordheimundaAPI.adminTrafficAccounts(trafficAcc.days)}catch(e){trafficAcc.data={error:authError(e,siteLanguage==='en')}}finally{trafficAcc.loading=false;if(trafficAcc.open)loadTrafficAccount(trafficAcc.open);else render('admin')}}
+async function loadTrafficAccount(who){trafficAcc.open=who;trafficAcc.detail=null;render('admin');try{trafficAcc.detail=await window.MordheimundaAPI.adminTrafficAccount(who,trafficAcc.days===1?7:trafficAcc.days)}catch(e){trafficAcc.detail={error:authError(e,siteLanguage==='en')}}render('admin')}
+function trafficAccountsMarkup(){const en=siteLanguage==='en';const t=trafficAcc;if(!t.data&&!t.loading){setTimeout(()=>loadTrafficAccounts(),0)}
+  const tabs=[1,7,30].map(d=>`<button type="button" class="button tiny ${t.days===d?'primary':'secondary'}" onclick="loadTrafficAccounts(${d})">${d===1?(en?'Today':'Aujourd’hui'):d+(en?' days':' jours')}</button>`).join(' ');
+  const rows=(t.data?.accounts||[]).map(a=>{const open=t.open===a.who;const det=open&&t.detail&&!t.detail.error?t.detail:null;
+    return `<tr style="cursor:pointer" onclick="${open?'trafficAcc.open=null;render(\'admin\')':`loadTrafficAccount('${esc(a.who)}')`}"><td><b>${esc(a.name)}</b>${a.email?`<br><small class="muted">${esc(a.email)}</small>`:''}</td><td>${a.calls.toLocaleString()}×</td><td>↑ ${fmtBytes(a.in)}</td><td>↓ ${fmtBytes(a.out)}</td><td><b>${fmtBytes(a.in+a.out)}</b></td></tr>`+
+    (open?`<tr><td colspan="5" style="background:rgba(255,255,255,.04);padding:8px">${!t.detail?(en?'Loading…':'Chargement…'):t.detail.error?esc(t.detail.error):`<div style="display:flex;gap:3px;align-items:flex-end;height:40px;margin-bottom:6px">${det.byDay.map(x=>`<span title="${esc(x.day)} · ${fmtBytes(x.bytes)} · ${x.calls}×" style="flex:1;background:var(--accent,#c9a35a);height:${Math.max(4,Math.round(x.bytes/Math.max(1,...det.byDay.map(y=>y.bytes))*100))}%"></span>`).join('')}</div><table style="width:100%;font-size:11.5px">${det.routes.map(r=>`<tr><td>${esc(r.route)}</td><td>${r.calls}×</td><td>↑ ${fmtBytes(r.in)}</td><td>↓ ${fmtBytes(r.out)}</td></tr>`).join('')}</table>`}</td></tr>`:'')}).join('');
+  return `<h4>${en?'Traffic by account':'Trafic par compte'}</h4><div style="margin:4px 0 6px">${tabs}</div>${t.loading&&!t.data?`<p class="muted">${en?'Loading…':'Chargement…'}</p>`:t.data?.error?`<p class="muted">${esc(t.data.error)}</p>`:`<table style="width:100%;font-size:12px"><tr class="muted"><td>${en?'Account':'Compte'}</td><td>${en?'Calls':'Appels'}</td><td>${en?'Sent':'Envoyé'}</td><td>${en?'Received':'Reçu'}</td><td>Total</td></tr>${rows||`<tr><td class="muted" colspan="5">—</td></tr>`}</table><p class="custom-field-help">${en?'Tap an account for its detail by route and by day.':'Appuie sur un compte pour voir son détail par route et par jour.'}</p>`}`}
+async function adminToggleSyncPause(on){const en=siteLanguage==='en';if(on&&!confirm(en?'Pause sync for every player? They keep playing locally; changes are sent when you turn it back on.':'Mettre la synchro en pause pour tous les joueurs ? Ils continuent en local ; les modifications partiront quand tu la réactiveras.'))return;try{await window.MordheimundaAPI.adminSetSyncPause(on);trafficAdminData=null;loadTrafficAdmin();toast(on?(en?'Sync paused':'Synchro en pause'):(en?'Sync back on':'Synchro réactivée'))}catch(e){toast(authError(e,en))}}
 // V-MTEXCLUDE admin: words never translated + this month's usage.
 let mtAdminData=null,mtAdminLoading=false;
 async function loadMtAdmin(){if(mtAdminLoading)return;mtAdminLoading=true;try{mtAdminData=await window.MordheimundaAPI.adminTranslateSettings()}catch(e){mtAdminData={error:authError(e,siteLanguage==='en')}}finally{mtAdminLoading=false;render('admin')}}
