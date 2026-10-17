@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0666.0';
+const APP_BUILD='110.0667.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2058,6 +2058,9 @@ function cloudRetryDelay(attempt,base){
   const capped=Math.min(30000,base*Math.pow(2,attempt));
   return Math.round(capped*0.5+Math.random()*capped*0.5);
 }
+let cloudLastSentSig=null,cloudLastSentRev=null;
+function cloudPayloadOf(st){const {playSession,...rest}=st||{};return rest}
+function cloudContentSig(st){try{return JSON.stringify(cloudPayloadOf(st),(k,v)=>k==='meta'||k==='updatedSeq'||k==='updatedAt'?undefined:v)}catch(e){return String(Math.random())}}
 async function flushCloudSave(){
   if(!cloudIsSignedIn())return;
   // V-ADMINFORFEIGNRACE: this can be a timer queued by this admin's OWN
@@ -2088,7 +2091,15 @@ async function flushCloudSave(){
     if(hasInlineImages(stateAtStart)){try{if(await mediaSweep(stateAtStart)&&state===stateAtStart)window.MordheimundaStorage.save(stateAtStart)}catch(e){}}
     if(adminViewingUserId||sharedViewToken||state!==stateAtStart){cloudSaveBusy=false;return}
     const expectedRevision=toRev(stateAtStart?.meta?.cloudRevision);
-    const result=await window.MordheimundaAPI.saveData(stateAtStart,expectedRevision);
+    // V-PLAYDATA: the game being played (playSession: deployment, conditions,
+    // engaged fighters…) is per device and never read back from the cloud,
+    // so it is not uploaded; and a save that changed nothing but it (or the
+    // open warband's edit stamp) is not uploaded at all. Play Mode taps no
+    // longer send the whole account each time.
+    const sig=cloudContentSig(stateAtStart);
+    if(sig===cloudLastSentSig&&expectedRevision===cloudLastSentRev){stateAtStart.meta=stateAtStart.meta||{};stateAtStart.meta.cloudDirty=false;if(state===stateAtStart)state=window.MordheimundaStorage.save(stateAtStart);cloudSaveBusy=false;cloudSaveAgain=false;return}
+    const result=await window.MordheimundaAPI.saveData(cloudPayloadOf(stateAtStart),expectedRevision);
+    cloudLastSentSig=sig;cloudLastSentRev=toRev(result?.revision);
     if(adminViewingUserId||sharedViewToken||state!==stateAtStart){cloudRetryAttempt=0;cloudSaveAgain=false;clearCloudError();return}
     stateAtStart.meta=stateAtStart.meta||{};
     stateAtStart.meta.cloudRevision=result.revision;
@@ -11719,7 +11730,7 @@ async function playSharePush(json){
   playShareBusy=true;
   try{const data=JSON.parse(json);
     if(!ps.shared){const r=await window.MordheimundaAPI.playCreate(data,ps.campaignId||null);if(r?.game&&state.playSession&&!state.playSession.shared&&state.playSession.scenarioId===ps.scenarioId){const ps2=state.playSession;ps2.shared={id:r.game.id,role:'host',revision:r.game.revision,players:r.game.players||[]};saveLocalOnly();try{playOwnRosters(ps).forEach(ro=>{if(ps.engaged?.[ro.id])playEngPublish(ps,ro)})}catch(e){}}}
-    else{const sid=ps.shared.id;const r=await window.MordheimundaAPI.playPush(sid,data);const c=state.playSession;if(c?.shared?.id===sid){c.shared.players=r?.players||c.shared.players;saveLocalOnly()}}
+    else{const sid=ps.shared.id;const r=await window.MordheimundaAPI.playPush(sid,data);const c=state.playSession;if(c?.shared?.id===sid){c.shared.players=r?.players||c.shared.players;if(r?.revision===Number(c.shared.revision)+1)c.shared.revision=r.revision;saveLocalOnly()}}
     playShareLastJson=json;if(location.pathname===APP_ROUTES.playMode)render('playMode');
   }catch(e){if(e?.status===404||e?.message==='GAME_ENDED'){ps.shared=null;saveLocalOnly()}console.warn('Shared game not sent',e)}
   finally{playShareBusy=false}
@@ -11832,7 +11843,7 @@ function playEngPublish(ps,r){
   // names only (no cards), so the host's hazard roll can say who it hits
   e.names=[...e.picks,...e.ud.reinf.filter(v=>v.arrived).map(v=>v.instance)].map(id=>(r.fighters||[]).find(x=>x.instance===id)?.name).filter(Boolean).concat((e.ud.temps||[]).map(t=>t.fighter?.name).filter(Boolean));
   const away=playAwayRows(ps).find(v=>v.rid===String(r.id));if(away){e.owner=away.player.username;e.byHost=true}else{e.owner=accountSession()?.username||'';delete e.byHost}save();
-  if(ps.shared&&ps.shared.id){clearTimeout(playEngTimers[r.id]);playEngTimers[r.id]=setTimeout(async()=>{try{const live=state.playSession;if(!live?.shared||live.shared.id!==ps.shared.id)return;const cur=live.engaged?.[r.id];if(!cur)return;const light={...cur,ud:{...cur.ud,temps:(cur.ud.temps||[]).map(t=>({kind:t.kind,wid:t.wid,cost:t.cost,name:t.fighter?.name||''}))}};await window.MordheimundaAPI.playEngaged(live.shared.id,r.id,light)}catch(err){console.warn('Engaged not sent',err)}},600)}
+  if(ps.shared&&ps.shared.id){clearTimeout(playEngTimers[r.id]);playEngTimers[r.id]=setTimeout(async()=>{try{const live=state.playSession;if(!live?.shared||live.shared.id!==ps.shared.id)return;const cur=live.engaged?.[r.id];if(!cur)return;const light={...cur,ud:{...cur.ud,temps:(cur.ud.temps||[]).map(t=>({kind:t.kind,wid:t.wid,cost:t.cost,name:t.fighter?.name||''}))}};const out=await window.MordheimundaAPI.playEngaged(live.shared.id,r.id,light);const c2=state.playSession;if(c2?.shared?.id===live.shared.id&&out?.revision===Number(c2.shared.revision)+1){c2.shared.revision=out.revision;saveLocalOnly()}}catch(err){console.warn('Engaged not sent',err)}},600)}
 }
 function playEngChange(rid,fn){const ps=state.playSession;if(!ps)return;const r=playEngRoster(rid);if(!r)return;const e=playEngEntry(ps,r);fn(e,r,ps);playEngPublish(ps,r);render('playMode')}
 function playEngToggle(rid,inst){playEngChange(rid,(e,r)=>{if(e.validated)return;const x=r.fighters.find(q=>q.instance===inst);if(!x||!playEngFighterOk(x))return;const i=e.picks.indexOf(inst);if(i>=0)e.picks.splice(i,1);else{e.picks.push(inst);e.ud.reinf=e.ud.reinf.filter(v=>v.instance!==inst)}})}
@@ -11929,7 +11940,10 @@ function playUdRitualPick(rid,inst){closeModal();playEngChange(rid,e=>{e.ud.buys
 // --- end of game: XP for every model that took part, extra exploration dice
 function playUdApplyEnd(ps){
   if(!ps)return;const en=siteLanguage==='en';const notes=[];
-  playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(!e||e.applied)return;const xp=Number(e.ud?.buys?.xp)||0,ex=Number(e.ud?.buys?.explore)||0;if(!xp&&!ex)return;
+  playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(!e||e.applied)return;
+    // a temporary Hired Sword who fought can then be recruited for good from the warband's Hired Swords
+    (e.ud?.temps||[]).forEach(t=>{if(!t?.fighter||t.kind!=='hs')return;r.recentTempHires=(r.recentTempHires||[]).filter(h=>h.wid!==t.wid);r.recentTempHires.unshift({wid:t.wid,name:t.fighter.name,fighter:JSON.parse(JSON.stringify(t.fighter)),at:Date.now()});r.recentTempHires=r.recentTempHires.slice(0,5);notes.push(`${t.fighter.name} : ${en?'can now be recruited':'peut maintenant être recruté'}`)});
+    const xp=Number(e.ud?.buys?.xp)||0,ex=Number(e.ud?.buys?.explore)||0;if(!xp&&!ex){if((e.ud?.temps||[]).length)e.applied=true;return}
     if(xp){const ids=[...(e.picks||[]),...(e.ud.reinf||[]).filter(v=>v.arrived).map(v=>v.instance)];let n=0;ids.forEach(id=>{const x=r.fighters.find(q=>q.instance===id);if(x&&fighterCanEarnXp(x)){x.xp=Math.max(0,Number(x.xp||0)+xp);n++}});logHistory(r,'xp',en?`Underdog: +${xp} XP to ${n} models`:`Underdog : +${xp} XP à ${n} figurines`);notes.push(`${r.name} +${xp} XP`)}
     if(ex){r.underdogExplore=(Number(r.underdogExplore)||0)+ex;logHistory(r,'postbattle',en?`Underdog: +${ex} exploration die per surviving Champion`:`Underdog : +${ex} dé d’exploration par champion survivant`);notes.push(`${r.name} +${ex} ${en?'die/Champion':'dé/champion'}`)}
     e.applied=true});
@@ -11973,7 +11987,7 @@ function playFightersMarkup(ps){
     ${groups.length?`<div class="roster-sections play-cards">${groups.map(g=>`<div class="roster-section" id="${esc(g.id)}"><div class="section-label">${esc(g.label.toUpperCase())} <span>${g.cards.length}</span></div><div class="fighter-list">${g.cards.join('')}</div></div>`).join('')}</div>`:`<div class="empty compact">${en?'No fighter engaged yet.':'Aucun combattant engagé pour l’instant.'}</div>`}
     <p class="muted eng-note">${en?'Only your own fighters are shown here; the other warbands appear by their engaged value in the Underdog table.':'Seuls tes combattants sont affichés ici ; les autres bandes apparaissent par leur valeur engagée dans le tableau Underdog.'}</p></section>`;
   // end of game
-  const endNotes=playOwnRosters(ps).map(r=>{const e=playEngagedMap(ps)[r.id];if(!e)return '';const b=e.ud?.buys||{};const parts=[];if(b.xp)parts.push(en?`+${b.xp} XP to every model that took part`:`+${b.xp} XP à chaque figurine qui a pris part`);if(b.explore)parts.push(en?`+${b.explore} exploration die per surviving Champion (post-battle)`:`+${b.explore} dé d’exploration par champion survivant (post-bataille)`);['ambush','tactical','escape'].forEach(k=>{if(b[k])parts.push(udBonus(k).name)});if(e.ud?.ritual)parts.push('Ritual of Survival : '+(r.fighters.find(x=>x.instance===e.ud.ritual)?.name||''));if(e.ud?.temps?.length)parts.push(en?'the temporary hire leaves after the battle':'le recrutement provisoire repart après la bataille');return parts.length?`<div class="eng-end">🏁 <b>${esc(r.name)}</b> — ${e.applied?(en?'applied':'appliqué'):(en?'at the end of the game':'à la fin de la partie')} : ${parts.map(esc).join(' · ')}</div>`:''}).join('');
+  const endNotes=playOwnRosters(ps).map(r=>{const e=playEngagedMap(ps)[r.id];if(!e)return '';const b=e.ud?.buys||{};const parts=[];if(b.xp)parts.push(en?`+${b.xp} XP to every model that took part`:`+${b.xp} XP à chaque figurine qui a pris part`);if(b.explore)parts.push(en?`+${b.explore} exploration die per surviving Champion (post-battle)`:`+${b.explore} dé d’exploration par champion survivant (post-bataille)`);['ambush','tactical','escape'].forEach(k=>{if(b[k])parts.push(udBonus(k).name)});if(e.ud?.ritual)parts.push('Ritual of Survival : '+(r.fighters.find(x=>x.instance===e.ud.ritual)?.name||''));if(e.ud?.temps?.length)parts.push(en?'the temporary hire leaves after the battle — you can then recruit it for good from Hired Swords':'le recrutement provisoire repart après la bataille — tu pourras ensuite le recruter pour de bon depuis les Hired Swords');return parts.length?`<div class="eng-end">🏁 <b>${esc(r.name)}</b> — ${e.applied?(en?'applied':'appliqué'):(en?'at the end of the game':'à la fin de la partie')} : ${parts.map(esc).join(' · ')}</div>`:''}).join('');
   return `<div class="eng-page">${sel||`<section class="eng-box"><p class="muted">${en?'None of your warbands is in this game.':'Aucune de tes bandes ne joue cette partie.'}</p></section>`}${ud}${cardsBox}${endNotes}</div>`;
 }
 // Folded blocks of the Fighters tab (per device, kept with the game).
@@ -13471,7 +13485,28 @@ function hiredSwordRecruitTabsMarkup(r,f){
 function setRecruitPoolTab(v){recruitPoolTab=v==='hs'?'hs':'fighters';render('builder')}
 function hiredSwordCostBoxes(hire,upkeep){const en=siteLanguage==='en';return `<div class="hs-cost-boxes"><div class="hs-cost-box"><small>${en?'HIRE':'EMBAUCHE'}</small><strong class="hs-gold">${Number(hire||0)} GC</strong></div><div class="hs-cost-box"><small>${en?'UPKEEP':'ENTRETIEN'}</small><strong class="hs-upkeep">${Number(upkeep||0)} GC</strong></div></div>`}
 function hiredSwordChoicesSummary(w){const en=siteLanguage==='en';return (w.hsChoices||[]).map(g=>`<span class="hs-choice-chip">+ ${g.label?esc(g.label)+' — ':''}${Number(g.count||1)} ${en?'of':'parmi'} ${(g.options||[]).map(esc).join(' / ')}</span>`).join('')}
-function hiredSwordPoolMarkup(r,f){
+function hiredSwordPoolMarkup(r,f){return hiredSwordFoughtMarkup(r,f)+hiredSwordPoolMarkupBase(r,f)}
+// Hired Swords who fought for this warband as a temporary (Underdog) hire:
+// recruit them for good (normal hire cost in gold, keeping what they earned
+// in that game: XP, skills and hire choices), or dismiss the offer.
+function hiredSwordFoughtMarkup(r,f){
+  const en=siteLanguage==='en';const list=(r?.recentTempHires||[]).filter(h=>h&&h.fighter);if(!list.length)return '';
+  return `<div class="hs-fought"><div class="micro-label">${en?'FOUGHT WITH YOUR WARBAND':'A COMBATTU AVEC TA BANDE'}</div>${list.map(h=>{const w=hiredSwordsFor(f,r).find(x=>String(x.id)===String(h.wid))||null;const cost=Number(w?.cost??h.fighter.cost??0);const owned=hiredSwordInRoster(r,h.fighter.customFighterId,h.fighter.name);const left=owned&&owned.hsLeft;
+    return `<div class="hs-fought-row"><div><b>${esc(h.name)}</b><small>${Number(h.fighter.xp||0)} XP${(h.fighter.skills||[]).length?' · '+esc(h.fighter.skills.join(', ')):''}${w?` · ${en?'upkeep':'entretien'} ${Number(w.upkeep||0)} GC`:''}</small></div>${owned&&!left?`<span class="muted">${en?'Already in the warband':'Déjà dans la bande'}</span>`:`<button type="button" class="button primary small" ${Number(r.gold||0)<cost?'disabled':''} onclick="recruitFoughtHiredSword('${esc(h.wid)}')">${en?`Recruit — ${cost} GC`:`Recruter — ${cost} GC`}</button>`}<button type="button" class="button secondary small" title="${en?'Dismiss':'Retirer'}" onclick="dismissFoughtHiredSword('${esc(h.wid)}')">✕</button></div>`}).join('')}</div>`;
+}
+function recruitFoughtHiredSword(wid){
+  const en=siteLanguage==='en';const r=activeRoster(),f=faction(r);if(!r)return;const h=(r.recentTempHires||[]).find(x=>String(x.wid)===String(wid));if(!h)return;
+  const w=hiredSwordsFor(f,r).find(x=>String(x.id)===String(wid))||null;const cost=Number(w?.cost??h.fighter.cost??0);
+  const owned=hiredSwordInRoster(r,h.fighter.customFighterId,h.fighter.name);if(owned&&!owned.hsLeft)return toast(en?'Only one copy per warband':'Un seul exemplaire par bande');
+  if(Number(r.gold||0)<cost)return toast(en?'Insufficient treasury':'Trésor insuffisant');
+  const x=JSON.parse(JSON.stringify(h.fighter));delete x.temporary;delete x.__udTemp;x.instance=crypto.randomUUID();x.hsLeft=false;x.status={recovery:false,captured:false,dead:false,critical:false,...(x.status||{})};
+  if(owned&&owned.hsLeft)r.fighters=r.fighters.filter(q=>q!==owned);
+  r.fighters.push(x);try{syncCustomEquipmentEffects(x)}catch(e){}r.gold=Number(r.gold||0)-cost;r.recentTempHires=(r.recentTempHires||[]).filter(q=>q!==h);
+  logHistory(r,'recruit',en?`<b>${esc(x.name)}</b> hired after fighting with the warband — ${cost} GC`:`<b>${esc(x.name)}</b> embauché après avoir combattu avec la bande — ${cost} GC`);
+  save(true);render('builder');toast(en?`✓ ${x.name} hired — ${cost} GC`:`✓ ${x.name} embauché — ${cost} GC`);
+}
+function dismissFoughtHiredSword(wid){const r=activeRoster();if(!r)return;r.recentTempHires=(r.recentTempHires||[]).filter(q=>String(q.wid)!==String(wid));save(true);render('builder')}
+function hiredSwordPoolMarkupBase(r,f){
   const en=siteLanguage==='en';const list=hiredSwordsFor(f,r);
   const intro=`<p class="sheet-help">${en?`Only the Hired Swords assigned to <b>${esc(f.displayName)}</b> appear here. One copy of each per warband. They are neither Heroes nor Henchmen.`:`Seuls les Hired Swords attribués à <b>${esc(f.displayName)}</b> apparaissent ici. Un seul exemplaire de chacun par bande. Ils ne sont ni Heroes ni Henchmen.`}</p>`;
   if(!list.length)return intro+`<div class="empty compact">${en?'No Hired Sword available for this warband yet.':'Aucun Hired Sword disponible pour cette bande pour l’instant.'}</div>`;
