@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0653.0';
+const APP_BUILD='110.0654.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3098,7 +3098,7 @@ function liveFighterCost(x,f){
 // V-BANDVALUE: what an item adds to the warband value. Equal to its cost by
 // default; an item can set its own band value (e.g. a Holy Tome bought for
 // 140 GC that only counts 30). Buying and selling still use the cost.
-function equipmentBandValue(e,f,x){{const pr=f?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
+function equipmentBandValue(e,f,x){{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
 // Value shown on the fighter sheet / stash rows: same special-price rule as the rating.
 function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBandValue(e,r?faction(r):null,r?.fighters?.[editingIndex]||null)}catch(x){return equipmentBandValue(e)}}
 function fighterValue(x,f){if(isHiredSword(x))return 0;const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+equipmentBandValue(e,f,x),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
@@ -15317,7 +15317,7 @@ function adminPriceRulesMarkup(){const en=siteLanguage==='en';const facs=[...(D.
   const fac=facs.find(f=>String(f.id)===prFactionSel);const book=n=>D.weapons.find(w=>normName(w.name)===normName(n));
   const groups=new Map();priceRules.forEach((r,i)=>{const k=r.factionId;if(!groups.has(k))groups.set(k,[]);groups.get(k).push({r,i})});
   return `<div class="card admin-card"><div class="eyebrow">${en?'SPECIAL PRICES':'PRIX SPÉCIAUX'}</div>
-  <p class="custom-field-help">${en?'Give a warband — or one fighter type of it — its own price and value for an item. It applies to every shop of that warband (Band List, market, trading posts) and lowers its warband rating, including items already owned. Leave the value empty to use the price.':'Donne à une bande — ou à un type de combattant de cette bande — son propre prix et sa propre valeur pour un objet. Ça s’applique à toutes ses boutiques (Band List, marché, comptoirs de campagne) et à la valeur de bande, y compris pour les objets déjà possédés. Laisse la valeur vide pour qu’elle soit égale au prix.'}</p>
+  <p class="custom-field-help">${en?'Give a warband — or one fighter type of it — its own price and value for an item. The price only applies to its Band List (the market keeps market prices). The value applies to the item whenever a fighter of that warband carries it, however it was bought, including items already owned; items in the warband stash keep their normal value. Leave a field empty to keep the normal number.':'Donne à une bande — ou à un type de combattant de cette bande — son propre prix et sa propre valeur pour un objet. Le prix ne s’applique qu’à sa Band List (le marché garde ses prix). La valeur s’applique à l’objet dès qu’un combattant de cette bande le porte, peu importe où il a été acheté, y compris pour les objets déjà possédés ; les objets dans la réserve de bande gardent leur valeur normale. Laisse un champ vide pour garder le nombre normal.'}</p>
   <div class="custom-form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;align-items:end">
    <label class="custom-field"><span>${en?'Warband':'Bande'}</span><select id="prFaction" onchange="prFactionSel=this.value;render('admin')">${facs.map(f=>`<option value="${esc(f.id)}" ${String(f.id)===prFactionSel?'selected':''}>${esc(f.displayName)}</option>`).join('')}</select></label>
    <label class="custom-field"><span>${en?'Fighter':'Combattant'}</span><select id="prWarrior"><option value="">${en?'Whole warband':'Toute la bande'}</option>${(fac?.warriors||[]).map(w=>`<option value="${esc(w.id)}">${esc(w.name)}</option>`).join('')}</select></label>
@@ -16419,7 +16419,7 @@ function customEquipmentForFaction(w,fid){if(!isCustomEquipment(w)||!fid)return 
 let priceRules=[];
 async function loadPriceRules(){try{const r=await window.MordheimundaAPI.priceRules();priceRules=Array.isArray(r?.rules)?r.rules:[]}catch(e){}}
 function priceRuleFor(itemName,f,x){if(!f||!itemName||!priceRules.length)return null;const n=normName(itemName),fid=String(f.id||'');const hits=priceRules.filter(r=>r.factionId===fid&&normName(r.item)===n);if(!hits.length)return null;const wid=x?.wid?String(x.wid):null;return (wid&&hits.find(r=>r.warriorId===wid))||hits.find(r=>!r.warriorId)||null}
-function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;{const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}if(isCustomEquipment(w))return Number(w.price||0);if(tab==='band'&&w.bandPrices?.[f.id]!=null)return Number(w.bandPrices[f.id]);return w.price}
+function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;if(tab==='band'){const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}if(isCustomEquipment(w))return Number(w.price||0);if(tab==='band'&&w.bandPrices?.[f.id]!=null)return Number(w.bandPrices[f.id]);return w.price}
 // V-NOSLOTGEAR: an item only counts as a weapon (weapon list + a weapon
 // slot) when its profile has real stats. An item edited in Admin / Custom
 // could carry an all-blank profile ({range:'',strength:'',…}) — e.g. an
@@ -16568,7 +16568,7 @@ function confirmEquipment(encoded){
   if(name==='Natural Weapons'&&Array.isArray(x.equipmentAccessGroups)&&x.equipmentAccessGroups.includes('Natural Weapons'))w={name:'Natural Weapons',category:'Armes de corps à corps',availability:'Inné',price:0,bandOnlyIntrinsic:true,profile:{range:'Melee 2',strength:'S',ap:'-',damage:'1',traits:'Natural weapon — ne prend pas d’emplacement'}};
   if(!w)return;
   if(!fighterUsesLoadouts(x)){const check=canEquip(x,w);if(!check.ok){toast(check.msg);return}}
-  const pr=priceRuleFor(w?.name,f,x);
+  const pr=equipmentTab==='band'?priceRuleFor(w?.name,f,x):null;
   openPurchaseConfirm(w,equipmentPrice(w,f,equipmentTab,x),equipmentTab,pr&&pr.value!=null?pr.value:null);
 }
 function purchaseEquipment(encoded,tab){
