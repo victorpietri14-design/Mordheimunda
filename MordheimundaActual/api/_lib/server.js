@@ -81,7 +81,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // repeat visits no longer run the server or count against its transfer
 // quota. Admins always get the live version (their requests carry a unique
 // ?_t=, which the CDN never has in cache). Only successful answers are kept.
-const PUBLIC_CACHED_GETS=new Set(['/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+const PUBLIC_CACHED_GETS=new Set(['/api/catalog/price-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
 app.use((req,res,next)=>{
   if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
   const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
@@ -1777,6 +1777,18 @@ app.delete('/api/admin/catalog/overrides/:factionId',requireDb,requireSameOrigin
 // pool every faction/warband draws its equipment from (a faction's own
 // `equipment` array is only ever item NAMES into it — see catalog_overrides
 // above). Keyed by the weapon's exact name; public read, admin-only write.
+// V-PRICERULES: special prices for a warband (or one fighter type of it):
+// the same item can cost and be worth less for them — e.g. Full plate
+// armour for Blood Dragons, Blessed water for Witch Hunters, blackpowder
+// weapons for Mercenaries. One list for every faction (book, packs,
+// official warbands), keyed by the faction id and optional fighter id.
+const sanitizePriceRules=list=>(Array.isArray(list)?list:[]).slice(0,600).map(r=>({factionId:String(r?.factionId||'').slice(0,120),warriorId:r?.warriorId?String(r.warriorId).slice(0,120):null,item:String(r?.item||'').trim().slice(0,120),price:Number.isFinite(Number(r?.price))&&r?.price!==''&&r?.price!=null?Math.max(0,Math.round(Number(r.price))):null,value:Number.isFinite(Number(r?.value))&&r?.value!==''&&r?.value!=null?Math.max(0,Math.round(Number(r.value))):null})).filter(r=>r.factionId&&r.item&&(r.price!=null||r.value!=null));
+app.get('/api/catalog/price-rules',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='equipmentPriceRules'");res.json({rules:sanitizePriceRules(q.rows[0]?.value?.rules)})}catch(e){next(e)}
+});
+app.put('/api/admin/price-rules',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const rules=sanitizePriceRules(req.body?.rules);await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('equipmentPriceRules',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({rules})]);res.json({rules})}catch(e){next(e)}
+});
 app.get('/api/catalog/weapon-overrides',requireDb,async(req,res,next)=>{
   try{
     const q=await pool.query('SELECT weapon_name,data,updated_at FROM weapon_overrides');

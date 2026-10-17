@@ -57,6 +57,8 @@
      write. Lets an admin correct or add to the D.weapons pool every
      faction/warband draws from, without editing data/catalog.js. */
   weaponOverrides:()=>request('/api/catalog/weapon-overrides'),
+  priceRules:()=>request('/api/catalog/price-rules'),
+  adminSavePriceRules:rules=>request('/api/admin/price-rules',{method:'PUT',body:JSON.stringify({rules})}),
   adminSaveWeaponOverride:(name,data)=>request('/api/admin/catalog/weapon-overrides/'+encodeURIComponent(name),{method:'PUT',body:JSON.stringify({data})}),
   adminResetWeaponOverride:name=>request('/api/admin/catalog/weapon-overrides/'+encodeURIComponent(name),{method:'DELETE'}),
   /* Race-category tags for the "Create warband" picker (V149) — public
