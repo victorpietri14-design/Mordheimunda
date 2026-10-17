@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0651.0';
+const APP_BUILD='110.0652.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -145,6 +145,10 @@ function renderCurrentRoute(){
     applySiteLanguage(i18nNeedsFullPass?document.body:document.getElementById('content'));
     i18nNeedsFullPass=false;
     try{i18nObserver?.takeRecords()}catch(e){}
+    // V-MTKEEP: some pages fill their text a moment after this pass (rules
+    // pages, admin overrides…), which no pass saw — they stayed English even
+    // with the translation already known. Look again just after.
+    try{mtRescanSoon()}catch(e){}
   }finally{
     __arCacheActive=false;__arCache=null;__statBonusCache=null;__refEntriesCache=null;__equipPoolCache=null;
   }
@@ -7669,7 +7673,16 @@ function translateSiteText(v){const text=String(v);if(siteLanguage==='fr'){const
 // off. Switching language re-renders, which brings the original back.
 const MT_OFF_KEY='mu_mt_off';
 let mtEnabled=(()=>{try{return localStorage.getItem(MT_OFF_KEY)!=='1'}catch(e){return true}})();
-const mtCache=new Map();let mtPending=new Map();let mtTimer=null;
+// V-MTKEEP: translations are kept on this device between visits, so a page
+// opens in French at once (no English flash, no new request) — up to about
+// 1.5 MB, the oldest dropped first.
+const MT_STORE='mu_mt_cache_v1';
+// Entries expire after 3 days so an admin's hand correction reaches every
+// device soon.
+const MT_KEEP_MS=3*24*3600*1000;const mtSavedAt=new Map();
+const mtCache=(()=>{const m=new Map();try{const o=JSON.parse(localStorage.getItem(MT_STORE)||'null');if(o&&typeof o==='object')for(const [k,v] of Object.entries(o))if(Array.isArray(v)&&typeof v[0]==='string'&&Date.now()-Number(v[1]||0)<MT_KEEP_MS){m.set(k,v[0]);mtSavedAt.set(k,Number(v[1]))}}catch(e){}
+  const set=m.set.bind(m);let t=null;m.set=(k,v)=>{set(k,v);mtSavedAt.set(k,Date.now());clearTimeout(t);t=setTimeout(()=>{try{let size=0;const keep=[];for(const [kk,vv] of [...m.entries()].reverse()){size+=kk.length+vv.length;if(size>1500000)break;keep.push([kk,[vv,mtSavedAt.get(kk)||Date.now()]])}localStorage.setItem(MT_STORE,JSON.stringify(Object.fromEntries(keep.reverse())))}catch(e){}},1500);return m};return m})();
+let mtPending=new Map();let mtTimer=null;
 // V-MTCAP: once the server says today's translation allowance is used up,
 // this device stops asking until tomorrow instead of re-sending every
 // untranslated text at each redraw (which only cost server traffic).
@@ -7686,7 +7699,9 @@ const MT_SKIP='input,textarea,select,script,style,code,pre,[contenteditable],[da
 function mtBlockFor(node){let el=node.parentElement;if(!el||el.closest(MT_SKIP))return null;while(el&&MT_INLINE.has(el.tagName)&&el.parentElement&&el.parentElement!==document.body)el=el.parentElement;if(!el||el.closest(MT_SKIP))return null;
   for(const c of el.querySelectorAll('*'))if(!MT_INLINE.has(c.tagName))return {el:null,node};return {el,node}}
 function mtFreeText(el){const c=el.cloneNode(true);c.querySelectorAll('a,button,[onclick],.ref-link').forEach(x=>x.remove());return c.textContent||''}
-function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||mtServerOff||!root)return;
+let mtRescanTimers=[];
+function mtRescanSoon(){if(siteLanguage!=='fr')return;mtRescanTimers.forEach(clearTimeout);mtRescanTimers=[150,700,2000].map(ms=>setTimeout(()=>{try{autoTranslateScan(document.getElementById('content'));const m=document.getElementById('modalContent');if(m&&m.offsetParent)autoTranslateScan(m)}catch(e){}},ms))}
+function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||!root)return;
   const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const seen=new Set();
   while(w.nextNode()){const n=w.currentNode;const t=n.nodeValue;const inRule=!!n.parentElement?.closest('.rule-page-text');if(!t||t.trim().length<(inRule?6:12)||!(mtLooksEnglish(t)||(inRule&&mtLooksEnglishRule(t))))continue;const b=mtBlockFor(n);if(!b)continue;
     if(b.el){if(seen.has(b.el)||b.el.__mtDone||b.el.querySelector('[data-mt-done]')||b.el.closest('[data-mt-done]'))continue;seen.add(b.el);
@@ -7696,7 +7711,8 @@ function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||mtServerOff
       const html=b.el.innerHTML.trim();if(!html||html.length>6000)continue;mtQueue(html,{el:b.el,html:true})}
     else{if(n.__mtDone||n.parentElement?.closest('a,button,[onclick]'))continue;mtQueue(t,{node:n,html:false})}}
   if(mtPending.size&&!mtTimer)mtTimer=setTimeout(mtFlush,120)}
-function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
+function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}if(mtServerOff)return; // known translations still apply; only new requests wait
+  const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
 function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src&&!target.el.querySelector('[data-mt-done]')&&!target.el.closest('[data-mt-done]')){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.__mtSrc=src;target.el.classList.add('mt-done');mtAddEditButton(target.el)}}else if(target.node.isConnected&&target.node.nodeValue===src&&!target.node.parentElement?.closest('.mt-done')){target.node.nodeValue=fr;target.node.__mtDone=true;if(target.node.parentElement)target.node.parentElement.dataset.mtDone='1'}}
 async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;
   for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){if(mtServerOff)return;const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
@@ -7744,7 +7760,8 @@ function applySiteLanguage(root){
  root=root||document.body;
  document.documentElement.lang=siteLanguage;
  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
- nodes.forEach(n=>{if(n.parentElement?.closest('#languageSelect'))return;if(n.__i18nOriginal===undefined)n.__i18nOriginal=n.nodeValue;n.nodeValue=translateSiteText(n.__i18nOriginal);});
+ nodes.forEach(n=>{if(n.parentElement?.closest('#languageSelect'))return;if(n.__mtDone&&siteLanguage==='fr')return; // V-MTKEEP: never put English back over an automatic translation
+  if(n.__i18nOriginal===undefined)n.__i18nOriginal=n.nodeValue;n.nodeValue=translateSiteText(n.__i18nOriginal);});
  root.querySelectorAll('input[placeholder],textarea[placeholder],[title],[aria-label]').forEach(el=>{
    if(el.dataset.i18nPlaceholder===undefined&&el.placeholder)el.dataset.i18nPlaceholder=el.placeholder;
    if(el.dataset.i18nTitle===undefined&&el.title)el.dataset.i18nTitle=el.title;
@@ -15297,7 +15314,7 @@ function adminTranslateMarkup(){const en=siteLanguage==='en';if(!mtAdminData){lo
   <p class="custom-field-help">${en?'Whole words, capitals ignored. When you add a word, the texts that contain it are translated again (your own corrections are kept).':'Mots entiers, majuscules ignorées. Quand tu ajoutes un mot, les textes qui le contiennent sont retraduits (tes propres corrections sont conservées).'}</p>
   <div class="custom-actions"><button type="button" class="button primary" onclick="saveMtExclusions()">${en?'Save':'Enregistrer'}</button></div></div>`}
 async function saveMtExclusions(){const en=siteLanguage==='en';const terms=String(document.getElementById('mtTerms')?.value||'').split('\n').map(t=>t.trim()).filter(Boolean);
-  try{const r=await window.MordheimundaAPI.adminSaveTranslateExclusions(terms);mtCache.clear();mtAdminData=null;render('admin');toast(en?`Saved — ${r.cleared||0} text(s) will be translated again`:`Enregistré — ${r.cleared||0} texte(s) seront retraduits`)}catch(e){toast(authError(e,en))}}
+  try{const r=await window.MordheimundaAPI.adminSaveTranslateExclusions(terms);mtCache.clear();try{localStorage.removeItem(MT_STORE)}catch(e){}mtAdminData=null;render('admin');toast(en?`Saved — ${r.cleared||0} text(s) will be translated again`:`Enregistré — ${r.cleared||0} texte(s) seront retraduits`)}catch(e){toast(authError(e,en))}}
 async function adminExportAll(){
   const en=siteLanguage==='en';if(exportBusy)return;exportBusy=true;render('admin');
   try{const out={app:'Mordheimunda',build:typeof APP_BUILD!=='undefined'?APP_BUILD:'',exportedAt:new Date().toISOString(),tables:{}};
