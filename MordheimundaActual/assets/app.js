@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0682.0';
+const APP_BUILD='110.0683.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3118,7 +3118,9 @@ function liveFighterCost(x,f){
 function equipmentBandValue(e,f,x){{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
 // Value shown on the fighter sheet / stash rows: same special-price rule as the rating.
 function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBandValue(e,r?faction(r):null,r?.fighters?.[editingIndex]||null)}catch(x){return equipmentBandValue(e)}}
-function fighterValue(x,f){if(isHiredSword(x))return 0;const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+equipmentBandValue(e,f,x),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
+// A fighter's value counts the equipment they carry: for a Leader/Champion
+// with several loadouts, only the active one (the stash's other sets don't).
+function fighterValue(x,f){if(isHiredSword(x))return 0;const eq=Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[];const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+equipmentBandValue(e,f,x),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
 function fighterPaid(x,f){const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+Number(e?.paid ?? e?.price ?? 0),0))}
 function fighterCost(x,f){return fighterValue(x,f)}
 function total(r){const fighters=Array.isArray(r?.fighters)?r.fighters:[];const reserve=Array.isArray(r?.reserve)?r.reserve:[];const f=faction(r);return fighters.reduce((n,x)=>n+fighterValue(x,f)+hiredSwordRatingShare(x),0)+reserve.reduce((n,e)=>n+equipmentBandValue(e,f),0)}
