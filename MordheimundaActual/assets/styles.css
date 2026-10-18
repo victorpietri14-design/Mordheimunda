@@ -5023,3 +5023,5 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .cpb-art-effect .cpb-art-base{color:var(--muted);font-size:12px;margin-bottom:4px}
 .cpb-art-effect .artifact-rules p{margin:4px 0}
 .ud-budget .ud-reset{margin-left:auto;flex:none}
+.armor-stat b{position:relative}.armor-stat .sv-real{position:absolute;left:50%;bottom:calc(100% + 1px);transform:translateX(-50%);font-size:9.5px;line-height:1;opacity:.8;font-weight:700;white-space:nowrap;letter-spacing:0}
+.pb-leader-dice{font-style:normal;font-size:11px;color:var(--gold,#f2c94c);margin-left:6px}
