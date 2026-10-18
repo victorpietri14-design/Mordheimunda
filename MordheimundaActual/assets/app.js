@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0675.0';
+const APP_BUILD='110.0676.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12067,7 +12067,7 @@ function playUdTempPick(rid,k,wid,picks){const en=siteLanguage==='en';const ps=s
   if(!picks&&(w.hsChoices||[]).some(g=>(g.options||[]).length)){hiredSwordChoiceModal(w,null,`playUdTempConfirm('${esc(rid)}','${k}','${esc(wid)}')`,en?'TEMPORARY HIRE':'RECRUTEMENT PROVISOIRE');modalSticky=true;return}
   const x=playUdTempFighter(w,f);try{hiredSwordApplyPicks(x,w,picks||{},f)}catch(err){}
   if(w.hsRandomSkill==='Primary'||w.hsRandomSkill==='Secondary'){try{const rs=randomSkillFor(x,[w.hsRandomSkill]);if(rs){x.skills.push(rs.skill);x.hsRandomSkillGranted=rs.skill}}catch(err){}}
-  ['hsChoices','hsFactions','officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(q=>delete x[q]);
+  ['hsChoices','hsFactions','hsExcluded','officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(q=>delete x[q]);
   playEngChange(rid,e=>{e.ud.temps.push({kind:k,wid:w.id,cost:Number(w.cost||0),fighter:x})});playUdTempModal(rid,k)}
 function playUdTempConfirm(rid,k,wid){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const w=r&&hiredSwordsFor(faction(r),r).find(x=>String(x.id)===String(wid));if(!w)return closeModal();const picks=hiredSwordReadPicks(w);if(!picks){toast(en?'Complete every choice':'Complète chaque choix');return}playUdTempPick(rid,k,wid,picks)}
 // The temporary fighter's full sheet (skills, XP to spend…): it is slipped into
@@ -13646,9 +13646,12 @@ function hiredSwordRawById(id,name){if(!id&&!name)return null;
 }
 function hiredSwordSourceWarrior(x){const w=hiredSwordRawById(x?.customFighterId,x?.sourceName||x?.name);return w?hiredSwordAsWarrior(w):null}
 function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFighterId:w.customFighterId||w.id});return {...a,type:'Hired Sword',hiredSword:true,max:1,upkeep:Number(w.upkeep||0),hsChoices:Array.isArray(w.hsChoices)?w.hsChoices:[],hsFactions:Array.isArray(w.hsFactions)?w.hsFactions:[]}}
+// hsFactions: only these warbands may hire it (empty = all); hsExcluded: every
+// warband except these.
 function hiredSwordAvailableFor(w,f,r){
-  const list=Array.isArray(w?.hsFactions)?w.hsFactions:[];if(!list.length)return true;
   const ids=new Set([f?.id,f?.displayName,f?.baseFactionId,r?.factionId,r?.customWarbandId?'custom-warband-'+r.customWarbandId:null].filter(Boolean).map(normName));
+  const excluded=Array.isArray(w?.hsExcluded)?w.hsExcluded:[];if(excluded.some(id=>ids.has(normName(id))))return false;
+  const list=Array.isArray(w?.hsFactions)?w.hsFactions:[];if(!list.length)return true;
   return list.some(id=>ids.has(normName(id)));
 }
 function hiredSwordsFor(f,r){return hiredSwordRawList().filter(w=>hiredSwordAvailableFor(w,f,r)).map(hiredSwordAsWarrior)}
@@ -13775,7 +13778,7 @@ function hiredSwordDoHire(w,picks){
   const fixed=(w.defaultEquipment||[]).map(n=>hiredSwordGearItem(n,{intrinsic:true})).filter(Boolean);
   const prof=effectiveFighterProfile(w,f);
   const x={...w,profile:prof.slice(),baseProfile:prof.slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,type:'Hired Sword',hiredSword:true,hsLeft:false,xp:0,defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:fixed,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],advancements:[],injuries:[],spells:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId};
-  ['hsChoices','hsFactions','officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>delete x[k]);
+  ['hsChoices','hsFactions','hsExcluded','officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>delete x[k]);
   hiredSwordApplyPicks(x,w,picks,f);
   r.fighters.push(x);syncCustomEquipmentEffects(x);r.gold=Number(r.gold||0)-cost;
   let randomSkill=null;if(w.hsRandomSkill==='Primary'||w.hsRandomSkill==='Secondary'){try{randomSkill=randomSkillFor(x,[w.hsRandomSkill]);}catch(e){randomSkill=null}if(randomSkill){x.skills.push(randomSkill.skill);x.hsRandomSkillGranted=randomSkill.skill}}
@@ -13838,7 +13841,7 @@ function undoHiredSwordUpkeep(){const en=siteLanguage==='en';const r=activeRoste
 function hiredSwordsRulesPageMarkup(){
   const en=siteLanguage==='en';const list=hiredSwordRawList().map(hiredSwordAsWarrior).sort((a,b)=>a.name.localeCompare(b.name,en?'en':'fr'));
   const pseudo={id:'hired-swords',displayName:'Hired Swords',warriors:[],equipment:[]};
-  const opts=creatureScopeFactionOptions();const scope=w=>(w.hsFactions||[]).length?(en?'Hired by: ':'Embauché par : ')+w.hsFactions.map(id=>opts.find(o=>o.id===id)?.name||D.factions.find(f=>f.id===id)?.displayName||id).map(esc).join(', '):(en?'Hireable by every warband':'Embauchable par toutes les bandes');
+  const opts=creatureScopeFactionOptions();const nm=id=>opts.find(o=>o.id===id)?.name||D.factions.find(f=>f.id===id)?.displayName||id;const scope=w=>(w.hsFactions||[]).length?(en?'Hired by: ':'Embauché par : ')+w.hsFactions.map(nm).map(esc).join(', '):(w.hsExcluded||[]).length?(en?'Every warband except: ':'Toutes les bandes sauf : ')+w.hsExcluded.map(nm).map(esc).join(', '):(en?'Hireable by every warband':'Embauchable par toutes les bandes');
   return `<div class="ref-page"><div class="rules-head"><p><a href="#" onclick="navigateApp('/rules/warbands');return false;">${en?'← Back to Rules: Warbands':'← Retour à Règles : Warbands'}</a></p><h1 class="rules-page-title">Hired Swords</h1><p>${en?'Neither Heroes nor Henchmen. One copy of each per warband; hire cost paid once, upkeep paid at each post-battle Income step (unpaid: it leaves). No value of its own: adds half its hire cost to the warband value. Fixed equipment, no Market.':'Ni Heroes ni Henchmen. Un seul exemplaire de chacun par bande ; coût d’embauche payé une fois, entretien payé à chaque étape Income d’après-bataille (non payé : il part). Pas de valeur propre : ajoute la moitié de son coût d’embauche à la valeur de bande. Équipement fixe, pas de Marché.'}</p></div>
   <div class="section-block">${list.length?list.map(w=>`<div class="role-head">${esc(w.name)}</div><div class="hs-rules-costs">${hiredSwordCostBoxes(w.cost,w.upkeep)}<span class="muted">${scope(w)}</span>${(w.defaultEquipment||[]).length||(w.hsChoices||[]).length?`<span class="hs-gear-row"><span class="micro-label">${en?'FIXED EQUIPMENT':'ÉQUIPEMENT FIXE'}</span> ${(w.defaultEquipment||[]).map(n=>`<span class="hs-gear-chip">${refLink('equipment',n,n)}</span>`).join('')}${hiredSwordChoicesSummary(w)}</span>`:''}</div>${fighterRuleCardMarkup(w,pseudo)}`).join(''):`<div class="empty">${en?'No Hired Sword yet.':'Aucun Hired Sword pour l’instant.'}</div>`}</div></div>`;
 }
@@ -16237,7 +16240,10 @@ function formatSaveParts(parts,capped){
 }
 function armorSave(x){const i=armorSaveInfo(x);return formatSaveParts(i.parts,saveIsCapped(x))}
 // The real (uncapped) value(s), for rules that build on the save (a mount's barding).
-function armorSaveMarkup(x){const t=armorSave(x);const m=/^(.*?) \((.*)\)$/.exec(t);return m?`${esc(m[1])}<small class="sv-real">(${esc(m[2])})</small>`:esc(t)}
+// The Sv box holds one big value and at most one short hint above it: the
+// real save when capped ("(2+)"), else the shield value ("/4+"); the full
+// detail is in the tooltip.
+function armorSaveMarkup(x){const i=armorSaveInfo(x);if(!i.parts.length)return '—';const cap=saveIsCapped(x);const shown=i.parts.map(n=>cap?Math.max(INFANTRY_SAVE_CAP,n):n);const extra=cap&&i.parts[0]<INFANTRY_SAVE_CAP?`(${i.parts[0]}+)`:shown.length>1&&shown[1]!==shown[0]?`/${shown[1]}+`:cap&&i.parts.some(n=>n<INFANTRY_SAVE_CAP)?`(${i.parts.map(n=>n+'+').join('/')})`:'';return `${shown[0]}+${extra?`<small class="sv-real">${esc(extra)}</small>`:''}`}
 function armorSaveRaw(x){const i=armorSaveInfo(x);return formatSaveParts(i.parts,false)}
 function armorSaveTitle(x){const en=siteLanguage==='en';const i=armorSaveInfo(x);const lines=i.steps.slice();if(saveIsCapped(x)&&i.parts.some(n=>n<INFANTRY_SAVE_CAP))lines.push(en?`Infantry: shown capped at ${INFANTRY_SAVE_CAP}+ — AP is applied to the real save`:`Infanterie : affichée au maximum à ${INFANTRY_SAVE_CAP}+ — la PA s’applique sur la vraie sauvegarde`);return lines.length?lines.join('\n'):(en?'No armour save':'Pas de sauvegarde d’armure')}
 // ---- V-STATBONUS: keyword-based stat/armour-save bonus detection ----
@@ -17432,15 +17438,17 @@ function customFighterReadChecks(cls){return [...document.querySelectorAll('.'+c
    — options are equipment, spell or skill names). */
 let customFighterHsChoicesDraft=null;
 function hiredSwordScopeMarkup(w){
-  const en=siteLanguage==='en';const sel=Array.isArray(w?.hsFactions)?w.hsFactions:[];const some=sel.length>0;const opts=creatureScopeFactionOptions().filter(o=>o.id!=='hired-swords');
-  return `<details class="custom-collapse" open><summary><span>${en?'HIRED BY':'EMBAUCHÉ PAR'}</span><small>${some?`${sel.length} ${en?'warband'+(sel.length>1?'s':''):'bande'+(sel.length>1?'s':'')}`:(en?'All warbands':'Toutes les bandes')}</small></summary>
-    <p class="custom-field-help">${en?'Only these warbands see it in their Recruitment → Hired Swords tab. One copy per warband.':'Seules ces bandes le voient dans leur onglet Recrutement → Hired Swords. Un seul exemplaire par bande.'}</p>
-    <label class="custom-check"><input type="radio" name="hsScope" value="all" ${some?'':'checked'} onchange="this.closest('details').querySelector('.hs-faction-grid').style.display='none'"> <span><b>${en?'All warbands':'Toutes les bandes'}</b><small>${en?'Hireable by every warband.':'Embauchable par toutes les bandes.'}</small></span></label>
-    <label class="custom-check"><input type="radio" name="hsScope" value="some" ${some?'checked':''} onchange="this.closest('details').querySelector('.hs-faction-grid').style.display=''"> <span><b>${en?'Only the warbands ticked below':'Seulement les bandes cochées ci-dessous'}</b><small>${en?'Only they can hire it.':'Seules elles peuvent l’embaucher.'}</small></span></label>
-    <div class="custom-faction-grid hs-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="hsFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div>
+  const en=siteLanguage==='en';const only=Array.isArray(w?.hsFactions)?w.hsFactions:[];const except=Array.isArray(w?.hsExcluded)?w.hsExcluded:[];const mode=only.length?'some':except.length?'except':'all';const sel=mode==='some'?only:except;const opts=creatureScopeFactionOptions().filter(o=>o.id!=='hired-swords');
+  const show="this.closest('details').querySelector('.hs-faction-grid').style.display=''";
+  return `<details class="custom-collapse" open><summary><span>${en?'HIRED BY':'EMBAUCHÉ PAR'}</span><small>${mode==='some'?`${sel.length} ${en?'warband'+(sel.length>1?'s':''):'bande'+(sel.length>1?'s':'')}`:mode==='except'?(en?`All but ${sel.length}`:`Toutes sauf ${sel.length}`):(en?'All warbands':'Toutes les bandes')}</small></summary>
+    <p class="custom-field-help">${en?'Who sees it in their Recruitment → Hired Swords tab. One copy per warband.':'Qui le voit dans son onglet Recrutement → Hired Swords. Un seul exemplaire par bande.'}</p>
+    <label class="custom-check"><input type="radio" name="hsScope" value="all" ${mode==='all'?'checked':''} onchange="this.closest('details').querySelector('.hs-faction-grid').style.display='none'"> <span><b>${en?'All warbands':'Toutes les bandes'}</b><small>${en?'Hireable by every warband.':'Embauchable par toutes les bandes.'}</small></span></label>
+    <label class="custom-check"><input type="radio" name="hsScope" value="some" ${mode==='some'?'checked':''} onchange="${show}"> <span><b>${en?'Only the warbands ticked below':'Seulement les bandes cochées ci-dessous'}</b><small>${en?'Only they can hire it.':'Seules elles peuvent l’embaucher.'}</small></span></label>
+    <label class="custom-check"><input type="radio" name="hsScope" value="except" ${mode==='except'?'checked':''} onchange="${show}"> <span><b>${en?'Every warband except those ticked below':'Toutes les bandes sauf celles cochées ci-dessous'}</b><small>${en?'The ticked warbands can never hire it.':'Les bandes cochées ne peuvent jamais l’embaucher.'}</small></span></label>
+    <div class="custom-faction-grid hs-faction-grid" style="${mode==='all'?'display:none':''}">${opts.map(o=>`<label class="custom-check"><input class="hsFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div>
   </details>`;
 }
-function hiredSwordReadScope(){const scope=document.querySelector('input[name="hsScope"]:checked')?.value||'all';return scope==='some'?[...document.querySelectorAll('.hsFaction:checked')].map(x=>x.dataset.faction):[]}
+function hiredSwordReadScope(){const scope=document.querySelector('input[name="hsScope"]:checked')?.value||'all';const ticked=[...document.querySelectorAll('.hsFaction:checked')].map(x=>x.dataset.faction);return {only:scope==='some'?ticked:[],except:scope==='except'?ticked:[]}}
 function hiredSwordChoicesDraft(w){if(!customFighterHsChoicesDraft)customFighterHsChoicesDraft=JSON.parse(JSON.stringify(Array.isArray(w?.hsChoices)?w.hsChoices:[]));return customFighterHsChoicesDraft}
 function hiredSwordChoiceNameOptions(){
   const names=new Set();
@@ -17495,7 +17503,7 @@ function saveCustomFighter(){
   item.noEquipment=!!$('#cfNoEquip')?.checked;
   item.noMisericordia=!!$('#cfNoMiseri')?.checked;
   item.updatedAt=Date.now();
-  if(isHS){item.hiredSword=true;item.type='Hired Sword';item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;item.hsFactions=hiredSwordReadScope();item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';}
+  if(isHS){item.hiredSword=true;item.type='Hired Sword';item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;{const sc=hiredSwordReadScope();item.hsFactions=sc.only;item.hsExcluded=sc.except;}item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';}
   const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0)state.customFighters[idx]=item;else state.customFighters.push(item);
   const ref=`custom:${item.customFighterId}`;
   if(previousCustomWarbandId && previousCustomWarbandId!==customWarbandId){
