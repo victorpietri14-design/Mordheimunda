@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0676.0';
+const APP_BUILD='110.0679.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -16176,6 +16176,9 @@ function armorSaveInfo(x){
     base=baseNum==null?'6+':`${Math.max(2,baseNum-1)}+`;steps.push(baseNum==null?'Black Orc Skin : 6+':'Black Orc Skin : +1');
   }
   const shield=names.includes('shield');
+  // A shield worn without armour gives its own save (6+, 5+ in close combat);
+  // the item and skill bonuses below then improve it like any other save.
+  let shieldOnly=false;if(!base&&shield){base='6+';shieldOnly=true;steps.push((en?'Shield':'Bouclier')+' : 6+ / 5+')}
   // V-ITEMSAVEBONUS: generic "+1 Save"-style bonus detection on ANY equipped
   // item's own effective rules text (book or custom), reusing the same
   // detectStatBonusesInText engine already used for skills/spells/special
@@ -16183,10 +16186,13 @@ function armorSaveInfo(x){
   // the French equivalent) in its own text to stack, with no per-item code.
   try{
     let itemSaveDelta=0;
+    const seenTraits=new Set();
     eq.forEach(e=>{
       const text=equipmentEffectiveText(e.name,true)?.text||'';
-      if(!text)return;
-      detectStatBonusesInText(text,x).forEach(b=>{if(!b.conditional&&b.stat==='SAVE'&&b.mode!=='set'&&b.mode!=='grant')itemSaveDelta+=Number(b.delta||0);});
+      if(text)detectStatBonusesInText(text,x).forEach(b=>{if(!b.conditional&&b.stat==='SAVE'&&b.mode!=='set'&&b.mode!=='grant')itemSaveDelta+=Number(b.delta||0);});
+      // the traits of a worn item ("+1 Armour Save" in a trait's own rule) count too, once per trait
+      const traits=[...String(e?.profile?.traits||'').split(','),...(Array.isArray(e?.traits)?e.traits:[])].map(t=>String(t).replace(/\(.*\)/,'').trim()).filter(Boolean);
+      traits.forEach(t=>{const k=normName(t);if(seenTraits.has(k))return;seenTraits.add(k);const te=referenceFind('traits',t);if(!te)return;const ov=ruleMechanicsText(referenceOverrideSectionId('traits',te.id),0);detectStatBonusesInText(ov!=null?ov:te.text,x).forEach(b=>{if(!b.conditional&&b.stat==='SAVE'&&b.mode!=='set'&&b.mode!=='grant')itemSaveDelta+=Number(b.delta||0);});});
     });
     if(itemSaveDelta){
       const start=base?parseInt(/^(\d+)\+$/.exec(base)?.[1]||'7',10):7;
@@ -16221,8 +16227,8 @@ function armorSaveInfo(x){
   }catch(e){}
   const num=base?parseInt(base,10):null;
   if(num==null&&!shield)return {parts:[],steps};
-  if(shield)steps.push((en?'Shield':'Bouclier')+(num==null?' : 6+ / 5+':' : +1 (2nd value)'));
-  if(num==null)return {parts:[6,5],steps};
+  if(shield&&!shieldOnly)steps.push((en?'Shield':'Bouclier')+' : +1 (2nd value)');
+  if(num==null)return {parts:shield?[6,5]:[],steps};
   if(shield)return {parts:[num,Math.max(2,num-1)],steps};
   return {parts:[num],steps};
 }
@@ -16463,7 +16469,7 @@ function detectStatBonusesInText(rawText,ctx){
     // regardless of how it's phrased — see armorSave()).
     const saveRe1=/sauvegarde(?:\s+d['’]armure)?\s*([+-]\d+)|armour save\s*([+-]\d+)/gi;
     let m;while((m=saveRe1.exec(text))){add('SAVE','SAVE',parseInt(m[1]||m[2],10),m.index,m[0].length,m[0]);}
-    const saveRe2=/([+-]\d+)\s*(?:à|a)\s*la sauvegarde|([+-]\d+)\s*to (?:their|his|her|the) armour save/gi;
+    const saveRe2=/([+-]\d+)\s*(?:(?:à|a)\s*la\s+|en\s+|de\s+)?sauvegarde|([+-]\d+)\s*(?:to\s+)?(?:(?:their|his|her|the)\s+)?armou?r save/gi;
     while((m=saveRe2.exec(text))){add('SAVE','SAVE',parseInt(m[1]||m[2],10),m.index,m[0].length,m[0]);}
     const saveRe3=/am[ée]liore(?:nt)?\s+la sauvegarde\s+de\s+(\d+)|improves? (?:their|his|her|the) armour save by\s+(\d+)/gi;
     while((m=saveRe3.exec(text))){add('SAVE','SAVE',Math.abs(parseInt(m[1]||m[2],10)),m.index,m[0].length,m[0]);}
