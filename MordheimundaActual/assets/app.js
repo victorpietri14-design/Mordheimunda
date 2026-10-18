@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0673.0';
+const APP_BUILD='110.0674.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2805,7 +2805,7 @@ function syncAdminManagedFighter(x,r){
       const e=D.weapons.find(a=>normName(a.name)===key)||customEquipmentByName(name);
       if(!e)continue;
       const dv=defaultEquipmentItemPrice(e,r?faction(r):null);
-      const item={stashId:crypto.randomUUID(),name:e.name,paid:0,value:dv,price:dv,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,traits:e.traits||[],rulesText:e.rulesText||'',customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
+      const item={stashId:crypto.randomUUID(),name:e.name,paid:0,value:dv,price:dv,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],rulesText:e.rulesText||'',customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
       collection.push(item);
       if(isLoadout){
         const active=x.equipmentLoadouts.find(l=>l.id===x.activeLoadoutId)||x.equipmentLoadouts[0];
@@ -3077,7 +3077,7 @@ function loadoutEquipmentMarkup(x){
   const en=siteLanguage==='en';
   ensureFighterLoadouts(x);const stash=x.equipmentStash||[],l=activeLoadout(x);
   if(loadoutView==='chest')return `<div class="loadout-view"><div class="loadout-view-head"><div><strong>${en?'Main stash':'Coffre principal'}</strong><small>${en?'All owned equipment. The stash ignores weapon and armour limits and applies no equipment to the profile.':'Tout l’équipement possédé. Le coffre ignore les limites d’armes et d’armures et n’applique aucun équipement au profil.'}</small></div><span>${stash.length} ${en?'item':'objet'}${stash.length!==1?'s':''}</span></div>${stash.length?`<div class="loadout-chest-list">${stash.map((e,i)=>{const v=liveEquipmentView(e);return `<div class="loadout-chest-row"><div>${eqNameLink(v)}<small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div><span>${Number(e.value??e.price??0)} GC${equipmentBandValueHere(e)!==Number(e.value??e.price??0)?` <small>· ${en?'value':'valeur'} ${equipmentBandValueHere(e)}</small>`:''}</span><div class="equipped-actions">${itemUseButtonMarkup(e,i)}<button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveStashEquipmentToReserve(${i})">▣</button><button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" onclick="sellEquipment(${i})">💰</button><button type="button" class="equipment-action remove" title="${en?'Remove from stash':'Supprimer du coffre'}" onclick="removeEquipment(${i})">🗑</button></div></div>`}).join('')}</div>`:`<div class="empty compact">${en?'Empty stash.':'Coffre vide.'}</div>`}</div>`;
-  return `<div class="loadout-view"><div class="loadout-view-head"><div><strong>${esc(l?.name||'Loadout')}</strong><small>${en?'Check the stash items used by this loadout. Weapon, armour and combination restrictions still apply here.':'Coche les objets du coffre utilisés par ce loadout. Les restrictions d’armes, d’armures et de combinaison restent appliquées ici.'}</small></div><span>${x.equipmentSelected?.length||0} ${en?'selected':'sélectionné'}${(x.equipmentSelected?.length||0)!==1?'s':''}</span></div>${stash.length?`<div class="loadout-select-list">${stash.map((e,i)=>{const checked=loadoutHasItem(x,e),reason=loadoutDisabledReason(x,e),v=liveEquipmentView(e);return `<label class="loadout-check-row ${reason&&!checked?'is-disabled':''}" title="${reason?esc(reason):''}"><input type="checkbox" ${checked?'checked':''} ${reason&&!checked?'disabled':''} onchange="toggleLoadoutItem(${i})"><span><b>${eqNameLink(v)}</b><small>${esc(v.category||(en?'Equipment':'Équipement'))}${v.profile?` · ${esc(v.profile.range||'')} · S ${esc(v.profile.strength||'')} · AP ${esc(v.profile.ap||'—')} · D ${esc(v.profile.damage||'—')}`:''}${reason&&!checked?` · <em>${esc(reason)}</em>`:''}</small></span></label>`}).join('')}</div>`:`<div class="empty compact">${en?'The stash is empty. Add equipment first.':'Le coffre est vide. Ajoute d’abord de l’équipement.'}</div>`}</div>`;
+  return `<div class="loadout-view"><div class="loadout-view-head"><div><strong>${esc(l?.name||'Loadout')}</strong><small>${en?'Check the stash items used by this loadout. Weapon, armour and combination restrictions still apply here.':'Coche les objets du coffre utilisés par ce loadout. Les restrictions d’armes, d’armures et de combinaison restent appliquées ici.'}</small></div><span>${x.equipmentSelected?.length||0} ${en?'selected':'sélectionné'}${(x.equipmentSelected?.length||0)!==1?'s':''}</span></div>${stash.length?`<div class="loadout-select-list">${stash.map((e,i)=>{const checked=loadoutHasItem(x,e),reason=loadoutDisabledReason(x,e),v=liveEquipmentView(e);return `<label class="loadout-check-row ${reason&&!checked?'is-disabled':''}" title="${reason?esc(reason):''}"><input type="checkbox" ${checked?'checked':''} ${reason&&!checked?'disabled':''} onchange="toggleLoadoutItem(${i})"><span><b>${eqNameLink(v)}</b><small>${esc(v.category||(en?'Equipment':'Équipement'))}${v.profile?` · ${esc(v.profile.range||'')} · S ${esc(v.profile.strength||'')} · AP ${esc(v.profile.ap||'—')} · D ${esc(v.profile.damage||'—')}`:''}${v.profile2?` / ${esc(v.profile2.range||'')} · S ${esc(v.profile2.strength||'')} · AP ${esc(v.profile2.ap||'—')} · D ${esc(v.profile2.damage||'—')}`:''}${reason&&!checked?` · <em>${esc(reason)}</em>`:''}</small></span></label>`}).join('')}</div>`:`<div class="empty compact">${en?'The stash is empty. Add equipment first.':'Le coffre est vide. Ajoute d’abord de l’équipement.'}</div>`}</div>`;
 }
 /* Base cost is normally snapshotted onto the fighter at recruitment (see
    addFighter). If an admin later edits that fighter type's cost in the
@@ -5935,7 +5935,7 @@ async function saveAdminWeapon(originalName){
 async function toggleAdminWeaponHidden(name){
   const en=siteLanguage==='en';
   const w=(D.weapons||[]).find(x=>x.name===name);if(!w)return;
-  const data={name:w.name,category:w.category||'Équipements divers',price:Number(w.price||0),availability:w.availability||'',market:w.market!==false,band:w.band!==false,profile:w.profile?{...w.profile}:undefined,hidden:!w.hidden};
+  const data={name:w.name,category:w.category||'Équipements divers',price:Number(w.price||0),availability:w.availability||'',market:w.market!==false,band:w.band!==false,profile:w.profile?{...w.profile}:undefined,...(w.profile2?{profile2:{...w.profile2}}:{}),hidden:!w.hidden};
   try{
     await window.MordheimundaAPI.adminSaveWeaponOverride(name,data);
     await loadWeaponOverrides();
@@ -11534,7 +11534,7 @@ function explorationEquipmentDefinition(name){
   const a=aliases[name]||{base:name};
   const base=D.weapons.find(w=>normName(w.name)===normName(a.base));
   if(!base)return {name,category:'Récompense d’exploration',price:a.price??0,value:a.price??0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true};
-  return {name,category:base.category,subcategory:base.subcategory||base.category,price:a.price??base.price??0,value:a.price??base.price??0,rarity:base.rarity||'',availability:base.availability||base.rarity||'—',profile:base.profile?{...base.profile}:null,traits:Array.isArray(base.traits)?base.traits.slice():base.traits?[base.traits]:[],rulesText:base.rulesText||'',weaponSlotCost:weaponSlots(base),equipmentAccessGroups:['ALL'],explorationReward:true,sourceEquipment:base.name};
+  return {name,category:base.category,subcategory:base.subcategory||base.category,price:a.price??base.price??0,value:a.price??base.price??0,rarity:base.rarity||'',availability:base.availability||base.rarity||'—',profile:base.profile?{...base.profile}:null,profile2:base.profile2?{...base.profile2}:null,traits:Array.isArray(base.traits)?base.traits.slice():base.traits?[base.traits]:[],rulesText:base.rulesText||'',weaponSlotCost:weaponSlots(base),equipmentAccessGroups:['ALL'],explorationReward:true,sourceEquipment:base.name};
 }
 function explorationFactionLabel(r){return String(faction(r)?.displayName||faction(r)?.name||'')}
 function explorationBonusList(r){return Array.isArray(r?.postBattle?.explorationBonuses)?r.postBattle.explorationBonuses:[]}
@@ -13693,7 +13693,7 @@ function hiredSwordOptionKind(name,f){
   const domains=customMergedMagicDomains(f);if(Object.values(domains||{}).some(list=>(list||[]).some(sp=>normName(typeof sp==='string'?sp:sp?.name)===normName(name))))return 'spell';
   return 'skill';
 }
-function hiredSwordGearItem(name,extra){const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),hsFixed:true,...(extra||{})}}
+function hiredSwordGearItem(name,extra){const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),hsFixed:true,...(extra||{})}}
 let hiredSwordPickTarget=null;
 function hiredSwordChoiceModal(w,current,onConfirm,title){
   const en=siteLanguage==='en';
@@ -14358,8 +14358,10 @@ function weaponProfileMarkup(e,x){const p=e.profile;if(!p)return '';const fx=wea
   // labeled Tir/Corps à corps by its own range text, instead of just the one.
   const rangeLooksMelee=p2=>/melee/i.test(String(p2?.range||''));
   const grid1=weaponProfileGridMarkup(p,fx,e.profile2?(rangeLooksMelee(p)?'Corps à corps':'Tir'):'');
-  const grid2=e.profile2?weaponProfileGridMarkup(e.profile2,null,rangeLooksMelee(e.profile2)?'Corps à corps':'Tir'):'';
-  return `<div class="weapon-profile"><div class="weapon-profile-title">${titleLink}${spellTag}</div>${grid1}${grid2}${noteMarkup}</div>`}
+  const fx2=e.profile2?weaponEffectPack(x,{...e,profile:e.profile2,traits:String(e.profile2.traits||'').split(/,\s*/).filter(Boolean)}):null;
+  const grid2=e.profile2?weaponProfileGridMarkup(e.profile2,fx2,rangeLooksMelee(e.profile2)?'Corps à corps':'Tir'):'';
+  const notes2=(fx2?.notes||[]).filter(n=>!fx.notes.includes(n));const noteMarkup2=notes2.length?`<div class="weapon-applied-effects">${notes2.map(n=>`<span>${esc(n)}</span>`).join(' · ')}</div>`:'';
+  return `<div class="weapon-profile"><div class="weapon-profile-title">${titleLink}${spellTag}</div>${grid1}${grid2}${noteMarkup}${noteMarkup2}</div>`}
 // V-SPELLWEAPON-BOOK: an admin can also attach a weapon profile to an
 // OFFICIAL book spell (e.g. Fire of U'Zhul) — not just a custom one created
 // via Custom > Sorts — since most spells a fighter actually knows come from
@@ -16807,7 +16809,7 @@ function customCreatureAsWarrior(w){
 function naturalWeaponItem(name){
   const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);
   if(!e)return null;
-  return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
+  return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
 }
 function syncAnimalNaturalWeapons(x){
   if(x?.type!=='Animal'||!x.wid)return false;
@@ -16993,7 +16995,7 @@ function liveEquipmentDef(e){
 function liveEquipmentView(e){
   const def=liveEquipmentDef(e);
   if(!def)return e;
-  return {...e,name:def.name||e.name,category:def.category||e.category,subcategory:def.subcategory||e.subcategory,rarity:def.rarity??e.rarity,availability:def.availability??e.availability,profile:def.profile||e.profile||null,profile2:def.profile2||e.profile2||null,traits:def.traits??e.traits,rulesText:def.rulesText??e.rulesText,creatureProfile:def.creatureProfile||e.creatureProfile||null,creatureSv:def.creatureSv??e.creatureSv};
+  return {...e,name:def.name||e.name,category:def.category||e.category,subcategory:def.subcategory||e.subcategory,rarity:def.rarity??e.rarity,availability:def.availability??e.availability,profile:def.profile||e.profile||null,profile2:(e.customEquipmentId&&def.customEquipmentId===e.customEquipmentId)?(def.profile2||null):(def.profile2||e.profile2||null),traits:def.traits??e.traits,rulesText:def.rulesText??e.rulesText,creatureProfile:def.creatureProfile||e.creatureProfile||null,creatureSv:def.creatureSv??e.creatureSv};
 }
 // V-POOLSCOPEALL: server.js's toOfficialFaction marks an item officialized
 // to the "No warband (available to every warband)" content pool with the
@@ -17048,15 +17050,16 @@ function equipmentPeekProfileMarkup(w){
       ${Array.isArray(w.traits)&&w.traits.length?`<span class="equipment-peek-traits">${en?'Traits':'Traits'}<b>${w.traits.map(t=>refLinkByName(t,'special')).join(', ')}</b></span>`:''}
     </div>`;
   }
-  const p=w?.profile;
-  if(!p||(!p.range&&!p.strength&&!p.ap&&!p.damage&&!p.traits))return '';
-  return `<div class="equipment-peek-profile">
+  // V-DUALPEEK: a dual-profile weapon shows both lines, each tagged by its own range.
+  const one=(p,label)=>(!p||(!p.range&&!p.strength&&!p.ap&&!p.damage&&!p.traits))?'':`${label?`<div class="weapon-profile-sublabel">${esc(label)}</div>`:''}<div class="equipment-peek-profile">
     <span>${en?'Range':'Portée'}<b>${esc(p.range||'—')}</b></span>
     <span>${en?'Strength':'Force'}<b>${esc(p.strength||'—')}</b></span>
     <span>AP<b>${esc(p.ap||'—')}</b></span>
     <span>${en?'Damage':'Dégâts'}<b>${esc(p.damage||'—')}</b></span>
     <span class="equipment-peek-traits">Traits<b>${refTraitList(p.traits||'—')}</b></span>
   </div>`;
+  const tag=p=>/melee/i.test(String(p?.range||''))?(en?'Melee':'Corps à corps'):(en?'Ranged':'Tir');
+  return w?.profile2?one(w.profile,tag(w.profile))+one(w.profile2,tag(w.profile2)):one(w?.profile,'');
 }
 function showEquipmentPeek(el){
   // V-STALEPEEKTARGET: same guard as showRulePeek — a detached trigger here
@@ -17171,7 +17174,7 @@ function purchaseEquipment(encoded,tab){
   const value=intrinsic?0:Math.max(0,Number($('#purchaseValue')?.value||0));
   if(!Number.isFinite(paid)||!Number.isFinite(value)){toast(siteLanguage==='en'?'Invalid price':'Prix invalide');return}
   if(r.gold<paid){toast(siteLanguage==='en'?`Insufficient treasury: ${r.gold} GC available`:`Trésor insuffisant : ${r.gold} GC disponibles`);return}
-  const newItem={stashId:crypto.randomUUID(),name:w.name,paid,value,price:value,category:w.category,subcategory:w.subcategory||w.category,rarity:w.rarity||'',availability:w.availability||w.rarity||'—',profile:w.profile||null,traits:w.traits||[],rulesText:w.rulesText||'',customEquipmentId:w.customEquipmentId||null,weaponSlotCost:weaponSlots(w),intrinsic,
+  const newItem={stashId:crypto.randomUUID(),name:w.name,paid,value,price:value,category:w.category,subcategory:w.subcategory||w.category,rarity:w.rarity||'',availability:w.availability||w.rarity||'—',profile:w.profile||null,profile2:w.profile2||null,traits:w.traits||[],rulesText:w.rulesText||'',customEquipmentId:w.customEquipmentId||null,weaponSlotCost:weaponSlots(w),intrinsic,
     // V-MOUNTPROFILE: snapshot the Mount's characteristic row/save/id at
     // purchase time too (liveEquipmentView re-derives the live version via
     // customEquipmentId on every render, but a stored snapshot keeps this
@@ -17670,7 +17673,7 @@ function addFighterCore(wid){const r=activeRoster(),f=faction(r),custom=customFi
   // warbandLegalityBadgeMarkup, which read the roster live on every render
   // and flag it as illegal (with what to fix, on click) instead of refusing
   // the recruit outright or interrupting with a popup on every purchase.
-  const count=r.fighters.filter(x=>x.wid===wid).length;if(w.max!==null&&count>=w.max){toast(siteLanguage==='en'?'Limit reached for this profile':'Limite atteinte pour ce profil');return}const recruitCost=fighterRecruitCost(w,f);if(r.gold<recruitCost){toast(siteLanguage==='en'?'Insufficient treasury':'Trésor insuffisant');return}const defaults=(w.defaultEquipment||[]).map(name=>{const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;const dp=defaultEquipmentItemPrice(e,f);return {stashId:crypto.randomUUID(),name:e.name,paid:dp,value:dp,price:dp,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true}}).filter(Boolean);const fighter={...w,profile:effectiveFighterProfile(w,f),baseProfile:effectiveFighterProfile(w,f),sourceName:w.name,wid,instance:crypto.randomUUID(),name:w.name,xp:0,defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:defaults,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],advancements:[],injuries:[],spells:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId||null};if(fighterUsesLoadouts(fighter)){fighter.equipmentStash=defaults.slice();fighter.equipmentLoadouts=[{id:crypto.randomUUID(),name:'1',equipmentIds:defaults.map(e=>e.stashId),equipmentNames:defaults.map(e=>e.name)}];fighter.activeLoadoutId=fighter.equipmentLoadouts[0].id;syncLoadoutProjection(fighter);}r.fighters.push(fighter);syncCustomEquipmentEffects(fighter);r.gold-=recruitCost;logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(w.name)}</b> recruited into the warband — <b>${esc(w.type)}</b>, cost ${recruitCost} GC`:`<b>${esc(w.name)}</b> recruté dans la bande — <b>${esc(w.type)}</b>, coût ${recruitCost} GC`);save(true);render('builder');toast(siteLanguage==='en'?`✓ ${w.name} recruited — ${recruitCost} GC`:`✓ ${w.name} recruté — ${recruitCost} GC`);}
+  const count=r.fighters.filter(x=>x.wid===wid).length;if(w.max!==null&&count>=w.max){toast(siteLanguage==='en'?'Limit reached for this profile':'Limite atteinte pour ce profil');return}const recruitCost=fighterRecruitCost(w,f);if(r.gold<recruitCost){toast(siteLanguage==='en'?'Insufficient treasury':'Trésor insuffisant');return}const defaults=(w.defaultEquipment||[]).map(name=>{const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;const dp=defaultEquipmentItemPrice(e,f);return {stashId:crypto.randomUUID(),name:e.name,paid:dp,value:dp,price:dp,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true}}).filter(Boolean);const fighter={...w,profile:effectiveFighterProfile(w,f),baseProfile:effectiveFighterProfile(w,f),sourceName:w.name,wid,instance:crypto.randomUUID(),name:w.name,xp:0,defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:defaults,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],advancements:[],injuries:[],spells:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId||null};if(fighterUsesLoadouts(fighter)){fighter.equipmentStash=defaults.slice();fighter.equipmentLoadouts=[{id:crypto.randomUUID(),name:'1',equipmentIds:defaults.map(e=>e.stashId),equipmentNames:defaults.map(e=>e.name)}];fighter.activeLoadoutId=fighter.equipmentLoadouts[0].id;syncLoadoutProjection(fighter);}r.fighters.push(fighter);syncCustomEquipmentEffects(fighter);r.gold-=recruitCost;logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(w.name)}</b> recruited into the warband — <b>${esc(w.type)}</b>, cost ${recruitCost} GC`:`<b>${esc(w.name)}</b> recruté dans la bande — <b>${esc(w.type)}</b>, coût ${recruitCost} GC`);save(true);render('builder');toast(siteLanguage==='en'?`✓ ${w.name} recruited — ${recruitCost} GC`:`✓ ${w.name} recruté — ${recruitCost} GC`);}
 // V-DEFAULTEQUIPPRICE: default (starting) equipment used to be granted at
 // 0 GC: free at recruitment and worth nothing in the fighter's value. It now
 // costs its normal price (Band List price for this warband when it has one,
