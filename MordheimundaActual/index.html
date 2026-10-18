@@ -5,7 +5,7 @@
 <title>Mordheimunda 26 // M17</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/styles.css?v=110.0669.0">
+<link rel="stylesheet" href="/assets/styles.css?v=110.0670.0">
 </head>
 <body>
 <img class="app-bg" src="/assets/img/dashboard-bg.jpg" alt="">
@@ -14,7 +14,7 @@
 <aside class="sidebar">
  <a class="brand brand-link" href="/" data-app-route="1"><div class="brand-mark"><img src="/assets/img/logo.png" alt="Mordheimunda" style="width:100%;height:100%;object-fit:contain"></div><div><strong>MORDHEIMUNDA 26</strong><span>M17 ROSTER MANAGER</span></div></a>
  <button type="button" class="phone-back" id="phoneBack" hidden onclick="phoneGoBack()" aria-label="Retour">‹</button>
- <div class="phone-title" id="phoneTitle"></div>
+ <button type="button" class="site-search-btn" onclick="openSiteSearch()" aria-label="Rechercher"><span aria-hidden="true">🔍</span><span class="ssb-lbl">Rechercher…</span><kbd>/</kbd></button>
  <nav>
   <div class="nav-group" data-group="warband">
    <div class="nav-group-head"><i class="grp-ic">⚑</i><span>Warband Manager</span><i class="grp-chev">▾</i></div>
@@ -64,7 +64,7 @@
 <div class="tab-sheet-wrap" id="tabSheetWrap" hidden onclick="if(event.target===this)closeTabSheet()"><div class="tab-sheet" id="tabSheet" role="dialog"></div></div>
 </div>
 <div id="modal" class="modal hidden"><div class="modal-card"><button class="modal-close" id="modalClose">×</button><div id="modalContent"></div></div></div>
-<script src="/data/catalog.js?v=110.0669.0"></script><script src="/data/rules.js?v=110.0669.0"></script><script src="/data/packs/loader.js?v=110.0669.0"></script><script src="/data/packs/blood_dragons.js?v=110.0669.0"></script><script src="/assets/core/config.js?v=110.0669.0"></script><script src="/assets/core/migrations.js?v=110.0669.0"></script><script src="/assets/core/storage.js?v=110.0669.0"></script><script src="/assets/core/content.js?v=110.0669.0"></script><script src="/assets/core/api.js?v=110.0669.0"></script><script src="/assets/app.js?v=110.0669.0"></script>
+<script src="/data/catalog.js?v=110.0670.0"></script><script src="/data/rules.js?v=110.0670.0"></script><script src="/data/packs/loader.js?v=110.0670.0"></script><script src="/data/packs/blood_dragons.js?v=110.0670.0"></script><script src="/assets/core/config.js?v=110.0670.0"></script><script src="/assets/core/migrations.js?v=110.0670.0"></script><script src="/assets/core/storage.js?v=110.0670.0"></script><script src="/assets/core/content.js?v=110.0670.0"></script><script src="/assets/core/api.js?v=110.0670.0"></script><script src="/assets/app.js?v=110.0670.0"></script>
 <script>if('serviceWorker' in navigator){
   let swRefreshing=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
