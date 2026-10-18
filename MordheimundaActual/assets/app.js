@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0681.0';
+const APP_BUILD='110.0682.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2365,6 +2365,10 @@ function mergeAccountData(local,remote){
   };
   keys.forEach(k=>out[k]=merge(k,local?.[k],r?.[k]));
   out.deleted=mergedDeleted;
+  // V-ORDERSYNC: the newer stamped list order wins; warbands it doesn't
+  // list yet (created since) keep their merged position after it.
+  {const oa=local?.rosterOrder,ob=r?.rosterOrder;const ord=(oa&&ob)?((Number(ob.seq)||0)>(Number(oa.seq)||0)?ob:oa):(oa||ob);
+   if(ord&&Array.isArray(ord.ids)){const pos=new Map(ord.ids.map((id,i)=>[String(id),i]));const rank=(x,i)=>pos.has(String(x.id))?pos.get(String(x.id)):ord.ids.length+i;out.rosters=out.rosters.map((x,i)=>[x,rank(x,i)]).sort((a,b)=>a[1]-b[1]).map(p=>p[0]);out.rosterOrder=ord}}
   if(!out.active&&r.active)out.active=r.active;
   out.meta={...(local?.meta||{}),...(r?.meta||{}),updatedAt:new Date().toISOString()};
   return out;
@@ -7995,11 +7999,18 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
   // "position" field.
   const reorderBtns=reorder?`<div class="dash-wcard-reorder"><button type="button" class="dash-wcard-move" title="${en?'Move up':'Monter'}" aria-label="${en?'Move up':'Monter'}" ${reorder.index<=0?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',-1)">▲</button><button type="button" class="dash-wcard-move" title="${en?'Move down':'Descendre'}" aria-label="${en?'Move down':'Descendre'}" ${reorder.index>=reorder.total-1?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',1)">▼</button></div>`:'';
   return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}${greatQuestAchieved(r).length?` <span class="gq-trophy" title="${esc((en?'Great Quest achieved: ':'Grande Quête accomplie : ')+greatQuestAchieved(r).map(q=>q.name).join(', '))}">${trophyMarkup(greatQuestAchieved(r)[0].trophy,22)}</span>`:''}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
+// V-ORDERSYNC: the warband list order is a separate, stamped record
+// (state.rosterOrder) so another device can tell a newer reorder from its own
+// older one; mergeAccountData keeps the newest. Same stamp as save() puts on
+// an edited roster (confirmed revision first, then the clock).
+function syncStamp(){return (Number(state?.meta?.cloudRevision)||0)*1e13+Date.now()}
+function stampRosterOrder(){state.rosterOrder={ids:(state.rosters||[]).map(r=>String(r.id)),seq:syncStamp()}}
+function touchRoster(r){if(!r)return;r.updatedAt=Date.now();r.updatedSeq=syncStamp()}
 function moveRosterOrder(id,dir){
   const idx=state.rosters.findIndex(r=>r.id===id);if(idx<0)return;
   const to=idx+dir;if(to<0||to>=state.rosters.length)return;
   const [item]=state.rosters.splice(idx,1);state.rosters.splice(to,0,item);
-  save(true);render('rosters');
+  stampRosterOrder();save(true);render('rosters');
 }
 // V-ROSTERDRAG: press-and-hold to drag-reorder a warband card on "Mes
 // bandes", same mechanism as the fighter cards in a roster builder
@@ -8119,7 +8130,7 @@ function finishRosterPointerDrag(e,cancelled=false){
         if(from<to)to--;
         list.splice(rosterPointerDropAfter?to+1:to,0,item);
         state.rosters=list;
-        save(true);
+        stampRosterOrder();save(true);
       }
     }
   }
@@ -8255,7 +8266,7 @@ function openHomePriorities(){
 function saveHomePriorities(){
   const picks=[...document.querySelectorAll('.homePriSel')].map(s=>({rank:Number(s.dataset.rank),id:s.value}));
   const ids=picks.filter(p=>p.id).map(p=>p.id);if(new Set(ids).size!==ids.length){toast(siteLanguage==='en'?'A warband can only take one slot':'Une bande ne peut occuper qu’un seul emplacement');return}
-  const now=Date.now();(state.rosters||[]).forEach(r=>{const p=picks.find(q=>q.id===r.id);const next=p?p.rank:0;if(Number(r.homePriority||0)!==next){if(next)r.homePriority=next;else delete r.homePriority;r.updatedAt=now}});
+  const now=Date.now();(state.rosters||[]).forEach(r=>{const p=picks.find(q=>q.id===r.id);const next=p?p.rank:0;if(Number(r.homePriority||0)!==next){if(next)r.homePriority=next;else delete r.homePriority;touchRoster(r)}});
   save(true);closeModal();render('dashboard');
 }
 let homeCampaignOptions=null;
