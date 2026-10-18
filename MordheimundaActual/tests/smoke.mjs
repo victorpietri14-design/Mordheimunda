@@ -36,7 +36,7 @@ for(const vp of ['desktop','mobile']){
   });
   await test(`[${vp}] open a warband, recruit a fighter, open its sheet`,vp,async page=>{
     await seed(page);await page.evaluate(()=>navigateApp(warbandPath('smoke')));await page.waitForTimeout(600);
-    expect(await page.isVisible('text=Smoke Test Band'),'warband page did not open');
+    expect(await page.isVisible('#content >> text=Smoke Test Band'),'warband page did not open');
     await page.evaluate(()=>openRecruitPanel());await page.waitForTimeout(500);
     const btn=page.locator('.recruit-panel button',{hasText:/Recruit — \d+ GC/}).first();
     expect(await btn.count(),'no recruit button in the recruit panel');
