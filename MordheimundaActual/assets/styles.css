@@ -5028,3 +5028,8 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 @media(min-width:901px){.armor-stat .sv-real{position:static;transform:none;display:inline-block;margin-left:4px;font-size:.58em;opacity:.85;vertical-align:middle}}
 /* The Sv box stays blue on phones too (the mobile card rule above resets every stat box to --bg). */
 .fighter-card-v5.owned-card .profile-stat.armor-stat,.fighter-page .profile-stat.armor-stat,.fighter-card-v4 .profile-stat.armor-stat,.profile-simple .profile-stat.armor-stat{background:var(--info-border)!important;border-color:var(--info-border)!important}
+/* Real save hidden by the infantry cap: green overstat-style corner tag on the blue Sv box. */
+.profile-stat.armor-stat{position:relative}
+.profile-stat.armor-stat .sv-over{position:absolute;top:2px;right:2px;margin:0;white-space:nowrap;padding:1px 4px;border-radius:3px;background:var(--accent);color:#0c1408!important;font:900 9px/1.1 'IBM Plex Sans',sans-serif!important;font-style:normal;letter-spacing:.2px;z-index:2;box-shadow:0 0 6px rgba(157,250,60,.35)}
+@media(max-width:900px){.profile-stat.armor-stat .sv-over{top:4px;left:50%;right:auto;transform:translateX(-50%);font-size:9px;padding:1px 4px}.profile-stat.armor-stat.sv-capped>span{visibility:hidden}}
+@media(min-width:901px){.profile-stat.armor-stat .sv-over{font-size:11px;padding:2px 5px;top:3px;right:3px}}
