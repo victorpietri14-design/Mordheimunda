@@ -5025,3 +5025,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .ud-budget .ud-reset{margin-left:auto;flex:none}
 .armor-stat b{position:relative}.armor-stat .sv-real{position:absolute;left:50%;bottom:calc(100% + 1px);transform:translateX(-50%);font-size:9.5px;line-height:1;opacity:.8;font-weight:700;white-space:nowrap;letter-spacing:0}
 .pb-leader-dice{font-style:normal;font-size:11px;color:var(--gold,#f2c94c);margin-left:6px}
+@media(min-width:901px){.armor-stat .sv-real{position:static;transform:none;display:inline-block;margin-left:4px;font-size:.58em;opacity:.85;vertical-align:middle}}
