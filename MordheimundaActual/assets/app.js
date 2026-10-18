@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0671.0';
+const APP_BUILD='110.0672.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -16258,7 +16258,12 @@ const CONDITIONAL_TRIGGER_PATTERNS=[
   /melee only/i,/ranged only/i,/when (?:they|this warrior|he|she) charges?/i,
   /as part of a charge/i,/\bif\b/i,/\bwhen\b/i,/\bwhile\b/i,/in the turn (?:he|she|they|it) charges?/i,/\bcharg(?:e|es|ed|ing)\b/i,/\bwhenever\b/i,/\bduring\b/i,/\bagainst\b/i,
   /once per (?:battle|game)/i,/single use/i,/once used/i,
-  /until (?:the end of|their next)/i,/this turn/i,/this phase/i,/for the rest of the battle/i
+  /until (?:the end of|their next)/i,/this turn/i,/this phase/i,/for the rest of the battle/i,
+  // V-CONDMORE: per-event and scoped bonuses that read without "if/when"
+  // (Momentum: "For every unsaved wound… for the duration of the next
+  // activation"; Strike First: "in close combat attacks"; a misfire result).
+  /\bfor (?:every|each)\b/i,/for the duration/i,/next activation/i,/in close combat/i,/close combat attacks/i,/counts as having/i,/\bthe shot\b/i,/lasts? (?:one|1|a) (?:battle|game)/i,
+  /\bpour chaque\b/i,/pendant la dur[ée]e/i,/prochaine activation/i,/au corps [aà] corps/i,/dure une (?:bataille|partie)/i
 ];
 function statBonusSentenceAround(text,idx,len){
   let start=0;
@@ -16290,7 +16295,8 @@ function statBonusOwnSentence(text,idx,len){
 // space for this check (same length, so indexes still line up); a blank
 // line still ends a paragraph. Consumables / once-per-game items make every
 // bonus in their text conditional.
-const WHOLE_TEXT_CONDITIONAL=[/once per (?:game|battle)/i,/une fois par (?:partie|bataille)/i,/single use/i,/usage unique/i,/one use only/i];
+// A spell's bonus only lasts while it is cast (its text carries a Difficulty).
+const WHOLE_TEXT_CONDITIONAL=[/\bDifficult[yé]\s*:?\s*[-+]?\d/i,/once per (?:game|battle)/i,/une fois par (?:partie|bataille)/i,/single use/i,/usage unique/i,/one use only/i];
 // An armour's "grants a 4+ save" is judged on its own sentence only: the
 // next sentence is usually another rule of the same item (Encumbered…
 // "when making a Charge action") that says nothing about the save.
