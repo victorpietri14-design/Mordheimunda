@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0678.0';
+const APP_BUILD='110.0679.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -16186,10 +16186,13 @@ function armorSaveInfo(x){
   // the French equivalent) in its own text to stack, with no per-item code.
   try{
     let itemSaveDelta=0;
+    const seenTraits=new Set();
     eq.forEach(e=>{
       const text=equipmentEffectiveText(e.name,true)?.text||'';
-      if(!text)return;
-      detectStatBonusesInText(text,x).forEach(b=>{if(!b.conditional&&b.stat==='SAVE'&&b.mode!=='set'&&b.mode!=='grant')itemSaveDelta+=Number(b.delta||0);});
+      if(text)detectStatBonusesInText(text,x).forEach(b=>{if(!b.conditional&&b.stat==='SAVE'&&b.mode!=='set'&&b.mode!=='grant')itemSaveDelta+=Number(b.delta||0);});
+      // the traits of a worn item ("+1 Armour Save" in a trait's own rule) count too, once per trait
+      const traits=[...String(e?.profile?.traits||'').split(','),...(Array.isArray(e?.traits)?e.traits:[])].map(t=>String(t).replace(/\(.*\)/,'').trim()).filter(Boolean);
+      traits.forEach(t=>{const k=normName(t);if(seenTraits.has(k))return;seenTraits.add(k);const te=referenceFind('traits',t);if(!te)return;const ov=ruleMechanicsText(referenceOverrideSectionId('traits',te.id),0);detectStatBonusesInText(ov!=null?ov:te.text,x).forEach(b=>{if(!b.conditional&&b.stat==='SAVE'&&b.mode!=='set'&&b.mode!=='grant')itemSaveDelta+=Number(b.delta||0);});});
     });
     if(itemSaveDelta){
       const start=base?parseInt(/^(\d+)\+$/.exec(base)?.[1]||'7',10):7;

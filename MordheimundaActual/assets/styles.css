@@ -5026,3 +5026,5 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .armor-stat b{position:relative}.armor-stat .sv-real{position:absolute;left:50%;bottom:calc(100% + 1px);transform:translateX(-50%);font-size:9.5px;line-height:1;opacity:.8;font-weight:700;white-space:nowrap;letter-spacing:0}
 .pb-leader-dice{font-style:normal;font-size:11px;color:var(--gold,#f2c94c);margin-left:6px}
 @media(min-width:901px){.armor-stat .sv-real{position:static;transform:none;display:inline-block;margin-left:4px;font-size:.58em;opacity:.85;vertical-align:middle}}
+/* The Sv box stays blue on phones too (the mobile card rule above resets every stat box to --bg). */
+.fighter-card-v5.owned-card .profile-stat.armor-stat,.fighter-page .profile-stat.armor-stat,.fighter-card-v4 .profile-stat.armor-stat,.profile-simple .profile-stat.armor-stat{background:var(--info-border)!important;border-color:var(--info-border)!important}
