@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0679.0';
+const APP_BUILD='110.0680.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -16172,13 +16172,15 @@ function armorSaveInfo(x){
   // rule only ever granting or improving it — shield stacking and the
   // generic item/stat-bonus passes further below then apply on top exactly
   // as they would for any other fighter.
-  if(scalySaveRuleNames.includes(normName('Black Orc Skin'))||scalySaveRuleNames.includes(normName("Peau d'Orc Noir"))){
-    base=baseNum==null?'6+':`${Math.max(2,baseNum-1)}+`;steps.push(baseNum==null?'Black Orc Skin : 6+':'Black Orc Skin : +1');
-  }
   const shield=names.includes('shield');
   // A shield worn without armour gives its own save (6+, 5+ in close combat);
-  // the item and skill bonuses below then improve it like any other save.
+  // Black Orc Skin and the item/skill bonuses below then improve it like any
+  // other save (Black Orc + shield alone = 5+/4+).
   let shieldOnly=false;if(!base&&shield){base='6+';shieldOnly=true;steps.push((en?'Shield':'Bouclier')+' : 6+ / 5+')}
+  if(scalySaveRuleNames.includes(normName('Black Orc Skin'))||scalySaveRuleNames.includes(normName("Peau d'Orc Noir"))){
+    const cur=base?parseInt(base,10):null;
+    base=cur==null?'6+':`${Math.max(2,cur-1)}+`;steps.push(cur==null?'Black Orc Skin : 6+':'Black Orc Skin : +1');
+  }
   // V-ITEMSAVEBONUS: generic "+1 Save"-style bonus detection on ANY equipped
   // item's own effective rules text (book or custom), reusing the same
   // detectStatBonusesInText engine already used for skills/spells/special
@@ -16206,7 +16208,9 @@ function armorSaveInfo(x){
   // way a shield already does below — a conditional one is never applied to
   // this number, only surfaced as a dot (statConditionalBadgeMarkup).
   try{
-    const saveDelta=fighterDetectedStatBonuses(x,faction(activeRoster())).filter(b=>!b.conditional&&b.stat==='SAVE').reduce((s,b)=>s+Number(b.delta||0),0);
+    // Black Orc Skin / Scaly Skin are handled by name above: their own text is not counted again.
+    const handled=new Set(['black orc skin',"peau d'orc noir",'scaly skin','peau écailleuse'].map(normName));
+    const saveDelta=fighterDetectedStatBonuses(x,faction(activeRoster())).filter(b=>!b.conditional&&b.stat==='SAVE'&&!handled.has(normName(b.sourceName||''))).reduce((s,b)=>s+Number(b.delta||0),0);
     // V-NATURALSAVE (Task #69): this used to require `base` (a save from
     // worn armour) to already be truthy before a detected bonus could do
     // anything — so a rule that GRANTS its own save outright (a natural
@@ -16341,7 +16345,7 @@ const WHOLE_TEXT_CONDITIONAL=[/\bDifficult[yé]\s*:?\s*[-+]?\d/i,/once per (?:ga
 // An armour's "grants a 4+ save" is judged on its own sentence only: the
 // next sentence is usually another rule of the same item (Encumbered…
 // "when making a Charge action") that says nothing about the save.
-function classifyGrantConditionality(text,idx,len){text=String(text||'').replace(/([^\n])\n(?!\n)/g,'$1 ');const sentence=statBonusOwnSentence(text,idx,len);const conditional=CONDITIONAL_TRIGGER_PATTERNS.some(re=>re.test(sentence));return {conditional,conditionText:conditional?sentence:''}}
+function classifyGrantConditionality(text,idx,len){text=String(text||'').replace(/([^\n])\n(?!\n)/g,'$1 ');if(WHOLE_TEXT_CONDITIONAL.some(re=>re.test(text)))return {conditional:true,conditionText:statBonusOwnSentence(text,idx,len)};const sentence=statBonusOwnSentence(text,idx,len);const conditional=CONDITIONAL_TRIGGER_PATTERNS.some(re=>re.test(sentence));return {conditional,conditionText:conditional?sentence:''}}
 function classifyStatBonusConditionality(text,idx,len){
   text=String(text||'').replace(/([^\n])\n(?!\n)/g,'$1 ');
   if(WHOLE_TEXT_CONDITIONAL.some(re=>re.test(text)))return {conditional:true,conditionText:statBonusSentenceAround(text,idx,len)};
@@ -16384,11 +16388,16 @@ function detectStatBonusesInText(rawText,ctx){
     if(!text.trim())return [];
     const out=[];
     const subtypeGate=fighterSubtypeGateFor(ctx);
+    const saveSpans=[];
     const add=(stat,index,delta,idx,len,phrase,mode)=>{
       if(!Number.isFinite(delta))return;
       if(mode!=='set'&&!delta)return;
       if(!subtypeGate(statBonusOwnSentence(text,idx,len)))return;
-      const {conditional,conditionText}=mode==='grant'?classifyGrantConditionality(text,idx,len):classifyStatBonusConditionality(text,idx,len);
+      // one armour-save bonus per stretch of text, whichever pattern found it
+      if(stat==='SAVE'){if(saveSpans.some(([a,b])=>idx<b&&idx+len>a))return;saveSpans.push([idx,idx+len])}
+      // V-SAVEOWNSENTENCE: an armour-save bonus is judged on its own sentence —
+      // "+1 Armour Save. If he charges…" is a permanent +1, not a conditional one.
+      const {conditional,conditionText}=(mode==='grant'||stat==='SAVE')?classifyGrantConditionality(text,idx,len):classifyStatBonusConditionality(text,idx,len);
       out.push({stat,index,delta,mode:mode||'delta',conditional,conditionText,matchedPhrase:String(phrase).trim()});
     };
     STAT_BONUS_DEFS.forEach(def=>{
@@ -16467,11 +16476,11 @@ function detectStatBonusesInText(rawText,ctx){
     // "Sauvegarde d'armure +1" / "+1 à la sauvegarde" / "améliore la
     // sauvegarde de 1" (an improvement, so treated as a positive delta
     // regardless of how it's phrased — see armorSave()).
-    const saveRe1=/sauvegarde(?:\s+d['’]armure)?\s*([+-]\d+)|armour save\s*([+-]\d+)/gi;
+    const saveRe1=/(?:sauvegarde(?:\s+d['’]armure)?|armou?r\s+save|(?<![a-z])save|(?<![a-z])sv)\s*(?:de\s+|of\s+|:\s*)?([+-]\d+)(?!\s*(?:\+|\/))()/gi;
     let m;while((m=saveRe1.exec(text))){add('SAVE','SAVE',parseInt(m[1]||m[2],10),m.index,m[0].length,m[0]);}
-    const saveRe2=/([+-]\d+)\s*(?:(?:à|a)\s*la\s+|en\s+|de\s+)?sauvegarde|([+-]\d+)\s*(?:to\s+)?(?:(?:their|his|her|the)\s+)?armou?r save/gi;
+    const saveRe2=/([+-]\d+)\s*(?:(?:à|a|au|en|de|sur)\s+)?(?:(?:la|sa|leur|son)\s+)?(?:sauvegarde|svg\b|armure\b)|([+-]\d+)\s*(?:(?:to|on|in)\s+)?(?:(?:their|his|her|its|the)\s+)?(?:armou?r\s+save|save\b|sv\b|armou?r\b(?!\s*pierc))/gi;
     while((m=saveRe2.exec(text))){add('SAVE','SAVE',parseInt(m[1]||m[2],10),m.index,m[0].length,m[0]);}
-    const saveRe3=/am[ée]liore(?:nt)?\s+la sauvegarde\s+de\s+(\d+)|improves? (?:their|his|her|the) armour save by\s+(\d+)/gi;
+    const saveRe3=/am[ée]liore(?:nt)?\s+(?:la|sa|leur)\s+sauvegarde(?:\s+d['’]armure)?\s+de\s+(\d+)|improves? (?:their|his|her|its|the) (?:armou?r )?save by\s+(\d+)/gi;
     while((m=saveRe3.exec(text))){add('SAVE','SAVE',Math.abs(parseInt(m[1]||m[2],10)),m.index,m[0].length,m[0]);}
     // V-NATURALSAVE (Task #69): the three patterns above only ever catch a
     // DELTA phrasing ("+1", "improves ... by 1") — a rule that instead
