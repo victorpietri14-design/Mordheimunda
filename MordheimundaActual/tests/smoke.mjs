@@ -58,6 +58,14 @@ for(const vp of ['desktop','mobile']){
     await page.waitForFunction(()=>typeof state!=='undefined'&&Array.isArray(state.rosters),null,{timeout:20000});await page.waitForTimeout(800);
     expect(await page.evaluate(()=>state.rosters.some(r=>r.id==='smoke')),'warband lost after reload');
   });
+  await test(`[${vp}] site search finds rules and skips partial words`,vp,async page=>{
+    await page.evaluate(()=>navigateApp('/'));await page.click('.site-search-btn');await page.fill('#siteSearchInput','backstab');await page.waitForTimeout(200);
+    expect(await page.isVisible('.site-search-item >> text=Backstab'),'Backstab not found');
+    const titles=await page.evaluate(()=>searchRun('hired swords').flatMap(g=>g.items.map(i=>i.title)));
+    expect(!titles.includes('Sword'),'"hired swords" still lists plain Sword');
+    await page.keyboard.press('Enter');await page.waitForTimeout(500);
+    expect(await page.evaluate(()=>location.pathname)==='/reference','Enter did not open the Reference');
+  });
   await test(`[${vp}] play mode, rules, scenarios, campaigns pages`,vp,async page=>{
     await seed(page);
     for(const path of ['/warbands/play','/rules','/rules/warbands','/rules/scenarios','/rules/campaign','/campaigns','/reference','/custom']){
