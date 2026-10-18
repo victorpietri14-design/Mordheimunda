@@ -5019,3 +5019,6 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
   .site-search-panel{width:100%;max-height:none;height:100%;border-radius:0;border:0;padding-top:env(safe-area-inset-top)}
   .site-search-item{padding:11px 10px}
 }
+.cpb-art-effect{flex:1 0 100%;min-width:0;border-left:3px solid var(--gold,#f2c94c);background:rgba(242,201,76,.06);border-radius:0 8px 8px 0;padding:8px 12px;margin-top:4px;font-size:13px;color:var(--text-dim)}
+.cpb-art-effect .cpb-art-base{color:var(--muted);font-size:12px;margin-bottom:4px}
+.cpb-art-effect .artifact-rules p{margin:4px 0}

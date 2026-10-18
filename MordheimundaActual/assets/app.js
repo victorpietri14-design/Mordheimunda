@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0670.0';
+const APP_BUILD='110.0671.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12496,11 +12496,16 @@ function takeCampaignArtifact(rid,i){
   row.taken=true;row.reserveId=e.reserveId;logHistory(r,'equipment',en?`Artifact found: <b>${esc(a.name)}</b>, added to the Stash`:`Artefact trouvé : <b>${esc(a.name)}</b>, ajouté à la réserve`);pushCampaignEntryStats(r,true);save(true);render('builder');
 }
 function discardCampaignArtifactRoll(rid){const r=activeRoster();if(!r)return;const s=campaignExploreState(r);const res=(s.artifacts||[]).find(x=>x.id===rid);if(!res)return;res.rolls.forEach(row=>{if(row.taken&&row.reserveId)r.reserve=(r.reserve||[]).filter(e=>e.reserveId!==row.reserveId)});s.artifacts=s.artifacts.filter(x=>x.id!==rid);if(res.fromCredit)s.artifactCredits=(Number(s.artifactCredits)||0)+1;pushCampaignEntryStats(r,true);save(true);render('builder')}
+// The artifact's base item and rules, shown under a roll so the player knows what it does before taking it.
+function campaignArtifactEffectMarkup(c,name){
+  if(!name)return '';const en=siteLanguage==='en';const a=campaignArtifactList(c).find(x=>normName(x.name)===normName(name));if(!a||(!a.base&&!a.rules&&!a.lore))return '';
+  return `<div class="cpb-art-effect">${a.base?`<div class="cpb-art-base">${en?'Base item':'Objet de base'} : <b>${esc(a.base)}</b></div>`:''}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${!a.rules&&a.lore?`<p class="artifact-lore">${esc(a.lore)}</p>`:''}</div>`;
+}
 function campaignArtifactPanel(r,c){
   const en=siteLanguage==='en';const s=campaignExploreState(r);const list=s.artifacts||[];
   const credits=Number(s.artifactCredits)||0;
   return `<div class="cpb-artifacts">${credits?`<div class="cpb-art-credit">🎁 <b>${en?`You have ${credits} artifact roll${credits>1?'s':''} to make`:`Tu as ${credits} jet${credits>1?'s':''} d’artefact à lancer`}</b> <small>${en?'won in exploration':'gagné en exploration'}</small></div>`:''}<div class="cpb-art-head"><div><span class="micro-label">${en?'ARTIFACTS':'ARTEFACTS'}</span><small>${en?'Roll when a scenario or a result gives you an artifact. Unique in the campaign: one already held gives nothing.':'Lance quand un scénario ou un résultat te donne un artefact. Unique dans la campagne : un artefact déjà détenu ne donne rien.'}</small></div><button type="button" class="button secondary" onclick="rollCampaignArtifact()"${Number(s.artifactCredits)>0?' style="border-color:var(--gold,#f2c94c);color:var(--gold,#f2c94c)"':''}>🎲 ${en?'Roll 4D6 for an artifact':'Lancer 4D6 pour un artefact'}</button></div>
-   ${list.map(res=>`<div class="cpb-art-roll">${res.rolls.map((row,i)=>`<div class="cpb-art-row"><div><span class="cpb-art-dice">${row.dice.map(v=>`<i>${v}</i>`).join('')}</span><span class="cpb-art-tier">${row.table==='major'?(en?'MAJOR':'MAJEUR'):(en?'MINOR':'MINEUR')} · ${row.total}</span><b>${row.name?esc(row.name):(en?'No artifact at this total':'Aucun artefact à ce total')}</b>${row.heldBy?`<small class="cpb-held">${en?`Held by ${esc(row.heldBy)} — nothing found`:`Détenu par ${esc(row.heldBy)} — rien trouvé`}</small>`:''}</div>${row.name&&!row.heldBy?(row.taken?`<span class="cpb-taken">✓ ${en?'In the Stash':'Dans la réserve'}</span>`:`<button type="button" class="button primary small" onclick="takeCampaignArtifact('${res.id}',${i})">${en?'Add to Stash':'Ajouter à la réserve'}</button>`):''}</div>`).join('')}<button type="button" class="cpb-art-x" title="${en?'Remove this roll':'Retirer ce jet'}" onclick="discardCampaignArtifactRoll('${res.id}')">✕</button></div>`).join('')}</div>`;
+   ${list.map(res=>`<div class="cpb-art-roll">${res.rolls.map((row,i)=>`<div class="cpb-art-row"><div><span class="cpb-art-dice">${row.dice.map(v=>`<i>${v}</i>`).join('')}</span><span class="cpb-art-tier">${row.table==='major'?(en?'MAJOR':'MAJEUR'):(en?'MINOR':'MINEUR')} · ${row.total}</span><b>${row.name?esc(row.name):(en?'No artifact at this total':'Aucun artefact à ce total')}</b>${row.heldBy?`<small class="cpb-held">${en?`Held by ${esc(row.heldBy)} — nothing found`:`Détenu par ${esc(row.heldBy)} — rien trouvé`}</small>`:''}</div>${row.name&&!row.heldBy?(row.taken?`<span class="cpb-taken">✓ ${en?'In the Stash':'Dans la réserve'}</span>`:`<button type="button" class="button primary small" onclick="takeCampaignArtifact('${res.id}',${i})">${en?'Add to Stash':'Ajouter à la réserve'}</button>`):''}${campaignArtifactEffectMarkup(c,row.name)}</div>`).join('')}<button type="button" class="cpb-art-x" title="${en?'Remove this roll':'Retirer ce jet'}" onclick="discardCampaignArtifactRoll('${res.id}')">✕</button></div>`).join('')}</div>`;
 }
 // Admin: enable the Lustria chart on a campaign.
 async function importLustriaExploration(cid){const en=siteLanguage==='en';if(await saveCampaignDefinition(cid,def=>{const ex=ensureExplorationData(def);ex.enabled=true}))toast(en?'Campaign post-battle on: Wyrdstone becomes Treasure for this campaign':'Post-bataille de campagne active : le Wyrdstone devient Treasure pour cette campagne')}
