@@ -1242,6 +1242,14 @@ app.post('/api/campaigns/join-code',requireDb,requireSameOrigin,auth,async(req,r
 app.post('/api/campaigns/:id/leave',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{const rosterId=String(req.body?.rosterId||'');const q=await pool.query('UPDATE campaign_members SET left_at=NOW() WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 AND left_at IS NULL',[req.params.id,rosterId,req.user.user_id]);res.json({ok:true,left:q.rowCount})}catch(e){next(e)}
 });
+// An admin or the campaign's creator withdraws any warband from it (same as
+// the player's own 'leave': the entry is kept, marked left, so its history
+// stays; the player's copy drops the campaign link on its next sync).
+app.post('/api/campaigns/:id/members/remove',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  try{const rosterId=String(req.body?.rosterId||'');const c=await pool.query('SELECT created_by FROM campaigns WHERE id=$1',[req.params.id]);if(!c.rowCount)return res.status(404).json({error:'NOT_FOUND'});
+    if(!req.user.is_admin&&c.rows[0].created_by!==req.user.user_id)return res.status(403).json({error:'NOT_ALLOWED'});
+    const q=await pool.query('UPDATE campaign_members SET left_at=NOW() WHERE campaign_id=$1 AND roster_id=$2 AND left_at IS NULL',[req.params.id,rosterId]);res.json({ok:true,removed:q.rowCount})}catch(e){next(e)}
+});
 // V-CAMPMARKET2: shared campaign market + auction house (see schema.sql).
 const toTrade=r=>({id:r.id,kind:r.kind,status:r.status,rosterId:r.roster_id,rosterName:r.roster_name,mine:false,userId:r.user_id,itemName:r.item_name,item:r.item||null,price:r.price,note:r.note,otherRosterId:r.other_roster_id,otherRosterName:r.other_roster_name,otherUserId:r.other_user_id,collected:r.collected,createdAt:r.created_at,updatedAt:r.updated_at});
 async function campaignMemberOk(cid,rosterId,userId){const q=await pool.query('SELECT 1 FROM campaign_members WHERE campaign_id=$1 AND roster_id=$2 AND user_id=$3 AND left_at IS NULL',[cid,String(rosterId||''),userId]);return q.rowCount>0}
