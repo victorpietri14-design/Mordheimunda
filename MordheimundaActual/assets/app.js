@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0684.0';
+const APP_BUILD='110.0686.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3285,7 +3285,7 @@ function ruleItemsListMarkup(rows){
   const en=siteLanguage==='en';
   // Book items (with admin corrections/additions), the account's custom
   // equipment, and items published into official warbands (☆).
-  const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name));
+  const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));
   const pool=[...(D.weapons||[]),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];
   const groups=new Map(),missing=[];
   rows.forEach(r=>{
@@ -5439,14 +5439,19 @@ async function loadWeaponOverrides(){
     applyWeaponOverrides();
   }catch(e){console.warn('Weapon overrides unavailable',e);}
 }
+// V-COVERINGS: the book's pre-built covered weapons are retired — they are
+// now made with a covering (Custom → Revêtement d'arme) on the plain weapon.
+// Copies already bought keep working (stored snapshot, or the covering of
+// the same name once it exists).
+const RETIRED_BOOK_WEAPONS=new Set(['ithilmar sword','ithilmar dagger','gromril axe','gromril great axe']);
 function applyWeaponOverrides(){
-  if(!D.__weaponsBaseline)D.__weaponsBaseline=D.weapons.slice();
+  if(!D.__weaponsBaseline)D.__weaponsBaseline=D.weapons.filter(w=>!RETIRED_BOOK_WEAPONS.has(normName(w.name)));
   // V-WEAPONDELETE: an override flagged `deleted` removes the book item for
   // every account — gone from the shared pool, from every faction's
   // equipment list, and from the Référentiel (hidden only greys it out).
   // The book data itself is untouched, so ↺ Restore (dropping the override)
   // brings it back exactly as it was.
-  const deleted=new Set();weaponOverrideMap.forEach((o,name)=>{if(o&&o.deleted)deleted.add(normName(name))});
+  const deleted=new Set(RETIRED_BOOK_WEAPONS);weaponOverrideMap.forEach((o,name)=>{if(o&&o.deleted)deleted.add(normName(name))});
   const merged=D.__weaponsBaseline.filter(w=>!deleted.has(normName(w.name))).map(w=>{const o=weaponOverrideMap.get(w.name);return o?{...w,...o,name:w.name}:w});
   const baseNames=new Set(D.__weaponsBaseline.map(w=>normName(w.name)));
   weaponOverrideMap.forEach((data,name)=>{if(!baseNames.has(normName(name))&&!data?.deleted)merged.push({...data,name:data.name||name,__catalogAdded:true})});
@@ -5454,6 +5459,7 @@ function applyWeaponOverrides(){
   D.__deletedWeaponNames=deleted;
   pruneDeletedWeaponsFromFactions();
 }
+try{applyWeaponOverrides()}catch(e){}
 // Drops deleted book items from the book factions' own equipment lists
 // (in place; also re-run after the per-faction catalog overrides load, which
 // can replace those lists). A restored item comes back on the next load.
@@ -6970,6 +6976,9 @@ async function confirmOfficializeItem(){
           // to this faction's Band List.
           const pool={...published};['customEquipmentId','factions','unrestricted','officialWarbandIds','archived','exclusiveWarbandId','officialWarbandId'].forEach(k=>delete pool[k]);
           pool.name=w.name;pool.band=true;pool.market=w.market!==false&&!!w.market;
+          // A covering is never a row of its own: kept hidden in the pool,
+          // read back by coveringList() (scope = the factions listing it).
+          if(isCovering(w))pool.hidden=true;
           await window.MordheimundaAPI.adminSaveWeaponOverride(w.name,pool);
           d.equipment=d.equipment.filter(e=>normName(typeof e==='string'?e:e?.name)!==normName(w.name));d.equipment.push(w.name);
         }else{
@@ -12310,7 +12319,7 @@ async function campaignMarketServer(kind,post,name,r){
 // V-CAMPLIST: the campaign's own equipment list = every [ITEMS] block of its
 // rule pages, matched to the catalogue (book items, custom equipment, items
 // published into official warbands). The shared market stocks only these.
-function campaignItemPool(){const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name));const pool=[...(D.weapons||[]).filter(w=>!w.hidden),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];const by=new Map();pool.forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k))by.set(k,w)});return by}
+function campaignItemPool(){const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));const pool=[...(D.weapons||[]).filter(w=>!w.hidden),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];const by=new Map();pool.forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k))by.set(k,w)});const covs=coveringList();if(covs.length)[...by.values()].forEach(w=>covs.forEach(c=>{if(coveringAppliesTo(c,w)){const v=coveredWeapon(w,c);const k=normName(v.name);if(!by.has(k))by.set(k,v)}}));return by}
 function campaignEquipmentItems(c){const names=[];const re=/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g;[c?.definition?.description||'',...(c?.definition?.pages||[]).map(p=>p.text||'')].forEach(t=>{let m;while((m=re.exec(t))){m[1].split(/\r?\n/).map(l=>l.split('|')[0].trim()).filter(Boolean).forEach(n=>names.push(n))}});const by=campaignItemPool();const out=new Map();names.forEach(n=>{const w=by.get(normName(n));if(w&&!out.has(normName(w.name)))out.set(normName(w.name),w)});return [...out.values()]}
 async function stockCampaignMarket(cid){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(cid)||campaignDetailCached(cid);const listed=campaignEquipmentItems(c);
@@ -12682,7 +12691,7 @@ function tradingRarity(w){const raw=String(w?.availability||w?.rarity||'');const
 function tradingData(r){const p=ensurePostBattleData(r);if(!p.trading||typeof p.trading!=='object')p.trading={};const t=p.trading;if(!t.postId)t.postId=tradingPostList()[0].id;if(!Array.isArray(t.purchases))t.purchases=[];return t}
 function tradingSeekBonus(r){const p=ensurePostBattleData(r);return p.actionsApplied&&Number.isFinite(p.rareBonus)?p.rareBonus:pbaRareBonus(r).total}
 function tradingAvailability(r){const t=tradingData(r);if(Number.isFinite(t.availability))return t.availability;return null}
-function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded=(f?.equipment||[]).filter(e=>e&&typeof e==='object'&&isCustomEquipment(e));embedded.forEach(e=>{if(!customs.some(c=>normName(c.name)===normName(e.name)))customs.push(e)});return customs}
+function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded=(f?.equipment||[]).filter(e=>e&&typeof e==='object'&&isCustomEquipment(e)&&!isCovering(e));embedded.forEach(e=>{if(!customs.some(c=>normName(c.name)===normName(e.name)))customs.push(e)});return customs}
 // The warband's own Warband Type Equipment list: the faction's equipment
 // names plus the catalog's per-faction band flags. Only a warband with
 // neither (e.g. a custom warband) falls back to what its fighter profiles
@@ -12692,7 +12701,7 @@ function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded
 // not the faction-wide list. Purchases still arrive after the next game
 // (V-BANDTRANSIT).
 function campaignBandItems(r,f){const fs=(r.fighters||[]).filter(x=>!isHiredSword(x));const src=fs.length?fs:(f.warriors||[]);const by=new Map();src.forEach(x=>{try{bandListItemsFor(x,f).forEach(w=>{const k=normName(w?.name);if(k&&!w.bandOnlyIntrinsic&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!by.has(k))by.set(k,w)})}catch(e){}});return [...by.values()].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
-function tradingBandItems(r){const f=faction(r);if(!f)return [];if(r.campaignId)return campaignBandItems(r,f);const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object');const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
+function tradingBandItems(r){const f=faction(r);if(!f)return [];if(r.campaignId)return campaignBandItems(r,f);const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object'&&!isCovering(e));const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
 function tradingPostItems(r,post){const f=faction(r);if(post?.campaignId&&post.stock){const by=campaignItemPool();return Object.keys(post.stock).map(k=>by.get(k)).filter(Boolean).map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
 // V-CAMPMARKET: a warband in a campaign with settlements buys with its
 // residence's modifiers (price dice per Common/Rare item, find modifiers that
@@ -12735,7 +12744,11 @@ function campaignMarketApply(r,list,src){
     return {...it,rarity:Math.max(0,rarity),baseRarity:base,price,minPrice,priceExpr:rolled==null&&e&&it.price>0?e:null,priceLabel:label,basePrice:it.price,campaignMod:!!(pct||e||rarity!==base)};
   });
 }
-function tradingShopItems(r,src,post){return campaignMarketApply(r,src==='band'?tradingBandItems(r):tradingPostItems(r,post),src)}
+function tradingShopItems(r,src,post){return campaignMarketApply(r,tradingCoveredItems(r,src,post,src==='band'?tradingBandItems(r):tradingPostItems(r,post)),src)}
+// V-COVERINGS: covered versions of the shop's weapons (Band List: coverings
+// ticked for this warband; Trading Post: Market coverings). A stocked
+// campaign market sells only what its [ITEMS] list names, covered or not.
+function tradingCoveredItems(r,src,post,list){if(src!=='band'&&post?.stock)return list;const f=faction(r);const tab=src==='band'?'band':'market';const covs=coveringsForList(tab,f);if(!covs.length)return list;const extra=[];list.forEach(it=>covs.forEach(c=>{if(coveringAppliesTo(c,it.w)){const v=coveredWeapon(it.w,c);extra.push({w:v,price:Number(equipmentPrice(v,f||{},tab)||0),rarity:tradingRarity(v)})}}));return list.concat(extra)}
 function campaignMarketBanner(r){
   const m=rosterCampaignMarket(r);if(!m)return '';const en=siteLanguage==='en';
   if(m.outsider)return `<div class="tp-campaign-mods outsider"><b>${en?'No settlement accepts this warband':'Aucune colonie n’accepte cette bande'}</b><span>${en?`Campaign market: Common items count as Rare 4, Rarity +${m.pen.rarity}, prices +${m.pen.pricePct}%.`:`Marché de campagne : les objets Common comptent comme Rare 4, rareté +${m.pen.rarity}, prix +${m.pen.pricePct} %.`}</span></div>`;
@@ -12750,7 +12763,7 @@ function rollTradingRarity(manual){tradingChange((r,t)=>{const again=Number.isFi
 // list). Items already bought stay in the Stash.
 function newTradingVisit(){tradingChange((r,t)=>{t.availability=null;t.dice=null;t.manual=null;t.bonus=null;t.purchases=[];t.priceRolls={};logHistory(r,'equipment',siteLanguage==='en'?'New Trading Post visit':'Nouvelle visite au Trading Post')})}
 function setTradingPost(id){tradingChange((r,t)=>{if(t.purchases.length){toast(siteLanguage==='en'?'Undo this visit’s purchases before changing Trading Post':'Annule les achats de cette visite avant de changer de Trading Post');return false}t.postId=tradingPostById(id).id})}
-function buyTradingItem(src,name){tradingChange((r,t)=>{const en=siteLanguage==='en';const post=tradingPostById(t.postId);const list=tradingShopItems(r,src,post);const it=list.find(i=>normName(i.w.name)===normName(name));if(!it)return false;if(src!=='band'&&tradingLockReason(r,it)){toast(tradingLockReason(r,it));return false}if(it.priceExpr){const roll=rollCampaignPriceExpr(it.priceExpr);const m=rosterCampaignMarket(r);const pct=(m?.outsider?m.pen.pricePct:0)+(src!=='band'&&post?.campaignId?campaignMarketRise(post,it.w.name,it.baseRarity):0);it.price=Math.max(1,Math.round((it.basePrice+roll.delta)*(100+pct)/100));t.priceRolls=t.priceRolls||{};t.priceRolls[src+':'+normName(it.w.name)]=it.price;toast(en?`${it.w.name}: price rolled (${roll.dice.join('+')}) → ${it.price} GC`:`${it.w.name} : prix lancé (${roll.dice.join('+')}) → ${it.price} GC`);if(Number(r.gold||0)<it.price){toast(en?`${it.w.name} costs ${it.price} GC this visit: not enough gold`:`${it.w.name} coûte ${it.price} GC pour cette visite : pas assez d’or`);return}}if(Number(r.gold||0)<it.price){toast(en?'Not enough gold':'Pas assez d’or');return false}if(src!=='band'&&!tradingPostTake(post,it.w.name)){toast(en?'Sold out':'Épuisé');return false}const w=it.w;const reserveId=crypto.randomUUID();r.reserve=Array.isArray(r.reserve)?r.reserve:[];r.reserve.push({reserveId,stashId:crypto.randomUUID(),name:w.name,paid:it.price,value:it.price,price:it.price,category:w.category,subcategory:w.subcategory||w.category,rarity:w.rarity||'',availability:w.availability||w.rarity||'—',profile:w.profile||null,profile2:w.profile2||null,traits:w.traits||[],customEquipmentId:w.customEquipmentId||null,weaponSlotCost:weaponSlots(w),boughtFrom:src==='band'?'band':post.id,...(src==='band'&&r.campaignId?{transitSince:new Date().toISOString(),transitCampaign:r.campaignId}:{})});r.gold=Number(r.gold||0)-it.price;t.purchases.push({id:crypto.randomUUID(),reserveId,name:w.name,price:it.price,src,postId:post.id});const ship=src==='band'&&r.campaignId;logHistory(r,'equipment',en?`<b>${esc(w.name)}</b> bought (${src==='band'?'Band List':esc(post.en)}) for ${it.price} GC, ${ship?'on its way — arrives after the next recorded campaign game':'added to the Stash'}`:`<b>${esc(w.name)}</b> acheté (${src==='band'?'Band List':esc(post.fr)}) pour ${it.price} GC, ${ship?'en route — arrive après la prochaine partie de campagne enregistrée':'ajouté à la réserve'}`);toast(ship?(en?`🚚 ${w.name} bought · −${it.price} GC — on its way, you receive it after your next recorded campaign game`:`🚚 ${w.name} acheté · −${it.price} GC — en route, tu le reçois après ta prochaine partie de campagne enregistrée`):(en?`${w.name} bought · −${it.price} GC`:`${w.name} acheté · −${it.price} GC`),ship?4500:1800)})}
+function buyTradingItem(src,name){tradingChange((r,t)=>{const en=siteLanguage==='en';const post=tradingPostById(t.postId);const list=tradingShopItems(r,src,post);const it=list.find(i=>normName(i.w.name)===normName(name));if(!it)return false;if(src!=='band'&&tradingLockReason(r,it)){toast(tradingLockReason(r,it));return false}if(it.priceExpr){const roll=rollCampaignPriceExpr(it.priceExpr);const m=rosterCampaignMarket(r);const pct=(m?.outsider?m.pen.pricePct:0)+(src!=='band'&&post?.campaignId?campaignMarketRise(post,it.w.name,it.baseRarity):0);it.price=Math.max(1,Math.round((it.basePrice+roll.delta)*(100+pct)/100));t.priceRolls=t.priceRolls||{};t.priceRolls[src+':'+normName(it.w.name)]=it.price;toast(en?`${it.w.name}: price rolled (${roll.dice.join('+')}) → ${it.price} GC`:`${it.w.name} : prix lancé (${roll.dice.join('+')}) → ${it.price} GC`);if(Number(r.gold||0)<it.price){toast(en?`${it.w.name} costs ${it.price} GC this visit: not enough gold`:`${it.w.name} coûte ${it.price} GC pour cette visite : pas assez d’or`);return}}if(Number(r.gold||0)<it.price){toast(en?'Not enough gold':'Pas assez d’or');return false}if(src!=='band'&&!tradingPostTake(post,it.w.name)){toast(en?'Sold out':'Épuisé');return false}const w=it.w;const reserveId=crypto.randomUUID();r.reserve=Array.isArray(r.reserve)?r.reserve:[];r.reserve.push({reserveId,stashId:crypto.randomUUID(),name:w.name,paid:it.price,value:it.price,price:it.price,category:w.category,subcategory:w.subcategory||w.category,rarity:w.rarity||'',availability:w.availability||w.rarity||'—',profile:w.profile||null,profile2:w.profile2||null,traits:w.traits||[],customEquipmentId:w.customEquipmentId||null,...coveringItemFields(w),weaponSlotCost:weaponSlots(w),boughtFrom:src==='band'?'band':post.id,...(src==='band'&&r.campaignId?{transitSince:new Date().toISOString(),transitCampaign:r.campaignId}:{})});r.gold=Number(r.gold||0)-it.price;t.purchases.push({id:crypto.randomUUID(),reserveId,name:w.name,price:it.price,src,postId:post.id});const ship=src==='band'&&r.campaignId;logHistory(r,'equipment',en?`<b>${esc(w.name)}</b> bought (${src==='band'?'Band List':esc(post.en)}) for ${it.price} GC, ${ship?'on its way — arrives after the next recorded campaign game':'added to the Stash'}`:`<b>${esc(w.name)}</b> acheté (${src==='band'?'Band List':esc(post.fr)}) pour ${it.price} GC, ${ship?'en route — arrive après la prochaine partie de campagne enregistrée':'ajouté à la réserve'}`);toast(ship?(en?`🚚 ${w.name} bought · −${it.price} GC — on its way, you receive it after your next recorded campaign game`:`🚚 ${w.name} acheté · −${it.price} GC — en route, tu le reçois après ta prochaine partie de campagne enregistrée`):(en?`${w.name} bought · −${it.price} GC`:`${w.name} acheté · −${it.price} GC`),ship?4500:1800)})}
 function undoTradingPurchase(id){tradingChange((r,t)=>{const en=siteLanguage==='en';const pu=t.purchases.find(x=>x.id===id);if(!pu)return false;const idx=(r.reserve||[]).findIndex(e=>e.reserveId===pu.reserveId);if(idx<0){toast(en?'This item already left the Stash: it can’t be undone':'Cet objet a déjà quitté la réserve : impossible d’annuler');return false}r.reserve.splice(idx,1);r.gold=Number(r.gold||0)+Number(pu.price||0);if(pu.src!=='band')tradingPostGive(tradingPostById(pu.postId),pu.name);t.purchases=t.purchases.filter(x=>x.id!==id);logHistory(r,'equipment',en?`Purchase undone: <b>${esc(pu.name)}</b> (+${pu.price} GC)`:`Achat annulé : <b>${esc(pu.name)}</b> (+${pu.price} GC)`)})}
 function setTradingCat(which,cat){if(which==='band')tpBandCat=cat;else tpPostCat=cat;postBattleStep5Open=true;render('builder')}
 function setTradingMobileShop(v){tpMobileShop=v==='post'?'post':'band';postBattleStep5Open=true;render('builder')}
@@ -12761,10 +12774,12 @@ function tradingItemsMarkup(r,which,items){
   let list=items.filter(it=>cat==='all'||canonEquipmentCategory(equipmentCategory(it.w))===cat);
   if(which==='post'&&!tpShowLocked)list=list.filter(it=>!tradingLockReason(r,it));
   list.sort((a,b)=>a.rarity-b.rarity||a.w.name.localeCompare(b.w.name));
+  const all=list;list=list.filter(it=>coveringShownAsRow(all,it.w,i=>i.w));
   if(!list.length)return `<div class="tp-empty">${en?'No item here.':'Aucun objet ici.'}</div>`;
   return list.map(it=>{const lock=which==='post'?tradingLockReason(r,it):'';const stock=which==='post'?tradingPostStock(post,it.w.name):null;const out=stock!=null&&stock<=0;const poor=(it.minPrice??it.price)>Number(r.gold||0);const dis=!!lock||out||poor;
-    return `<div class="tp-item${lock||out?' locked':''}" data-name="${esc(it.w.name)}" ${q&&!normName(it.w.name).includes(q)?'hidden':''}><div class="tp-nm"><b>${refLink('equipment',it.w.name,it.w.name)}${it.rarity?`<span class="tp-tag rare"${it.baseRarity!=null&&it.baseRarity!==it.rarity?` title="${en?'Book':'Livre'}: ${it.baseRarity?'Rare '+it.baseRarity:'Common'}"`:''}>Rare ${it.rarity}${it.baseRarity!=null&&it.baseRarity!==it.rarity?'*':''}</span>`:`<span class="tp-tag">Common</span>`}</b><small>${esc(tradingCatLabel(canonEquipmentCategory(equipmentCategory(it.w))))}${stock!=null?` · ${out?(en?'sold out':'épuisé'):(en?`${stock} left`:`${stock} restant${stock>1?'s':''}`)}`:''}${lock?` · <span class="tp-why">${esc(lock)}</span>`:''}</small></div><span class="tp-price">${tradingPriceDuo(it)}${it.priceLabel?`<small>${en?'rolled at purchase':'lancé à l’achat'}</small>`:''}</span><button type="button" class="button ${dis?'secondary':'primary'} tp-buy" ${dis?'disabled':''} ${poor&&!lock&&!out?`title="${en?'Not enough gold':'Pas assez d’or'}"`:''} onclick="buyTradingItem('${which}','${esc(it.w.name).replace(/'/g,"\\'")}')">${en?'Buy':'Acheter'}</button></div>`}).join('');
+    return `<div class="tp-item${lock||out?' locked':''}" data-name="${esc(it.w.name)}" ${q&&!normName(it.w.name).includes(q)?'hidden':''}><div class="tp-nm"><b>${refLink('equipment',it.w.name,it.w.name)}${it.rarity?`<span class="tp-tag rare"${it.baseRarity!=null&&it.baseRarity!==it.rarity?` title="${en?'Book':'Livre'}: ${it.baseRarity?'Rare '+it.baseRarity:'Common'}"`:''}>Rare ${it.rarity}${it.baseRarity!=null&&it.baseRarity!==it.rarity?'*':''}</span>`:`<span class="tp-tag">Common</span>`}</b><small>${esc(tradingCatLabel(canonEquipmentCategory(equipmentCategory(it.w))))}${stock!=null?` · ${out?(en?'sold out':'épuisé'):(en?`${stock} left`:`${stock} restant${stock>1?'s':''}`)}`:''}${lock?` · <span class="tp-why">${esc(lock)}</span>`:''}</small>${tradingCoveringChips(r,which,all,it,post)}</div><span class="tp-price">${tradingPriceDuo(it)}${it.priceLabel?`<small>${en?'rolled at purchase':'lancé à l’achat'}</small>`:''}</span><button type="button" class="button ${dis?'secondary':'primary'} tp-buy" ${dis?'disabled':''} ${poor&&!lock&&!out?`title="${en?'Not enough gold':'Pas assez d’or'}"`:''} onclick="buyTradingItem('${which}','${esc(it.w.name).replace(/'/g,"\\'")}')">${en?'Buy':'Acheter'}</button></div>`}).join('');
 }
+function tradingCoveringChips(r,which,all,it,post){if(it.w.coveredVariant)return '';const vs=coveredVariantsOf(all,it.w,i=>i.w);if(!vs.length)return '';const en=siteLanguage==='en';return `<span class="covering-chips">${vs.map(v=>{const lock=which==='post'?tradingLockReason(r,v):'';const stock=which==='post'?tradingPostStock(post,v.w.name):null;const out=stock!=null&&stock<=0;const poor=(v.minPrice??v.price)>Number(r.gold||0);const dis=!!lock||out||poor;return `<button type="button" class="covering-chip" ${dis?'disabled':''} title="${esc(v.w.name)}${v.rarity?' · Rare '+v.rarity:' · Common'}${lock?' · '+esc(lock):poor?' · '+(en?'Not enough gold':'Pas assez d’or'):''}" onclick="buyTradingItem('${which}','${esc(v.w.name).replace(/'/g,"\\'")}')">◆ ${esc(v.w.coveringName)}<b>${v.priceLabel?esc(v.priceLabel):v.price+' GC'}</b>${v.rarity?`<small>R${v.rarity}</small>`:''}</button>`}).join('')}</span>`}
 function tradingCatLabel(c){if(siteLanguage!=='en')return c;return EQUIPMENT_SECTIONS.find(s=>s.cat===c)?.label||c}
 function tradingChipsMarkup(which,items){const cur=which==='band'?tpBandCat:tpPostCat;const cats=EQUIPMENT_SECTIONS.map(s=>s.cat).filter(c=>items.some(it=>canonEquipmentCategory(equipmentCategory(it.w))===c));const en=siteLanguage==='en';const label=c=>{const sec=EQUIPMENT_SECTIONS.find(s=>s.cat===c);return en?(sec?.label||c):c};return `<div class="tp-chips">${['all',...cats].map(c=>`<button type="button" class="tp-chip${cur===c?' on':''}" onclick="setTradingCat('${which}','${esc(c).replace(/'/g,"\\'")}')">${c==='all'?(en?'All':'Tout'):esc(label(c))}</button>`).join('')}</div>`}
 function tradingPostView(r,f){
@@ -13083,7 +13098,7 @@ const LUSTRIA_ARTIFACTS=[
 
 function campaignArtifactBaseItem(name){
   if(!name)return null;
-  const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name));
+  const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));
   const pool=[...(D.weapons||[]),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];
   return pool.find(x=>normName(x?.name)===normName(name))||null;
 }
@@ -13337,7 +13352,7 @@ async function saveCampaignDefinition(id,mutate){
 function campaignArtifactBaseNames(){
   const names=new Set();(D.weapons||[]).forEach(w=>w?.name&&names.add(w.name));
   (typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]).forEach(w=>w?.name&&names.add(w.name));
-  (D.factions||[]).forEach(f=>(f.equipment||[]).forEach(e=>e&&typeof e==='object'&&e.name&&names.add(e.name)));
+  (D.factions||[]).forEach(f=>(f.equipment||[]).forEach(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)&&names.add(e.name)));
   return [...names].sort((a,b)=>a.localeCompare(b));
 }
 function openCampaignArtifactEditor(cid,aid){
@@ -14548,7 +14563,7 @@ function carriedWeaponRowMarkup(x){if(!fighterHasMisericordia(x))return '';const
 function fighterNoEquipment(x){return !!x?.noEquipment}
 function henchmanBandListOnly(x){return !!x&&x.type!=='Animal'&&!isHiredSword(x)&&advancementRole(x)==='Henchman'}
 function henchmanBandListAllows(x,e){if(!henchmanBandListOnly(x)||!e)return true;return equipmentPool('band',x).some(w=>normName(w?.name)===normName(e.name))}
-function canEquip(x,w){const en=siteLanguage==='en';if(w.bandOnlyIntrinsic)return {ok:true};if(isWarTrophies(w)&&fighterIsImmuneToPsychology(x))return {ok:false,msg:en?'War Trophies may not be used by warriors that are Immune to Psychology.':'Les War Trophies ne peuvent pas être utilisés par un combattant Immune to Psychology.'};const equipped=x?.equipmentSelected||[];if(isWeaponLike(w)){const slots=weaponSlots(w);if(currentWeaponSlots(x)+slots>3)return {ok:false,msg:en?'Maximum of 3 weapon slots reached (two-handed weapons count as 2).':'Maximum de 3 emplacements d’armes atteint (les armes à deux mains comptent pour 2).'}}if(isFurCloak(w)&&equipped.some(e=>isShield(e)))return {ok:false,msg:en?'A fur/fur cloak cannot be used with a shield.':'Une fourrure/cape de fourrure ne peut pas être utilisée avec un bouclier.'};if(isShield(w)&&equipped.some(e=>isFurCloak(e)))return {ok:false,msg:en?'A shield cannot be used with a fur/fur cloak.':'Un bouclier ne peut pas être utilisé avec une fourrure/cape de fourrure.'};return {ok:true}}
+function canEquip(x,w){const en=siteLanguage==='en';if(w.bandOnlyIntrinsic)return {ok:true};if(coveringBlockedFor(x,itemCovering(w)))return {ok:false,msg:en?`${w.name}: ${itemCovering(w).name} weapons are for Heroes only`:`${w.name} : les armes ${itemCovering(w).name} sont réservées aux Héros`};if(isWarTrophies(w)&&fighterIsImmuneToPsychology(x))return {ok:false,msg:en?'War Trophies may not be used by warriors that are Immune to Psychology.':'Les War Trophies ne peuvent pas être utilisés par un combattant Immune to Psychology.'};const equipped=x?.equipmentSelected||[];if(isWeaponLike(w)){const slots=weaponSlots(w);if(currentWeaponSlots(x)+slots>3)return {ok:false,msg:en?'Maximum of 3 weapon slots reached (two-handed weapons count as 2).':'Maximum de 3 emplacements d’armes atteint (les armes à deux mains comptent pour 2).'}}if(isFurCloak(w)&&equipped.some(e=>isShield(e)))return {ok:false,msg:en?'A fur/fur cloak cannot be used with a shield.':'Une fourrure/cape de fourrure ne peut pas être utilisée avec un bouclier.'};if(isShield(w)&&equipped.some(e=>isFurCloak(e)))return {ok:false,msg:en?'A shield cannot be used with a fur/fur cloak.':'Un bouclier ne peut pas être utilisé avec une fourrure/cape de fourrure.'};return {ok:true}}
 // V-MOUNTEDCARD: a Mount (equipment-shaped creature profile bought from
 // Custom → Animals & Mounts — see mountCreatureAsEquipment) was previously
 // invisible on the fighter sheet beyond its plain equipment row: no
@@ -14675,7 +14690,7 @@ function setProgressionSubtab(tab){progressionSubtab=tab;progressionOpen=true;re
 function setLoadoutView(view){loadoutView=view==='chest'?'chest':'loadout';render('fighter')}
 function setEquipmentTab(tab){equipmentTab=tab;equipmentCategoryFilter='all';equipmentSearch='';render('fighter')}
 function setEquipmentCategory(cat){equipmentCategoryFilter=cat;render('fighter')}
-function openPurchaseConfirm(w,defaultPrice,tab,defaultValue=null){const en=siteLanguage==='en';const source=tab==='band'?'Band List':tab==='market'?'Market List':'Unrestricted List';const intrinsic=w.bandOnlyIntrinsic;const canBuy=defaultPrice!=null&&!intrinsic;openModal(`<div class="purchase-dialog"><div class="eyebrow">${intrinsic?(en?'ADD TO SHEET':'AJOUT À LA FICHE'):(en?'PURCHASE EQUIPMENT':'ACHAT D’ÉQUIPEMENT')} · ${source}</div><h2>${esc(w.name)}</h2><p>${intrinsic?(en?'This weapon is intrinsic and has no purchase cost.':'Cette arme est innée et n’a aucun coût d’achat.'):(en?'Confirm the purchase and, if needed, edit the price actually paid. The displayed value can remain different.':'Confirme l’achat et, si nécessaire, modifie le prix réellement payé. La valeur affichée peut rester différente.')}</p>${intrinsic?'':'<div class="purchase-grid"><label>'+(en?'Price paid (GC)':'Prix d’achat payé (GC)')+'<input id="purchasePaid" type="number" min="0" step="1" value="'+(canBuy?Number(defaultPrice):0)+'"></label><label>'+(en?'Displayed value (GC)':'Valeur affichée (GC)')+'<input id="purchaseValue" type="number" min="0" step="1" value="'+(canBuy?Number(defaultValue??defaultPrice):0)+'"></label></div><label class="toggle-line"><input id="sameValue" type="checkbox" '+(defaultValue!=null&&Number(defaultValue)!==Number(defaultPrice)?'':'checked')+' onchange="syncPurchaseValue()"><span>'+(en?'Use the purchase price as the displayed value':'Utiliser le prix d’achat comme valeur affichée')+'</span></label>'}<div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="purchaseEquipment('${encodeURIComponent(w.name)}','${tab}')">${intrinsic?(en?'Add':'Ajouter'):(en?'Confirm purchase':'Confirmer l’achat')}</button></div></div>`)}
+function openPurchaseConfirm(w,defaultPrice,tab,defaultValue=null){const en=siteLanguage==='en';const source=tab==='band'?'Band List':tab==='market'?'Market List':'Unrestricted List';const intrinsic=w.bandOnlyIntrinsic;const canBuy=defaultPrice!=null&&!intrinsic;openModal(`<div class="purchase-dialog"><div class="eyebrow">${intrinsic?(en?'ADD TO SHEET':'AJOUT À LA FICHE'):(en?'PURCHASE EQUIPMENT':'ACHAT D’ÉQUIPEMENT')} · ${source}</div><h2>${esc(w.name)}</h2>${coveringPurchaseNote(w,activeRoster()?.fighters?.[editingIndex])}<p>${intrinsic?(en?'This weapon is intrinsic and has no purchase cost.':'Cette arme est innée et n’a aucun coût d’achat.'):(en?'Confirm the purchase and, if needed, edit the price actually paid. The displayed value can remain different.':'Confirme l’achat et, si nécessaire, modifie le prix réellement payé. La valeur affichée peut rester différente.')}</p>${intrinsic?'':'<div class="purchase-grid"><label>'+(en?'Price paid (GC)':'Prix d’achat payé (GC)')+'<input id="purchasePaid" type="number" min="0" step="1" value="'+(canBuy?Number(defaultPrice):0)+'"></label><label>'+(en?'Displayed value (GC)':'Valeur affichée (GC)')+'<input id="purchaseValue" type="number" min="0" step="1" value="'+(canBuy?Number(defaultValue??defaultPrice):0)+'"></label></div><label class="toggle-line"><input id="sameValue" type="checkbox" '+(defaultValue!=null&&Number(defaultValue)!==Number(defaultPrice)?'':'checked')+' onchange="syncPurchaseValue()"><span>'+(en?'Use the purchase price as the displayed value':'Utiliser le prix d’achat comme valeur affichée')+'</span></label>'}<div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="purchaseEquipment('${encodeURIComponent(w.name)}','${tab}')">${intrinsic?(en?'Add':'Ajouter'):(en?'Confirm purchase':'Confirmer l’achat')}</button></div></div>`)}
 function syncPurchaseValue(){const p=$('#purchasePaid'),v=$('#purchaseValue');if($('#sameValue')?.checked&&p&&v)v.value=p.value}
 // V-REMOVEFIX: this read x.equipmentSelected[i] unconditionally, but for a
 // Leader/Champion (fighterUsesLoadouts(x)===true) the stash view's remove
@@ -15261,7 +15276,7 @@ function editTraitParamValue(context,index){
 
 
 function newCustomEquipment(){customEquipmentEditId=null;customEquipmentTraitDraft=[];customEquipmentTraitDraft2=[];render('custom');setTimeout(()=>$('#customName')?.focus(),30)}
-function editCustomEquipment(id){const w=customEquipmentList().find(x=>x.customEquipmentId===id);if(!w)return;customEquipmentEditId=id;customEquipmentTraitDraft=Array.isArray(w.traits)?w.traits.slice():String(w.profile?.traits||'').split(',').map(x=>x.trim()).filter(Boolean);customEquipmentTraitDraft2=Array.isArray(w.profile2?.traits)?w.profile2.traits.slice():String(w.profile2?.traits||'').split(',').map(x=>x.trim()).filter(Boolean);render('custom')}
+function editCustomEquipment(id){const w=customEquipmentList().find(x=>x.customEquipmentId===id);if(!w)return;customEquipmentEditId=id;customEquipmentTraitDraft=isCovering(w)?coveringTraitList(w.covering?.traits):Array.isArray(w.traits)?w.traits.slice():String(w.profile?.traits||'').split(',').map(x=>x.trim()).filter(Boolean);customEquipmentTraitDraft2=Array.isArray(w.profile2?.traits)?w.profile2.traits.slice():String(w.profile2?.traits||'').split(',').map(x=>x.trim()).filter(Boolean);render('custom')}
 // V-WARBANDEXCLUSIVE: entry points reached from a warband's own Équipement
 // section — see the comment above customWarbandCreateContextId.
 function newExclusiveCustomEquipment(cwId){customWarbandCreateContextId=cwId;customArea='generic';customContentTab='equipment';newCustomEquipment();}
@@ -15273,33 +15288,34 @@ function customEquipmentForm(w){
   // V-WEAPONTYPE: items saved from Admin or brought back from a published
   // warband can carry a weapon profile without type:'weapon' — opening them
   // as plain equipment hid the profile and saving wiped it.
-  const weapon=w?.type==='weapon'||!!w?.profile;
+  const covering=isCovering(w);
+  const weapon=!covering&&(w?.type==='weapon'||!!w?.profile);
   const traits=customEquipmentTraitDraft.length?customEquipmentTraitDraft:(w?.traits||[]);
   const factions=Array.isArray(w?.factions)?w.factions:[];
   const cats=en?EQUIPMENT_CATEGORY_NAMES_EN:EQUIPMENT_CATEGORY_NAMES_FR;
   const catsFr=EQUIPMENT_CATEGORY_NAMES_FR;
   const exclusiveCw=customWarbandCreateContextId?customWarbandById(customWarbandCreateContextId):null;
   const exclusiveBanner=exclusiveCw?`<div class="official-draft-notice"><span class="official-draft-tag">${en?'EXCLUSIVE':'EXCLUSIF'}</span><p>${en?`This equipment will be exclusive to <b>${esc(exclusiveCw.name)}</b> — automatically checked for this warband, it will no longer appear in the general Generic Custom list. <a href="#" onclick="returnToWarbandEditor('equipment');return false;">← Back to the warband without saving</a>`:`Cet équipement sera exclusif à <b>${esc(exclusiveCw.name)}</b> — coché automatiquement pour cette warband, il n’apparaîtra plus dans la liste générale de Custom Générique. <a href="#" onclick="returnToWarbandEditor('equipment');return false;">← Retour à la warband sans enregistrer</a>`}</p></div>`:'';
-  return `${exclusiveBanner}<div class="custom-form-head"><div><div class="eyebrow">${w?(en?'EDIT':'MODIFICATION'):(en?'NEW EQUIPMENT':'NOUVEL ÉQUIPEMENT')}</div><h3>${esc(w?.name||(en?'Build equipment':'Construire un équipement'))}</h3></div>${w?`<button type="button" class="button secondary" onclick="newCustomEquipment()">＋ ${en?'New':'Nouveau'}</button>`:''}</div>
+  return `${exclusiveBanner}<div id="customEquipForm" class="${covering?'custom-form-covering':''}"><div class="custom-form-head"><div><div class="eyebrow">${w?(en?'EDIT':'MODIFICATION'):(en?'NEW EQUIPMENT':'NOUVEL ÉQUIPEMENT')}</div><h3>${esc(w?.name||(en?'Build equipment':'Construire un équipement'))}</h3></div>${w?`<button type="button" class="button secondary" onclick="newCustomEquipment()">＋ ${en?'New':'Nouveau'}</button>`:''}</div>
   <div class="custom-form-grid">
     <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="customName" value="${esc(w?.name||'')}" placeholder="${en?'E.g. Waaagh! Axe':'Ex. Hache du Waaagh!'}"></label>
-    <label class="custom-field"><span>${en?'Type':'Type'}</span><select id="customType" onchange="refreshCustomForm()"><option value="equipment" ${!weapon?'selected':''}>${en?'Equipment':'Équipement'}</option><option value="weapon" ${weapon?'selected':''}>${en?'Weapon':'Arme'}</option></select></label>
-    <label class="custom-field"><span>${en?'Subcategory':'Sous-catégorie'}</span><select id="customCategory">${cats.map((c,i)=>`<option value="${esc(catsFr[i])}" ${catsFr[i]===(w?.category||'Équipements divers')?'selected':''}>${c}</option>`).join('')}</select></label>
+    <label class="custom-field"><span>${en?'Type':'Type'}</span><select id="customType" onchange="refreshCustomForm()"><option value="equipment" ${!weapon&&!covering?'selected':''}>${en?'Equipment':'Équipement'}</option><option value="weapon" ${weapon?'selected':''}>${en?'Weapon':'Arme'}</option><option value="covering" ${covering?'selected':''}>${en?'Weapon covering':'Revêtement d’arme'}</option></select></label>
+    <label class="custom-field" data-covering-hide><span>${en?'Subcategory':'Sous-catégorie'}</span><select id="customCategory">${cats.map((c,i)=>`<option value="${esc(catsFr[i])}" ${catsFr[i]===(w?.category||'Équipements divers')?'selected':''}>${c}</option>`).join('')}</select></label>
     <label class="custom-field"><span>${en?'Rarity':'Rareté'}</span><input id="customRarity" value="${esc(w?.rarity||'')}" placeholder="Common / Rare 7 / etc."></label>
-    <label class="custom-field"><span>${en?'Price (GC)':'Prix (GC)'}</span><input id="customPrice" type="number" min="0" step="1" value="${Number(w?.price||0)}"></label>
-    ${bandValueFieldMarkup(w,'customBandValue')}
+    <label class="custom-field" data-covering-hide><span>${en?'Price (GC)':'Prix (GC)'}</span><input id="customPrice" type="number" min="0" step="1" value="${Number(w?.price||0)}"></label>
+    <div data-covering-hide class="custom-field-wrap">${bandValueFieldMarkup(w,'customBandValue')}</div>
     <label class="custom-field wide"><span>${en?'Equipment rules':'Règles de l’équipement'}</span>${customTextToolbarMarkup('customRules')}<textarea id="customRules" class="wide-textarea custom-rules-textarea" rows="4" placeholder="${en?`E.g. This armour grants a 5+ save.
 Rules written here can be interpreted by the system when they match a recognized game value.`:`Ex. Cette armure donne une sauvegarde de 5+.
 Les règles écrites ici peuvent être interprétées par le système lorsqu’elles correspondent à une valeur de jeu reconnue.`}">${esc(w?.rulesText||'')}</textarea><small class="custom-field-help">${en?'You can write the rules freely. Some recognized values, like “5+ save”, are automatically taken into account on the fighter’s sheet. Avoid cutting a recognized value in the middle of its formatting.':'Tu peux écrire les règles librement. Certaines valeurs reconnues, comme « sauvegarde de 5+ », sont automatiquement prises en compte dans la fiche du combattant. Évite de couper une valeur reconnue au milieu d’une mise en forme.'}</small></label>
   </div>
-  ${itemUseFieldsMarkup(w,'customUse')}
-  <div id="customWeaponFields">${weapon?customWeaponEditor(w):''}</div>
+  <div data-covering-hide>${itemUseFieldsMarkup(w,'customUse')}</div>
+  <div id="customWeaponFields">${weapon?customWeaponEditor(w):covering?customCoveringEditor(w):''}</div>
   <div class="custom-section"><div class="custom-section-head"><div><span class="micro-label">${en?'AVAILABILITY':'DISPONIBILITÉ'}</span><strong>${en?'Lists the equipment is added to':'Listes auxquelles l’équipement est ajouté'}</strong></div><small>${en?'Assigning it to a band does not remove the item from the Unrestricted List.':'Une affectation à une bande n’enlève pas l’objet de l’Unrestricted List.'}</small></div>
     <label class="custom-check unrestricted-check"><input id="customUnrestricted" type="checkbox" checked disabled> <span><b>Unrestricted List</b><small>${en?'Always available in the general list. The factions selected below also add the item to their Band List.':'Toujours disponible dans la liste générale. Les factions choisies ci-dessous ajoutent aussi l’objet à leur Band List.'}</small></span></label>
     <label class="custom-check market-check"><input id="customMarketList" type="checkbox" ${w?.market?'checked':''}> <span><b>Market List</b><small>${en?'Also adds the item to the Market List, accessible to every band during post-battle purchases.':'Ajoute aussi l’objet à la Market List, accessible à toutes les bandes lors des achats post-bataille.'}</small></span></label>
     <div class="custom-faction-grid">${D.factions.map(f=>`<label class="custom-check"><input class="customFaction" data-faction="${esc(f.id)}" type="checkbox" ${factions.includes(f.id)?'checked':''}><span>${esc(f.displayName)}</span></label>`).join('')}</div>
   </div>
-  <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomEquipment()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create equipment':'Créer l’équipement')}</button></div>`
+  <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomEquipment()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create equipment':'Créer l’équipement')}</button></div></div>`
 }
 function customWeaponEditor(w){
   const en=siteLanguage==='en';
@@ -15312,6 +15328,30 @@ function customWeaponEditor(w){
     <div class="custom-weapon-preview" id="customWeaponPreview">${customPreviewMarkup(w||{name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:p,traits:customEquipmentTraitDraft})}</div>
   </div>`
 }
+// V-COVERINGS: the covering editor — multiplier, a signed modifier per
+// profile value, added traits, and the melee weapons it applies to (all
+// ticked by default; only the unticked ones are stored, so a weapon added
+// later is covered too).
+function coveringBaseCandidates(){const by=new Map();[...D.weapons.filter(w=>!w.hidden),...allCustomEquipmentList()].forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k)&&coveringEligibleBase(w))by.set(k,w)});return [...by.values()].sort((a,b)=>a.name.localeCompare(b.name))}
+function customCoveringEditor(w){
+  const en=siteLanguage==='en';const c=w?.covering||{};const ex=new Set((Array.isArray(c.excluded)?c.excluded:[]).map(normName));const bases=coveringBaseCandidates();
+  const num=(id,label,v,hint)=>`<label class="custom-field"><span>${label}</span><input id="${id}" type="number" step="1" value="${Number(v)||''}" placeholder="0" oninput="refreshCoveringPreview()"><small class="custom-field-help">${hint}</small></label>`;
+  const pick=bases.find(b=>normName(b.name)==='sword')||bases[0];
+  return `<div class="custom-section covering-builder"><div class="custom-section-head"><div><span class="micro-label">${en?'WEAPON COVERING':'REVÊTEMENT D’ARME'}</span><strong>${en?'Added to the weapon’s own profile':'Ajouté au profil de l’arme'}</strong></div><small>${en?'Covered name: “covering + weapon”, e.g. Ithilmar Sword. One covering per weapon.':'Nom couvert : « revêtement + arme », ex. Ithilmar Sword. Un seul revêtement par arme.'}</small></div>
+    <div class="custom-weapon-grid covering-mods"><label class="custom-field"><span>${en?'Price multiplier':'Multiplicateur de prix'}</span><input id="customCovMult" type="number" min="0" step="0.1" value="${w?coveringMult(w):2}" oninput="refreshCoveringPreview()"><small class="custom-field-help">Sword 25 GC × 2 = 50 GC</small></label>
+    ${num('customCovRange',en?'Range (Melee)':'Portée (Melee)',c.range,'Melee 2 +1 → Melee 3')}${num('customCovStrength',en?'Strength':'Force',c.strength,'S+2 +1 → S+3')}${num('customCovAp','AP',c.ap,'- −1 → -1')}${num('customCovDamage',en?'Damage':'Dégâts',c.damage,'1 +1 → 2 · D3 +1 → D3+1')}</div>
+    <label class="custom-check covering-heroes"><input id="customCovHeroes" type="checkbox" ${w?(c.heroesOnly?'checked':''):'checked'}> <span><b>${en?'Heroes only':'Héros seulement'}</b><small>${en?'Henchmen can’t buy, equip or be given a weapon with this covering (promoted Veterans can).':'Les Henchmen ne peuvent ni acheter, ni équiper, ni recevoir une arme avec ce revêtement (les Veterans promus le peuvent).'}</small></span></label>
+    <div class="custom-trait-editor"><div class="custom-section-head"><div><span class="micro-label">TRAITS</span><strong>${en?'Traits added to the weapon':'Traits ajoutés à l’arme'}</strong></div></div><div id="customTraitTags" class="custom-trait-tags">${customTraitTagsMarkup()}</div><div class="custom-trait-add"><input id="customTraitInput" list="customTraitDatalist" placeholder="${en?'Search a trait…':'Rechercher un trait…'}" onkeydown="handleCustomTraitKey(event)"><datalist id="customTraitDatalist">${referenceEntries('traits').map(t=>`<option value="${esc(t.name)}">`).join('')}</datalist><button type="button" class="button secondary" onclick="addCustomTrait()">＋ ${en?'Add':'Ajouter'}</button></div></div>
+    <div class="custom-section-head covering-weapons-head"><div><span class="micro-label">${en?'COVERED WEAPONS':'ARMES CONCERNÉES'}</span><strong>${en?'Untick the weapons it can’t cover':'Décoche les armes exclues'}</strong></div><span class="covering-weapon-actions"><button type="button" class="button secondary" onclick="setCoveringWeapons(true)">${en?'All':'Tout'}</button><button type="button" class="button secondary" onclick="setCoveringWeapons(false)">${en?'None':'Aucune'}</button></span></div>
+    <div class="custom-faction-grid covering-weapons">${bases.map(b=>`<label class="custom-check"><input class="customCovWeapon" data-name="${esc(b.name)}" type="checkbox" ${ex.has(normName(b.name))?'':'checked'}><span>${esc(b.name)}</span></label>`).join('')}</div>
+    <div class="custom-section-head covering-preview-head"><div><span class="micro-label">${en?'PREVIEW':'APERÇU'}</span></div><select id="customCovPreviewBase" aria-label="${en?'Preview weapon':'Arme de l’aperçu'}" onchange="refreshCoveringPreview()">${bases.map(b=>`<option value="${esc(b.name)}" ${b===pick?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>
+    <div id="customCoveringPreview" class="custom-weapon-preview">${coveringPreviewMarkup(w,pick,false)}</div>
+  </div>`;
+}
+function readCoveringFields(){const n=id=>Math.trunc(Number($('#'+id)?.value||0))||0;const m=Number($('#customCovMult')?.value);return {mult:Number.isFinite(m)&&m>0?Math.round(m*100)/100:1,range:n('customCovRange'),strength:n('customCovStrength'),ap:n('customCovAp'),damage:n('customCovDamage'),traits:customEquipmentTraitDraft.slice(),heroesOnly:!!$('#customCovHeroes')?.checked,excluded:[...document.querySelectorAll('.customCovWeapon')].filter(x=>!x.checked).map(x=>x.dataset.name)}}
+function setCoveringWeapons(on){document.querySelectorAll('.customCovWeapon').forEach(x=>{x.checked=on})}
+function coveringPreviewMarkup(w,base,fromDom=true){const en=siteLanguage==='en';if(!base){const sel=$('#customCovPreviewBase')?.value;const bases=coveringBaseCandidates();base=(sel&&bases.find(b=>b.name===sel))||bases.find(b=>normName(b.name)==='sword')||bases[0]}if(!base)return '';const live=fromDom&&!!$('#customCovMult');const cov={name:((live?$('#customName')?.value:w?.name)||w?.name||(en?'Covering':'Revêtement')).trim(),rarity:((live?$('#customRarity')?.value:w?.rarity)||'').trim(),rulesText:'',covering:live?readCoveringFields():{...(w?.covering||{}),mult:w?coveringMult(w):2,traits:customEquipmentTraitDraft.slice()}};const v=coveredWeapon(base,cov);const row=(it,label)=>`<div class="covering-preview-row"><small>${label}</small>${weaponProfileMarkup({...it,customEquipmentId:'preview'})}</div>`;return (row(base,`${esc(base.name)} · ${Number(base.price||0)} GC`)+row(v,`◆ ${esc(v.name)} · ${v.price} GC${v.rarity?' · '+esc(v.rarity):''}`)).replace(/data-ref-category="equipment"[^>]*>/g,'>')}
+function refreshCoveringPreview(){const box=$('#customCoveringPreview');if(box)box.innerHTML=coveringPreviewMarkup(null)}
 // Secondary profile fields for the dual-profile checkbox above (V-DUALPROFILE).
 // Uses the same full trait tag-picker as the primary profile (V-TRAITPICKER),
 // backed by its own draft array (customEquipmentTraitDraft2) via context 'equipment2'.
@@ -15322,8 +15362,8 @@ function customWeaponSecondaryFields(p){
 function toggleDualWeaponProfile(){const box=$('#customWeaponFields2');if(!box)return;const checked=!!$('#customDualProfile')?.checked;if(checked)customEquipmentTraitDraft2=[];box.innerHTML=checked?customWeaponSecondaryFields({}):''}
 function customTraitTagsMarkup(){const en=siteLanguage==='en';return customEquipmentTraitDraft.map((t,i)=>`<span class="custom-trait-tag">${refLink('traits',t,t)}${isEditableParamTag('equipment',t)?`<button type="button" title="${en?'Edit value':'Modifier la valeur'}" class="trait-tag-edit" onclick="editTraitParamValue('equipment',${i})">✎</button>`:''}<button type="button" title="${en?'Remove':'Retirer'}" onclick="removeCustomTrait(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No trait added.':'Aucun trait ajouté.'}</span>`}
 function customPreviewMarkup(w){const en=siteLanguage==='en';if(!w?.profile)return `<div class="custom-nonweapon-preview"><span>${en?'PREVIEW':'APERÇU'}</span><strong>${en?'Unarmed equipment':'Équipement non armé'}</strong><small>${en?'The weapon profile will appear automatically if the type is changed to Weapon.':'Le profil d’arme apparaîtra automatiquement si le type est changé en Arme.'}</small></div>`;return weaponProfileMarkup({...w,customEquipmentId:'preview',profile:{...w.profile,traits:customEquipmentTraitDraft.join(', ')}}).replace(/data-ref-category="equipment"[^>]*>/g,'>')}
-function refreshCustomForm(){const en=siteLanguage==='en';const type=$('#customType')?.value;const box=$('#customWeaponFields');if(!box)return;box.innerHTML=type==='weapon'?customWeaponEditor({name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:{range:$('#customRange')?.value||'',strength:$('#customStrength')?.value||'',ap:$('#customAp')?.value||'',damage:$('#customDamage')?.value||''},traits:customEquipmentTraitDraft}):''}
-function refreshCustomTraitEditor(){const en=siteLanguage==='en';const tags=$('#customTraitTags');if(tags)tags.innerHTML=customTraitTagsMarkup();const preview=$('#customWeaponPreview');if(preview){const w={name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:{range:$('#customRange')?.value||'',strength:$('#customStrength')?.value||'',ap:$('#customAp')?.value||'',damage:$('#customDamage')?.value||''},traits:customEquipmentTraitDraft};preview.innerHTML=customPreviewMarkup(w)}}
+function refreshCustomForm(){const en=siteLanguage==='en';const type=$('#customType')?.value;const box=$('#customWeaponFields');if(!box)return;$('#customEquipForm')?.classList.toggle('custom-form-covering',type==='covering');if(type==='covering'){box.innerHTML=customCoveringEditor(null);return}box.innerHTML=type==='weapon'?customWeaponEditor({name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:{range:$('#customRange')?.value||'',strength:$('#customStrength')?.value||'',ap:$('#customAp')?.value||'',damage:$('#customDamage')?.value||''},traits:customEquipmentTraitDraft}):''}
+function refreshCustomTraitEditor(){const en=siteLanguage==='en';const tags=$('#customTraitTags');if(tags)tags.innerHTML=customTraitTagsMarkup();if($('#customCoveringPreview')){refreshCoveringPreview();return}const preview=$('#customWeaponPreview');if(preview){const w={name:$('#customName')?.value||(en?'New weapon':'Nouvelle arme'),profile:{range:$('#customRange')?.value||'',strength:$('#customStrength')?.value||'',ap:$('#customAp')?.value||'',damage:$('#customDamage')?.value||''},traits:customEquipmentTraitDraft};preview.innerHTML=customPreviewMarkup(w)}}
 function addCustomTrait(){const input=$('#customTraitInput');const v=(input?.value||'').trim();if(!v)return;const found=referenceFind('traits',v);const canonical=found?.name||v;if(traitChoiceOptions(canonical)){input.value='';openTraitChoicePrompt('equipment',null,canonical);return}if(isTraitParamTemplate(canonical)){input.value='';openTraitParamPrompt('equipment',null,canonical);return}if(!customEquipmentTraitDraft.some(t=>normName(t)===normName(canonical)))customEquipmentTraitDraft.push(canonical);input.value='';refreshCustomTraitEditor();setTimeout(()=>{$('#customTraitInput')?.focus()},20)}
 function handleCustomTraitKey(e){if(e.key==='Enter'){e.preventDefault();addCustomTrait()}}
 function removeCustomTrait(i){customEquipmentTraitDraft.splice(i,1);refreshCustomTraitEditor()}
@@ -15336,7 +15376,8 @@ function saveCustomEquipment(){
   const market=!!$('#customMarketList')?.checked;
   const rulesText=($('#customRules')?.value||'').trim();
   const item={customEquipmentId:customEquipmentEditId||crypto.randomUUID(),name,type,category,subcategory:category,rarity,price,unrestricted,market,factions,traits:customEquipmentTraitDraft.slice(),rulesText,...readItemUseFields('customUse'),bandValue:readBandValueField('customBandValue')};
-  if(type==='weapon'){item.profile={range:($('#customRange')?.value||'').trim(),strength:($('#customStrength')?.value||'').trim(),ap:($('#customAp')?.value||'').trim(),damage:($('#customDamage')?.value||'').trim(),traits:customEquipmentTraitDraft.join(', ')};item.weaponSlotCost=weaponSlots(item);item.customArmor=false;
+  if(type==='covering'){item.covering=readCoveringFields();item.traits=[];item.profile=null;item.profile2=null;item.price=0;item.category=item.subcategory='Armes de corps à corps';item.bandValue=null;}
+  else if(type==='weapon'){item.profile={range:($('#customRange')?.value||'').trim(),strength:($('#customStrength')?.value||'').trim(),ap:($('#customAp')?.value||'').trim(),damage:($('#customDamage')?.value||'').trim(),traits:customEquipmentTraitDraft.join(', ')};item.weaponSlotCost=weaponSlots(item);item.customArmor=false;
     // V-DUALPROFILE: a second, independent profile (e.g. a pistol-sword's shooting
     // AND melee stat lines) — never inferred, only ever set via this checkbox.
     if($('#customDualProfile')?.checked){item.profile2={range:($('#customRange2')?.value||'').trim(),strength:($('#customStrength2')?.value||'').trim(),ap:($('#customAp2')?.value||'').trim(),damage:($('#customDamage2')?.value||'').trim(),traits:customEquipmentTraitDraft2.join(', ')}}else item.profile2=null;
@@ -15376,7 +15417,7 @@ function customEquipmentRow(w){
   // item (name / catégorie / prix). Faction access and rule text are shown
   // once, in the editor itself (✎), not duplicated here — same principle
   // as the custom fighter and traits/rules rows.
-  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${w.type==='weapon'||w.profile?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${esc(w.category)} · ${Number(w.price||0)} GC${w.rarity?' · '+esc(w.rarity):''}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('equipment',w.customEquipmentId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomEquipmentArchive('${w.customEquipmentId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="editCustomEquipment('${w.customEquipmentId}')">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomEquipment('${w.customEquipmentId}')">🗑</button></div></article>`}
+  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">${isCovering(w)?'◈':w.type==='weapon'||w.profile?'⚔':'◆'}</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isCovering(w)?`${en?'Weapon covering':'Revêtement d’arme'} · ${en?'price':'prix'} × ${coveringMult(w)}${coveringHeroesOnly(w)?(en?' · Heroes only':' · Héros seulement'):''}`:`${esc(w.category)} · ${Number(w.price||0)} GC`}${w.rarity?' · '+esc(w.rarity):''}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('equipment',w.customEquipmentId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomEquipmentArchive('${w.customEquipmentId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" onclick="editCustomEquipment('${w.customEquipmentId}')">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomEquipment('${w.customEquipmentId}')">🗑</button></div></article>`}
 
 
 // --- V58 custom equipment integration / rule parsing ---
@@ -15914,7 +15955,7 @@ async function adminToggleSyncPause(on){const en=siteLanguage==='en';if(on&&!con
 // one fighter type of it. Applies to every shop of that warband (Band List,
 // market, campaign trading posts) and to the warband rating, live.
 let prFactionSel='';
-function prItemNames(){const set=new Set();(D.weapons||[]).forEach(w=>w?.name&&set.add(w.name));(D.factions||[]).forEach(f=>(f.equipment||[]).forEach(e=>{const n=typeof e==='string'?e:e?.name;if(n)set.add(n)}));return [...set].sort((a,b)=>a.localeCompare(b))}
+function prItemNames(){const set=new Set();(D.weapons||[]).forEach(w=>w?.name&&set.add(w.name));(D.factions||[]).forEach(f=>(f.equipment||[]).forEach(e=>{const n=typeof e==='string'?e:e?.name;if(n&&!isCovering(e))set.add(n)}));return [...set].sort((a,b)=>a.localeCompare(b))}
 function prFactionName(id){return D.factions.find(f=>String(f.id)===String(id))?.displayName||id}
 function prWarriorName(fid,wid){const f=D.factions.find(x=>String(x.id)===String(fid));return f?.warriors?.find(w=>String(w.id)===String(wid))?.name||wid}
 // Warbands whose special-price list is unfolded (closed by default; the
@@ -16754,12 +16795,13 @@ function officializedContentIdSets(){
 // state.customEquipment (per-user, editable), this is read-only content
 // merged from D.factions' official entries, available to every account —
 // same object shape, still gated by its (server-rescoped) `.factions` field.
-function officialCustomEquipmentList(){
+function officialCustomEquipmentList(withCoverings=false){
   const out=[],seen=new Set();
   (D.factions||[]).forEach(f=>{
     if(!f.__official)return;
     (f.equipment||[]).forEach(w=>{
       if(!w?.customEquipmentId)return;
+      if(!withCoverings&&isCovering(w))return;
       const key=normName(w.name);if(seen.has(key))return;seen.add(key);
       out.push(w);
     });
@@ -16965,7 +17007,7 @@ function allCustomEquipmentList(){
   mountCreatureEquipmentList().forEach(w=>{const key=normName(w.name);if(seen.has(key))return;seen.add(key);out.push(withRealScope(w));});
   customEquipmentList().forEach(w=>{const key=normName(w.name);if(seen.has(key))return;seen.add(key);out.push(withRealScope(w));});
   officialCustomEquipmentList().forEach(w=>{const key=normName(w.name);if(seen.has(key))return;seen.add(key);out.push(withRealScope(w));});
-  return out;
+  return out.filter(w=>!isCovering(w));
 }
 function isCustomEquipment(w){return !!w?.customEquipmentId}
 // V-OFFICIALIZEMERGE (follow-up to Task #83): a custom equipment item that
@@ -16983,7 +17025,7 @@ function isCustomEquipment(w){return !!w?.customEquipmentId}
 // (officializedEquipmentIdSet).
 function isPublishedCustomEquipment(w){
   if(!w?.customEquipmentId)return false;
-  if(officialCustomEquipmentList().some(x=>normName(x.name)===normName(w.name)))return true;
+  if(officialCustomEquipmentList(true).some(x=>normName(x.name)===normName(w.name)))return true;
   if(officializedEquipmentIdSet().has(w.customEquipmentId))return true;
   // V-MOUNTOFFICIALIZE: a Mount-kind equipment object is actually derived
   // from a Custom Creature profile (see mountCreatureAsEquipment), and its
@@ -17037,13 +17079,83 @@ function confirmUseEquipmentItem(i){const en=siteLanguage==='en';const r=activeR
   const gone=itemUseConsumes(e);logHistory(r2,'equipment',en?`${x.name} used ${e.name}: gains ${rule}`:`${x.name} utilise ${e.name} : gagne ${rule}`);
   if(gone)return confirmRemoveEquipment(i);
   syncCustomEquipmentEffects(x2);save(true);closeModal();render('fighter')}
+// V-COVERINGS: a covering (Ithilmar, Gromril…) is a custom-equipment record
+// with type 'covering'. It is never bought on its own: it turns an eligible
+// melee weapon into a "<Covering> <Weapon>" variant whose profile (each
+// modifier added to the weapon's own value), price (× multiplier) and rarity
+// are derived live from both definitions, so editing either one updates every
+// copy already bought. It lives in the same library/publishing pipeline as
+// any custom item (officialize ★ to publish it, its factions = Band Lists).
+const COVERING_NEVER=new Set(['unarmed','natural weapons','fists','fist']);
+function isCovering(w){return w?.type==='covering'}
+function coveringList(){
+  const by=new Map();
+  const put=(w,official)=>{if(!isCovering(w)||!w.name)return;const k=normName(w.name);const cur=by.get(k);if(!cur){by.set(k,{...w,factions:[...(Array.isArray(w.factions)?w.factions:[])]});return}if(official&&Array.isArray(w.factions))w.factions.forEach(fid=>{if(!cur.factions.includes(fid))cur.factions.push(fid)})};
+  (Array.isArray(state.customEquipment)?state.customEquipment:[]).forEach(w=>{if(!w?.archived)put(w,false)});
+  (D.factions||[]).forEach(f=>{if(!f?.__official)return;(f.equipment||[]).forEach(w=>{if(w&&typeof w==='object')put(w,true)})});
+  (D.weapons||[]).forEach(w=>put(w,false));
+  return [...by.values()];
+}
+function coveringFind(id,name){const all=coveringList();return (id&&all.find(c=>c.customEquipmentId===id))||(name&&all.find(c=>normName(c.name)===normName(name)))||null}
+function coveringIsMelee(p){return !!p&&/^\s*melee\b/i.test(String(p.range||''))}
+function coveringEligibleBase(w){if(!w||isCovering(w)||w.coveredVariant||w.bandOnlyIntrinsic||w.hidden)return false;if(COVERING_NEVER.has(normName(w.name)))return false;return coveringIsMelee(w.profile)||coveringIsMelee(w.profile2)}
+function coveringAppliesTo(cov,w){if(!coveringEligibleBase(w))return false;const ex=Array.isArray(cov?.covering?.excluded)?cov.covering.excluded:[];return !ex.some(n=>normName(n)===normName(w.name))}
+// Adds a signed modifier to one profile value, keeping its notation:
+// Melee 2 +1 → Melee 3 · S +1 → S+1 · S+2 +1 → S+3 · 4 +1 → 5 · AP "-" −1 → -1
+// · AP +1 −1 → - · Damage 1 +1 → 2 · D3 +1 → D3+1. A value it can't read
+// (e.g. "S x2", "Special") is left as is.
+function coveringBump(kind,val,d){
+  d=Math.trunc(Number(d)||0);const s=String(val??'').trim().replace(/[−–]/g,'-');if(!d)return val;let m;
+  const sig=n=>n>0?'+'+n:String(n);
+  if(kind==='range'){m=s.match(/^(melee)\s*(\d+)(.*)$/i);return m?`${m[1]} ${Math.max(0,Number(m[2])+d)}${m[3]}`:val}
+  if(kind==='strength'){if(!s||/^s$/i.test(s))return 'S'+sig(d);m=s.match(/^S\s*([+-])\s*(\d+)(.*)$/i);if(m){const n=(m[1]==='-'?-1:1)*Number(m[2])+d;return (n?'S'+sig(n):'S')+m[3]}m=s.match(/^(\d+)(.*)$/);return m?`${Math.max(0,Number(m[1])+d)}${m[2]}`:val}
+  if(kind==='ap'){let n;if(!s||s==='-'||s==='0')n=0;else{m=s.match(/^([+-])\s*(\d+)$/);if(!m)return val;n=(m[1]==='-'?-1:1)*Number(m[2])}n+=d;return n?sig(n):'-'}
+  if(kind==='damage'){m=s.match(/^(\d+)$/);if(m)return String(Math.max(1,Number(m[1])+d));m=s.match(/^(\d*D\d+)\s*(?:([+-])\s*(\d+))?$/i);if(m){const n=(m[2]==='-'?-1:1)*Number(m[3]||0)+d;return m[1].toUpperCase()+(n?sig(n):'')}return val}
+  return val;
+}
+function coveringTraitList(t){return (Array.isArray(t)?t:String(t||'').split(',')).map(x=>String(x).trim()).filter(x=>x&&x!=='-'&&x!=='—')}
+function coveringMergeTraits(base,add){const out=coveringTraitList(base);coveringTraitList(add).forEach(t=>{if(!out.some(o=>normName(o)===normName(t)))out.push(t)});return out}
+function coveringApplyProfile(p,c){if(!coveringIsMelee(p))return p||null;return {...p,range:coveringBump('range',p.range,c.range),strength:coveringBump('strength',p.strength,c.strength),ap:coveringBump('ap',p.ap,c.ap),damage:coveringBump('damage',p.damage,c.damage),traits:coveringMergeTraits(p.traits,c.traits).join(', ')}}
+function coveringMult(cov){const m=Number(cov?.covering?.mult);return Number.isFinite(m)&&m>0?m:1}
+function coveredWeapon(base,cov){
+  const c=cov.covering||{};const mult=coveringMult(cov);const x=n=>Math.round(Number(n||0)*mult);
+  const out={...base,name:`${cov.name} ${base.name}`,price:x(base.price),rarity:cov.rarity||base.rarity||'',availability:cov.rarity||base.availability||base.rarity||'',profile:coveringApplyProfile(base.profile,c),profile2:coveringApplyProfile(base.profile2,c),bandValue:null,coveredVariant:true,coveringId:cov.customEquipmentId||null,coveringName:cov.name,coveringBase:base.name,rulesText:[base.rulesText,cov.rulesText].filter(Boolean).join('\n\n')};
+  if(Array.isArray(base.traits))out.traits=coveringMergeTraits(base.traits,c.traits);
+  if(base.bandPrices&&typeof base.bandPrices==='object'){out.bandPrices={};Object.keys(base.bandPrices).forEach(k=>{out.bandPrices[k]=x(base.bandPrices[k])})}
+  Object.defineProperty(out,'__coveringBase',{value:base,enumerable:false});Object.defineProperty(out,'__covering',{value:cov,enumerable:false});
+  return out;
+}
+function coveringBaseByName(name){const n=normName(name);if(!n)return null;return D.weapons.find(w=>normName(w.name)===n)||allCustomEquipmentList().find(w=>normName(w.name)===n)||null}
+// "Ithilmar Sword" → the live covered Sword, when an Ithilmar covering exists
+// and applies to Swords (also catches copies bought before coveringId existed).
+function coveredByName(name){const n=normName(name);if(!n)return null;for(const cov of coveringList()){const k=normName(cov.name)+' ';if(!n.startsWith(k))continue;const base=coveringBaseByName(n.slice(k.length));if(base&&coveringAppliesTo(cov,base))return coveredWeapon(base,cov)}return null}
+// The coverings offered on one shop list: Band List = the warband is ticked
+// on the covering; Market List = its Market box; Unrestricted = always.
+function coveringInFactionList(c,f){return (f?.equipment||[]).some(e=>normName(typeof e==='string'?e:e?.name)===normName(c.name))}
+function coveringsForList(tab,f){return coveringList().filter(c=>tab==='band'?!!f&&(customEquipmentForFaction(c,f.id)||(!c.customEquipmentId&&coveringInFactionList(c,f))):tab==='market'||tab==='post'?!!c.market:true)}
+// "Heroes only" coverings: a Henchman (not a promoted Veteran) can't buy,
+// equip or be given a weapon carrying one.
+function coveringHeroesOnly(cov){return !!cov?.covering?.heroesOnly}
+function coveringBlockedFor(x,cov){return !!x&&coveringHeroesOnly(cov)&&!isHiredSword(x)&&advancementRole(x)==='Henchman'}
+function itemCovering(w){if(!w)return null;if(w.__covering)return w.__covering;if(w.coveringBase||w.coveringId)return coveringFind(w.coveringId,w.coveringName);return null}
+function withCoveredVariants(ws,tab,f,x=null){const covs=coveringsForList(tab,f).filter(c=>!coveringBlockedFor(x,c));if(!covs.length)return ws;const extra=[];ws.forEach(w=>covs.forEach(c=>{if(coveringAppliesTo(c,w))extra.push(coveredWeapon(w,c))}));return ws.concat(extra)}
+// Shop rows: a covered variant is drawn as a chip on its weapon's row, or as
+// its own row when that weapon isn't in the shown list (e.g. a search for it).
+function coveredVariantsOf(list,w,get=x=>x){return list.filter(v=>get(v)?.coveredVariant&&normName(get(v).coveringBase)===normName(w.name))}
+function coveringShownAsRow(list,v,get=x=>x){if(!v.coveredVariant)return true;return !list.some(b=>!get(b).coveredVariant&&normName(get(b).name)===normName(v.coveringBase))}
+function coveringItemFields(w){return w?.coveredVariant?{coveringId:w.coveringId||null,coveringName:w.coveringName||'',coveringBase:w.coveringBase||''}:{}}
 function liveEquipmentDef(e){
   if(!e)return null;
+  if(e.coveringBase||e.coveringId){
+    const cov=coveringFind(e.coveringId,e.coveringName);const base=cov&&coveringBaseByName(e.coveringBase);
+    if(cov&&base)return coveredWeapon(base,cov);
+    return null; // covering or weapon gone: keep the stored snapshot
+  }
   if(e.customEquipmentId){
     const c=allCustomEquipmentList().find(w=>w.customEquipmentId===e.customEquipmentId);
     if(c)return c;
   }
-  return D.weapons.find(w=>normName(w.name)===normName(e.name))||null;
+  return D.weapons.find(w=>normName(w.name)===normName(e.name))||coveredByName(e.name)||null;
 }
 // Merges the live definition's display/rules fields onto a shallow copy of
 // the stored item, for read-only display and effect-detection purposes only.
@@ -17070,7 +17182,7 @@ function customEquipmentForFaction(w,fid){if(!isCustomEquipment(w)||!fid)return 
 let priceRules=[];
 async function loadPriceRules(){try{const r=await window.MordheimundaAPI.priceRules();priceRules=Array.isArray(r?.rules)?r.rules:[]}catch(e){}}
 function priceRuleFor(itemName,f,x){if(!f||!itemName||!priceRules.length)return null;const n=normName(itemName),fid=String(f.id||'');const hits=priceRules.filter(r=>r.factionId===fid&&normName(r.item)===n);if(!hits.length)return null;const wid=x?.wid?String(x.wid):null;return (wid&&hits.find(r=>r.warriorId===wid))||hits.find(r=>!r.warriorId)||null}
-function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;if(tab==='band'){const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}if(isCustomEquipment(w))return Number(w.price||0);if(tab==='band'&&w.bandPrices?.[f.id]!=null)return Number(w.bandPrices[f.id]);return w.price}
+function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;if(w.coveredVariant&&w.__coveringBase){const b=equipmentPrice(w.__coveringBase,f,tab,x);return b==null?null:Math.round(Number(b)*coveringMult(w.__covering))}if(tab==='band'){const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}if(isCustomEquipment(w))return Number(w.price||0);if(tab==='band'&&w.bandPrices?.[f.id]!=null)return Number(w.bandPrices[f.id]);return w.price}
 // V-NOSLOTGEAR: an item only counts as a weapon (weapon list + a weapon
 // slot) when its profile has real stats. An item edited in Admin / Custom
 // could carry an all-blank profile ({range:'',strength:'',…}) — e.g. an
@@ -17212,8 +17324,12 @@ function equipmentPicker(x,equip){
   // at purchase time regardless, so hiding it here only blocked legitimate
   // purchases without adding any actual protection.
   const ws=equipmentPool(equipmentTab,x);
-  return `${bandOnly?`<p class="sheet-help">${en?'Henchmen can only buy and equip items from their warband’s Band List. Once they become Veterans, they equip like Heroes.':'Les Henchmen ne peuvent acheter et équiper que des objets de la Band List de leur bande. Une fois Veterans, ils s’équipent comme les Heroes.'}</p>`:''}<div class="equipment-picker"><div class="equipment-tabs">${tabs.map(([id,label])=>`<button type="button" class="equipment-tab ${equipmentTab===id?'active':''}" onclick="setEquipmentTab('${id}')">${label}<span>${equipmentPool(id,x).length}</span></button>`).join('')}</div><div class="equipment-search-row"><input class="search equipment-search" id="equipmentSearch" value="${esc(equipmentSearch)}" placeholder="Rechercher rapidement…" oninput="setEquipmentSearch(this.value)"></div><div class="equipment-rule-note">Armure : plusieurs pièces d’armure peuvent se cumuler, seule la meilleure sauvegarde de base compte. Un bouclier peut se cumuler avec une armure. Une fourrure/cape de fourrure peut se cumuler avec une armure, mais pas avec un bouclier. Buckler, Main Gauche et Sword Breaker utilisent des emplacements d’armes.</div><div class="equipment-categories">${cats.map(c=>`<button type="button" class="equipment-cat ${equipmentCategoryFilter===c?'active':''}" onclick="setEquipmentCategory('${esc(c)}')">${esc(catLabel(c))}</button>`).join('')}</div><div class="equipment-market-list">${ws.length?ws.map(w=>`<button type="button" class="equipment-choice" onclick="confirmEquipment('${encodeURIComponent(w.name)}')"><span class="equipment-choice-main"><span class="equipment-choice-name" data-equipment-name="${esc(encodeURIComponent(w.name))}" onmouseenter="showEquipmentPeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showEquipmentPeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleEquipmentPeek(this,event)">${esc(w.name)}</span><small>${esc(catLabel(canonEquipmentCategory(equipmentCategory(w))))}${w.availability&&w.availability!=='—'?' · '+esc(w.availability):''}${w.rarity?' · '+esc(w.rarity):''}</small></span><strong>${w.bandOnlyIntrinsic?'Inné':(equipmentPrice(w,f,equipmentTab,x)==null?'—':equipmentPrice(w,f,equipmentTab,x)+' GC')}</strong></button>`).join(''):'<div class="empty compact">Aucun équipement accessible dans cette liste.</div>'}</div></div>`;
+  return `${bandOnly?`<p class="sheet-help">${en?'Henchmen can only buy and equip items from their warband’s Band List. Once they become Veterans, they equip like Heroes.':'Les Henchmen ne peuvent acheter et équiper que des objets de la Band List de leur bande. Une fois Veterans, ils s’équipent comme les Heroes.'}</p>`:''}<div class="equipment-picker"><div class="equipment-tabs">${tabs.map(([id,label])=>`<button type="button" class="equipment-tab ${equipmentTab===id?'active':''}" onclick="setEquipmentTab('${id}')">${label}<span>${equipmentPool(id,x).filter(w=>!w.coveredVariant).length}</span></button>`).join('')}</div><div class="equipment-search-row"><input class="search equipment-search" id="equipmentSearch" value="${esc(equipmentSearch)}" placeholder="Rechercher rapidement…" oninput="setEquipmentSearch(this.value)"></div><div class="equipment-rule-note">Armure : plusieurs pièces d’armure peuvent se cumuler, seule la meilleure sauvegarde de base compte. Un bouclier peut se cumuler avec une armure. Une fourrure/cape de fourrure peut se cumuler avec une armure, mais pas avec un bouclier. Buckler, Main Gauche et Sword Breaker utilisent des emplacements d’armes.</div><div class="equipment-categories">${cats.map(c=>`<button type="button" class="equipment-cat ${equipmentCategoryFilter===c?'active':''}" onclick="setEquipmentCategory('${esc(c)}')">${esc(catLabel(c))}</button>`).join('')}</div><div class="equipment-market-list">${ws.length?ws.filter(v=>coveringShownAsRow(ws,v)).map(w=>`<button type="button" class="equipment-choice" onclick="confirmEquipment('${encodeURIComponent(w.name)}')"><span class="equipment-choice-main"><span class="equipment-choice-name" data-equipment-name="${esc(encodeURIComponent(w.name))}" onmouseenter="showEquipmentPeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showEquipmentPeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleEquipmentPeek(this,event)">${esc(w.name)}</span><small>${esc(catLabel(canonEquipmentCategory(equipmentCategory(w))))}${w.availability&&w.availability!=='—'?' · '+esc(w.availability):''}${w.rarity?' · '+esc(w.rarity):''}</small>${equipmentCoveringChips(ws,w,f,x)}</span><strong>${w.bandOnlyIntrinsic?'Inné':(equipmentPrice(w,f,equipmentTab,x)==null?'—':equipmentPrice(w,f,equipmentTab,x)+' GC')}</strong></button>`).join(''):'<div class="empty compact">Aucun équipement accessible dans cette liste.</div>'}</div></div>`;
 }
+// V-COVERINGS: one ◆ chip per covering on the weapon's row (price × mult);
+// it opens the same purchase window for the covered version.
+function equipmentCoveringChips(ws,w,f,x){if(w.coveredVariant)return '';const vs=coveredVariantsOf(ws,w);if(!vs.length)return '';const en=siteLanguage==='en';return `<span class="covering-chips">${vs.map(v=>{const p=equipmentPrice(v,f,equipmentTab,x);const enc=encodeURIComponent(v.name);const go=`event.stopPropagation();event.preventDefault();confirmEquipment('${enc}')`;return `<span class="covering-chip" role="button" tabindex="0" title="${esc(v.name)}${v.rarity?' · '+esc(v.rarity):''}" aria-label="${esc((en?'Buy ':'Acheter ')+v.name)}" onclick="${go}" onkeydown="if(event.key==='Enter'||event.key===' '){${go}}">◆ ${esc(v.coveringName)}<b>${p==null?'—':p}</b></span>`}).join('')}</span>`}
+function coveringPurchaseNote(w,x){if(!w?.coveredVariant)return '';const en=siteLanguage==='en';const base=w.__coveringBase;return `<div class="covering-purchase"><div class="covering-tags"><span class="covering-chip static">◆ ${esc(w.coveringName)} ${en?'on':'sur'} ${esc(w.coveringBase)}</span>${w.rarity?`<span class="tp-tag rare">${esc(w.rarity)}</span>`:''}${base?`<span class="tp-tag">${Number(base.price||0)} GC × ${coveringMult(w.__covering)}</span>`:''}</div>${w.profile?weaponProfileMarkup(w,x):''}</div>`}
 function confirmEquipment(encoded){
   const name=decodeURIComponent(encoded),x=activeRoster().fighters[editingIndex],f=faction(activeRoster());
   let w=D.weapons.find(a=>a.name===name)||customEquipmentByName(name)||equipmentPool(equipmentTab,x).find(a=>a.name===name);
@@ -17239,13 +17355,13 @@ function purchaseEquipment(encoded,tab){
     // purchase time too (liveEquipmentView re-derives the live version via
     // customEquipmentId on every render, but a stored snapshot keeps this
     // working even if that lookup ever fails, same as profile/traits above).
-    creatureProfile:w.creatureProfile||null,creatureSv:w.creatureSv||'',mountCreatureId:w.mountCreatureId||null};
+    creatureProfile:w.creatureProfile||null,creatureSv:w.creatureSv||'',mountCreatureId:w.mountCreatureId||null,...coveringItemFields(w)};
   if(fighterUsesLoadouts(x)){ensureFighterLoadouts(x);x.equipmentStash.push(newItem);const l=activeLoadout(x);l.equipmentIds=l.equipmentIds||[];l.equipmentIds.push(newItem.stashId);l.equipmentNames=l.equipmentIds.map(id=>x.equipmentStash.find(q=>q.stashId===id)?.name).filter(Boolean);syncLoadoutProjection(x);}else{x.equipmentSelected=x.equipmentSelected||[];x.equipmentSelected.push(newItem);}
   syncCustomEquipmentEffects(x);
   r.gold-=paid;save(true);closeModal();equipmentOpen=true;render('fighter');toast(siteLanguage==='en'?`${w.name} added`:`${w.name} ajouté`);
 }
 function armory(){const en=siteLanguage==='en';const cats=[...new Set([...D.weapons.filter(w=>!w.hidden),...allCustomEquipmentList()].map(w=>equipmentCategory(w)))].filter(Boolean);$('#content').innerHTML=`<div class="card"><div class="toolbar"><input class="search" id="weaponSearch" placeholder="${en?'Search a weapon, armour or piece of equipment…':'Rechercher une arme, armure ou équipement…'}" oninput="renderArmory()"><select class="select" id="weaponType" onchange="renderArmory()"><option value="">${en?'All categories':'Toutes les catégories'}</option>${cats.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div><div class="armory-wrap"><div id="armoryTable"></div></div></div>`;renderArmory()}
-function renderArmory(){const en=siteLanguage==='en';const q=($('#weaponSearch')?.value||'').toLowerCase(),t=$('#weaponType')?.value||'',ws=[...D.weapons.filter(w=>!w.hidden),...customEquipmentList().filter(w=>w.unrestricted),...officialCustomEquipmentList()];const filtered=ws.filter(w=>(!q||(w.name||'').toLowerCase().includes(q)||(w.rulesText||'').toLowerCase().includes(q))&&(!t||equipmentCategory(w)===t));$('#armoryTable').innerHTML=`<table class="armory-table"><thead><tr><th>${en?'Item':'Objet'}</th><th>${en?'Category':'Catégorie'}</th><th>${en?'Price':'Prix'}</th><th>${en?'Availability':'Disponibilité'}</th></tr></thead><tbody>${filtered.map(w=>`<tr><td><strong>${refLink('equipment',w.name)}</strong>${w.rulesText?`<small class="armory-rules-preview">${esc(stripCustomTextMarkup(w.rulesText))}</small>`:''}</td><td>${esc(equipmentCategory(w))}</td><td>${w.price===null?'—':Number(w.price||0)+' GC'}</td><td>${isDraftCustomEquipment(w)?`<span class="custom-armory-badge">CUSTOM${(w.factions||[]).length?' · '+(w.factions||[]).map(id=>esc(D.factions.find(f=>f.id===id)?.displayName||id)).join(' · '):''}</span>`:'M17'}</td></tr>`).join('')||`<tr><td colspan="4"><div class="empty compact">${en?'No equipment found.':'Aucun équipement trouvé.'}</div></td></tr>`}</tbody></table>`}
+function renderArmory(){const en=siteLanguage==='en';const q=($('#weaponSearch')?.value||'').toLowerCase(),t=$('#weaponType')?.value||'',ws=[...D.weapons.filter(w=>!w.hidden),...customEquipmentList().filter(w=>w.unrestricted&&!isCovering(w)),...officialCustomEquipmentList()];const filtered=ws.filter(w=>(!q||(w.name||'').toLowerCase().includes(q)||(w.rulesText||'').toLowerCase().includes(q))&&(!t||equipmentCategory(w)===t));$('#armoryTable').innerHTML=`<table class="armory-table"><thead><tr><th>${en?'Item':'Objet'}</th><th>${en?'Category':'Catégorie'}</th><th>${en?'Price':'Prix'}</th><th>${en?'Availability':'Disponibilité'}</th></tr></thead><tbody>${filtered.map(w=>`<tr><td><strong>${refLink('equipment',w.name)}</strong>${w.rulesText?`<small class="armory-rules-preview">${esc(stripCustomTextMarkup(w.rulesText))}</small>`:''}</td><td>${esc(equipmentCategory(w))}</td><td>${w.price===null?'—':Number(w.price||0)+' GC'}</td><td>${isDraftCustomEquipment(w)?`<span class="custom-armory-badge">CUSTOM${(w.factions||[]).length?' · '+(w.factions||[]).map(id=>esc(D.factions.find(f=>f.id===id)?.displayName||id)).join(' · '):''}</span>`:'M17'}</td></tr>`).join('')||`<tr><td colspan="4"><div class="empty compact">${en?'No equipment found.':'Aucun équipement trouvé.'}</div></td></tr>`}</tbody></table>`}
 function codex(){const en=siteLanguage==='en';if(!isAdminEditUI()){render('references');return}const sections=D.rulesMeta;$('#content').innerHTML=`<div class="codex-layout"><aside class="card codex-nav"><button class="active" onclick="showCodex('all',this)">${en?'Whole book':'Tout le livre'}</button>${sections.map((s,i)=>`<button onclick="showCodex(${i},this)">${esc(s[0])}</button>`).join('')}<button onclick="showCodex('factions',this)">${en?'Factions':'Factions'}</button></aside><section class="card codex-content"><input class="search rule-search" id="bookSearch" placeholder="${en?`Search the ${D.pages.length} pages…`:`Rechercher dans les ${D.pages.length} pages…`}" oninput="searchBook()"><div id="codexBody">${bookPages(D.pages.slice(0,5))}<div class="notice">${en?'The full book is embedded in <code>data/catalog.js</code>.':'Le livre complet est embarqué dans <code>data/catalog.js</code>.'}</div></div></section></div>`}
 function bookPages(ps){return ps.map(p=>`<article class="book-page"><h4>Page source ${p.page}</h4><pre>${esc(p.text)}</pre></article>`).join('')}
 function searchBook(){const en=siteLanguage==='en';const q=$('#bookSearch').value.trim().toLowerCase();if(!q){$('#codexBody').innerHTML=bookPages(D.pages.slice(0,5));return}const hits=D.pages.filter(p=>p.text.toLowerCase().includes(q));$('#codexBody').innerHTML=hits.length?bookPages(hits.slice(0,40)):`<div class="empty">${en?`No results for "${esc(q)}".`:`Aucun résultat pour « ${esc(q)} ».`}</div>`}
@@ -17937,7 +18053,7 @@ function customFighterForm(w){
 function bandListItemsFor(x,f){
   const globalCustoms=allCustomEquipmentList();
   const embeddedByName=new Map();
-  (f?.equipment||[]).forEach(e=>{if(e&&typeof e==='object'&&isCustomEquipment(e)){const key=normName(e.name);if(!embeddedByName.has(key))embeddedByName.set(key,e);}});
+  (f?.equipment||[]).forEach(e=>{if(e&&typeof e==='object'&&isCustomEquipment(e)&&!isCovering(e)){const key=normName(e.name);if(!embeddedByName.has(key))embeddedByName.set(key,e);}});
   const customs=globalCustoms.map(w=>embeddedByName.get(normName(w.name))||w);
   embeddedByName.forEach((w,name)=>{if(!customs.some(c=>normName(c.name)===name))customs.push(w);});
   const customBand=customs.filter(w=>warriorBandAllowed(w,x,f));
@@ -17969,7 +18085,7 @@ function equipmentPool(tab,x){
   // "first valid wins", same array, opposite result) while vanishing from
   // every equipment-picker tab. Keeping only the FIRST occurrence per name
   // here agrees with that same dedup rule instead of contradicting it.
-  (f?.equipment||[]).forEach(e=>{if(e&&typeof e==='object'&&isCustomEquipment(e)){const key=normName(e.name);if(!embeddedByName.has(key))embeddedByName.set(key,e);}});
+  (f?.equipment||[]).forEach(e=>{if(e&&typeof e==='object'&&isCustomEquipment(e)&&!isCovering(e)){const key=normName(e.name);if(!embeddedByName.has(key))embeddedByName.set(key,e);}});
   const customs=globalCustoms.map(w=>embeddedByName.get(normName(w.name))||w);
   embeddedByName.forEach((w,name)=>{if(!customs.some(c=>normName(c.name)===name))customs.push(w);});
   if(tab==='band'){
@@ -17983,7 +18099,7 @@ function equipmentPool(tab,x){
     const customUnrestrictedNames=new Set(customUnrestricted.map(w=>normName(w.name)));
     ws=[...D.weapons.filter(w=>!w.hidden&&!customUnrestrictedNames.has(normName(w.name))),...customUnrestricted];
   }
-  ws=ws.filter(w=>bookItemFactionAllowed(w,f));
+  ws=withCoveredVariants(ws.filter(w=>bookItemFactionAllowed(w,f)&&!isCovering(w)),tab,f,x);
   if(equipmentCategoryFilter!=='all')ws=ws.filter(w=>canonEquipmentCategory(equipmentCategory(w))===equipmentCategoryFilter);
   const q=(equipmentSearch||'').trim().toLowerCase();if(q)ws=ws.filter(w=>(w.name||'').toLowerCase().includes(q)||(equipmentCategory(w)||'').toLowerCase().includes(q)||(w.rulesText||'').toLowerCase().includes(q));
   return ws;
@@ -18877,7 +18993,7 @@ function equipmentGroupsMeansAll(groups){return groups==='ALL'||(Array.isArray(g
 // "equipment access" category instead of just the bare category label.
 function equipmentNamesForGroups(f,groups){
   if(!f)return [];
-  const names=(f.equipment||[]).map(e=>typeof e==='string'?e:e?.name).filter(Boolean);
+  const names=(f.equipment||[]).filter(e=>!isCovering(e)).map(e=>typeof e==='string'?e:e?.name).filter(Boolean);
   if(equipmentGroupsMeansAll(groups))return names.slice();
   if(!Array.isArray(groups)||!groups.length)return [];
   const out=[];
@@ -18962,7 +19078,7 @@ function equipmentAccessGroupedForDisplay(w,f,en){
 // spirit as the "ALL" shorthand — better to over-grant than to hand back a
 // fighter with no equipment options, which is trivial to trim afterward.
 function duplicateWarriorEquipmentAccess(sw,f){
-  const names=(f.equipment||[]).map(e=>typeof e==='string'?e:e?.name).filter(Boolean);
+  const names=(f.equipment||[]).filter(e=>!isCovering(e)).map(e=>typeof e==='string'?e:e?.name).filter(Boolean);
   const groups=sw?.equipmentAccessGroups;
   if(groups==null||equipmentGroupsMeansAll(groups))return names.slice();
   if(!Array.isArray(groups))return names.slice();
