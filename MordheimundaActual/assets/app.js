@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0697.0';
+const APP_BUILD='110.0698.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11288,6 +11288,11 @@ function rulesWarbandDetail(){
   const equipRich=exEquip.length?`<div class="tree-box" style="display:flex;flex-wrap:wrap;gap:8px">${equipPills}</div>`:`<div class="tree-box"><span class="empty-note">${en?'No equipment exclusive to this warband — the template shows this state instead of hiding the section.':'Aucun équipement exclusif pour cette warband — le template affiche cet état plutôt que de masquer la section.'}</span></div>`;
   const equipPlain=exEquip.length?exEquip.map(n=>`• ${n}`).join('\n'):(en?'No exclusive equipment.':'Aucun équipement exclusif.');
   const equipSection=warbandSectionMarkup(f,3,'Exclusive equipment','Équipement exclusif',equipRich,equipPlain,null,5);
+  // Section 6 — the Hired Swords this warband may hire (names only; each one
+  // opens the Hired Swords page). Read from each Hired Sword's own
+  // allowed/excluded warbands, so it always matches the recruitment list.
+  const hsNames=hiredSwordRawList().filter(w=>hiredSwordAvailableFor(w,f,null)).map(w=>w.name).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  const hsSection=`<div class="section-block wb-hired-swords"><h2><span class="n">6</span>Hired Swords</h2>${hsNames.length?`<div class="tree-box" style="display:flex;flex-wrap:wrap;gap:8px">${hsNames.map(n=>`<span class="pill equip"><a href="#" onclick="openRulesWarband('hired-swords');return false;">${esc(n)}</a></span>`).join('')}</div>`:`<div class="tree-box"><span class="empty-note">${en?'No Hired Sword can be hired by this warband.':'Aucun Hired Sword ne peut être recruté par cette warband.'}</span></div>`}</div>`;
 
   $('#content').innerHTML=`<a href="#" onclick="navigateApp('/rules/warbands');return false;" style="font-size:11px;color:var(--muted2);display:inline-block;margin-bottom:14px">← ${en?'Rules: Warbands':'Règles : Warbands'}</a>
 <div class="wb-header"><div><div class="eyebrow">${esc(race||(en?'Warband':'Warband'))}</div><h1>${esc(f.displayName||f.name)}</h1>${isSupplement?`<span class="tag" style="margin-top:8px">${en?'Supplement':'Supplément'} · ${esc(baseFaction?.displayName||baseFaction?.name||'')}</span>`:''}</div><span class="chip">${(f.warriors||[]).length} ${en?'fighter profiles':'profils de combattant'}</span></div>
@@ -11295,7 +11300,8 @@ ${factionRulesSection}
 ${combatantsSection}
 ${skillTreeSection}
 ${magicSection}
-${equipSection}`;
+${equipSection}
+${hsSection}`;
 }
 function rosters(){const en=siteLanguage==='en';$('#content').innerHTML=`<div class="dash-section-head" style="margin-bottom:18px"><div><span class="dash-kicker">Warhouse / Archives</span><h2 style="margin:0;font-family:'Cinzel',serif;font-size:24px;color:var(--text)">${en?'My warbands':'Mes bandes'}</h2></div><button class="dash-btn-primary" onclick="render('create')">＋ ${en?'New warband':'Nouvelle bande'}</button></div>${state.rosters.length?`<div class="dash-wgrid">${state.rosters.map((r,i)=>dashWarbandCard(r,{index:i,total:state.rosters.length})).join('')}<a href="#" data-app-route="1" onclick="render('create');return false;" class="dash-create-tile"><span class="dash-create-plus">＋</span><span>${en?'Create a new warband':'Créer une nouvelle bande'}</span></a></div>`:`<div class="empty large"><strong>${en?'No warband.':'Aucune bande.'}</strong><span>${en?'Start by choosing a faction and forging your first roster.':'Commence par choisir une faction et forge ton premier roster.'}</span><button class="dash-btn-primary" onclick="render('create')">${en?'Create a warband':'Créer une bande'}</button></div>`}`}
 // Step 0 of warband creation: pick a race tile first (Humain/Dwarf/Elves/
