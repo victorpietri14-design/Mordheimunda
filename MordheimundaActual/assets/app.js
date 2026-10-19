@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0688.0';
+const APP_BUILD='110.0689.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1512,10 +1512,15 @@ function equipmentNameCellMarkup(w){
   // through openAdminWeaponEditFromRef (which looks the name up in D.weapons)
   // silently found nothing and opened a blank "new item" form instead of the
   // item's own saved stats. Custom items go to their own editor instead.
-  const editBtn=canEdit?(w.customEquipmentId
+  let editBtn=canEdit?(w.customEquipmentId
     ?`<button type="button" class="rule-edit-btn ref-eq-edit-btn" title="Modifier cette arme custom" onclick="openCustomEquipmentEditFromRef('${esc(w.customEquipmentId)}');event.stopPropagation()">✎</button>`
     :`<button type="button" class="rule-edit-btn ref-eq-edit-btn" title="Modifier cette arme (admin)" onclick="openAdminWeaponEditFromRef('${esc(w.name).replace(/'/g,"\\'")}');event.stopPropagation()">✎</button>`
   ):'';
+  // V-PUBLISHEDDELETE: admin 🗑 next to ✎ — a published (★) custom item is
+  // removed from every official warband holding it; a catalog item goes
+  // through the existing "delete for everyone".
+  const delCall=!canEdit||w.mountCreatureId||w.customCreatureId?'':w.customEquipmentId?(officialWarbandsHoldingEquipment(w.name).length?`adminDeletePublishedEquipment('${esc(encodeURIComponent(w.name))}')`:''):`adminDeleteWeaponForAll('${esc(w.name).replace(/'/g,"\\'")}')`;
+  if(delCall)editBtn+=`<button type="button" class="rule-edit-btn ref-eq-edit-btn ref-eq-delete-btn" title="${siteLanguage==='en'?'Delete for everyone (admin)':'Supprimer pour tout le monde (admin)'}" onclick="${delCall};event.stopPropagation()">🗑</button>`;
   const statsBtn='';
   const overrideTag=(canEdit&&override)?'<span class="rule-override-tag">EDITED</span>':'';
   const customTag=w.custom?'<span class="tag offi">Custom</span>':'';
@@ -5473,6 +5478,24 @@ function pruneDeletedWeaponsFromFactions(){
   });
 }
 function weaponDeletedForAll(name){return !!D.__deletedWeaponNames?.has(normName(name))}
+function officialWarbandsHoldingEquipment(name){const n=normName(name);return (D.factions||[]).filter(f=>f?.__official&&(f.equipment||[]).some(e=>e&&typeof e==='object'&&e.customEquipmentId&&normName(e.name)===n))}
+function adminDeletePublishedEquipment(enc){
+  const en=siteLanguage==='en';const name=decodeURIComponent(enc);const holders=officialWarbandsHoldingEquipment(name);const mine=customEquipmentList().some(w=>normName(w.name)===normName(name));
+  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE FOR EVERYONE':'SUPPRESSION POUR TOUT LE MONDE'}</div><h2>${en?`Delete “${esc(name)}”?`:`Supprimer « ${esc(name)} » ?`}</h2><p>${en?'Removed from every official warband it was published into — for every account: Band Lists, Market, Référentiel. Fighters who already own it keep their copy.':'Retiré de toutes les bandes officielles où il a été publié — pour tous les comptes : Band Lists, Market, Référentiel. Les combattants qui le possèdent déjà gardent leur exemplaire.'}</p><p class="muted">${holders.map(f=>esc(f.displayName||f.name)).join(' · ')}</p>${mine?`<label class="toggle-line"><input id="delPubMine" type="checkbox" checked><span>${en?'Also delete it from my Custom library':'Le supprimer aussi de ma bibliothèque Custom'}</span></label>`:''}<button type="button" class="big-delete" onclick="confirmAdminDeletePublishedEquipment('${esc(enc)}')">${en?'DELETE FOR EVERYONE':'SUPPRIMER POUR TOUT LE MONDE'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
+}
+async function confirmAdminDeletePublishedEquipment(enc){
+  const en=siteLanguage==='en';const name=decodeURIComponent(enc),n=normName(name);const alsoMine=!!$('#delPubMine')?.checked;const arr2=v=>Array.isArray(v)?v:[];let done=0,failed=0;
+  for(const f of officialWarbandsHoldingEquipment(name)){
+    const id=String(f.id).replace(/^official-/,'');
+    try{const res=await window.MordheimundaAPI.adminGetWarband(id);const full=res?.warband||res;if(!full){failed++;continue}
+      const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment).filter(e=>normName(typeof e==='string'?e:e?.name)!==n),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
+      await window.MordheimundaAPI.adminUpdateOfficialWarband(id,{...d,viaAdminEditor:true});done++}catch(e){failed++}
+  }
+  if(alsoMine){state.customEquipment=customEquipmentList().filter(w=>normName(w.name)!==n);save(true)}
+  adminOfficialCache=null;try{await loadOfficialWarbands()}catch(e){}
+  closeModal();renderCurrentRoute();
+  toast(failed?(en?`${name}: removed from ${done} warband(s), ${failed} failed`:`${name} : retiré de ${done} bande(s), ${failed} échec(s)`):(en?`${name} deleted for everyone`:`${name} supprimé pour tout le monde`),3500);
+}
 function adminDeleteWeaponForAll(name){
   const en=siteLanguage==='en';
   openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE FOR EVERYONE':'SUPPRESSION POUR TOUT LE MONDE'}</div><h2>${en?`Delete “${esc(name)}”?`:`Supprimer « ${esc(name)} » ?`}</h2><p>${en?'Removed for every account: from the shared pool, every warband’s equipment list, the Market and the Référentiel. Fighters who already own it keep their copy. The book data is kept, so it can be restored later from Admin → Weapons & gear catalog → Deleted.':'Retiré pour tous les comptes : du pool partagé, de la liste d’équipement de chaque bande, du Marché et du Référentiel. Les combattants qui le possèdent déjà gardent leur exemplaire. Les données du livre sont conservées : tu peux le restaurer plus tard depuis Admin → Catalogue d’armes & équipement → Supprimés.'}</p><button type="button" class="big-delete" data-wname="${esc(name)}" onclick="confirmAdminDeleteWeaponForAll(this.dataset.wname)">${en?'DELETE FOR EVERYONE':'SUPPRIMER POUR TOUS'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
