@@ -128,6 +128,7 @@
   joinCampaign:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/join',{method:'POST',body:JSON.stringify(p)}),
   joinCampaignByCode:p=>request('/api/campaigns/join-code',{method:'POST',body:JSON.stringify(p)}),
   leaveCampaign:(id,rosterId)=>request('/api/campaigns/'+encodeURIComponent(id)+'/leave',{method:'POST',body:JSON.stringify({rosterId})}),
+  removeCampaignMember:(id,rosterId)=>request('/api/campaigns/'+encodeURIComponent(id)+'/members/remove',{method:'POST',body:JSON.stringify({rosterId})}),
   updateCampaignEntry:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/entry',{method:'PUT',body:JSON.stringify(p)}),
   campaignMarket:id=>request('/api/campaigns/'+encodeURIComponent(id)+'/market'),
   adminStockCampaignMarket:(id,stock)=>request('/api/admin/campaigns/'+encodeURIComponent(id)+'/market',{method:'PUT',body:JSON.stringify({stock})}),
