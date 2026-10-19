@@ -148,8 +148,12 @@ await test('[desktop] weapon covering: Heroes only keeps it away from Henchmen',
     state.customEquipment=[{customEquipmentId:'cov-h',name:'Testmetal',type:'covering',market:true,unrestricted:true,factions:[f.id],covering:{mult:2,range:1,heroesOnly:true,excluded:[]}}];
     const hero=mk('Leader'),hench=mk('Henchman');state.rosters=[{id:'ch',name:'CH',factionId:f.id,gold:0,fighters:[hero,hench]}];state.active='ch';
     const item={name:'Testmetal Sword',coveringId:'cov-h',coveringName:'Testmetal',coveringBase:'Sword'};
-    return {hero:equipmentPool('band',hero).some(w=>w.coveredVariant),hench:equipmentPool('band',hench).some(w=>w.coveredVariant),give:canEquip(hench,item).ok}});
+    const other=D.factions.find(x=>!x.__official&&x.id!==f.id&&x.warriors?.some(w=>w.type==='Leader'));
+    state.customEquipment[0].factions=['__ALL__'];state.customEquipment[0].covering.bandFactions=[f.id];
+    state.customEquipment[0].market=true;const cv=coveringList()[0];const allScope={mine:coveringBandAllowed(cv,f),other:coveringBandAllowed(cv,other),otherMarket:coveringsForList('market',other).length,mineMarket:coveringsForList('market',f).length};
+    return {allScope,hero:equipmentPool('band',hero).some(w=>w.coveredVariant),hench:equipmentPool('band',hench).some(w=>w.coveredVariant),give:canEquip(hench,item).ok}});
   expect(out.hero,'the Leader lost the covered weapons');
+  expect(out.allScope.mine&&!out.allScope.other&&out.allScope.mineMarket===1&&out.allScope.otherMarket===0,'a covering published for every warband opened every Band List '+JSON.stringify(out.allScope));
   expect(!out.hench,'a Henchman can still buy a Heroes-only covered weapon');
   expect(!out.give,'a Henchman can still be given a Heroes-only covered weapon');
 });

@@ -5054,3 +5054,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .equipment-choice .covering-chips{flex:none}
 .equipment-choice .covering-chip{flex:0 0 auto}
 .covering-heroes{margin:10px 0 4px}
+[data-covering-show]{display:none}.custom-form-covering [data-covering-show]{display:block;margin:6px 0 10px}
