@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0694.0';
+const APP_BUILD='110.0696.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -587,7 +587,12 @@ function referenceFind(category,name){const list=referenceEntries(category);cons
   if(valBase&&valBase!==n){exact=list.find(e=>traitChoiceOptions(e.name)&&refNorm(String(e.name||'').replace(/\([^)]*\)/g,''))===valBase);if(exact)return exact;}
   return list.find(e=>{const eb=refNorm(String(e.name||'').replace(/\([^)]*\)/g,''));return eb&&(eb.startsWith(base)||base.startsWith(eb))})||null;}
 function referenceCategoryForEquipment(name){return referenceFind('equipment',name)?'equipment':null;}
-function refLink(category,name,display=name){const e=referenceFind(category,name);if(!e)return esc(display);const safeCat=esc(category),safeId=esc(e.id);
+function refLink(category,name,display=name){
+  // V-COVERINGS: a covered weapon ("Ithilmar Sword") — hover/tap shows its
+  // live covered profile like any item, even where an old book entry of the
+  // same name is still in the glossary.
+  if(category==='equipment'&&typeof coveredByName==='function'&&coveredByName(name))return `<span class="rule-ref" tabindex="0" data-equipment-name="${esc(encodeURIComponent(name))}" onmouseenter="showEquipmentPeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showEquipmentPeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleEquipmentPeek(this,event)">${esc(display)}</span>`;
+  const e=referenceFind(category,name);if(!e)return esc(display);const safeCat=esc(category),safeId=esc(e.id);
   // V-PARAMDISPLAYNAME: refDisplayName falls back to the matched reference
   // ENTRY's own name (e.name) when no admin title override is set — fine for
   // a plain rule, where e.name IS the display text anyway, but wrong for a
@@ -3293,6 +3298,7 @@ function ruleItemsListMarkup(rows){
   const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));
   const pool=[...(D.weapons||[]),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];
   const groups=new Map(),missing=[],covRows=[];
+  const plainNames=new Set(rows.filter(r=>!coveringFromItemsLine(r.name)).map(r=>normName(r.name)));
   rows.forEach(r=>{
     const cov=coveringFromItemsLine(r.name);if(cov){covRows.push({cov,note:r.note});return}
     const w=pool.find(x=>normName(x?.name)===normName(r.name));
@@ -3307,7 +3313,7 @@ function ruleItemsListMarkup(rows){
   const row=(name,cost,avail,note)=>`<tr><td>${name}</td><td>${cost}</td><td>${avail}</td><td>${esc(note||'')}</td></tr>`;
   const label=cat=>{const s=EQUIPMENT_SECTIONS.find(x=>x.cat===cat);return en?(s?.label||cat):cat};
   let out=cats.map(cat=>`<div class="rule-subhead rule-subhead-accent">${esc(label(cat).toUpperCase())}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${groups.get(cat).map(({w,note})=>row(refLink('equipment',w.name,w.name),w.price==null||w.price===''?'—':`${esc(String(w.price))} gc`,esc(w.availability||w.rarity||'—'),note)).join('')}</tbody></table></div>`).join('');
-  if(covRows.length)out+=`<div class="rule-subhead rule-subhead-accent">${en?'WEAPON COVERINGS':'REVÊTEMENTS D’ARME'}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${covRows.map(({cov,note})=>{const n=coveringAllVariants(cov).length;return row(`◆ <b>${esc(cov.name)}</b> <small>${en?`on every covered weapon (${n})`:`sur toutes les armes couvertes (${n})`}</small>`,esc(coveringPriceLabel(cov)),esc(cov.rarity||'—'),note)}).join('')}</tbody></table></div>`;
+  if(covRows.length)out+=`<div class="rule-subhead rule-subhead-accent">${en?'WEAPON COVERINGS':'REVÊTEMENTS D’ARME'}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${covRows.map(({cov,note})=>{const n=coveringAllVariants(cov,plainNames).length;return row(`◆ <b>${esc(cov.name)}</b> <small>${en?`on the listed weapons it covers (${n})`:`sur les armes de la liste qu’il couvre (${n})`}</small>`,esc(coveringPriceLabel(cov)),esc(cov.rarity||'—'),note)}).join('')}</tbody></table></div>`;
   // Items not found in the catalogue are simply not listed.
   return out;
 }
@@ -11777,7 +11783,7 @@ function hubMarketMarkup(c){
   else if(!m.stock)stockPart=`<p class="muted">${en?'The shared market is not stocked yet.':'Le marché partagé n’est pas encore approvisionné.'}</p>${admin?`<button type="button" class="button primary" onclick="stockCampaignMarket('${esc(c.id)}')">🏪 ${en?'Stock it':'Approvisionner'}</button>`:''}`;
   else{
     const f=r?faction(r):null;const byKey=campaignItemPool();
-    const keys=Object.keys(m.stock).filter(k=>byKey.has(k));
+    const listed=campaignListedKeys(c.id);const keys=Object.keys(m.stock).filter(k=>byKey.has(k)&&(!listed||listed.has(k)||!byKey.get(k).coveredVariant));
     const rows=keys.map(k=>{const w=byKey.get(k);const rar=tradingRarity(w);const base=Number(equipmentPrice(w,f||{},'market')||0);let it={w,price:base,rarity:rar};if(r)it=campaignMarketApply(r,[it],'post')[0];return {k,w,rar,it,cat:canonEquipmentCategory(equipmentCategory(w)),stock:Number(m.stock[k]||0)}}).sort((a,b)=>a.cat.localeCompare(b.cat)||a.w.name.localeCompare(b.w.name));
     const cats=[...new Set(rows.map(x=>x.cat))];const shown=rows.filter(x=>hubMarketCat==='all'||x.cat===hubMarketCat);const q=normName(hubMarketSearch);
     stockPart=`<div class="tp-chips">${['all',...cats].map(ct=>`<button type="button" class="tp-chip${hubMarketCat===ct?' on':''}" onclick="setHubMarketCat('${esc(ct).replace(/'/g,"\\'")}')">${ct==='all'?(en?'All':'Tout'):esc(tradingCatLabel(ct))}</button>`).join('')}</div><input type="search" class="search" value="${esc(hubMarketSearch)}" placeholder="${en?'Search the market…':'Rechercher dans le marché…'}" oninput="filterHubMarket(this.value)">
@@ -12351,7 +12357,10 @@ async function campaignMarketServer(kind,post,name,r){
 // rule pages, matched to the catalogue (book items, custom equipment, items
 // published into official warbands). The shared market stocks only these.
 function campaignItemPool(){const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));const pool=[...(D.weapons||[]).filter(w=>!w.hidden),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];const by=new Map();pool.forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k))by.set(k,w)});const covs=coveringList();if(covs.length)[...by.values()].forEach(w=>covs.forEach(c=>{if(coveringAppliesTo(c,w)){const v=coveredWeapon(w,c);const k=normName(v.name);if(!by.has(k))by.set(k,v)}}));return by}
-function campaignEquipmentItems(c){const names=[];const re=/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g;[c?.definition?.description||'',...(c?.definition?.pages||[]).map(p=>p.text||'')].forEach(t=>{let m;while((m=re.exec(t))){m[1].split(/\r?\n/).map(l=>l.split('|')[0].trim()).filter(Boolean).forEach(n=>names.push(n))}});const by=campaignItemPool();const out=new Map();names.forEach(n=>{const cov=coveringFromItemsLine(n);if(cov){coveringAllVariants(cov).forEach(v=>{const k=normName(v.name);if(!out.has(k))out.set(k,by.get(k)||v)});return}const w=by.get(normName(n));if(w&&!out.has(normName(w.name)))out.set(normName(w.name),w)});return [...out.values()]}
+function campaignEquipmentItems(c){const names=[];const re=/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g;[c?.definition?.description||'',...(c?.definition?.pages||[]).map(p=>p.text||'')].forEach(t=>{let m;while((m=re.exec(t))){m[1].split(/\r?\n/).map(l=>l.split('|')[0].trim()).filter(Boolean).forEach(n=>names.push(n))}});const by=campaignItemPool();const out=new Map();const plain=new Set(names.filter(n=>!coveringFromItemsLine(n)).map(normName));names.forEach(n=>{const cov=coveringFromItemsLine(n);if(cov){coveringAllVariants(cov,plain).forEach(v=>{const k=normName(v.name);if(!out.has(k))out.set(k,by.get(k)||v)});return}const w=by.get(normName(n));if(w&&!out.has(normName(w.name)))out.set(normName(w.name),w)});return [...out.values()]}
+// Keys the campaign's [ITEMS] list sells today (null while it isn't loaded):
+// a covered weapon stocked earlier whose base weapon left the list is hidden.
+function campaignListedKeys(cid){const c=cid&&(campaignDetailCache.get(cid)||campaignDetailCached(cid));if(!c?.definition)return null;return new Set(campaignEquipmentItems(c).map(w=>normName(w.name)))}
 async function stockCampaignMarket(cid){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(cid)||campaignDetailCached(cid);const listed=campaignEquipmentItems(c);
   if(!listed.length){toast(en?'No equipment list in this campaign’s pages ([ITEMS] on 4. Equipment): nothing to stock':'Aucune liste d’équipement dans les pages de la campagne ([ITEMS] en 4. Equipment) : rien à approvisionner',5000);return}
@@ -12733,7 +12742,7 @@ function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded
 // (V-BANDTRANSIT).
 function campaignBandItems(r,f){const fs=(r.fighters||[]).filter(x=>!isHiredSword(x));const src=fs.length?fs:(f.warriors||[]);const by=new Map();src.forEach(x=>{try{bandListItemsFor(x,f).forEach(w=>{const k=normName(w?.name);if(k&&!w.bandOnlyIntrinsic&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!by.has(k))by.set(k,w)})}catch(e){}});return [...by.values()].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
 function tradingBandItems(r){const f=faction(r);if(!f)return [];if(r.campaignId)return campaignBandItems(r,f);const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object'&&!isCovering(e));const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
-function tradingPostItems(r,post){const f=faction(r);if(post?.campaignId&&post.stock){const by=campaignItemPool();return Object.keys(post.stock).map(k=>by.get(k)).filter(Boolean).map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
+function tradingPostItems(r,post){const f=faction(r);if(post?.campaignId&&post.stock){const by=campaignItemPool();const listed=campaignListedKeys(post.campaignId);return Object.keys(post.stock).filter(k=>!listed||listed.has(k)||!by.get(k)?.coveredVariant).map(k=>by.get(k)).filter(Boolean).map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
 // V-CAMPMARKET: a warband in a campaign with settlements buys with its
 // residence's modifiers (price dice per Common/Rare item, find modifiers that
 // move the Rarity needed). A warband that may reside nowhere buys with the
@@ -17152,6 +17161,7 @@ function coveringMult(cov){const m=Number(cov?.covering?.mult);return Number.isF
 // Fixed surcharge (gc) added after the multiplier: Gromril = ×1 + 20 gc.
 function coveringFlat(cov){const n=Number(cov?.covering?.flat);return Number.isFinite(n)?Math.round(n):0}
 function coveringPrice(cov,base){return Math.max(0,Math.round(Number(base||0)*coveringMult(cov))+coveringFlat(cov))}
+function coveringSummary(cov){const c=cov?.covering||{};const sig=n=>(n>0?'+':'−')+Math.abs(n);const en=siteLanguage==='en';const parts=[];[['range','Melee'],['strength',en?'S':'F'],['ap','AP'],['damage',en?'D':'Dég.']].forEach(([k,l])=>{const n=Math.trunc(Number(c[k])||0);if(n)parts.push(`${l} ${sig(n)}`)});coveringTraitList(c.traits).forEach(t=>parts.push('+ '+t));parts.push((en?'price ':'prix ')+coveringPriceLabel(cov));if(coveringHeroesOnly(cov))parts.push(en?'Heroes only':'Héros seulement');return parts.join(' · ')}
 function coveringPriceLabel(cov){const m=coveringMult(cov),f=coveringFlat(cov);return [m!==1||!f?`× ${m}`:'',f?`${f>0?'+':'−'} ${Math.abs(f)} GC`:''].filter(Boolean).join(' ')}
 function coveredWeapon(base,cov){
   const c=cov.covering||{};const x=n=>coveringPrice(cov,n);
@@ -17168,10 +17178,10 @@ function coveredByName(name){const n=normName(name);if(!n)return null;for(const 
 // The coverings offered on one shop list: Band List = the warband is ticked
 // on the covering; Market List = its Market box; Unrestricted = always.
 // [ITEMS] shortcut: a line "Ithilmar *" (or "◆ Ithilmar") stands for every
-// weapon that covering accepts — each covered weapon is listed and stocked
+// weapon that covering accepts AND that the same list sells plain — each covered weapon is listed and stocked
 // on its own, like any item.
 function coveringFromItemsLine(line){const t=String(line||'').trim();const m=t.match(/^(?:◆\s*)?(.+?)\s*\*$/)||t.match(/^◆\s*(.+)$/);if(!m)return null;return coveringList().find(c=>normName(c.name)===normName(m[1]))||null}
-function coveringAllVariants(cov){return coveringBaseCandidates().filter(b=>coveringAppliesTo(cov,b)).map(b=>coveredWeapon(b,cov))}
+function coveringAllVariants(cov,onlyNames=null){return coveringBaseCandidates().filter(b=>coveringAppliesTo(cov,b)&&(!onlyNames||onlyNames.has(normName(b.name)))).map(b=>coveredWeapon(b,cov))}
 function coveringInFactionList(c,f){return (f?.equipment||[]).some(e=>normName(typeof e==='string'?e:e?.name)===normName(c.name))}
 // Where a covering shows up:
 // - Band List: only the warbands ticked in its form (kept in
@@ -17252,9 +17262,10 @@ function equipmentPeekFind(name){
   // else they can collide with a book entry — see customFighterAllEquipment
   // /equipmentPool) so a custom Mount profile's peek shows its own enriched
   // record instead of the bare book item sharing its name.
-  return customEquipmentByName(n)||mountCreatureEquipmentList().find(w=>normName(w.name)===n)||D.weapons.find(w=>normName(w.name)===n)||null;
+  return customEquipmentByName(n)||mountCreatureEquipmentList().find(w=>normName(w.name)===n)||D.weapons.find(w=>normName(w.name)===n)||coveredByName(n)||null;
 }
 function equipmentPeekText(w){
+  if(w?.coveredVariant){const cov=w.__covering||coveringFind(w.coveringId,w.coveringName);const base=coveringBaseByName(w.coveringBase);return [cov?`◆ ${cov.name}: ${coveringSummary(cov)}`:'',cov?.rulesText||'',base?equipmentPeekText(base):''].map(x=>String(x||'').trim()).filter(Boolean).join('\n\n')}
   if(isCustomEquipment(w))return String(w.rulesText||'').trim();
   const e=referenceFind('equipment',w?.name);
   return String(e?.text||'').trim();
