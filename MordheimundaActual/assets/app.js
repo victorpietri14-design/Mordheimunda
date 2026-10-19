@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0686.0';
+const APP_BUILD='110.0687.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -5454,7 +5454,7 @@ function applyWeaponOverrides(){
   const deleted=new Set(RETIRED_BOOK_WEAPONS);weaponOverrideMap.forEach((o,name)=>{if(o&&o.deleted)deleted.add(normName(name))});
   const merged=D.__weaponsBaseline.filter(w=>!deleted.has(normName(w.name))).map(w=>{const o=weaponOverrideMap.get(w.name);return o?{...w,...o,name:w.name}:w});
   const baseNames=new Set(D.__weaponsBaseline.map(w=>normName(w.name)));
-  weaponOverrideMap.forEach((data,name)=>{if(!baseNames.has(normName(name))&&!data?.deleted)merged.push({...data,name:data.name||name,__catalogAdded:true})});
+  weaponOverrideMap.forEach((data,name)=>{if(!baseNames.has(normName(name))&&!data?.deleted&&!RETIRED_BOOK_WEAPONS.has(normName(name)))merged.push({...data,name:data.name||name,__catalogAdded:true})});
   D.weapons=merged;
   D.__deletedWeaponNames=deleted;
   pruneDeletedWeaponsFromFactions();
@@ -17045,7 +17045,7 @@ function isPublishedCustomEquipment(w){
 // The inverse, for readability at call sites: still a real, unpublished
 // custom item that should keep showing its custom badge/tag.
 function isDraftCustomEquipment(w){return isCustomEquipment(w)&&!isPublishedCustomEquipment(w)}
-function customEquipmentByName(name){const n=normName(name);return customEquipmentList().find(w=>normName(w.name)===n)||officialCustomEquipmentList().find(w=>normName(w.name)===n)||null}
+function customEquipmentByName(name){const n=normName(name);return customEquipmentList().find(w=>normName(w.name)===n&&!isCovering(w))||officialCustomEquipmentList().find(w=>normName(w.name)===n)||null}
 // V-RETROEQUIP (Task #75): equipment is stored as a frozen deep copy on the
 // fighter (x.equipmentSelected/x.equipmentStash) the moment it's bought or
 // transferred — see purchaseEquipment/confirmTransferReserve — so it carries
