@@ -127,7 +127,7 @@ await test('[desktop] weapon covering: chip variant, stacked modifiers, exclusio
     state.customEquipment=[{customEquipmentId:'cov-t',name:'Testmetal',type:'covering',rarity:'Rare 12',market:true,unrestricted:true,factions:[],covering:{mult:2,range:1,strength:1,ap:-1,damage:1,traits:['Strike First'],excluded:['Dagger']}}];
     state.rosters=[{id:'cv',name:'CV',factionId:f.id,gold:500,fighters:[{...JSON.parse(JSON.stringify(w)),wid:w.id,instance:'L',equipmentSelected:[]}]}];state.active='cv';
     const x=state.rosters[0].fighters[0];const pool=equipmentPool('market',x);const v=pool.find(i=>i.name==='Testmetal Sword');
-    const bumps=['S+2','D3','+1'].map((val,i)=>coveringBump(['strength','damage','ap'][i],val,[1,1,-1][i]));
+    const bumps=[['strength','S+2',1],['damage','D3',1],['ap','+1',-1],['range','Melee 1',-2],['strength','S',-1],['strength','3',-4],['ap','-',2]].map(([k,val,d])=>coveringBump(k,val,d));
     const stored={name:'Testmetal Sword',coveringId:'cov-t',coveringName:'Testmetal',coveringBase:'Sword',profile:null};state.customEquipment[0].covering.range=2;
     return {v:v&&{price:equipmentPrice(v,f,'market',x),p:v.profile},dagger:pool.some(i=>i.name==='Testmetal Dagger'),leak:pool.some(i=>isCovering(i)),bumps,live:liveEquipmentView(stored).profile?.range}});
   expect(out.v,'covered Sword missing from the Market List');
@@ -135,7 +135,7 @@ await test('[desktop] weapon covering: chip variant, stacked modifiers, exclusio
   expect(out.v.p.range==='Melee 3'&&out.v.p.strength==='S+1'&&out.v.p.ap==='-1'&&out.v.p.damage==='2'&&/Strike First/.test(out.v.p.traits),`covered profile ${JSON.stringify(out.v.p)}`);
   expect(!out.dagger,'excluded Dagger still got the covering');
   expect(!out.leak,'the covering itself is listed as an item');
-  expect(out.bumps.join(' ')==='S+3 D3+1 -','modifier stacking '+out.bumps.join(' '));
+  expect(out.bumps.join(' ')==='S+3 D3+1 - Melee -1 S-1 -1 +2','modifier stacking '+out.bumps.join(' '));
   expect(out.live==='Melee 4','a bought copy did not follow the edited covering');
 });
 await test('[desktop] weapon covering: Heroes only keeps it away from Henchmen',null,async page=>{
