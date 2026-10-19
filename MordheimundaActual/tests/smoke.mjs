@@ -138,6 +138,17 @@ await test('[desktop] weapon covering: chip variant, stacked modifiers, exclusio
   expect(out.bumps.join(' ')==='S+3 D3+1 -','modifier stacking '+out.bumps.join(' '));
   expect(out.live==='Melee 4','a bought copy did not follow the edited covering');
 });
+await test('[desktop] weapon covering: Heroes only keeps it away from Henchmen',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors?.some(w=>w.type==='Henchman'));
+    const mk=t=>{const w=f.warriors.find(a=>a.type===t);return {...JSON.parse(JSON.stringify(w)),wid:w.id,instance:t,equipmentSelected:[]}};
+    state.customEquipment=[{customEquipmentId:'cov-h',name:'Testmetal',type:'covering',market:true,unrestricted:true,factions:[f.id],covering:{mult:2,range:1,heroesOnly:true,excluded:[]}}];
+    const hero=mk('Leader'),hench=mk('Henchman');state.rosters=[{id:'ch',name:'CH',factionId:f.id,gold:0,fighters:[hero,hench]}];state.active='ch';
+    const item={name:'Testmetal Sword',coveringId:'cov-h',coveringName:'Testmetal',coveringBase:'Sword'};
+    return {hero:equipmentPool('band',hero).some(w=>w.coveredVariant),hench:equipmentPool('band',hench).some(w=>w.coveredVariant),give:canEquip(hench,item).ok}});
+  expect(out.hero,'the Leader lost the covered weapons');
+  expect(!out.hench,'a Henchman can still buy a Heroes-only covered weapon');
+  expect(!out.give,'a Henchman can still be given a Heroes-only covered weapon');
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);

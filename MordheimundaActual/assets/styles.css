@@ -5053,3 +5053,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 @media (max-width:900px){.covering-mods{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .equipment-choice .covering-chips{flex:none}
 .equipment-choice .covering-chip{flex:0 0 auto}
+.covering-heroes{margin:10px 0 4px}
