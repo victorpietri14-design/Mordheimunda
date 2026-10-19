@@ -5033,3 +5033,23 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .profile-stat.armor-stat .sv-over{position:absolute;top:2px;right:2px;margin:0;white-space:nowrap;padding:1px 4px;border-radius:3px;background:var(--accent);color:#0c1408!important;font:900 9px/1.1 'IBM Plex Sans',sans-serif!important;font-style:normal;letter-spacing:.2px;z-index:2;box-shadow:0 0 6px rgba(157,250,60,.35)}
 @media(max-width:900px){.profile-stat.armor-stat .sv-over{top:4px;left:50%;right:auto;transform:translateX(-50%);font-size:9px;padding:1px 4px}.profile-stat.armor-stat.sv-capped>span{visibility:hidden}}
 @media(min-width:901px){.profile-stat.armor-stat .sv-over{font-size:11px;padding:2px 5px;top:3px;right:3px}}
+/* V-COVERINGS: ◆ covering chips on a weapon's shop row + covering builder */
+.covering-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.covering-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;min-height:28px;box-sizing:border-box;border-radius:999px;border:1px solid var(--info-border);background:var(--info-bg);color:var(--text);font:600 12px/1.2 inherit;cursor:pointer;white-space:nowrap}
+.covering-chip b{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--info)}
+.covering-chip small{font-size:10px;color:var(--muted)}
+.covering-chip:hover:not([disabled]):not(.static),.covering-chip:focus-visible{border-color:var(--info);outline:none}
+.covering-chip[disabled]{opacity:.45;cursor:not-allowed}
+.covering-chip.static{cursor:default}
+.custom-form-covering [data-covering-hide]{display:none!important}
+.covering-purchase{display:flex;flex-direction:column;gap:10px;margin:4px 0 10px}
+.covering-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.covering-mods{grid-template-columns:repeat(5,minmax(0,1fr))}
+.covering-weapons-head,.covering-preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px}
+.covering-weapon-actions{display:flex;gap:6px}
+.covering-weapons{margin-top:8px}
+.covering-preview-row{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.covering-preview-row>small{color:var(--muted)}
+@media (max-width:900px){.covering-mods{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.equipment-choice .covering-chips{flex:none}
+.equipment-choice .covering-chip{flex:0 0 auto}

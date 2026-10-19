@@ -122,6 +122,22 @@ await test('[desktop] campaign: Band List purchase is on its way until a campaig
   const r3=await page.evaluate(()=>{campaignBattlesCache.get('c-tr').push({id:'next',status:'confirmed',createdAt:new Date(Date.now()+2000).toISOString(),sides:[{rosterId:'tr',result:'loss'}]});setGangTab('reserve');return {inTransit:reserveInTransit(activeRoster(),activeRoster().reserve[0]),section:!!document.querySelector('.transit-section')}});
   expect(!r3.inTransit&&!r3.section,'still on its way after a recorded campaign game with the warband');
 });
+await test('[desktop] weapon covering: chip variant, stacked modifiers, exclusions, live profile',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const w=f.warriors.find(x=>x.type==='Leader');
+    state.customEquipment=[{customEquipmentId:'cov-t',name:'Testmetal',type:'covering',rarity:'Rare 12',market:true,unrestricted:true,factions:[],covering:{mult:2,range:1,strength:1,ap:-1,damage:1,traits:['Strike First'],excluded:['Dagger']}}];
+    state.rosters=[{id:'cv',name:'CV',factionId:f.id,gold:500,fighters:[{...JSON.parse(JSON.stringify(w)),wid:w.id,instance:'L',equipmentSelected:[]}]}];state.active='cv';
+    const x=state.rosters[0].fighters[0];const pool=equipmentPool('market',x);const v=pool.find(i=>i.name==='Testmetal Sword');
+    const bumps=['S+2','D3','+1'].map((val,i)=>coveringBump(['strength','damage','ap'][i],val,[1,1,-1][i]));
+    const stored={name:'Testmetal Sword',coveringId:'cov-t',coveringName:'Testmetal',coveringBase:'Sword',profile:null};state.customEquipment[0].covering.range=2;
+    return {v:v&&{price:equipmentPrice(v,f,'market',x),p:v.profile},dagger:pool.some(i=>i.name==='Testmetal Dagger'),leak:pool.some(i=>isCovering(i)),bumps,live:liveEquipmentView(stored).profile?.range}});
+  expect(out.v,'covered Sword missing from the Market List');
+  expect(out.v.price===50,`covered Sword price ${out.v.price}, expected 25×2`);
+  expect(out.v.p.range==='Melee 3'&&out.v.p.strength==='S+1'&&out.v.p.ap==='-1'&&out.v.p.damage==='2'&&/Strike First/.test(out.v.p.traits),`covered profile ${JSON.stringify(out.v.p)}`);
+  expect(!out.dagger,'excluded Dagger still got the covering');
+  expect(!out.leak,'the covering itself is listed as an item');
+  expect(out.bumps.join(' ')==='S+3 D3+1 -','modifier stacking '+out.bumps.join(' '));
+  expect(out.live==='Melee 4','a bought copy did not follow the edited covering');
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);
