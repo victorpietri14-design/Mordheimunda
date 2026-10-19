@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0699.0';
+const APP_BUILD='110.0700.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -15491,7 +15491,7 @@ function customRuleStatIndex(name){
   const map={mouvement:0,m:0,ws:1,cc:1,'capacitédecombat':1,bs:2,'capacitédetir':2,force:3,s:3,endurance:4,t:4,blessures:5,w:5,initiative:6,i:6,attaques:7,a:7,leadership:8,ld:8,commandement:8,calme:9,cl:9,wil:10,volonté:10,intelligence:11,int:11};
   return map[n];
 }
-function customEquipmentEffects(w){
+function customEquipmentEffects(w,x){
   if(!isCustomEquipment(w))return {stats:[],skills:[]};
   // V-RETROEQUIP: w is often a stored fighter-equipment copy whose rulesText
   // was snapshotted at purchase time — resolve the live definition first so
@@ -15499,7 +15499,7 @@ function customEquipmentEffects(w){
   // changes the stat/skill effects it grants, exactly like book skill/rule
   // text already does via activeRoster()'s per-render sync.
   const live=(typeof liveEquipmentDef==='function'?liveEquipmentDef(w):null)||w;
-  return effectsFromRuleText(live.rulesText);
+  return effectsFromRuleText(live.rulesText,x);
 }
 // Shared free-text rule interpreter: given a rule's written text (an
 // equipment's rulesText, or a warband-wide special rule/trait's text),
@@ -15557,12 +15557,12 @@ function fighterGrantedRuleNames(x){
   }catch(e){}
   return out;
 }
-function effectsFromRuleText(text){
+function effectsFromRuleText(text,x){
   text=String(text||'');
   // V-KEYWORDS2: stats now come from the same reader as skills/spells/rules
   // (English + French, many phrasings), and a CONDITIONAL bonus ("+1
   // Strength when charging", "single use") is no longer applied for good.
-  const stats=detectStatBonusesInText(text).filter(b=>!b.conditional&&b.mode!=='set'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12).map(b=>({index:b.index,amount:Number(b.delta)}));
+  const stats=detectStatBonusesInText(text,x).filter(b=>!b.conditional&&b.mode!=='set'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12).map(b=>({index:b.index,amount:Number(b.delta)}));
   const skills=[];
   const addSkillCandidate=(candidate)=>{
     let c=String(candidate||'').trim().replace(/^[\s:;–—-]+|[\s:;,.!?–—-]+$/g,'').trim();
@@ -15636,6 +15636,12 @@ function applyPriceRuleRefunds(){
 function standardEquipmentStatEffects(w,x){
   const n=normName(w?.name);
   const out=[];
+  // V-ITEMTEXTSTATS: a book item whose rule text an admin edited (Référentiel
+  // ✎) follows its own text — permanent stat changes only (a conditional one,
+  // "-1 Movement when making a Charge", stays a reminder dot; the save is
+  // handled by armorSave), and an exemption such as "Warriors with Strength 5
+  // or higher ignore these penalties" is honoured against this fighter.
+  if(w&&!isCustomEquipment(w)){try{const et=equipmentEffectiveText(w.name,true);if(et?.ge&&et.override){detectStatBonusesInText(et.text,x).forEach(b=>{if(!b.conditional&&b.mode!=='set'&&b.stat!=='SAVE'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12)out.push({index:b.index,amount:Number(b.delta)})});return out}}catch(e){}}
   // These are unconditional profile modifiers stated directly by the M17 equipment rules.
   if(n==='full plate armour'||n==='full plate armor'){
     out.push({index:2,amount:-1}); // BS
@@ -15674,7 +15680,7 @@ function syncCustomEquipmentEffects(x){
   const desiredStats=[];const desiredSkills=[];
   x.equipmentSelected.forEach(e=>{
     standardEquipmentStatEffects(e,x).forEach(m=>desiredStats.push({...m,itemId:e.name}));
-    const fx=customEquipmentEffects(e);
+    const fx=customEquipmentEffects(e,x);
     fx.stats.forEach(m=>desiredStats.push({...m,itemId:e.customEquipmentId||e.name}));
     fx.skills.forEach(skill=>desiredSkills.push({skill,itemId:e.customEquipmentId||e.name}));
   });
@@ -16508,7 +16514,7 @@ function detectStatBonusesInText(rawText,ctx){
       // V-SAVEOWNSENTENCE: an armour-save bonus is judged on its own sentence —
       // "+1 Armour Save. If he charges…" is a permanent +1, not a conditional one.
       const {conditional,conditionText}=(mode==='grant'||stat==='SAVE')?classifyGrantConditionality(text,idx,len):classifyStatBonusConditionality(text,idx,len);
-      out.push({stat,index,delta,mode:mode||'delta',conditional,conditionText,matchedPhrase:String(phrase).trim()});
+      out.push({stat,index,delta,mode:mode||'delta',conditional,conditionText,matchedPhrase:String(phrase).trim(),_at:idx});
     };
     STAT_BONUS_DEFS.forEach(def=>{
       const alt=def.names.map(escapeRegexLiteral).join('|');
@@ -16622,6 +16628,49 @@ function detectStatBonusesInText(rawText,ctx){
     // armour worn at all (e.g. Scaly Skin) — only the equipment-text loop
     // needed to exclude it.
     while((m=saveRe4.exec(text))){const n=parseInt(m[1]||m[2],10);if(Number.isFinite(n)&&n>=2&&n<=6)add('SAVE','SAVE',7-n,m.index,m[0].length,m[0],'grant');}
+    // V-STATLISTS: "Ballistic Skill and Initiative are reduced by 1" names
+    // several stats for one change, and "…, and their Movement by 1" when
+    // making a Charge" adds one more with its own condition. Each stat is
+    // judged on its own clause, so the charge condition only covers the
+    // Movement, not the stats listed before it.
+    {
+      const ALL=STAT_BONUS_DEFS.flatMap(d=>d.names.map(n=>({n,d}))).sort((a,b)=>b.n.length-a.n.length);
+      const STAT='(?:'+ALL.map(o=>escapeRegexLiteral(o.n)).join('|')+')';
+      const B=STAT_BONUS_WORD_BEFORE,A=STAT_BONUS_WORD_AFTER;
+      const defOf=n=>ALL.find(o=>o.n.toLowerCase()===String(n).trim().toLowerCase())?.d;
+      const VERB='(increased|raised|improved|reduced|lowered|decreased|augmentée?s?|améliorée?s?|réduite?s?|reduite?s?|diminuée?s?|baissée?s?)';
+      const neg=v=>/^(?:reduc|redu|rédu|lower|decreas|diminu|baiss)/i.test(v);
+      const sentenceBounds=(start,end)=>{const before=text.slice(0,start);const s=Math.max(before.lastIndexOf('. '),before.lastIndexOf('\n'))+1;const after=text.slice(end);const e=after.search(/\.(?:\s|$)|\n/);return [s,e<0?text.length:end+e+1]};
+      const clauseCond=(start,end,fromStart)=>{const [s,e]=sentenceBounds(start,end);let cs=fromStart?start:s,ce=end;const tail=text.slice(end,e).search(/[,;]/);ce=tail<0?e:end+tail;const clause=text.slice(cs,ce);return classifyStatBonusConditionality(clause,0,clause.length)};
+      const put=(def,delta,start,len,phrase,cond)=>{
+        if(!def||!Number.isFinite(delta)||!delta)return;
+        if(!subtypeGate(statBonusOwnSentence(text,start,len)))return;
+        for(let i=out.length-1;i>=0;i--){const o=out[i];if(o.stat===def.stat&&(o.mode||'delta')==='delta'&&o._at>=start&&o._at<start+len)out.splice(i,1)}
+        out.push({stat:def.stat,index:def.index,delta,mode:'delta',conditional:cond.conditional,conditionText:cond.conditionText,matchedPhrase:String(phrase).trim(),_at:start});
+      };
+      const listRe=new RegExp(B+'('+STAT+')((?:\\s*,\\s*'+STAT+')*)\\s+(?:and|et)\\s+('+STAT+')'+A+'\\s+(?:is|are|est|sont)\\s+'+VERB+'\\s+(?:by|de)\\s+(\\d+)','gi');
+      let m;
+      while((m=listRe.exec(text))){
+        const n=parseInt(m[5],10)*(neg(m[4])?-1:1);const cond=clauseCond(m.index,m.index+m[0].length,false);
+        [m[1],...String(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean),m[3]].forEach(name=>put(defOf(name),n,m.index,m[0].length,m[0],cond));
+      }
+      const tailRe=new RegExp(VERB+'\\s+(?:by|de)\\s+\\d+[^.;\\n]*?,?\\s+((?:and|et)\\s+(?:their|his|her|its|leur|sa|son|ses)\\s+('+STAT+')'+A+'\\s+(?:by|de)\\s+(\\d+))','gi');
+      while((m=tailRe.exec(text))){
+        const at=m.index+m[0].length-m[2].length;const n=parseInt(m[4],10)*(neg(m[1])?-1:1);
+        put(defOf(m[3]),n,at,m[2].length,m[2],clauseCond(at,at+m[2].length,true));
+      }
+    }
+    // V-STATEXEMPT: "Warriors with Strength 5 or higher ignore these
+    // penalties" — when the fighter (ctx) reaches that value, the text's
+    // penalties don't apply to them at all.
+    if(ctx&&Array.isArray(ctx.profile)){
+      const ALL=STAT_BONUS_DEFS.flatMap(d=>d.names.map(n=>({n,d}))).sort((a,b)=>b.n.length-a.n.length);
+      const STAT='(?:'+ALL.map(o=>escapeRegexLiteral(o.n)).join('|')+')';
+      const exRe=new RegExp('(?:with|avec|ayant)\\s+(?:a\\s+|une?\\s+)?('+STAT+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:of\\s+|de\\s+)?(\\d+)\\s*(?:\\+|or\\s+(?:higher|more|greater|above|better)|ou\\s+plus)[^.]{0,40}?(?:ignores?|ignorent|ne subissent pas|are not affected by|is not affected by)\\s+(?:these|this|the|all|ces|ce|les|cette)?\\s*(?:penalt(?:y|ies)|malus|modifiers?|effects?)','i');
+      const m=exRe.exec(text);
+      if(m){const def=ALL.find(o=>o.n.toLowerCase()===m[1].toLowerCase())?.d;const need=parseInt(m[2],10);const have=def?Number(ctx.profile[def.index]):NaN;
+        if(Number.isFinite(have)&&have>=need){for(let i=out.length-1;i>=0;i--){const o=out[i];if((o.mode||'delta')==='delta'&&Number(o.delta)<0&&o.stat!=='SAVE')out.splice(i,1)}}}
+    }
     return out;
   }catch(e){console.warn('detectStatBonusesInText failed',e);return [];}
 }

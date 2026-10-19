@@ -157,6 +157,14 @@ await test('[desktop] weapon covering: Heroes only keeps it away from Henchmen',
   expect(!out.hench,'a Henchman can still buy a Heroes-only covered weapon');
   expect(!out.give,'a Henchman can still be given a Heroes-only covered weapon');
 });
+await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
+  const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
+    const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');
+    return {s3:sh(detectStatBonusesInText(t,{profile:[4,3,3,3,3,1,3,1,7]})),s5:sh(detectStatBonusesInText(t,{profile:[4,3,3,5,3,1,3,1,7]})),charge:sh(detectStatBonusesInText('+1 Strength when charging.'))}});
+  expect(out.s3==='BS-1 I-1 M-1c','Strength 3 should get BS-1 and I-1 for good, Movement -1 only when charging: '+out.s3);
+  expect(out.s5==='','Strength 5 should ignore every penalty: '+out.s5);
+  expect(out.charge==='S1c','a plain conditional bonus changed: '+out.charge);
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);
