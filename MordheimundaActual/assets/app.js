@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0692.0';
+const APP_BUILD='110.0693.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -15344,6 +15344,7 @@ Les règles écrites ici peuvent être interprétées par le système lorsqu’e
   <div class="custom-section"><div class="custom-section-head"><div><span class="micro-label">${en?'AVAILABILITY':'DISPONIBILITÉ'}</span><strong>${en?'Lists the equipment is added to':'Listes auxquelles l’équipement est ajouté'}</strong></div><small>${en?'Assigning it to a band does not remove the item from the Unrestricted List.':'Une affectation à une bande n’enlève pas l’objet de l’Unrestricted List.'}</small></div>
     <label class="custom-check unrestricted-check"><input id="customUnrestricted" type="checkbox" checked disabled> <span><b>Unrestricted List</b><small>${en?'Always available in the general list. The factions selected below also add the item to their Band List.':'Toujours disponible dans la liste générale. Les factions choisies ci-dessous ajoutent aussi l’objet à leur Band List.'}</small></span></label>
     <label class="custom-check market-check"><input id="customMarketList" type="checkbox" ${w?.market?'checked':''}> <span><b>Market List</b><small>${en?'Also adds the item to the Market List, accessible to every band during post-battle purchases.':'Ajoute aussi l’objet à la Market List, accessible à toutes les bandes lors des achats post-bataille.'}</small></span></label>
+    <small class="custom-field-help covering-scope-note" data-covering-show>${en?'Covering: only the warbands ticked below get it in their Band List. Publishing it (★) “for every warband” just makes it exist for every account (Market, campaigns) — it doesn’t open every Band List.':'Revêtement : seules les bandes cochées ci-dessous l’ont dans leur Band List. Le publier (★) « pour toutes les bandes » le rend seulement disponible pour tous les comptes (Market, campagnes) — ça n’ouvre pas toutes les Band Lists.'}</small>
     <div class="custom-faction-grid">${D.factions.map(f=>`<label class="custom-check"><input class="customFaction" data-faction="${esc(f.id)}" type="checkbox" ${factions.includes(f.id)?'checked':''}><span>${esc(f.displayName)}</span></label>`).join('')}</div>
   </div>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomEquipment()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create equipment':'Créer l’équipement')}</button></div></div>`
@@ -15407,7 +15408,7 @@ function saveCustomEquipment(){
   const market=!!$('#customMarketList')?.checked;
   const rulesText=($('#customRules')?.value||'').trim();
   const item={customEquipmentId:customEquipmentEditId||crypto.randomUUID(),name,type,category,subcategory:category,rarity,price,unrestricted,market,factions,traits:customEquipmentTraitDraft.slice(),rulesText,...readItemUseFields('customUse'),bandValue:readBandValueField('customBandValue')};
-  if(type==='covering'){item.covering=readCoveringFields();item.traits=[];item.profile=null;item.profile2=null;item.price=0;item.category=item.subcategory='Armes de corps à corps';item.bandValue=null;}
+  if(type==='covering'){item.covering={...readCoveringFields(),bandFactions:factions.slice()};item.traits=[];item.profile=null;item.profile2=null;item.price=0;item.category=item.subcategory='Armes de corps à corps';item.bandValue=null;}
   else if(type==='weapon'){item.profile={range:($('#customRange')?.value||'').trim(),strength:($('#customStrength')?.value||'').trim(),ap:($('#customAp')?.value||'').trim(),damage:($('#customDamage')?.value||'').trim(),traits:customEquipmentTraitDraft.join(', ')};item.weaponSlotCost=weaponSlots(item);item.customArmor=false;
     // V-DUALPROFILE: a second, independent profile (e.g. a pistol-sword's shooting
     // AND melee stat lines) — never inferred, only ever set via this checkbox.
@@ -17172,7 +17173,13 @@ function coveredByName(name){const n=normName(name);if(!n)return null;for(const 
 function coveringFromItemsLine(line){const t=String(line||'').trim();const m=t.match(/^(?:◆\s*)?(.+?)\s*\*$/)||t.match(/^◆\s*(.+)$/);if(!m)return null;return coveringList().find(c=>normName(c.name)===normName(m[1]))||null}
 function coveringAllVariants(cov){return coveringBaseCandidates().filter(b=>coveringAppliesTo(cov,b)).map(b=>coveredWeapon(b,cov))}
 function coveringInFactionList(c,f){return (f?.equipment||[]).some(e=>normName(typeof e==='string'?e:e?.name)===normName(c.name))}
-function coveringsForList(tab,f){return coveringList().filter(c=>tab==='band'?!!f&&(customEquipmentForFaction(c,f.id)||(!c.customEquipmentId&&coveringInFactionList(c,f))):tab==='market'||tab==='post'?!!c.market:true)}
+// Band List scope of a covering = the warbands ticked in its form (kept in
+// covering.bandFactions, which publishing never rewrites) plus any single
+// warband it was published into. Publishing it "for every warband" (the
+// '__ALL__' pool) only makes it exist for every account — Market, campaigns —
+// it never opens every Band List.
+function coveringBandAllowed(c,f){if(!f)return false;if(!c.customEquipmentId)return coveringInFactionList(c,f)||(c.covering?.bandFactions||[]).some(id=>normName(id)===normName(f.id));const ids=[...new Set([...(Array.isArray(c.covering?.bandFactions)?c.covering.bandFactions:[]),...(Array.isArray(c.factions)?c.factions:[])])].filter(id=>id!=='__ALL__');return ids.length>0&&customEquipmentForFaction({...c,factions:ids},f.id)}
+function coveringsForList(tab,f){return coveringList().filter(c=>tab==='band'?coveringBandAllowed(c,f):tab==='market'||tab==='post'?!!c.market:true)}
 // "Heroes only" coverings: a Henchman (not a promoted Veteran) can't buy,
 // equip or be given a weapon carrying one.
 function coveringHeroesOnly(cov){return !!cov?.covering?.heroesOnly}
