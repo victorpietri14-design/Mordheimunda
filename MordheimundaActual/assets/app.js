@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0689.0';
+const APP_BUILD='110.0690.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3292,8 +3292,9 @@ function ruleItemsListMarkup(rows){
   // equipment, and items published into official warbands (☆).
   const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));
   const pool=[...(D.weapons||[]),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];
-  const groups=new Map(),missing=[];
+  const groups=new Map(),missing=[],covRows=[];
   rows.forEach(r=>{
+    const cov=coveringFromItemsLine(r.name);if(cov){covRows.push({cov,note:r.note});return}
     const w=pool.find(x=>normName(x?.name)===normName(r.name));
     if(!w){missing.push(r);return}
     const cat=canonEquipmentCategory(equipmentCategory(w));
@@ -3306,6 +3307,7 @@ function ruleItemsListMarkup(rows){
   const row=(name,cost,avail,note)=>`<tr><td>${name}</td><td>${cost}</td><td>${avail}</td><td>${esc(note||'')}</td></tr>`;
   const label=cat=>{const s=EQUIPMENT_SECTIONS.find(x=>x.cat===cat);return en?(s?.label||cat):cat};
   let out=cats.map(cat=>`<div class="rule-subhead rule-subhead-accent">${esc(label(cat).toUpperCase())}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${groups.get(cat).map(({w,note})=>row(refLink('equipment',w.name,w.name),w.price==null||w.price===''?'—':`${esc(String(w.price))} gc`,esc(w.availability||w.rarity||'—'),note)).join('')}</tbody></table></div>`).join('');
+  if(covRows.length)out+=`<div class="rule-subhead rule-subhead-accent">${en?'WEAPON COVERINGS':'REVÊTEMENTS D’ARME'}</div><div class="rule-table-wrap"><table class="rule-table rule-items-table">${head}<tbody>${covRows.map(({cov,note})=>{const n=coveringAllVariants(cov).length;return row(`◆ <b>${esc(cov.name)}</b> <small>${en?`on every covered weapon (${n})`:`sur toutes les armes couvertes (${n})`}</small>`,`× ${coveringMult(cov)}`,esc(cov.rarity||'—'),note)}).join('')}</tbody></table></div>`;
   // Items not found in the catalogue are simply not listed.
   return out;
 }
@@ -12343,7 +12345,7 @@ async function campaignMarketServer(kind,post,name,r){
 // rule pages, matched to the catalogue (book items, custom equipment, items
 // published into official warbands). The shared market stocks only these.
 function campaignItemPool(){const embedded=(D.factions||[]).flatMap(f=>(f.equipment||[]).filter(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)));const pool=[...(D.weapons||[]).filter(w=>!w.hidden),...(typeof allCustomEquipmentList==='function'?allCustomEquipmentList():[]),...embedded];const by=new Map();pool.forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k))by.set(k,w)});const covs=coveringList();if(covs.length)[...by.values()].forEach(w=>covs.forEach(c=>{if(coveringAppliesTo(c,w)){const v=coveredWeapon(w,c);const k=normName(v.name);if(!by.has(k))by.set(k,v)}}));return by}
-function campaignEquipmentItems(c){const names=[];const re=/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g;[c?.definition?.description||'',...(c?.definition?.pages||[]).map(p=>p.text||'')].forEach(t=>{let m;while((m=re.exec(t))){m[1].split(/\r?\n/).map(l=>l.split('|')[0].trim()).filter(Boolean).forEach(n=>names.push(n))}});const by=campaignItemPool();const out=new Map();names.forEach(n=>{const w=by.get(normName(n));if(w&&!out.has(normName(w.name)))out.set(normName(w.name),w)});return [...out.values()]}
+function campaignEquipmentItems(c){const names=[];const re=/\[ITEMS\]\s*\n([\s\S]*?)\n\s*\[\/ITEMS\]/g;[c?.definition?.description||'',...(c?.definition?.pages||[]).map(p=>p.text||'')].forEach(t=>{let m;while((m=re.exec(t))){m[1].split(/\r?\n/).map(l=>l.split('|')[0].trim()).filter(Boolean).forEach(n=>names.push(n))}});const by=campaignItemPool();const out=new Map();names.forEach(n=>{const cov=coveringFromItemsLine(n);if(cov){coveringAllVariants(cov).forEach(v=>{const k=normName(v.name);if(!out.has(k))out.set(k,by.get(k)||v)});return}const w=by.get(normName(n));if(w&&!out.has(normName(w.name)))out.set(normName(w.name),w)});return [...out.values()]}
 async function stockCampaignMarket(cid){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(cid)||campaignDetailCached(cid);const listed=campaignEquipmentItems(c);
   if(!listed.length){toast(en?'No equipment list in this campaign’s pages ([ITEMS] on 4. Equipment): nothing to stock':'Aucune liste d’équipement dans les pages de la campagne ([ITEMS] en 4. Equipment) : rien à approvisionner',5000);return}
@@ -17154,6 +17156,11 @@ function coveringBaseByName(name){const n=normName(name);if(!n)return null;retur
 function coveredByName(name){const n=normName(name);if(!n)return null;for(const cov of coveringList()){const k=normName(cov.name)+' ';if(!n.startsWith(k))continue;const base=coveringBaseByName(n.slice(k.length));if(base&&coveringAppliesTo(cov,base))return coveredWeapon(base,cov)}return null}
 // The coverings offered on one shop list: Band List = the warband is ticked
 // on the covering; Market List = its Market box; Unrestricted = always.
+// [ITEMS] shortcut: a line "Ithilmar *" (or "◆ Ithilmar") stands for every
+// weapon that covering accepts — each covered weapon is listed and stocked
+// on its own, like any item.
+function coveringFromItemsLine(line){const t=String(line||'').trim();const m=t.match(/^(?:◆\s*)?(.+?)\s*\*$/)||t.match(/^◆\s*(.+)$/);if(!m)return null;return coveringList().find(c=>normName(c.name)===normName(m[1]))||null}
+function coveringAllVariants(cov){return coveringBaseCandidates().filter(b=>coveringAppliesTo(cov,b)).map(b=>coveredWeapon(b,cov))}
 function coveringInFactionList(c,f){return (f?.equipment||[]).some(e=>normName(typeof e==='string'?e:e?.name)===normName(c.name))}
 function coveringsForList(tab,f){return coveringList().filter(c=>tab==='band'?!!f&&(customEquipmentForFaction(c,f.id)||(!c.customEquipmentId&&coveringInFactionList(c,f))):tab==='market'||tab==='post'?!!c.market:true)}
 // "Heroes only" coverings: a Henchman (not a promoted Veteran) can't buy,
