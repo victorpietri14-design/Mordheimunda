@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0687.0';
+const APP_BUILD='110.0688.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -17101,14 +17101,14 @@ function coveringIsMelee(p){return !!p&&/^\s*melee\b/i.test(String(p.range||''))
 function coveringEligibleBase(w){if(!w||isCovering(w)||w.coveredVariant||w.bandOnlyIntrinsic||w.hidden)return false;if(COVERING_NEVER.has(normName(w.name)))return false;return coveringIsMelee(w.profile)||coveringIsMelee(w.profile2)}
 function coveringAppliesTo(cov,w){if(!coveringEligibleBase(w))return false;const ex=Array.isArray(cov?.covering?.excluded)?cov.covering.excluded:[];return !ex.some(n=>normName(n)===normName(w.name))}
 // Adds a signed modifier to one profile value, keeping its notation:
-// Melee 2 +1 → Melee 3 · S +1 → S+1 · S+2 +1 → S+3 · 4 +1 → 5 · AP "-" −1 → -1
+// Melee 2 +1 → Melee 3 · Melee 1 −2 → Melee -1 · S +1 → S+1 · S −1 → S-1 · S+2 +1 → S+3 · 4 +1 → 5 · AP "-" −1 → -1
 // · AP +1 −1 → - · Damage 1 +1 → 2 · D3 +1 → D3+1. A value it can't read
 // (e.g. "S x2", "Special") is left as is.
 function coveringBump(kind,val,d){
   d=Math.trunc(Number(d)||0);const s=String(val??'').trim().replace(/[−–]/g,'-');if(!d)return val;let m;
   const sig=n=>n>0?'+'+n:String(n);
-  if(kind==='range'){m=s.match(/^(melee)\s*(\d+)(.*)$/i);return m?`${m[1]} ${Math.max(0,Number(m[2])+d)}${m[3]}`:val}
-  if(kind==='strength'){if(!s||/^s$/i.test(s))return 'S'+sig(d);m=s.match(/^S\s*([+-])\s*(\d+)(.*)$/i);if(m){const n=(m[1]==='-'?-1:1)*Number(m[2])+d;return (n?'S'+sig(n):'S')+m[3]}m=s.match(/^(\d+)(.*)$/);return m?`${Math.max(0,Number(m[1])+d)}${m[2]}`:val}
+  if(kind==='range'){m=s.match(/^(melee)\s*(-?\d+)(.*)$/i);return m?`${m[1]} ${Number(m[2])+d}${m[3]}`:val}
+  if(kind==='strength'){if(!s||/^s$/i.test(s))return 'S'+sig(d);m=s.match(/^S\s*([+-])\s*(\d+)(.*)$/i);if(m){const n=(m[1]==='-'?-1:1)*Number(m[2])+d;return (n?'S'+sig(n):'S')+m[3]}m=s.match(/^(-?\d+)(.*)$/);return m?`${Number(m[1])+d}${m[2]}`:val}
   if(kind==='ap'){let n;if(!s||s==='-'||s==='0')n=0;else{m=s.match(/^([+-])\s*(\d+)$/);if(!m)return val;n=(m[1]==='-'?-1:1)*Number(m[2])}n+=d;return n?sig(n):'-'}
   if(kind==='damage'){m=s.match(/^(\d+)$/);if(m)return String(Math.max(1,Number(m[1])+d));m=s.match(/^(\d*D\d+)\s*(?:([+-])\s*(\d+))?$/i);if(m){const n=(m[2]==='-'?-1:1)*Number(m[3]||0)+d;return m[1].toUpperCase()+(n?sig(n):'')}return val}
   return val;
