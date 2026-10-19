@@ -130,11 +130,13 @@ await test('[desktop] weapon covering: chip variant, stacked modifiers, exclusio
     const bumps=[['strength','S+2',1],['damage','D3',1],['ap','+1',-1],['range','Melee 1',-2],['strength','S',-1],['strength','3',-4],['ap','-',2]].map(([k,val,d])=>coveringBump(k,val,d));
     const stored={name:'Testmetal Sword',coveringId:'cov-t',coveringName:'Testmetal',coveringBase:'Sword',profile:null};state.customEquipment[0].covering.range=2;
     const camp=campaignEquipmentItems({definition:{description:'[ITEMS]\nTestmetal *\n[/ITEMS]',pages:[]}}).map(w=>w.name);
-    return {camp,v:v&&{price:equipmentPrice(v,f,'market',x),p:v.profile},dagger:pool.some(i=>i.name==='Testmetal Dagger'),leak:pool.some(i=>isCovering(i)),bumps,live:liveEquipmentView(stored).profile?.range}});
+    const gro={name:'Gromtest',covering:{mult:1,flat:20}};const flat=[coveredWeapon(D.weapons.find(w=>w.name==='Axe'),gro).price,coveredWeapon(D.weapons.find(w=>w.name==='Great Axe'),gro).price];
+    return {flat,camp,v:v&&{price:equipmentPrice(v,f,'market',x),p:v.profile},dagger:pool.some(i=>i.name==='Testmetal Dagger'),leak:pool.some(i=>isCovering(i)),bumps,live:liveEquipmentView(stored).profile?.range}});
   expect(out.v,'covered Sword missing from the Market List');
   expect(out.v.price===50,`covered Sword price ${out.v.price}, expected 25×2`);
   expect(out.v.p.range==='Melee 3'&&out.v.p.strength==='S+1'&&out.v.p.ap==='-1'&&out.v.p.damage==='2'&&/Strike First/.test(out.v.p.traits),`covered profile ${JSON.stringify(out.v.p)}`);
   expect(!out.dagger,'excluded Dagger still got the covering');
+  expect(out.flat.join('/')==='40/75','fixed surcharge: Axe/Great Axe gave '+out.flat.join('/'));
   expect(out.camp.includes('Testmetal Sword')&&!out.camp.includes('Testmetal Dagger'),'"Testmetal *" in [ITEMS] did not list the covered weapons');
   expect(!out.leak,'the covering itself is listed as an item');
   expect(out.bumps.join(' ')==='S+3 D3+1 - Melee -1 S-1 -1 +2','modifier stacking '+out.bumps.join(' '));

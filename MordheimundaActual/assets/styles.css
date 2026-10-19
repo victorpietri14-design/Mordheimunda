@@ -5044,7 +5044,7 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .custom-form-covering [data-covering-hide]{display:none!important}
 .covering-purchase{display:flex;flex-direction:column;gap:10px;margin:4px 0 10px}
 .covering-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.covering-mods{grid-template-columns:repeat(5,minmax(0,1fr))}
+.covering-mods{grid-template-columns:repeat(3,minmax(0,1fr))}
 .covering-weapons-head,.covering-preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px}
 .covering-weapon-actions{display:flex;gap:6px}
 .covering-weapons{margin-top:8px}
