@@ -81,7 +81,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // repeat visits no longer run the server or count against its transfer
 // quota. Admins always get the live version (their requests carry a unique
 // ?_t=, which the CDN never has in cache). Only successful answers are kept.
-const PUBLIC_CACHED_GETS=new Set(['/api/catalog/price-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+const PUBLIC_CACHED_GETS=new Set(['/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
 app.use((req,res,next)=>{
   if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
   const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
@@ -1818,6 +1818,16 @@ app.get('/api/catalog/price-rules',requireDb,async(req,res,next)=>{
 });
 app.put('/api/admin/price-rules',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const rules=sanitizePriceRules(req.body?.rules);await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('equipmentPriceRules',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({rules})]);res.json({rules})}catch(e){next(e)}
+});
+// V-WARBANDSIZE: optional maximum number of fighters per warband (Hired
+// Swords not counted), one map for every faction (book, packs, official
+// warbands, supplements), keyed by faction id. Empty / 0 = no limit.
+const sanitizeSizeLimits=obj=>{const out={};if(obj&&typeof obj==='object'&&!Array.isArray(obj)){Object.entries(obj).slice(0,500).forEach(([k,v])=>{const id=String(k||'').slice(0,120);const n=Math.round(Number(v));if(id&&Number.isFinite(n)&&n>=1&&n<=200)out[id]=n})}return out};
+app.get('/api/catalog/warband-size-limits',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='warbandSizeLimits'");res.json({limits:sanitizeSizeLimits(q.rows[0]?.value?.limits)})}catch(e){next(e)}
+});
+app.put('/api/admin/warband-size-limits',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const limits=sanitizeSizeLimits(req.body?.limits);await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('warbandSizeLimits',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({limits})]);res.json({limits})}catch(e){next(e)}
 });
 app.get('/api/catalog/weapon-overrides',requireDb,async(req,res,next)=>{
   try{
