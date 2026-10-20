@@ -157,6 +157,21 @@ await test('[desktop] weapon covering: Heroes only keeps it away from Henchmen',
   expect(!out.hench,'a Henchman can still buy a Heroes-only covered weapon');
   expect(!out.give,'a Henchman can still be given a Heroes-only covered weapon');
 });
+await test('[desktop] warband size limit: recruit blocked, supplement inherits, Hired Swords not counted',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Henchman'&&w.max==null));
+    const hw=f.warriors.find(w=>w.type==='Henchman'&&w.max==null);const mk=()=>({...JSON.parse(JSON.stringify(hw)),wid:hw.id,instance:crypto.randomUUID(),equipmentSelected:[]});
+    const saved=warbandSizeLimits;warbandSizeLimits={[f.id]:2};
+    state.rosters=[{id:'sz',name:'SZ',factionId:f.id,gold:5000,fighters:[mk(),mk(),{name:'Merc',type:'Hired Sword',hiredSword:true,wid:'hs',instance:'hs1'}]}];state.active='sz';
+    const r=state.rosters[0];const before=r.fighters.length;addFighterCore(hw.id);const blocked=r.fighters.length===before;
+    r.fighters.push(mk());const illegal=warbandLegalityIssues(r).some(i=>/3\/2/.test(i));
+    const inherits=warbandSizeLimitFor({id:'sup-test',baseFactionId:f.id})===2;const note=!!warbandSizeNoteMarkup(f,false);
+    warbandSizeLimits=saved;const none=warbandSizeLimitFor(f)==null||saved[f.id]>0;return {blocked,illegal,inherits,note,count:warbandSizeCount(r),none}});
+  expect(out.blocked,'a third fighter was recruited past a limit of 2');
+  expect(out.count===3,'Hired Swords should not count toward the size: '+out.count);
+  expect(out.illegal,'a band over its size limit is not flagged as illegal');
+  expect(out.inherits,'a supplement without its own limit should use its base warband limit');
+  expect(out.note,'the Faction Rules note for the size limit is missing');
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');

@@ -1,3 +1,3 @@
 // Site version, bumped together with APP_BUILD in assets/app.js. The server
 // refuses account saves from an older version (see V-BUILDGUARD).
-export const APP_BUILD='110.0700.0';
+export const APP_BUILD='110.0701.0';

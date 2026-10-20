@@ -3466,6 +3466,8 @@ html[data-theme="light"] .admin-live-editor-text{background:rgba(0,0,0,.05)}
    magic domain / exclusive equipment on the warband detail page (see
    rulesWarbandDetail() and warbandSectionMarkup() in app.js). */
 .wb-rules-box{background:var(--wip-bg);border:1px solid var(--wip-border);border-radius:8px;padding:14px 16px;margin-bottom:8px}
+.wb-size-note{font-size:12px;margin:0 0 8px;color:var(--muted)}
+.wb-size-note strong{color:var(--text)}
 .wb-rules-box h4{color:var(--wip);font-size:12px;margin-bottom:6px}
 .wb-rules-box p{font-size:12px;margin:0}
 .section-block{margin-bottom:30px}

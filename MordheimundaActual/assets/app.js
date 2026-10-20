@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0700.0';
+const APP_BUILD='110.0701.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -314,6 +314,12 @@ function warbandExclusiveEquipment(f){
 // limits.
 function warbandCompositionLines(f,en){
   return (f.warriors||[]).filter(w=>w.max!=null&&!isHiredSword(w)).map(w=>`• Max ${w.max} × ${w.name} (${w.type||''})`);
+}
+// V-WARBANDSIZE: shown above the Faction Rules text (never inside it, so an
+// admin editing that text can't save a stale copy of the limit into it).
+function warbandSizeNoteMarkup(f,en){
+  const n=warbandSizeLimitFor(f);
+  return n?`<p class="wb-size-note"><strong>${en?`Maximum ${n} fighters`:`Maximum ${n} combattants`}</strong> ${en?'in the warband (Hired Swords not counted).':'dans la bande (Hired Swords non compris).'}</p>`:'';
 }
 // V-FACTIONRULESSYNC: single source of truth for a faction's "Faction Rules"
 // text — the admin-editable section on Rules: Warbands (section 0 of
@@ -2915,7 +2921,8 @@ function faction(r){
         budget:1000,
         warriors:customWarbandWarriors(cw),
         equipment:customWarbandEquipmentObjects(cw),
-        choices:cw.choices||null
+        choices:cw.choices||null,
+        maxWarriors:Number(cw.maxWarriors)||null
       };
     }
   }
@@ -6567,7 +6574,7 @@ function adminWarbandRulesPanel(){
     :(en?'Edits the published warband directly — no draft or copy is ever created, and nothing shows up in your Custom tab. Saving pushes the whole definition back to the live warband at once.':'Modifie directement la bande publiée — aucun brouillon ni copie n’est jamais créé, et rien n’apparaît dans ton onglet Custom. Enregistrer renvoie la fiche complète vers la bande en ligne en une fois.');
   const supplementCard=isCatalog?'':adminSupplementControlMarkup(d);
   return `<div class="admin-page">
-    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div><label class="admin-wb-name-label" for="adminWbNameInput">✎ ${en?'Warband name':'Nom de la bande'}${isCatalog?` <small>(${en?'empty = book name':'vide = nom du livre'})</small>`:''}</label><h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="activeAdminEditData().name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2><p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
+    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div><label class="admin-wb-name-label" for="adminWbNameInput">✎ ${en?'Warband name':'Nom de la bande'}${isCatalog?` <small>(${en?'empty = book name':'vide = nom du livre'})</small>`:''}</label><h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="activeAdminEditData().name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2>${(()=>{const fid=isCatalog?adminCatalogFactionId:(adminRulesEditId?'official-'+adminRulesEditId:null);if(!fid)return '';const cur=Number(warbandSizeLimits[fid])||'';const fac=D.factions.find(x=>x.id===fid);const inh=!cur&&fac?warbandSizeLimitFor(fac):null;return `<label class="admin-wb-name-label" for="adminWbMaxSize">${en?'Maximum fighters':'Combattants max'} <small>(${en?'Hired Swords not counted, empty = no limit':'Hired Swords non compris, vide = pas de limite'}${inh?(en?` — currently ${inh} from the base warband`:` — actuellement ${inh} via la bande de base`):''})</small></label><input type="number" min="1" max="200" step="1" id="adminWbMaxSize" class="admin-wb-max-input" value="${cur}" placeholder="—" onchange="saveWarbandSizeLimit('${esc(fid)}',this.value)" style="max-width:120px">`})()}<p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
     ${supplementCard}
     ${tabs}
     ${body}
@@ -6818,6 +6825,9 @@ async function confirmOfficializeCustomWarband(id){
     // 404 forever for a warband officialized straight from Custom (it was
     // never re-imported through the raw-id path). Stripped to match.
     if(result?.warband?.id)cw.officialId=String(result.warband.id).replace(/^official-/,'');
+    // V-WARBANDSIZE: the custom warband's maximum size travels to the
+    // published warband (stored server-side under its faction id).
+    if(cw.officialId&&Number(cw.maxWarriors)>0&&!warbandSizeLimits['official-'+cw.officialId])await saveWarbandSizeLimit('official-'+cw.officialId,cw.maxWarriors);
     save(true);
     adminOfficialCache=null;
     closeModal();
@@ -8350,7 +8360,7 @@ function customWarbandCreateTile(cw){const fid=`custom-warband-${cw.id}`;const c
   // longer a "custom" pick — drop the CUSTOM badge here, same as everywhere
   // else this warband's name is shown.
   return `<button class="faction-choice custom-warband" data-faction="${esc(fid)}" onclick="selectFaction('${esc(fid)}',this)"><span class="choice-img-wrap">${sigil}</span><span class="fname">${esc(cw.name)}</span><span class="fcount">${count} profil${count!==1?'s':''} custom</span>${cw.officialId?'':'<span class="custom-badge">CUSTOM</span>'}</button>`}
-function customWarbandFaction(cw){return {id:`custom-warband-${cw.id}`,displayName:cw.name,group:'CUSTOM',budget:1000,warriors:customWarbandWarriors(cw),equipment:customWarbandEquipmentObjects(cw),choices:cw.choices||null}}
+function customWarbandFaction(cw){return {id:`custom-warband-${cw.id}`,displayName:cw.name,group:'CUSTOM',budget:1000,warriors:customWarbandWarriors(cw),equipment:customWarbandEquipmentObjects(cw),choices:cw.choices||null,maxWarriors:Number(cw.maxWarriors)||null}}
 function allCreateWarbandEntries(){const official=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f));const customs=customWarbandList().map(customWarbandFaction);return [...official,...customs]}
 function startFaction(fid){render('create');setTimeout(()=>{const el=$(`[data-faction="${fid}"]`);if(el)selectFaction(fid,el)},0)}
 // ================= Rules: Warbands (V152) =================
@@ -11212,7 +11222,7 @@ function rulesWarbandDetail(){
   // it's plain editable text from the start.
   const factionRulesDefault=factionRulesTextFor(f,en).text;
   const factionRulesSection=warbandSectionMarkup(f,0,'Faction Rules','Règles de Faction',
-    `<div class="wb-rules-box"><div class="rule-page-text">${ruleTextMarkup(factionRulesDefault,{})}</div></div>`,factionRulesDefault,'wb-rules-box');
+    `${warbandSizeNoteMarkup(f,en)}<div class="wb-rules-box"><div class="rule-page-text">${ruleTextMarkup(factionRulesDefault,{})}</div></div>`,factionRulesDefault,'wb-rules-box');
 
   // Section 2 — Combattants: grouped by role (Leader → Champion → Raw
   // Recruit → Henchman → anything else), each group under a .role-head
@@ -12959,6 +12969,8 @@ function warbandLegalityIssues(r){
   const en=siteLanguage==='en';
   const c=compositionCounts(r),limit=championLimitForRoster(r);
   const issues=[];
+  const sizeMax=warbandSizeLimitFor(faction(r)),size=warbandSizeCount(r);
+  if(sizeMax&&size>sizeMax)issues.push(en?`Too many fighters: ${size}/${sizeMax} (Hired Swords not counted). Remove ${size-sizeMax} fighter${size-sizeMax>1?'s':''}.`:`Trop de combattants : ${size}/${sizeMax} (Hired Swords non compris). Retire ${size-sizeMax} combattant${size-sizeMax>1?'s':''}.`);
   if(c.champions>limit)issues.push(en?`Too many Champions: ${c.champions}/${limit} for Reputation ${Number(r.reputation||0)}. Remove ${c.champions-limit} Champion${c.champions-limit>1?'s':''}, or raise Reputation to allow more.`:`Trop de Champions : ${c.champions}/${limit} pour une Réputation de ${Number(r.reputation||0)}. Retire ${c.champions-limit} Champion${c.champions-limit>1?'s':''}, ou augmente la Réputation pour en autoriser plus.`);
   if(c.henchmen<c.other)issues.push(en?`Not enough Henchmen: ${c.henchmen} Henchmen for ${c.other} other fighters (need at least as many Henchmen as other fighters). Recruit ${c.other-c.henchmen} more Henchman${c.other-c.henchmen>1?'s':''}, or remove ${c.other-c.henchmen} other fighter${c.other-c.henchmen>1?'s':''}.`:`Pas assez de Henchmen : ${c.henchmen} Henchmen pour ${c.other} autres guerriers (il faut au moins autant de Henchmen que d'autres guerriers). Recrute ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''} de plus, ou retire ${c.other-c.henchmen} autre${c.other-c.henchmen>1?'s':''} guerrier${c.other-c.henchmen>1?'s':''}.`);
   return issues;
@@ -13939,7 +13951,7 @@ function syncHistoryDrawer(r){let h=document.getElementById('historyDrawerHost')
 function historyDrawerMarkup(r){const en=siteLanguage==='en';return `<div class="history-drawer-overlay" onclick="closeHistoryDrawer()"></div><aside class="history-drawer" aria-label="${en?'History':'Historique'}"><button type="button" class="history-drawer-close" aria-label="${en?'Close':'Fermer'}" onclick="closeHistoryDrawer()">×</button>${historyView(r)}</aside>`}
 function recruitPanelMarkup(r,f){
   const en=siteLanguage==='en';const open=recruitPanelOpen;
-  return `<section class="recruit-panel${open?' open':''}"><button type="button" class="recruit-panel-head" aria-expanded="${open}" onclick="toggleRecruitPanel()"><span>＋ ${en?'RECRUIT A FIGHTER':'RECRUTER UN COMBATTANT'}</span><small>${en?'Treasury':'Trésor'} ${Number(r.gold||0)} GC · ${open?(en?'▾ fold':'▾ replier'):(en?'▸ unfold':'▸ déplier')}</small></button>${open?`<div class="recruit-panel-body">${recruitmentCompositionNotice(r)}${hiredSwordRecruitTabsMarkup(r,f)}${recruitPoolTab==='hs'?hiredSwordPoolMarkup(r,f):`<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option><option>Animal</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label></div><div class="fighter-pool" id="fighterPool">${fighterPool(f)}</div>`}</div>`:''}</section>`;
+  return `<section class="recruit-panel${open?' open':''}"><button type="button" class="recruit-panel-head" aria-expanded="${open}" onclick="toggleRecruitPanel()"><span>＋ ${en?'RECRUIT A FIGHTER':'RECRUTER UN COMBATTANT'}</span><small>${en?'Treasury':'Trésor'} ${Number(r.gold||0)} GC${(()=>{const m=warbandSizeLimitFor(f);return m?` · ${warbandSizeCount(r)}/${m} ${en?'fighters':'combattants'}`:''})()} · ${open?(en?'▾ fold':'▾ replier'):(en?'▸ unfold':'▸ déplier')}</small></button>${open?`<div class="recruit-panel-body">${recruitmentCompositionNotice(r)}${hiredSwordRecruitTabsMarkup(r,f)}${recruitPoolTab==='hs'?hiredSwordPoolMarkup(r,f):`<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option><option>Animal</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label></div><div class="fighter-pool" id="fighterPool">${fighterPool(f)}</div>`}</div>`:''}</section>`;
 }
 function fighterPoolCompactRow(w,f,r){
   const en=siteLanguage==='en';const owned=(r?.fighters||[]).filter(x=>x.wid===w.id).length;const maxed=w.max!==null&&owned>=w.max;const rc=fighterRecruitCost(w,r?faction(r):f);
@@ -16142,7 +16154,7 @@ function warbandRulesView(r){
   // so this tab and that page never drift apart. Shown first/prioritized,
   // per "le prio est Faction Rules".
   const fr=f?factionRulesTextFor(f,en):null;
-  const factionRulesBlock=fr?`<div class="rb-section-head"><h4>${en?'Faction Rules':'Règles de Faction'}</h4></div><div class="wb-rules-box"><div class="rule-page-text">${ruleTextMarkup(fr.text,{})}</div></div>`:'';
+  const factionRulesBlock=fr?`<div class="rb-section-head"><h4>${en?'Faction Rules':'Règles de Faction'}</h4></div>${warbandSizeNoteMarkup(f,en)}<div class="wb-rules-box"><div class="rule-page-text">${ruleTextMarkup(fr.text,{})}</div></div>`:'';
   const rulesBlock=entries.length?`<div class="rule-select-list">${entries.map(e=>`<div class="rule-select-card"><div class="rule-select-head"><span class="rule-select-name">${refLink(e.category,e.name,e.name)}</span><span class="rule-select-origin">${e.category==='traits'?(en?'Trait':'Trait'):(en?'Special Rule':'Règle spéciale')}</span></div><div class="rule-select-text">${esc(e.text||(en?'No rule text recorded.':'Aucun texte de règle enregistré.'))}</div></div>`).join('')}</div>`
     :`<div class="rb-empty">${canManage?(en?'No warband rules selected yet.':'Aucune règle de bande sélectionnée pour l’instant.'):(en?'This warband has no band-wide rules.':'Cette bande n’a pas de règles de bande.')}</div>`;
   const manageLink=canManage?`<a class="rb-manage-link" href="javascript:void(0)" onclick="openWarbandRulesInCustom('${esc(r.customWarbandId)}')">${en?'Manage selection in Custom →':'Gérer la sélection dans Custom →'}</a>`:'';
@@ -17307,6 +17319,27 @@ function customEquipmentForFaction(w,fid){if(!isCustomEquipment(w)||!fid)return 
 // over the warband-wide one.
 let priceRules=[];
 async function loadPriceRules(){try{const r=await window.MordheimundaAPI.priceRules();priceRules=Array.isArray(r?.rules)?r.rules:[]}catch(e){}}
+// V-WARBANDSIZE: optional maximum number of fighters for a warband, set by an
+// admin in the warband editor (book factions, official warbands and
+// supplements, keyed by faction id) or by the owner of a custom warband
+// (cw.maxWarriors). A supplement with no limit of its own uses its base
+// faction's. Hired Swords and dead fighters are not counted.
+let warbandSizeLimits={};
+async function loadWarbandSizeLimits(){try{const r=await window.MordheimundaAPI.warbandSizeLimits();warbandSizeLimits=r?.limits&&typeof r.limits==='object'?r.limits:{}}catch(e){}}
+function warbandSizeLimitFor(f){
+  if(!f)return null;
+  if(String(f.id||'').startsWith('custom-warband-')){const n=Number(f.maxWarriors);return n>0?n:null}
+  let cur=f;const seen=new Set();
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);const n=Number(warbandSizeLimits[cur.id]);if(n>0)return n;const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(x=>x.id===pid)||{id:pid}}
+  return null;
+}
+function warbandSizeCount(r){return (Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x)&&!fighterStatus(x).dead).length}
+async function saveWarbandSizeLimit(fid,raw){
+  const en=siteLanguage==='en';if(!isAdminSession()||!fid)return;
+  const n=Math.round(Number(raw));const next={...warbandSizeLimits};
+  if(Number.isFinite(n)&&n>=1)next[fid]=Math.min(200,n);else delete next[fid];
+  try{const r=await window.MordheimundaAPI.adminSaveWarbandSizeLimits(next);warbandSizeLimits=r?.limits||next;toast(next[fid]?(en?`Maximum size saved: ${next[fid]} fighters`:`Taille max enregistrée : ${next[fid]} combattants`):(en?'Maximum size removed':'Taille max retirée'))}catch(e){toast(authError(e,en))}
+}
 function priceRuleFor(itemName,f,x){if(!f||!itemName||!priceRules.length)return null;const n=normName(itemName),fid=String(f.id||'');const hits=priceRules.filter(r=>r.factionId===fid&&normName(r.item)===n);if(!hits.length)return null;const wid=x?.wid?String(x.wid):null;return (wid&&hits.find(r=>r.warriorId===wid))||hits.find(r=>!r.warriorId)||null}
 function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;if(w.coveredVariant&&w.__coveringBase){const b=equipmentPrice(w.__coveringBase,f,tab,x);return b==null?null:coveringPrice(w.__covering,b)}if(tab==='band'){const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}if(isCustomEquipment(w))return Number(w.price||0);if(tab==='band'&&w.bandPrices?.[f.id]!=null)return Number(w.bandPrices[f.id]);return w.price}
 // V-NOSLOTGEAR: an item only counts as a weapon (weapon list + a weapon
@@ -17978,7 +18011,7 @@ function addFighterCore(wid){const r=activeRoster(),f=faction(r),custom=customFi
   // warbandLegalityBadgeMarkup, which read the roster live on every render
   // and flag it as illegal (with what to fix, on click) instead of refusing
   // the recruit outright or interrupting with a popup on every purchase.
-  const count=r.fighters.filter(x=>x.wid===wid).length;if(w.max!==null&&count>=w.max){toast(siteLanguage==='en'?'Limit reached for this profile':'Limite atteinte pour ce profil');return}const recruitCost=fighterRecruitCost(w,f);if(r.gold<recruitCost){toast(siteLanguage==='en'?'Insufficient treasury':'Trésor insuffisant');return}const defaults=(w.defaultEquipment||[]).map(name=>{const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;const dp=defaultEquipmentItemPrice(e,f);return {stashId:crypto.randomUUID(),name:e.name,paid:dp,value:dp,price:dp,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true}}).filter(Boolean);const fighter={...w,profile:effectiveFighterProfile(w,f),baseProfile:effectiveFighterProfile(w,f),sourceName:w.name,wid,instance:crypto.randomUUID(),name:w.name,xp:0,defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:defaults,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],advancements:[],injuries:[],spells:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId||null};if(fighterUsesLoadouts(fighter)){fighter.equipmentStash=defaults.slice();fighter.equipmentLoadouts=[{id:crypto.randomUUID(),name:'1',equipmentIds:defaults.map(e=>e.stashId),equipmentNames:defaults.map(e=>e.name)}];fighter.activeLoadoutId=fighter.equipmentLoadouts[0].id;syncLoadoutProjection(fighter);}r.fighters.push(fighter);syncCustomEquipmentEffects(fighter);r.gold-=recruitCost;logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(w.name)}</b> recruited into the warband — <b>${esc(w.type)}</b>, cost ${recruitCost} GC`:`<b>${esc(w.name)}</b> recruté dans la bande — <b>${esc(w.type)}</b>, coût ${recruitCost} GC`);save(true);render('builder');toast(siteLanguage==='en'?`✓ ${w.name} recruited — ${recruitCost} GC`:`✓ ${w.name} recruté — ${recruitCost} GC`);}
+  const count=r.fighters.filter(x=>x.wid===wid).length;if(w.max!==null&&count>=w.max){toast(siteLanguage==='en'?'Limit reached for this profile':'Limite atteinte pour ce profil');return}if(!isHiredSword(w)){const sizeMax=warbandSizeLimitFor(f),size=warbandSizeCount(r);if(sizeMax&&size>=sizeMax){toast(siteLanguage==='en'?`Warband full: ${size}/${sizeMax} fighters (Hired Swords not counted)`:`Bande complète : ${size}/${sizeMax} combattants (Hired Swords non compris)`);return}}const recruitCost=fighterRecruitCost(w,f);if(r.gold<recruitCost){toast(siteLanguage==='en'?'Insufficient treasury':'Trésor insuffisant');return}const defaults=(w.defaultEquipment||[]).map(name=>{const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;const dp=defaultEquipmentItemPrice(e,f);return {stashId:crypto.randomUUID(),name:e.name,paid:dp,value:dp,price:dp,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true}}).filter(Boolean);const fighter={...w,profile:effectiveFighterProfile(w,f),baseProfile:effectiveFighterProfile(w,f),sourceName:w.name,wid,instance:crypto.randomUUID(),name:w.name,xp:0,defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:defaults,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],advancements:[],injuries:[],spells:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId||null};if(fighterUsesLoadouts(fighter)){fighter.equipmentStash=defaults.slice();fighter.equipmentLoadouts=[{id:crypto.randomUUID(),name:'1',equipmentIds:defaults.map(e=>e.stashId),equipmentNames:defaults.map(e=>e.name)}];fighter.activeLoadoutId=fighter.equipmentLoadouts[0].id;syncLoadoutProjection(fighter);}r.fighters.push(fighter);syncCustomEquipmentEffects(fighter);r.gold-=recruitCost;logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(w.name)}</b> recruited into the warband — <b>${esc(w.type)}</b>, cost ${recruitCost} GC`:`<b>${esc(w.name)}</b> recruté dans la bande — <b>${esc(w.type)}</b>, coût ${recruitCost} GC`);save(true);render('builder');toast(siteLanguage==='en'?`✓ ${w.name} recruited — ${recruitCost} GC`:`✓ ${w.name} recruté — ${recruitCost} GC`);}
 // V-DEFAULTEQUIPPRICE: default (starting) equipment used to be granted at
 // 0 GC: free at recruitment and worth nothing in the fighter's value. It now
 // costs its normal price (Band List price for this warband when it has one,
@@ -19858,7 +19891,7 @@ function confirmDeleteCustomWarband(id){
   save(true);closeModal();render('custom');
   toast(orphanFighterIds.length?(en?`Custom warband deleted (+${orphanFighterIds.length} fighter${orphanFighterIds.length>1?'s':''} that ${orphanFighterIds.length>1?'were':'was'} exclusive to it)`:`Warband custom supprimée (+${orphanFighterIds.length} combattant${orphanFighterIds.length>1?'s':''} qui lui ${orphanFighterIds.length>1?'étaient':'était'} exclusif${orphanFighterIds.length>1?'s':''})`):(en?'Custom warband deleted':'Warband custom supprimée'));
 }
-function saveCustomWarbandMeta(){const en=siteLanguage==='en';const name=($('#cwName')?.value||'').trim(),description=($('#cwDescription')?.value||'').trim();if(!name){toast(en?'Give the Warband a name':'Donne un nom à la Warband');return}let cw=customWarbandById(customWarbandEditId);const isNew=!cw;if(!cw){cw={id:crypto.randomUUID(),name:'',description:'',fighterIds:[],equipmentIds:[],fighterRefs:[],equipmentRefs:[],specialRuleIds:[],traitIds:[]};state.customWarbands.push(cw)}cw.name=name;cw.description=description;customWarbandEditId=null;customWarbandCreating=false;save(true);render('custom');toast(isNew?(en?'Warband created — use Edit to configure it':'Warband créée — utilise Modifier pour la configurer'):(en?'Warband saved':'Warband sauvegardée'))}
+function saveCustomWarbandMeta(){const en=siteLanguage==='en';const name=($('#cwName')?.value||'').trim(),description=($('#cwDescription')?.value||'').trim();if(!name){toast(en?'Give the Warband a name':'Donne un nom à la Warband');return}let cw=customWarbandById(customWarbandEditId);const isNew=!cw;if(!cw){cw={id:crypto.randomUUID(),name:'',description:'',fighterIds:[],equipmentIds:[],fighterRefs:[],equipmentRefs:[],specialRuleIds:[],traitIds:[]};state.customWarbands.push(cw)}cw.name=name;cw.description=description;{const m=Math.round(Number($('#cwMaxWarriors')?.value));if(m>=1)cw.maxWarriors=Math.min(200,m);else delete cw.maxWarriors}customWarbandEditId=null;customWarbandCreating=false;save(true);render('custom');toast(isNew?(en?'Warband created — use Edit to configure it':'Warband créée — utilise Modifier pour la configurer'):(en?'Warband saved':'Warband sauvegardée'))}
 function setCustomWarbandSection(v){if(customWarbandEditId){customWarbandSection=v;render('custom')}}
 function saveCustomWarbandConfiguration(){
   const en=siteLanguage==='en';
@@ -20012,7 +20045,7 @@ function customWarbandEditor(cw){
 function customWarbandMetaEditor(cw){
  const en=siteLanguage==='en';
  const icon=cw.icon||'';
- return `<div class="custom-warband-meta-edit"><div class="custom-warband-icon-row"><span class="gang-icon custom-warband-tile-icon">${imageMarkup(icon,'custom-warband',esc(cw.name),cw.iconFocus)}</span><div class="custom-warband-icon-actions"><button type="button" class="button secondary" onclick="pickImage('custom-warband','${cw.id}')">${icon?(en?'Change icon':"Changer l'icône"):(en?'Add an icon':'Ajouter une icône')}</button>${icon?`<button type="button" class="button secondary" onclick="removeImage('custom-warband','${cw.id}')">${en?'Remove':'Retirer'}</button>`:''}</div></div><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="cwMetaName" value="${esc(cw.name)}"></label><label class="custom-field"><span>${en?'Description (optional)':'Description (facultatif)'}</span>${customTextToolbarMarkup('cwMetaDescription')}<textarea id="cwMetaDescription" class="wide-textarea" rows="3" placeholder="${en?'Band description…':'Description de la bande…'}">${esc(cw.description||'')}</textarea></label><div class="custom-actions"><button type="button" class="button secondary" onclick="saveCustomWarbandInfo('${cw.id}')">${en?'Save name / description':'Sauvegarder le nom / la description'}</button></div></div>`;
+ return `<div class="custom-warband-meta-edit"><div class="custom-warband-icon-row"><span class="gang-icon custom-warband-tile-icon">${imageMarkup(icon,'custom-warband',esc(cw.name),cw.iconFocus)}</span><div class="custom-warband-icon-actions"><button type="button" class="button secondary" onclick="pickImage('custom-warband','${cw.id}')">${icon?(en?'Change icon':"Changer l'icône"):(en?'Add an icon':'Ajouter une icône')}</button>${icon?`<button type="button" class="button secondary" onclick="removeImage('custom-warband','${cw.id}')">${en?'Remove':'Retirer'}</button>`:''}</div></div><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="cwMetaName" value="${esc(cw.name)}"></label><label class="custom-field"><span>${en?'Maximum fighters (optional, Hired Swords not counted)':'Combattants max (facultatif, Hired Swords non compris)'}</span><input id="cwMetaMaxWarriors" type="number" min="1" max="200" step="1" placeholder="—" value="${Number(cw.maxWarriors)||''}"></label><label class="custom-field"><span>${en?'Description (optional)':'Description (facultatif)'}</span>${customTextToolbarMarkup('cwMetaDescription')}<textarea id="cwMetaDescription" class="wide-textarea" rows="3" placeholder="${en?'Band description…':'Description de la bande…'}">${esc(cw.description||'')}</textarea></label><div class="custom-actions"><button type="button" class="button secondary" onclick="saveCustomWarbandInfo('${cw.id}')">${en?'Save name / description':'Sauvegarder le nom / la description'}</button></div></div>`;
 }
 function saveCustomWarbandInfo(id){
  const en=siteLanguage==='en';
@@ -20021,10 +20054,11 @@ function saveCustomWarbandInfo(id){
  if(!name){toast(en?'Give the Warband a name':'Donne un nom à la Warband');return}
  cw.name=name;
  cw.description=($('#cwMetaDescription')?.value||'').trim();
+ {const m=Math.round(Number($('#cwMetaMaxWarriors')?.value));if(m>=1)cw.maxWarriors=Math.min(200,m);else delete cw.maxWarriors}
  save(true);render('custom');toast(en?'Information saved':'Informations sauvegardées');
 }
 function filterCustomWarbandChoices(input,selector){const q=(input.value||'').trim().toLowerCase();document.querySelectorAll(selector).forEach(el=>{el.style.display=!q||(el.dataset.search||'').includes(q)?'':'none'})}
-function customWarbandCreateForm(){const en=siteLanguage==='en';return `<section class="card custom-warband-create-form"><div class="eyebrow">${en?'NEW WARBAND':'NOUVELLE WARBAND'}</div><h3>${en?'Create a custom Warband':'Créer une Warband custom'}</h3><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="cwName" placeholder="${en?'Warband name':'Nom de la Warband'}"></label><label class="custom-field"><span>${en?'Description (optional)':'Description (facultatif)'}</span>${customTextToolbarMarkup('cwDescription')}<textarea id="cwDescription" class="wide-textarea" rows="4" placeholder="${en?'Band description…':'Description de la bande…'}"></textarea></label><div class="custom-actions"><button type="button" class="button secondary" onclick="customWarbandCreating=false;render('custom')">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveCustomWarbandMeta()">${en?'Save':'Sauvegarder'}</button></div></section>`}
+function customWarbandCreateForm(){const en=siteLanguage==='en';return `<section class="card custom-warband-create-form"><div class="eyebrow">${en?'NEW WARBAND':'NOUVELLE WARBAND'}</div><h3>${en?'Create a custom Warband':'Créer une Warband custom'}</h3><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="cwName" placeholder="${en?'Warband name':'Nom de la Warband'}"></label><label class="custom-field"><span>${en?'Maximum fighters (optional, Hired Swords not counted)':'Combattants max (facultatif, Hired Swords non compris)'}</span><input id="cwMaxWarriors" type="number" min="1" max="200" step="1" placeholder="—"></label><label class="custom-field"><span>${en?'Description (optional)':'Description (facultatif)'}</span>${customTextToolbarMarkup('cwDescription')}<textarea id="cwDescription" class="wide-textarea" rows="4" placeholder="${en?'Band description…':'Description de la bande…'}"></textarea></label><div class="custom-actions"><button type="button" class="button secondary" onclick="customWarbandCreating=false;render('custom')">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveCustomWarbandMeta()">${en?'Save':'Sauvegarder'}</button></div></section>`}
 function customWarbandPage(){const en=siteLanguage==='en';const list=customWarbandList();if(customWarbandCreating)return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${en?'Custom warbands':'Warbands personnalisées'}</h2><p>${en?'Create the warband first, then click Edit to open its configuration.':'Crée d’abord la Warband, puis clique sur Modifier pour ouvrir sa configuration.'}</p></div></div>${customWarbandCreateForm()}</div>`;if(customWarbandEditId){const cw=customWarbandById(customWarbandEditId);if(cw)return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT / WARBAND</div><h2>${esc(cw.name)}</h2><p>${cw.description?customTextMarkup(cw.description):esc(en?'Custom warband':'Warband personnalisée')}</p></div><button type="button" class="button secondary" onclick="customWarbandEditId=null;render('custom')">${en?'← Library':'← Bibliothèque'}</button></div>${customWarbandEditor(cw)}</div>`}return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${en?'Custom warbands':'Warbands personnalisées'}</h2><p>${en?'Create and configure your own warbands without touching the official content.':'Crée et configure tes propres Warbands sans toucher au contenu officiel.'}</p></div><button type="button" class="button primary" onclick="newCustomWarband()">＋ ${en?'New warband':'Nouvelle Warband'}</button></div><div class="custom-workspace"><section class="card custom-editor"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${en?'Custom warbands':'Warbands custom'}</h3></div><span>${list.length}</span></div><div class="custom-item-list">${list.length?list.map(customWarbandSummaryRow).join(''):`<div class="empty large"><strong>${en?'No custom warbands.':'Aucune Warband custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`}</div></section></div></div>`}
 
 // Boot sequence: run only after every top-level `let`/`const`/function
@@ -20121,7 +20155,7 @@ const hasStoredAccountSession=!!localStorage.getItem(ACCOUNT_SESSION_KEY);
 // D.factions — this just guarantees a render happens once those are
 // actually correct, regardless of which side of the race won.
 const bootTimeout=new Promise(resolve=>setTimeout(resolve,1500));
-const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands(),loadPriceRules()]);
+const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands(),loadPriceRules(),loadWarbandSizeLimits()]);
 costAffectingLoadsReady.then(()=>renderCurrentRoute());
 if(hasStoredAccountSession){
   Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{try{applyPriceRuleRefunds()}catch(e){}renderCurrentRoute();showPasswordReset();});
