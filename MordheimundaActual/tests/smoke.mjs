@@ -172,6 +172,20 @@ await test('[desktop] warband size limit: recruit blocked, supplement inherits, 
   expect(out.inherits,'a supplement without its own limit should use its base warband limit');
   expect(out.note,'the Faction Rules note for the size limit is missing');
 });
+await test('[desktop] weapon-scoped bonus: Oversized Jaws improves the Bite Attack, not the fighter',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const bite={name:'Bite Attack',customEquipmentId:'t-bite',category:'Armes de corps à corps',subcategory:'Armes de corps à corps',price:0,traits:['Strike Last'],profile:{range:'Melee 1',strength:'S',ap:'-',damage:'1',traits:'Strike Last'}};
+    const jaws={name:'Oversized Jaws',customEquipmentId:'t-jaws',category:'Équipements divers',subcategory:'Équipements divers',price:20,profile:null,rulesText:'The Hero may make his bite attack with +1 Strength'};
+    const brute={name:'Brute Helm',customEquipmentId:'t-helm',category:'Équipements divers',subcategory:'Équipements divers',price:20,profile:null,rulesText:'The wearer gains +1 Strength.'};
+    state.customEquipment=[bite,jaws,brute];
+    const x={name:'Saurus Totem Warrior',type:'Champion',profile:[4,4,0,4,4,2,2,2,8,8,8,6],equipmentSelected:[{...bite},{...jaws}]};
+    syncCustomEquipmentEffects(x);const s1=x.profile[3];const view=fighterWeaponView(x,x.equipmentSelected[0]).profile.strength;
+    x.equipmentSelected.push({...brute});syncCustomEquipmentEffects(x);const s2=x.profile[3];
+    return {s1,view,s2}});
+  expect(out.s1===4,'Oversized Jaws changed the fighter\'s Strength: '+out.s1);
+  expect(out.view==='S+1','the Bite Attack should show S+1, got '+out.view);
+  expect(out.s2===5,'a plain "+1 Strength" item should still raise the profile: '+out.s2);
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');
