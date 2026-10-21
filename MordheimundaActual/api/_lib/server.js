@@ -839,7 +839,13 @@ const toOfficialFaction=row=>{
   // never checks factions at all). The '__ALL__' sentinel is recognized by
   // customEquipmentForFaction client-side as "matches every faction".
   const isPool=row.name===CONTENT_POOL_WARBAND_NAME;
-  const equipment=arr(row.definition?.equipment).map(e=>e&&e.customEquipmentId?{...e,factions:isPool?['__ALL__']:[id]}:e);
+  // V-COVERINGSCOPE: a covering keeps the warbands ticked in its form in
+  // covering.bandFactions, because `factions` is rewritten just below. Ones
+  // published before that field existed only had them in `factions`, so
+  // every player lost them (the admin still saw his own Custom copy): carry
+  // them over here.
+  const keepCoveringBands=e=>e.covering&&typeof e.covering==='object'&&!Array.isArray(e.covering.bandFactions)?{covering:{...e.covering,bandFactions:arr(e.factions).filter(f=>f&&f!=='__ALL__')}}:{};
+  const equipment=arr(row.definition?.equipment).map(e=>e&&e.customEquipmentId?{...e,...keepCoveringBands(e),factions:isPool?['__ALL__']:[id]}:e);
   return {
     id,displayName:row.name,group:'OFFICIAL',budget:1000,
     warriors:arr(row.definition?.warriors),equipment,
