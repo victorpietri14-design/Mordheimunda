@@ -292,9 +292,10 @@ await test('[desktop] Dramatis Personae for one game: price from gap and warband
 });
 await test('[desktop] rule hover: "Ward" does not open "Warden of the Castle"',null,async page=>{
   const out=await page.evaluate(()=>{state.customSpecialRules=[{id:'w1',name:'Warden of the Castle',text:'Castle rule.'}];try{__refEntriesCache=null}catch(e){}
-    const w=referenceFind('special','Warden of the Castle');const ward=referenceFind('special','Ward');const plural=referenceFind('special','Wardens of the Castle');return {w:w?.name||null,ward:ward?.name||null,plural:plural?.name||null}});
+    const w=referenceFind('special','Warden of the Castle');const ward=referenceFind('special','Ward');const plural=referenceFind('special','Wardens of the Castle');const w5=referenceFind('special','Ward (5)'),w5p=referenceFind('special','Ward (5+)'),w4=referenceFind('special','Ward(4+)');return {w:w?.name||null,ward:ward?.name||null,plural:plural?.name||null,w5:w5?.name||null,w5p:w5p?.name||null,w4:w4?.name||null}});
   expect(out.w==='Warden of the Castle','the custom rule itself is not found: '+JSON.stringify(out));
   expect(out.ward!=='Warden of the Castle','"Ward" still opens "Warden of the Castle"');
+  expect(out.ward==='Ward (X+)'&&out.w5==='Ward (X+)'&&out.w5p==='Ward (X+)'&&out.w4==='Ward (X+)','Ward (5) / (5+) / (4+) must open the Ward rule: '+JSON.stringify(out));
   expect(out.plural==='Warden of the Castle','a plural form should still find the rule: '+JSON.stringify(out));
 });
 await test('[desktop] recruitment options: paid Wizard option adds the rule, stats and cost',null,async page=>{
@@ -321,6 +322,23 @@ await test('[desktop] recruitment options can be changed later from the fighter 
   expect(out.picks.join()==='tough'&&!out.wizard&&!out.dodge&&out.ws===0,'removing Wizard did not undo it: '+JSON.stringify(out));
   expect(out.t===1&&out.gear===1,'adding Tough did not apply its stat / gear: '+JSON.stringify(out));
   expect(out.goldDelta===15,'expected +25 refund -10 cost = +15 gold: '+JSON.stringify(out));
+});
+await test('[desktop] mount rule "+1 armour save for the rider" improves the rider save',null,async page=>{
+  const out=await page.evaluate(()=>{state.customSpecialRules=[{id:'bs1',name:'Barded Steed',text:'The rider gains +1 armour save.'}];try{__refEntriesCache=null}catch(e){}
+    state.customCreatures=[{customCreatureId:'m1',kind:'mount',name:'Test Steed',cost:40,profile:[8,3,0,3,3,1,3,1,5,5,5,5],sv:'',ruleNames:['Barded Steed'],rules:'Barded Steed',skills:[],factions:[],market:true}];
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');
+    const mk=eq=>({...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'r'+eq.length,equipmentSelected:eq});
+    const la=D.weapons.find(w=>w.name==='Light armour');const steed=mountCreatureEquipmentList().find(m=>m.name==='Test Steed');
+    state.rosters=[{id:'ms',name:'MS',factionId:f.id,gold:0,fighters:[]}];state.active='ms';
+    return {without:armorSaveInfo(mk([{...la}])).parts,with:armorSaveInfo(mk([{...la},{...steed}])).parts,found:!!steed}});
+  expect(out.found,'the mount could not be built');
+  expect(out.without[0]===6&&out.with[0]===5,'the mount rule did not improve the rider save (6+ -> 5+): '+JSON.stringify(out));
+});
+await test('[desktop] weapon slots: armour and mounts never take a weapon slot',null,async page=>{
+  const out=await page.evaluate(()=>{const gs=D.weapons.find(w=>w.name==='Great Sword'),sw=D.weapons.find(w=>w.name==='Sword');
+    const armour={name:'Spiked plate',category:'Armure',profile:{range:'Melee',strength:'S',ap:'-',damage:'1'}};const mount={name:'Steed',category:'Montures',mountCreatureId:'m9',profile:null,creatureProfile:[8,3,0,3,3,1,3,1,5,5,5,5]};
+    const x={name:'Recruit',type:'Raw Recruit',equipmentSelected:[{...gs},armour,mount]};return {slots:currentWeaponSlots(x),ok:canEquip(x,sw).ok}});
+  expect(out.slots===2&&out.ok,'armour / mount counted as weapon slots: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
