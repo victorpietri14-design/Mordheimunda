@@ -341,6 +341,11 @@ await test('[desktop] weapon slots: armour and mounts never take a weapon slot',
   expect(out.slots===2&&out.ok,'armour / mount counted as weapon slots: '+JSON.stringify(out));
   expect(out.halberdShield===2,'Halberd + Shield + mount must use 2 slots (the shield takes none): '+JSON.stringify(out));
 });
+await test('[desktop] weapon slots follow the current weapon definition, not the one stored at purchase',null,async page=>{
+  const out=await page.evaluate(()=>{const h=D.weapons.find(w=>w.name==='Halberd');const old=JSON.parse(JSON.stringify(h.profile));const item={...JSON.parse(JSON.stringify(h)),stashId:'s1',weaponSlotCost:2};
+    const before=weaponSlots(item);h.profile={...h.profile,traits:'Hack, Knock back'};const after=weaponSlots(item);h.profile=old;return {before,after}});
+  expect(out.before===2&&out.after===1,'dropping Two Handed from the Halberd must free a slot on owned copies: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
