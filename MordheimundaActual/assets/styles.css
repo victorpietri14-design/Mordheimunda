@@ -5126,3 +5126,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .et-task small{color:var(--muted)}
 .et-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .et-done{margin:0;color:#99d65d}
+.qa-race-add{display:flex;gap:6px;margin:6px 0 10px}.qa-race-add input{flex:1}
