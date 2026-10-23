@@ -228,6 +228,17 @@ await test('[desktop] stash: an Unrestricted custom item can be given to a hero'
   expect(!out.ok[1],'an item linked to another warband only should stay refused');
   expect(out.given,'the Elven Boots were not given to the Leader');
 });
+await test('[desktop] stash: an Unrestricted item is refused to a plain Henchman, allowed to a Veteran',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Henchman'));
+    state.customEquipment=[{customEquipmentId:'t-boots2',name:'Elven Boots',type:'equipment',category:'Équipements divers',price:40,factions:[],unrestricted:true}];
+    const H=f.warriors.find(w=>w.type==='Henchman');const mk=(id,vet)=>({...JSON.parse(JSON.stringify(H)),wid:H.id,instance:id,equipmentSelected:[],...(vet?{veteran:true,promotedVeteran:true}:{})});
+    state.rosters=[{id:'hv',name:'HV',factionId:f.id,gold:0,fighters:[mk('hn',false),mk('hv',true)],reserve:[{name:'Elven Boots',customEquipmentId:'t-boots2',category:'Équipements divers',price:40,factions:[]}]}];state.active='hv';
+    const r=state.rosters[0],e=r.reserve[0];const ok=x=>henchmanBandListAllows(x,e)&&stashItemAccessOk(r,e);
+    return {plain:ok(r.fighters[0]),vet:ok(r.fighters[1]),roles:[advancementRole(r.fighters[0]),advancementRole(r.fighters[1])]}});
+  expect(!out.plain,'a plain Henchman may not take an Unrestricted item: '+JSON.stringify(out));
+  expect(out.vet,'a Veteran should be able to take it: '+JSON.stringify(out));
+});
 await test('[desktop] weapon category bonus: "melee weapons +1 Strength and -1 AP" boosts the weapons, not the fighter',null,async page=>{
   const out=await page.evaluate(()=>{
     const sword=D.weapons.find(w=>w.name==='Sword'),bow=D.weapons.find(w=>w.name==='Bow');
