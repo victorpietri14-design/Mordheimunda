@@ -290,6 +290,13 @@ await test('[desktop] Dramatis Personae for one game: price from gap and warband
   expect(!out.aTook,'the same DP was taken by two warbands in one game');
   expect(out.refunded===200&&out.sum,'drop must refund the gold / rules page must show the one-game price: '+JSON.stringify(out));
 });
+await test('[desktop] rule hover: "Ward" does not open "Warden of the Castle"',null,async page=>{
+  const out=await page.evaluate(()=>{state.customSpecialRules=[{id:'w1',name:'Warden of the Castle',text:'Castle rule.'}];try{__refEntriesCache=null}catch(e){}
+    const w=referenceFind('special','Warden of the Castle');const ward=referenceFind('special','Ward');const plural=referenceFind('special','Wardens of the Castle');return {w:w?.name||null,ward:ward?.name||null,plural:plural?.name||null}});
+  expect(out.w==='Warden of the Castle','the custom rule itself is not found: '+JSON.stringify(out));
+  expect(out.ward!=='Warden of the Castle','"Ward" still opens "Warden of the Castle"');
+  expect(out.plural==='Warden of the Castle','a plural form should still find the rule: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
