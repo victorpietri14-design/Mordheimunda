@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0716.0';
+const APP_BUILD='110.0717.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14786,10 +14786,11 @@ function ownedFighterCard(x,i,f){const en=siteLanguage==='en';if(isHiredSword(x)
 function filterFighters(){const q=($('#fighterSearch')?.value||'').toLowerCase(),t=$('#typeFilter')?.value||'';document.querySelectorAll('.fighter-row').forEach(x=>x.style.display=(!q||x.dataset.name.includes(q))&&(!t||x.dataset.type===t)?'':'none')}
 function openFighterCard(index){const r=activeRoster();if(!r||!r.fighters[index])return;editingIndex=index;equipmentTab='band';equipmentCategoryFilter='all';equipmentSearch='';equipmentOpen=false;loadoutView='loadout';fighterTab='skills';statsOpen=false;progressionOpen=false;progressionSubtab='stats';skillPickerOpen=false;injuryPickerOpen=false;lastInjuryRoll=null;magicDomainAddOpen=false;magicDomainAddSearch='';render('fighter')}
 // V-SLOTCATS: armour, mounts, misc equipment and potions never take a weapon
-// slot, even when a custom one carries a weapon-like profile; only shields and
-// off-hand parrying weapons (named above) do.
+// slot, even when a custom one carries a weapon-like profile; only the off-hand
+// parrying pieces named below (Buckler, Main Gauche, Sword Breaker…) do — a
+// Shield never does (it stacks with any weapon, two-handed included).
 const NO_WEAPON_SLOT_CATS=['Armure','Montures','Équipements divers','Animaux','Poison, potions et drogues'];
-function weaponSlots(e){if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return e?.weaponSlotCost!=null?Number(e.weaponSlotCost):1;if(e?.mountCreatureId)return 0;try{if(NO_WEAPON_SLOT_CATS.includes(canonEquipmentCategory(equipmentCategory(e))))return 0}catch(err){}if(!isWeaponLike(e))return 0;if(e?.weaponSlotCost!=null)return Number(e.weaponSlotCost);const t=(e?.profile?.traits||'').toLowerCase();if(/two[- ]handed/.test(t))return 2;if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return 1;if(/paired/.test(t))return 2;if(['Unarmed','Natural Weapons','Tail Blade'].includes(e?.name))return 0;return 1}
+function weaponSlots(e){if(['Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return e?.weaponSlotCost!=null?Number(e.weaponSlotCost):1;if(e?.mountCreatureId)return 0;try{if(NO_WEAPON_SLOT_CATS.includes(canonEquipmentCategory(equipmentCategory(e))))return 0}catch(err){}if(!isWeaponLike(e))return 0;if(e?.weaponSlotCost!=null)return Number(e.weaponSlotCost);const t=(e?.profile?.traits||'').toLowerCase();if(/two[- ]handed/.test(t))return 2;if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return 1;if(/paired/.test(t))return 2;if(['Unarmed','Natural Weapons','Tail Blade'].includes(e?.name))return 0;return 1}
 function currentWeaponSlots(x){return (x.equipmentSelected||[]).reduce((n,e)=>n+weaponSlots(e),0)}
 // V-HENCHBANDLIST: a Henchman (not yet a Veteran) can only buy or be given
 // items from its warband's Band List; a Veteran equips like a Hero.
