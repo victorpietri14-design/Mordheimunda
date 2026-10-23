@@ -488,14 +488,16 @@ await test('[desktop] profile editor shows a filled description open, with a cle
 });
 await test('[desktop] forbidden equipment categories block buying and Stash items',null,async page=>{
   const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.packId&&x.warriors?.some(w=>w.type==='Champion'));
-    state.customFighters=[{customFighterId:'cf-ban',name:'No Guns',type:'Champion',factionId:f.id,cost:40,race:'Human',profile:[4,3,3,3,3,1,3,1,7,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:[],equipmentAccess:[],bannedCategories:['Armes à poudre']}];
+    state.customFighters=[{customFighterId:'cf-ban',name:'No Guns',type:'Champion',factionId:f.id,cost:40,race:'Human',profile:[4,3,3,3,3,1,3,1,7,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:[],equipmentAccess:[],bannedCategories:['Armes à poudre','Armes de tir'],bannedExceptions:['Throwing axe']}];
     const x={...customFighterAsWarrior(state.customFighters[0]),wid:'cf-ban',customFighterId:'cf-ban',instance:'b1',sourceName:'No Guns',equipmentSelected:[],status:{},xp:0};
     state.rosters=[{id:'rb',name:'RB',factionId:f.id,gold:500,fighters:[x],reserve:[]}];state.active='rb';const r=activeRoster();const fx=r.fighters[0];
     const gun=D.weapons.find(w=>canonEquipmentCategory(equipmentCategory(w))==='Armes à poudre');const sword=D.weapons.find(w=>/^sword$/i.test(w.name));
     const pool=['band','market','unrestricted'].flatMap(t=>equipmentPool(t,fx)).some(w=>canonEquipmentCategory(equipmentCategory(w))==='Armes à poudre');
-    return {gun:canEquip(fx,gun).ok,sword:canEquip(fx,sword).ok,pool,msg:canEquip(fx,gun).msg||''}});
+    const axe=D.weapons.find(w=>/^throwing axe$/i.test(w.name)),bow=D.weapons.find(w=>/^bow$/i.test(w.name));const pAll=['band','market','unrestricted'].flatMap(t=>equipmentPool(t,fx)).map(w=>w.name);
+    return {gun:canEquip(fx,gun).ok,sword:canEquip(fx,sword).ok,pool,axe:canEquip(fx,axe).ok,bow:canEquip(fx,bow).ok,axePool:pAll.includes(axe.name)||!pAll.length,msg:canEquip(fx,gun).msg||''}});
   expect(out.gun===false&&out.sword===true,'category ban not applied: '+JSON.stringify(out));
   expect(!out.pool,'banned category still offered for purchase');
+  expect(out.axe===true&&out.bow===false,'exception (Throwing axe) not honoured: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
