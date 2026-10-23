@@ -353,6 +353,19 @@ await test('[desktop] campaign overview lists the artifacts found, between Event
   expect(out.order,'the artifacts panel is not between Events and Favoured scenario: '+JSON.stringify(out));
   expect(out.alice&&out.bob,'found artifacts are missing from the overview: '+JSON.stringify(out));
 });
+await test('[desktop] new Leaders start with 20 XP and Champions with 9 XP',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors.some(w=>w.type==='Champion')&&x.warriors.some(w=>w.type==='Henchman'));
+    state.rosters=[{id:'sx',name:'SX',factionId:f.id,gold:2000,fighters:[]}];state.active='sx';
+    const xpOf=t=>{const w=f.warriors.find(q=>q.type===t);addFighterCore(w.id);const r=activeRoster();return Number(r.fighters[r.fighters.length-1].xp)};
+    return {leader:xpOf('Leader'),champion:xpOf('Champion'),henchman:xpOf('Henchman')}});
+  expect(out.leader===20&&out.champion===9&&out.henchman===0,'starting XP is wrong: '+JSON.stringify(out));
+});
+await test('[desktop] campaign standings: scenarios played counter (e.g. 2/4)',null,async page=>{
+  const out=await page.evaluate(()=>{const c={id:'cs1',name:'Scn test',definition:{events:[],scenarioTable:{two:{2:'The warband with the lower rating picks the scenario',3:'Skirmish',4:'Island Hopping',5:'Jungle Skirmish / The Fog Of War'},multi:{3:'Ambush',4:'Skirmish'}}},members:[{rosterId:'a',username:'A',rosterName:'Alpha',stats:{rating:500}},{rosterId:'b',username:'B',rosterName:'Beta',stats:{rating:400}}]};
+    campaignBattlesCache.set('cs1',[{status:'confirmed',scenario:'Skirmish',sides:[{rosterId:'a',result:'win'},{rosterId:'b',result:'loss'}]},{status:'confirmed',scenario:'The Fog Of War',sides:[{rosterId:'a',result:'win'}]},{status:'confirmed',scenario:'Skirmish',sides:[{rosterId:'a',result:'draw'}]},{status:'pending',scenario:'Ambush',sides:[{rosterId:'a'}]}]);
+    const h=hubOverviewMarkup(c);const m=[...h.matchAll(/class="hub-scn[^"]*"[^>]*>(\d+\/\d+)</g)].map(x=>x[1]);return {m,head:/Scénarios|Scenarios/.test(h)}});
+  expect(out.head&&out.m.join()==='2/4,1/4','scenario counters wrong (expected Alpha 2/4, Beta 1/4): '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
