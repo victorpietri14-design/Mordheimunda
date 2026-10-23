@@ -228,6 +228,17 @@ await test('[desktop] stash: an Unrestricted custom item can be given to a hero'
   expect(!out.ok[1],'an item linked to another warband only should stay refused');
   expect(out.given,'the Elven Boots were not given to the Leader');
 });
+await test('[desktop] stash: an Unrestricted item is refused to a plain Henchman, allowed to a Veteran',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Henchman'));
+    state.customEquipment=[{customEquipmentId:'t-boots2',name:'Elven Boots',type:'equipment',category:'Équipements divers',price:40,factions:[],unrestricted:true}];
+    const H=f.warriors.find(w=>w.type==='Henchman');const mk=(id,vet)=>({...JSON.parse(JSON.stringify(H)),wid:H.id,instance:id,equipmentSelected:[],...(vet?{veteran:true,promotedVeteran:true}:{})});
+    state.rosters=[{id:'hv',name:'HV',factionId:f.id,gold:0,fighters:[mk('hn',false),mk('hv',true)],reserve:[{name:'Elven Boots',customEquipmentId:'t-boots2',category:'Équipements divers',price:40,factions:[]}]}];state.active='hv';
+    const r=state.rosters[0],e=r.reserve[0];const ok=x=>henchmanBandListAllows(x,e)&&stashItemAccessOk(r,e);
+    return {plain:ok(r.fighters[0]),vet:ok(r.fighters[1]),roles:[advancementRole(r.fighters[0]),advancementRole(r.fighters[1])]}});
+  expect(!out.plain,'a plain Henchman may not take an Unrestricted item: '+JSON.stringify(out));
+  expect(out.vet,'a Veteran should be able to take it: '+JSON.stringify(out));
+});
 await test('[desktop] weapon category bonus: "melee weapons +1 Strength and -1 AP" boosts the weapons, not the fighter',null,async page=>{
   const out=await page.evaluate(()=>{
     const sword=D.weapons.find(w=>w.name==='Sword'),bow=D.weapons.find(w=>w.name==='Bow');
@@ -241,6 +252,32 @@ await test('[desktop] weapon category bonus: "melee weapons +1 Strength and -1 A
   expect(out.bow.ap==='-'&&!/\+/.test(String(out.bow.strength)),'the bow should not change: '+JSON.stringify(out.bow));
   expect(out.ranged===6,'ranged range bonus not read: '+out.ranged);
   expect(out.cond===0,'a conditional weapon bonus should not apply for good');
+});
+await test('[desktop] Dramatis Personae: hired like a Hired Sword, static, own rules on its card and sheet',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));
+    state.customFighters=[{customFighterId:'dp-1',name:'Aenur, Sword of Twilight',type:'Hired Sword',hiredSword:true,dramatis:true,factionId:'',cost:80,upkeep:35,max:1,profile:[5,7,6,4,3,2,8,3,9,8,8,8],race:'Elves',ruleNames:['Race (Elves)'],rules:'Race (Elves)',skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:['Sword'],equipmentAccess:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Wanderer',text:'Never takes Leadership tests.'}]}];
+    state.rosters=[{id:'dp',name:'DP',factionId:f.id,gold:500,fighters:[]}];state.active='dp';
+    const listed=hiredSwordsFor(f,state.rosters[0]).some(w=>w.customFighterId==='dp-1');
+    hireHiredSword('dp-1');const r=activeRoster();const x=r.fighters.find(q=>q.customFighterId==='dp-1'||normName(q.sourceName||q.name)===normName('Aenur, Sword of Twilight'));
+    if(x){x.xp=7}const x2=activeRoster().fighters.find(q=>q===x||q.instance===x?.instance);
+    const card=x2?ownedFighterCard(x2,0,f):'';const rulesPage=hiredSwordsRulesPageMarkup();
+    return {listed,hired:!!x,dramatis:!!x2?.dramatis,xp:x2?.xp,canXp:fighterCanEarnXp(x2),card:/Wanderer/.test(card),catalogue:!!referenceFind('special','Wanderer'),rulesPage:/Wanderer/.test(rulesPage)&&/DRAMATIS PERSONAE/.test(rulesPage),progress:/Dramatis Personae/.test(progressionStatsMarkup(x2))}});
+  expect(out.listed&&out.hired,'the Dramatis Personae could not be hired: '+JSON.stringify(out));
+  expect(out.dramatis&&out.xp===0&&!out.canXp,'a Dramatis Personae must stay at 0 XP: '+JSON.stringify(out));
+  expect(out.card&&out.rulesPage&&out.progress,'its own rules / static notice are missing: '+JSON.stringify(out));
+  expect(!out.catalogue,'its own rules must not enter the rules catalogue');
+});
+await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
+  const out=await page.evaluate(()=>{
+    state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
+    state.customSpecialRules=[{id:'cr1',name:'Quorlax frenzy',text:'x'}];
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'scn-x',name:'Plain Fight',summary:'',specialRules:'The Bloodmoonrise lasts until turn 4.'}];
+    campaignsCache=[...(campaignsCache||[]),{id:'camp-x',name:'Test Campaign',status:'published',definition:{pages:[{id:'p1',title:'2. Volcanic Vents',text:'Each turn roll for Ashfall.'}],artifacts:[{name:'Crown of Xylmar',text:'+1 Leadership'}]}}];
+    const has=(q,key,title)=>searchRun(q).some(g=>(!key||g.key===key)&&g.items.some(i=>!title||i.title===title));
+    return {dp:has('zorvak','hiredSwords','Zorvak the Unbound'),dpRule:has('gloomwalker','hiredSwords'),scn:has('bloodmoonrise','scenarios','Plain Fight'),camp:has('ashfall','campaigns','2. Volcanic Vents'),art:has('xylmar','campaigns','Crown of Xylmar'),page:has('armurerie','pages')||has('armory','pages'),mine:has('quorlax','custom')};
+  });
+  expect(Object.values(out).every(Boolean),'search misses some content: '+JSON.stringify(out));
 });
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
