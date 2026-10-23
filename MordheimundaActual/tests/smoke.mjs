@@ -476,6 +476,16 @@ await test('[desktop] site search finds fighters of supplement warbands (Blood D
   expect(out.hit&&/Blood Dragons/.test(out.sub),'Vampire Knight not found by the search: '+JSON.stringify(out));
   expect(out.wb,'the Blood Dragons supplement itself is not found');
 });
+await test('[desktop] profile editor shows a filled description open, with a clear button',null,async page=>{
+  await page.evaluate(()=>{state.customWarbands=[{id:'cwd',name:'Desc CW',description:'',fighterIds:['fd1'],equipmentIds:[],fighterRefs:[]}];
+    state.customFighters=[{customFighterId:'fd1',name:'Chief',type:'Leader',customWarbandId:'cwd',factionId:'',cost:100,max:1,profile:[4,4,4,4,4,2,4,2,8,8,8,8],ruleNames:[],skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:[],equipmentAccess:[],description:'Starts with 20 XP.'}];
+    editWarbandFighter('fd1','cwd')});await page.waitForTimeout(400);
+  const d=page.locator('#cfDescription');await d.scrollIntoViewIfNeeded();const vis=await d.isVisible();
+  await page.click('#cfDescription ~ .desc-clear');await page.evaluate(()=>saveCustomFighter());await page.waitForTimeout(200);
+  const saved=await page.evaluate(()=>customFighterById('fd1')?.description);
+  expect(vis,'the filled description is not visible in the editor');
+  expect(saved==='','clearing the description did not save: '+JSON.stringify(saved));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
