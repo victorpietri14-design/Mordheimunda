@@ -5112,3 +5112,11 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .hub-scn{cursor:help;font-weight:700}
 .hub-scn.all{color:var(--gold,#d7a94b)}
 .hub-scn.all::after{content:" ★"}
+.maze-panel{border:1px solid rgba(160,120,255,.5);background:rgba(160,120,255,.08);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
+.maze-panel p{margin:0}
+.maze-panel.back{border-color:rgba(153,214,93,.5);background:rgba(153,214,93,.08)}
+.maze-panel.gone{border-color:rgba(230,90,90,.5);background:rgba(230,90,90,.08)}
+.maze-actions{display:flex;gap:8px;flex-wrap:wrap}
+.maze-line p{color:#c9a0ff}
+.maze-line.back p{color:#99d65d}.maze-line.gone p{color:#e66}
+.maze-start{margin-bottom:8px}
