@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0728.0';
+const APP_BUILD='110.0729.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7779,9 +7779,12 @@ function searchRun(q){
   add('bands',en?'My warbands':'Mes bandes',rosters.map(r=>({score:(n=>n?n+5:0)(searchScore(q,r.name)),title:r.name,sub:(faction(r)?.displayName)||'',go:()=>navigateApp(warbandPath(r.id))})));
   const fighters=[];rosters.forEach(r=>(r.fighters||[]).forEach(x=>{if(!x)return;const sc=Math.max(searchScore(q,x.name),searchScore(q,x.type||'')*0.6|0,searchScore(q,x.profileName||x.baseName||'')*0.8|0);fighters.push({score:sc?sc+4:0,title:x.name,sub:`${r.name}${x.type?' · '+x.type:''}`,go:()=>navigateApp(fighterPath(r.id,x.instance))})}));
   add('fighters',en?'My fighters':'Mes combattants',fighters);
-  const fx=(D.factions||[]).filter(f=>!f.packId&&!isContentPoolFaction(f));
-  add('warbands','Warbands',fx.map(f=>({score:(s=>s>=50?s:s?6:0)(searchScore(q,f.displayName,(f.specialRules||[]).map(t=>t?.name||'').join(' · '))),title:f.displayName,sub:en?'Rules: Warbands':'Règles : Warbands',go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})));
-  const prof=[];fx.forEach(f=>(f.warriors||[]).forEach(w=>{const sc=searchScore(q,w.name);if(sc>=50)prof.push({score:sc-6,title:w.name,sub:f.displayName,go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})}));
+  // Supplements (packId, e.g. Blood Dragons on Undead) have their own rules
+  // page and fighters (Vampire Knight) — search them too, not just base warbands.
+  const fx=(D.factions||[]).filter(f=>!isContentPoolFaction(f));
+  const fxSub=f=>{if(!f.packId)return '';const b=D.factions.find(x=>x.id===f.baseFactionId);return b?(en?' · supplement of ':' · supplément de ')+b.displayName:''};
+  add('warbands','Warbands',fx.map(f=>({score:(s=>s>=50?s:s?6:0)(searchScore(q,f.displayName,(f.specialRules||[]).map(t=>t?.name||'').join(' · '))),title:f.displayName,sub:(en?'Rules: Warbands':'Règles : Warbands')+fxSub(f),go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})));
+  const prof=[];fx.forEach(f=>(f.warriors||[]).forEach(w=>{const sc=searchScore(q,w.name);if(sc>=50)prof.push({score:sc-6,title:w.name,sub:f.displayName+fxSub(f),go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})}));
   add('profiles',en?'Warband profiles':'Profils de warbands',prof);
   add('scenarios',en?'Scenarios':'Scénarios',(SCENARIOS_CACHE||[]).map(sc=>{const body=searchDeepText(sc);const n=searchScore(q,sc.name);const b=n?0:searchScore(q,'',body);return {score:Math.max(n,b>=20?18:b?8:0),title:sc.name,sub:!n&&b?searchSnippet(body,q):sc.summary?String(sc.summary).slice(0,80):'',go:()=>navigateApp('/rules/scenarios/'+encodeURIComponent(sc.id))}}));
   const ref=[];Object.keys(REFERENCE_CATEGORIES).forEach(cat=>{let list=[];try{list=referenceEntries(cat)||[]}catch(e){}list.forEach(e=>{if(!e?.name)return;const nm=refDisplayName(cat,e);const sc=searchScore(q,nm,e.text);if(sc)ref.push({score:sc,title:nm,sub:(en?REFERENCE_CATEGORIES_EN:REFERENCE_CATEGORIES)[cat]+(sc<50&&e.text?' · '+searchSnippet(e.text,q):''),go:()=>searchOpenRef(cat,e.id)})})});

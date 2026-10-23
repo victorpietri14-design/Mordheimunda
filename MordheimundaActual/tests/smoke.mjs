@@ -466,6 +466,16 @@ await test('[desktop] confirmations open in a site dialog, never a native browse
   expect(pv==='12'&&cv===false,'site prompt/confirm returned wrong values: '+JSON.stringify({pv,cv}));
   expect(native===0,'a native browser dialog was opened');
 });
+await test('[desktop] site search finds fighters of supplement warbands (Blood Dragons)',null,async page=>{
+  const out=await page.evaluate(()=>{const bd=D.factions.find(f=>f.packId&&/blood/i.test(f.displayName||f.id));if(!bd)return {noPack:true};
+    bd.warriors=[...(bd.warriors||[]),{id:'vk-test',name:'Vampire Knight',type:'Leader',cost:210,profile:[6,7,3,4,4,2,5,3,8,8,9,8]}];
+    const g=searchRun('vampire knight').find(g=>g.key==='profiles');const hit=g?.items.find(i=>i.title==='Vampire Knight');
+    const wb=searchRun('blood dragons').find(g=>g.key==='warbands')?.items.some(i=>i.title===bd.displayName);
+    bd.warriors=bd.warriors.filter(w=>w.id!=='vk-test');return {hit:!!hit,sub:hit?.sub||'',wb:!!wb}});
+  expect(!out.noPack,'Blood Dragons supplement not loaded');
+  expect(out.hit&&/Blood Dragons/.test(out.sub),'Vampire Knight not found by the search: '+JSON.stringify(out));
+  expect(out.wb,'the Blood Dragons supplement itself is not found');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
