@@ -299,14 +299,28 @@ await test('[desktop] rule hover: "Ward" does not open "Warden of the Castle"',n
 });
 await test('[desktop] recruitment options: paid Wizard option adds the rule, stats and cost',null,async page=>{
   await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const w=f.warriors.find(q=>q.type==='Leader');
-    w.recruitOptions=[{id:'wiz',name:'Wizard',cost:25,rules:['Wizard'],stats:{1:1},magic:[]},{id:'tough',name:'Tough',cost:10,rules:[],stats:{4:1},magic:[]}];
+    w.recruitOptions=[{id:'wiz',name:'Wizard',cost:25,rules:['Wizard'],skills:['Dodge'],stats:{1:1},magic:[]},{id:'tough',name:'Tough',cost:10,rules:[],stats:{4:1},magic:[],gear:['Sword']}];
     state.rosters=[{id:'ro',name:'RO',factionId:f.id,gold:1000,fighters:[]}];state.active='ro';window.__ro={wid:w.id,ws:Number(effectiveFighterProfile(w,f)[1])};navigateApp(warbandPath('ro'));addFighter(w.id)});
   await page.waitForSelector('.roPick');await page.check('.roPick[value="wiz"]');await page.click('#roGo');await page.waitForTimeout(300);
   const out=await page.evaluate(()=>{const r=activeRoster(),f=faction(r);const x=r.fighters.find(q=>q.wid===window.__ro.wid);if(!x)return {found:false};
-    return {found:true,opts:(x.recruitPicks||[]).map(o=>o.name),rules:fighterRuleNames(x,f).includes('Wizard'),ws:Number(x.profile[1])-window.__ro.ws,spent:1000-r.gold,value:fighterValue(x,f),base:liveFighterCost(x,f),card:/OPTIONS DE RECRUTEMENT|RECRUITMENT OPTIONS/.test(ownedFighterCard(x,0,f))}});
+    return {found:true,opts:(x.recruitPicks||[]).map(o=>o.name),rules:fighterRuleNames(x,f).includes('Wizard'),skill:(activeRoster().fighters.find(q=>q.wid===window.__ro.wid).skills||[]).includes('Dodge'),ws:Number(x.profile[1])-window.__ro.ws,spent:1000-r.gold,value:fighterValue(x,f),base:liveFighterCost(x,f),card:/OPTIONS DE RECRUTEMENT|RECRUITMENT OPTIONS/.test(ownedFighterCard(x,0,f))}});
   expect(out.found&&out.opts.join()==='Wizard','the option was not recorded: '+JSON.stringify(out));
+  expect(out.skill,'the option skill was not given: '+JSON.stringify(out));
   expect(out.rules&&out.ws===1,'the Wizard rule / +1 WS were not applied: '+JSON.stringify(out));
   expect(out.value-out.base>=25&&out.spent>=25&&out.card,'the option cost is missing from gold / value / card: '+JSON.stringify(out));
+});
+await test('[desktop] recruitment options can be changed later from the fighter sheet (paid / refunded)',null,async page=>{
+  await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const w=f.warriors.find(q=>q.type==='Leader');
+    w.recruitOptions=[{id:'wiz',name:'Wizard',cost:25,rules:['Wizard'],skills:['Dodge'],stats:{1:1},magic:[]},{id:'tough',name:'Tough',cost:10,rules:[],stats:{4:1},magic:[],gear:['Sword']}];
+    state.rosters=[{id:'ro2',name:'RO2',factionId:f.id,gold:1000,fighters:[]}];state.active='ro2';window.__ro2={wid:w.id,base:effectiveFighterProfile(w,f).map(Number)};navigateApp(warbandPath('ro2'));addFighter(w.id)});
+  await page.waitForSelector('.roPick');await page.check('.roPick[value="wiz"]');await page.click('#roGo');await page.waitForTimeout(300);
+  const before=await page.evaluate(()=>{const r=activeRoster();editingIndex=r.fighters.findIndex(q=>q.wid===window.__ro2.wid);openFighterOptionsModal();return r.gold});
+  await page.uncheck('.roHave[value="wiz"]');await page.check('.roHave[value="tough"]');await page.click('#roApply');await page.waitForTimeout(300);
+  const out=await page.evaluate(b=>{const r=activeRoster(),f=faction(r);const x=r.fighters.find(q=>q.wid===window.__ro2.wid);const gear=[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].filter(e=>e.roOpt==='tough').length;
+    return {picks:(x.recruitPicks||[]).map(p=>p.id),wizard:fighterRuleNames(x,f).includes('Wizard'),dodge:(x.skills||[]).includes('Dodge'),ws:Number(x.profile[1])-window.__ro2.base[1],t:Number(x.profile[4])-window.__ro2.base[4],goldDelta:r.gold-b,gear}},before);
+  expect(out.picks.join()==='tough'&&!out.wizard&&!out.dodge&&out.ws===0,'removing Wizard did not undo it: '+JSON.stringify(out));
+  expect(out.t===1&&out.gear===1,'adding Tough did not apply its stat / gear: '+JSON.stringify(out));
+  expect(out.goldDelta===15,'expected +25 refund -10 cost = +15 gold: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
