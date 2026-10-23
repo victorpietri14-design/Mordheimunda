@@ -5134,3 +5134,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .site-dialog-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .desc-clear{margin-top:8px}
 .ban-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 12px}
+.ban-exc{margin-top:8px}

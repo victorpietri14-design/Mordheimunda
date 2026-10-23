@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0731.0';
+const APP_BUILD='110.0732.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2766,6 +2766,7 @@ function syncAdminManagedFighter(x,r){
   copy('noEquipment',!!w.noEquipment);
   copy('noMisericordia',!!w.noMisericordia);
   if(w.bannedCategories||x.bannedCategories)copy('bannedCategories',Array.isArray(w.bannedCategories)?w.bannedCategories.slice():[]);
+  if(w.bannedExceptions||x.bannedExceptions)copy('bannedExceptions',Array.isArray(w.bannedExceptions)?w.bannedExceptions.slice():[]);
   copy('packRules',Array.isArray(w.packRules)?JSON.parse(JSON.stringify(w.packRules)):[]);
   copy('packModifiers',Array.isArray(w.packModifiers)?JSON.parse(JSON.stringify(w.packModifiers)):[]);
   if(w.description!==undefined)copy('description',w.description||'');
@@ -6330,6 +6331,7 @@ function saveAdminWarrior(idx){
     equipmentAccessGroups:d.warriors[idx]?.equipmentAccessGroups==='ALL'?'ALL':Array.isArray(d.warriors[idx]?.equipmentAccessGroups)?d.warriors[idx].equipmentAccessGroups.slice():[],
     recruitOptions:recruitOptionsRead().filter(o=>o.name),
     bannedCategories:bannedCategoriesRead(),
+    bannedExceptions:bannedExceptionsRead(),
     description:($('#awDescription')?.value||'')
   };
   w.rules=w.ruleNames.join(', ');
@@ -14944,10 +14946,15 @@ function henchmanBandListAllows(x,e){if(!henchmanBandListOnly(x)||!e)return true
 // source profile, so it also covers items reaching the fighter from the
 // Stash (loot, exploration, Market) and fighters recruited before the ban.
 function bannedCategoriesOf(w){return (Array.isArray(w?.bannedCategories)?w.bannedCategories:[]).map(canonEquipmentCategory)}
-function fighterBannedCategories(x){if(!x)return [];let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}
+function fighterBanSource(x){if(!x)return null;let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}
   if(!src||!Array.isArray(src.bannedCategories)){const c=x.customFighterId?customFighterById(x.customFighterId):null;if(c&&Array.isArray(c.bannedCategories))src=c}
-  return bannedCategoriesOf(src&&Array.isArray(src.bannedCategories)?src:x)}
-function categoryBanCheck(x,w){const cat=canonEquipmentCategory(equipmentCategory(liveEquipmentDef(w)||w));if(!fighterBannedCategories(x).includes(cat))return {ok:true};const en=siteLanguage==='en';const lbl=en?(EQUIPMENT_SECTIONS.find(s=>s.cat===cat)?.label||cat):cat;return {ok:false,msg:en?`${w.name}: this fighter can’t use ${lbl}`:`${w.name} : ce combattant ne peut pas utiliser la catégorie « ${lbl} »`}}
+  return src&&Array.isArray(src.bannedCategories)?src:x}
+function fighterBannedCategories(x){return bannedCategoriesOf(fighterBanSource(x))}
+// Exceptions: item names still allowed inside a forbidden category
+// (e.g. no Ranged Weapons except Throwing axe).
+function bannedExceptionsOf(w){return (Array.isArray(w?.bannedExceptions)?w.bannedExceptions:[]).map(normName).filter(Boolean)}
+function categoryBanned(x,w,src){src=src||fighterBanSource(x);const cat=canonEquipmentCategory(equipmentCategory(liveEquipmentDef(w)||w));if(!bannedCategoriesOf(src).includes(cat))return null;const n=normName(w?.name);if(bannedExceptionsOf(src).some(e=>e===n||normName(w?.skin||'')===e))return null;return cat}
+function categoryBanCheck(x,w){const cat=categoryBanned(x,w);if(!cat)return {ok:true};const en=siteLanguage==='en';const lbl=en?(EQUIPMENT_SECTIONS.find(s=>s.cat===cat)?.label||cat):cat;return {ok:false,msg:en?`${w.name}: this fighter can’t use ${lbl}`:`${w.name} : ce combattant ne peut pas utiliser la catégorie « ${lbl} »`}}
 function canEquip(x,w){const en=siteLanguage==='en';if(w.bandOnlyIntrinsic)return {ok:true};{const b=categoryBanCheck(x,w);if(!b.ok)return b}if(Number(w.minStrength)&&Number(x?.profile?.[3]||0)<Number(w.minStrength))return {ok:false,msg:en?`${w.skin||w.name}: Strength ${w.minStrength}+ only`:`${w.skin||w.name} : réservé aux combattants de Force ${w.minStrength}+`};if(coveringBlockedFor(x,itemCovering(w)))return {ok:false,msg:en?`${w.name}: ${itemCovering(w).name} weapons are for Heroes only`:`${w.name} : les armes ${itemCovering(w).name} sont réservées aux Héros`};if(isWarTrophies(w)&&fighterIsImmuneToPsychology(x))return {ok:false,msg:en?'War Trophies may not be used by warriors that are Immune to Psychology.':'Les War Trophies ne peuvent pas être utilisés par un combattant Immune to Psychology.'};const equipped=x?.equipmentSelected||[];if(isWeaponLike(w)){const slots=weaponSlots(w);if(currentWeaponSlots(x)+slots>3){const used=(x.equipmentSelected||[]).map(e=>[e.name,weaponSlots(e)]).filter(([,n])=>n>0).map(([n,k])=>`${n} (${k})`).join(', ');return {ok:false,msg:(en?'Maximum of 3 weapon slots reached (two-handed weapons count as 2). Used: ':'Maximum de 3 emplacements d’armes atteint (les armes à deux mains comptent pour 2). Occupés : ')+used}}}if(isFurCloak(w)&&equipped.some(e=>isShield(e)))return {ok:false,msg:en?'A fur/fur cloak cannot be used with a shield.':'Une fourrure/cape de fourrure ne peut pas être utilisée avec un bouclier.'};if(isShield(w)&&equipped.some(e=>isFurCloak(e)))return {ok:false,msg:en?'A shield cannot be used with a fur/fur cloak.':'Un bouclier ne peut pas être utilisé avec une fourrure/cape de fourrure.'};return {ok:true}}
 // V-MOUNTEDCARD: a Mount (equipment-shaped creature profile bought from
 // Custom → Animals & Mounts — see mountCreatureAsEquipment) was previously
@@ -16214,8 +16221,9 @@ function recruitOptionsRowsMarkup(list){const en=siteLanguage==='en';return (lis
 function recruitOptionsRead(){return [...document.querySelectorAll('#roEditBox .ro-edit-row')].map((row,i)=>{const q=c=>row.querySelector(c)?.value||'';const list=t=>t.split(',').map(v=>v.trim()).filter(Boolean);return {id:row.dataset.id||('o'+Date.now().toString(36)+i),name:q('.roName').trim(),cost:Number(q('.roCost'))||0,rules:list(q('.roRules')),skills:list(q('.roSkills')),gear:list(q('.roGear')),stats:parseRecruitStats(q('.roStats')),magic:list(q('.roMagic')),text:q('.roText').trim()}})}
 function recruitOptionAdd(){const cur=recruitOptionsRead();cur.push({name:'',cost:0});const box=document.getElementById('roEditBox');if(box)box.innerHTML=recruitOptionsRowsMarkup(cur)}
 function recruitOptionRemove(i){const cur=recruitOptionsRead();cur.splice(i,1);const box=document.getElementById('roEditBox');if(box)box.innerHTML=recruitOptionsRowsMarkup(cur)}
-function bannedCategoriesEditorMarkup(w){const en=siteLanguage==='en';const ban=bannedCategoriesOf(w);return `<details class="custom-collapse"${ban.length?' open':''}><summary><span>${en?'FORBIDDEN EQUIPMENT CATEGORIES':'CATÉGORIES D’ÉQUIPEMENT INTERDITES'}</span><small>${ban.length||(en?'none':'aucune')}</small></summary><p class="custom-field-help">${en?'This fighter can never use items of a ticked category — not bought, not given from the Stash (loot, exploration, Market).':'Ce combattant ne peut jamais utiliser un objet d’une catégorie cochée — ni acheté, ni donné depuis le Stash (butin, exploration, Market).'}</p><div class="ban-cat-grid">${EQUIPMENT_SECTIONS.map(sec=>`<label class="custom-check"><input type="checkbox" class="banCatPick" value="${esc(sec.cat)}" ${ban.includes(sec.cat)?'checked':''}> <span>${esc(en?sec.label:sec.cat)}</span></label>`).join('')}</div></details>`}
+function bannedCategoriesEditorMarkup(w){const en=siteLanguage==='en';const ban=bannedCategoriesOf(w);return `<details class="custom-collapse"${ban.length?' open':''}><summary><span>${en?'FORBIDDEN EQUIPMENT CATEGORIES':'CATÉGORIES D’ÉQUIPEMENT INTERDITES'}</span><small>${ban.length||(en?'none':'aucune')}</small></summary><p class="custom-field-help">${en?'This fighter can never use items of a ticked category — not bought, not given from the Stash (loot, exploration, Market).':'Ce combattant ne peut jamais utiliser un objet d’une catégorie cochée — ni acheté, ni donné depuis le Stash (butin, exploration, Market).'}</p><div class="ban-cat-grid">${EQUIPMENT_SECTIONS.map(sec=>`<label class="custom-check"><input type="checkbox" class="banCatPick" value="${esc(sec.cat)}" ${ban.includes(sec.cat)?'checked':''}> <span>${esc(en?sec.label:sec.cat)}</span></label>`).join('')}</div><label class="custom-field wide ban-exc"><span>${en?'Exceptions — items still allowed (comma separated)':'Exceptions — objets autorisés malgré tout (séparés par des virgules)'}</span><input id="banExceptions" list="banExceptionsList" value="${esc((Array.isArray(w?.bannedExceptions)?w.bannedExceptions:[]).join(', '))}" placeholder="${en?'e.g. Throwing axe':'Ex. Throwing axe'}"></label><datalist id="banExceptionsList">${[...new Set((D.weapons||[]).filter(i=>!i.hidden).map(i=>i.name))].sort().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></details>`}
 function bannedCategoriesRead(){return [...document.querySelectorAll('.banCatPick:checked')].map(c=>c.value)}
+function bannedExceptionsRead(){return String($('#banExceptions')?.value||'').split(',').map(t=>t.trim()).filter(Boolean)}
 function recruitOptionsEditorMarkup(w){const en=siteLanguage==='en';const list=Array.isArray(w?.recruitOptions)?w.recruitOptions:[];return `<details class="custom-collapse"${list.length?' open':''}><summary><span>${en?'RECRUITMENT OPTIONS':'OPTIONS DE RECRUTEMENT'}</span><small>${list.length}</small></summary><p class="custom-field-help">${en?'Paid upgrades offered when this fighter is recruited: extra cost, special rules / keywords (e.g. Wizard), skills, equipment or a mount (one option per mount to offer a choice), characteristic changes (e.g. +1 WS) and magic domains. Several can be bought together.':'Améliorations payantes proposées au recrutement : coût en plus, règles spéciales / mots-clés (ex. Wizard), compétences, équipement ou monture (une option par monture pour proposer un choix), changements de caractéristiques (ex. +1 WS) et domaines de magie. Plusieurs peuvent être achetées ensemble.'}</p><div id="roEditBox">${recruitOptionsRowsMarkup(list)}</div><button type="button" class="button secondary small" onclick="recruitOptionAdd()">＋ ${en?'Add an option':'Ajouter une option'}</button></details>`}
 function confirmRecruitChoice(wid,gid,oid){closeModal();pendingRecruitChoice={wid,gid,oid};addFighter(wid)}
 // --- fighter-level choice: apply / change / remove
@@ -18330,6 +18338,7 @@ function saveCustomFighter(){
   item.noEquipment=!!$('#cfNoEquip')?.checked;
   item.noMisericordia=!!$('#cfNoMiseri')?.checked;
   item.bannedCategories=bannedCategoriesRead();
+  item.bannedExceptions=bannedExceptionsRead();
   item.updatedAt=Date.now();
   if(isHS){item.hiredSword=true;item.type='Hired Sword';item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;{const sc=hiredSwordReadScope();item.hsFactions=sc.only;item.hsExcluded=sc.except;}item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';item.dramatis=!!$('#cfDramatis')?.checked;item.dpRules=item.dramatis?dpRulesReadRaw().filter(r=>r.name):[];if(item.dramatis){item.hsChoices=[];item.hsRandomSkill='';item.dpMode=$('#cfDpMode')?.value||'hire';item.dpGame={base:Math.max(0,Number($('#cfDpBase')?.value)||0),step:Math.max(0,Number($('#cfDpStep')?.value)||0),perStep:Number($('#cfDpPerStep')?.value)||0,factions:dpFacRead()}}else{delete item.dpMode;delete item.dpGame}}
   const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0)state.customFighters[idx]=item;else state.customFighters.push(item);
@@ -18789,7 +18798,7 @@ function equipmentPool(tab,x){
     ws=[...D.weapons.filter(w=>!w.hidden&&!customUnrestrictedNames.has(normName(w.name))),...customUnrestricted];
   }
   ws=withCoveredVariants(ws.filter(w=>bookItemFactionAllowed(w,f)&&!isCovering(w)),tab,f,x);
-  {const ban=fighterBannedCategories(x);if(ban.length)ws=ws.filter(w=>!ban.includes(canonEquipmentCategory(equipmentCategory(w))))}
+  {const src=fighterBanSource(x);if(bannedCategoriesOf(src).length)ws=ws.filter(w=>!categoryBanned(x,w,src))}
   if(equipmentCategoryFilter!=='all')ws=ws.filter(w=>canonEquipmentCategory(equipmentCategory(w))===equipmentCategoryFilter);
   const q=(equipmentSearch||'').trim().toLowerCase();if(q)ws=ws.filter(w=>(w.name||'').toLowerCase().includes(q)||(equipmentCategory(w)||'').toLowerCase().includes(q)||(w.rulesText||'').toLowerCase().includes(q));
   return ws;
