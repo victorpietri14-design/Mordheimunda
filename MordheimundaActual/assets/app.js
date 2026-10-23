@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0711.0';
+const APP_BUILD='110.0712.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -591,7 +591,12 @@ function referenceFind(category,name){const list=referenceEntries(category);cons
   // its choice rule ("Blast (3\"/5\")").
   const valBase=refNorm(raw.replace(/\s+\d+(?:[.,]\d+)?\s*(?:["”″“]|''|’’)?\s*$/,''));
   if(valBase&&valBase!==n){exact=list.find(e=>traitChoiceOptions(e.name)&&refNorm(String(e.name||'').replace(/\([^)]*\)/g,''))===valBase);if(exact)return exact;}
-  return list.find(e=>{const eb=refNorm(String(e.name||'').replace(/\([^)]*\)/g,''));return eb&&(eb.startsWith(base)||base.startsWith(eb))})||null;}
+  // V-REFWORDS: the loose fallback compares whole words ("Ward" no longer
+  // opens "Warden of the Castle"); a trailing plural s still matches.
+  const words=t=>String(t||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[’‘`']/g,'').split(/[^a-z0-9]+/).filter(Boolean);
+  const same=(a,b)=>a===b||a+'s'===b||a===b+'s';const lead=(a,b)=>a.length<=b.length&&a.every((w,i)=>same(w,b[i]));
+  const bw=words(rawBase||raw);if(!bw.length)return null;
+  return list.find(e=>{const ew=words(e.name);return ew.length&&(lead(bw,ew)||lead(ew,bw))})||null;}
 function referenceCategoryForEquipment(name){return referenceFind('equipment',name)?'equipment':null;}
 function refLink(category,name,display=name){
   // V-COVERINGS: a covered weapon ("Ithilmar Sword") — hover/tap shows its
