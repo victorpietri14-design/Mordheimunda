@@ -242,6 +242,21 @@ await test('[desktop] weapon category bonus: "melee weapons +1 Strength and -1 A
   expect(out.ranged===6,'ranged range bonus not read: '+out.ranged);
   expect(out.cond===0,'a conditional weapon bonus should not apply for good');
 });
+await test('[desktop] Dramatis Personae: hired like a Hired Sword, static, own rules on its card and sheet',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));
+    state.customFighters=[{customFighterId:'dp-1',name:'Aenur, Sword of Twilight',type:'Hired Sword',hiredSword:true,dramatis:true,factionId:'',cost:80,upkeep:35,max:1,profile:[5,7,6,4,3,2,8,3,9,8,8,8],race:'Elves',ruleNames:['Race (Elves)'],rules:'Race (Elves)',skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:['Sword'],equipmentAccess:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Wanderer',text:'Never takes Leadership tests.'}]}];
+    state.rosters=[{id:'dp',name:'DP',factionId:f.id,gold:500,fighters:[]}];state.active='dp';
+    const listed=hiredSwordsFor(f,state.rosters[0]).some(w=>w.customFighterId==='dp-1');
+    hireHiredSword('dp-1');const r=activeRoster();const x=r.fighters.find(q=>q.customFighterId==='dp-1'||normName(q.sourceName||q.name)===normName('Aenur, Sword of Twilight'));
+    if(x){x.xp=7}const x2=activeRoster().fighters.find(q=>q===x||q.instance===x?.instance);
+    const card=x2?ownedFighterCard(x2,0,f):'';const rulesPage=hiredSwordsRulesPageMarkup();
+    return {listed,hired:!!x,dramatis:!!x2?.dramatis,xp:x2?.xp,canXp:fighterCanEarnXp(x2),card:/Wanderer/.test(card),catalogue:!!referenceFind('special','Wanderer'),rulesPage:/Wanderer/.test(rulesPage)&&/DRAMATIS PERSONAE/.test(rulesPage),progress:/Dramatis Personae/.test(progressionStatsMarkup(x2))}});
+  expect(out.listed&&out.hired,'the Dramatis Personae could not be hired: '+JSON.stringify(out));
+  expect(out.dramatis&&out.xp===0&&!out.canXp,'a Dramatis Personae must stay at 0 XP: '+JSON.stringify(out));
+  expect(out.card&&out.rulesPage&&out.progress,'its own rules / static notice are missing: '+JSON.stringify(out));
+  expect(!out.catalogue,'its own rules must not enter the rules catalogue');
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');
