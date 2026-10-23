@@ -423,6 +423,19 @@ await test('[desktop] exploration tasks: notebook (Academic), Training Manual, C
   expect(out.coldAdded&&out.leadXp===1&&out.coldUndone,'Cold One task failed: '+JSON.stringify(out));
   expect(out.okS&&!out.low&&out.m===-1,'Stegadon armour: S4+ only and -1 Movement: '+JSON.stringify(out));
 });
+await test('[desktop] Ogre rules: Slow Witted doubles XP costs, Difficult Customers -3 Rare, Cannibals Hired Sword ban',null,async page=>{
+  const out=await page.evaluate(()=>{state.customSpecialRules=[{id:'sw1',name:'Slow Witted',text:'Ogres only improve at half the rate of everyone else. They earn half the usual number of experience points (to a minimum of 1).'}];try{__refEntriesCache=null}catch(e){}
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');const keep=f.specialRules;
+    f.specialRules=[...(keep||[]),{name:'Difficult Customers',text:'Ogre Heroes suffer -3 when rolling to find Rare items that are not exclusively available to Ogres.'},{name:'Cannibals',text:'An Ogre warband may never hire any Hired Swords, except for Halflings (Scout, Thief, etc.) and the Ogre Bodyguard, or unless stated otherwise.'}];
+    const ogre={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'o1',ruleNames:[...(L.ruleNames||[]),'Slow Witted'],extraRuleNames:['Slow Witted'],equipmentSelected:[],status:{}};const human={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h1',equipmentSelected:[],status:{}};
+    state.rosters=[{id:'og',name:'OG',factionId:f.id,gold:0,fighters:[ogre,human]}];state.active='og';const r=activeRoster();
+    const e=ADVANCEMENT_MAIN.find(a=>a.kind!=='veteranPromote'&&Number(a.xp)>0);const slow=advancementCost(r.fighters[0],e),normal=advancementCost(r.fighters[1],e);
+    const rare=bandRareSearchMod(r).mod;const hs=n=>hiredSwordAvailableFor({name:n,race:''},f,r);const ban={body:hs('Ogre Bodyguard'),half:hs('Halfling Scout'),pit:hs('Pit Fighter')};
+    f.specialRules=keep;return {slow,normal,rare,ban}});
+  expect(out.slow===out.normal*2,'Slow Witted must double advancement costs: '+JSON.stringify(out));
+  expect(out.rare===-3,'Difficult Customers must give -3 to Rare searches: '+JSON.stringify(out));
+  expect(out.ban.body&&out.ban.half&&!out.ban.pit,'Cannibals: only Halflings and the Ogre Bodyguard may be hired: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
