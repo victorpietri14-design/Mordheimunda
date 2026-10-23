@@ -486,6 +486,17 @@ await test('[desktop] profile editor shows a filled description open, with a cle
   expect(vis,'the filled description is not visible in the editor');
   expect(saved==='','clearing the description did not save: '+JSON.stringify(saved));
 });
+await test('[desktop] forbidden equipment categories block buying and Stash items',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.packId&&x.warriors?.some(w=>w.type==='Champion'));
+    state.customFighters=[{customFighterId:'cf-ban',name:'No Guns',type:'Champion',factionId:f.id,cost:40,race:'Human',profile:[4,3,3,3,3,1,3,1,7,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:[],equipmentAccess:[],bannedCategories:['Armes à poudre']}];
+    const x={...customFighterAsWarrior(state.customFighters[0]),wid:'cf-ban',customFighterId:'cf-ban',instance:'b1',sourceName:'No Guns',equipmentSelected:[],status:{},xp:0};
+    state.rosters=[{id:'rb',name:'RB',factionId:f.id,gold:500,fighters:[x],reserve:[]}];state.active='rb';const r=activeRoster();const fx=r.fighters[0];
+    const gun=D.weapons.find(w=>canonEquipmentCategory(equipmentCategory(w))==='Armes à poudre');const sword=D.weapons.find(w=>/^sword$/i.test(w.name));
+    const pool=['band','market','unrestricted'].flatMap(t=>equipmentPool(t,fx)).some(w=>canonEquipmentCategory(equipmentCategory(w))==='Armes à poudre');
+    return {gun:canEquip(fx,gun).ok,sword:canEquip(fx,sword).ok,pool,msg:canEquip(fx,gun).msg||''}});
+  expect(out.gun===false&&out.sword===true,'category ban not applied: '+JSON.stringify(out));
+  expect(!out.pool,'banned category still offered for purchase');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
