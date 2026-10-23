@@ -366,6 +366,20 @@ await test('[desktop] campaign standings: scenarios played counter (e.g. 2/4)',n
     const h=hubOverviewMarkup(c);const m=[...h.matchAll(/class="hub-scn[^"]*"[^>]*>(\d+\/\d+)</g)].map(x=>x[1]);return {m,head:/Scénarios|Scenarios/.test(h)}});
   expect(out.head&&out.m.join()==='2/4,1/4','scenario counters wrong (expected Alpha 2/4, Beta 1/4): '+JSON.stringify(out));
 });
+await test('[desktop] Lustria maze (five 4s): the lost Hero keeps the effect until he returns or is lost',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');
+    campaignDetailCache.set('cm1',{id:'cm1',name:'Maze test',members:[],definition:{exploration:{entries:LUSTRIA_EXPLORATION}}});
+    const hero={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h-maze',equipmentSelected:[],status:{}};
+    state.rosters=[{id:'mz',name:'MZ',factionId:f.id,campaignId:'cm1',gold:0,fighters:[hero]}];state.active='mz';
+    const r=activeRoster();campaignExploreState(r).lead='h-maze';resolveCampaignExplore('5-4');
+    const x=()=>activeRoster().fighters.find(q=>q.instance==='h-maze');const set=!!x().maze;const blocked=!playEngFighterOk(x());const card=/LABYRINTHE|MAZE/.test(ownedFighterCard(x(),0,f));
+    editingIndex=0;mazeGamePlayed();const g1=x().maze.games;
+    const rnd=Math.random;Math.random=()=>0;mazeRoll();mazeRoll();mazeRoll();Math.random=rnd;const gone=!!x().maze.gone;
+    x().maze={games:1,rolls:[]};Math.random=()=>0.99;mazeRoll();Math.random=rnd;const back=!!x().maze.returned&&playEngFighterOk(x());
+    return {set,blocked,card,g1,gone,back}});
+  expect(out.set&&out.blocked&&out.card,'the maze state is not kept on the hero / he can still be engaged: '+JSON.stringify(out));
+  expect(out.g1===1&&out.gone&&out.back,'maze progression is wrong: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
