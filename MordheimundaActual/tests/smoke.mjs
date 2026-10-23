@@ -436,18 +436,18 @@ await test('[desktop] Ogre rules: Slow Witted doubles XP costs, Difficult Custom
   expect(out.rare===-3,'Difficult Customers must give -3 to Rare searches: '+JSON.stringify(out));
   expect(out.ban.body&&out.ban.half&&!out.ban.pit,'Cannibals: only Halflings and the Ogre Bodyguard may be hired: '+JSON.stringify(out));
 });
-await test('[desktop] race-bound quest trees: Skink and Saurus trees only for those races, kept in a saved library',null,async page=>{
+await test('[desktop] quest trees and quests can be limited to races',null,async page=>{
   const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Champion'));const C=f.warriors.find(w=>w.type==='Champion');
     state.customFighters=[{customFighterId:'cf-skink',name:'Skink Hero',type:'Champion',factionId:f.id,cost:40,race:'Skink',profile:[6,3,3,3,2,1,4,1,6,6,6,6],ruleNames:[],skillAccess:{},magicAccess:{},defaultSkills:[],defaultEquipment:[],equipmentAccess:[]}];
     const sk={...customFighterAsWarrior(state.customFighters[0]),wid:'cf-skink',customFighterId:'cf-skink',instance:'s1',sourceName:'Skink Hero',equipmentSelected:[],status:{},xp:0};
     const hu={...JSON.parse(JSON.stringify(C)),wid:C.id,instance:'c1',equipmentSelected:[],status:{},xp:0};
     state.rosters=[{id:'qr',name:'QR',factionId:f.id,gold:0,fighters:[sk,hu]}];state.active='qr';const r=activeRoster();
+    questLibraryOverride={trees:[{id:'rt-skink',name:'Skink',ignoreSkills:true,scope:{races:['Skink']},skillTrees:[],quests:[{id:'q1',name:'Darts',text:'x',xp:1}]},{id:'rt-saurus',name:'Saurus',ignoreSkills:true,scope:{races:['Saurus']},skillTrees:[],quests:[{id:'q2',name:'Jaws',text:'x',xp:1}]}]};
     const ids=x=>fighterQuestInfo(x).available.map(a=>a.tree.id);const a=ids(r.fighters[0]),b=ids(r.fighters[1]);
-    questLibraryOverride={trees:[{id:'commander',name:'Commander',quests:[]}]};const merged=questLibrary().trees.map(t=>t.id);
-    questLibraryOverride={trees:[{id:'commander',name:'Commander',quests:[]}],removedBase:['saurus']};const merged2=questLibrary().trees.map(t=>t.id);questLibraryOverride=null;
-    return {skinkHas:a.includes('skink'),skinkNoSaurus:!a.includes('saurus'),humanNo:!b.includes('skink')&&!b.includes('saurus'),merged:merged.includes('skink')&&merged.includes('saurus'),removed:merged2.includes('skink')&&!merged2.includes('saurus')}});
+    const base=QUEST_BASE.trees.some(t=>t.id==='skink'||t.id==='saurus');questLibraryOverride=null;
+    return {skinkHas:a.includes('rt-skink'),skinkNoSaurus:!a.includes('rt-saurus'),humanNo:!b.includes('rt-skink')&&!b.includes('rt-saurus'),noBuiltIn:!base,label:questScopeLabel({races:['Skink']})}});
   expect(out.skinkHas&&out.skinkNoSaurus&&out.humanNo,'race scope is wrong: '+JSON.stringify(out));
-  expect(out.merged&&out.removed,'race trees must be added to a saved library unless deleted: '+JSON.stringify(out));
+  expect(out.noBuiltIn,'no built-in race trees should ship');
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
