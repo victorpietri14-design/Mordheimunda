@@ -1262,7 +1262,7 @@ async function campaignMemberOk(cid,rosterId,userId){const q=await pool.query('S
 const marketKey=k=>String(k||'').trim().toLowerCase().slice(0,120);
 app.get('/api/campaigns/:id/market',requireDb,async(req,res,next)=>{
   try{const m=await pool.query('SELECT * FROM campaign_markets WHERE campaign_id=$1',[req.params.id]);const t=await pool.query("SELECT * FROM campaign_trades WHERE campaign_id=$1 AND (status='open' OR (status='done' AND (collected=FALSE OR updated_at>NOW()-INTERVAL '30 days'))) ORDER BY created_at DESC LIMIT 300",[req.params.id]);
-    res.json({stock:m.rows[0]?.stock||null,initial:m.rows[0]?.initial||null,stockedAt:m.rows[0]?.stocked_at||null,trades:t.rows.map(toTrade)})}catch(e){next(e)}
+    res.json({stock:m.rows[0]?.stock||null,initial:m.rows[0]?.initial||null,premium:m.rows[0]?.premium||{},stockedAt:m.rows[0]?.stocked_at||null,trades:t.rows.map(toTrade)})}catch(e){next(e)}
 });
 app.put('/api/admin/campaigns/:id/market',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const stock=req.body?.stock&&typeof req.body.stock==='object'?req.body.stock:{};const clean={};Object.entries(stock).slice(0,3000).forEach(([k,v])=>{const n=Math.max(0,Math.min(999,Math.floor(Number(v)||0)));clean[marketKey(k)]=n});
@@ -1288,6 +1288,26 @@ app.post('/api/campaigns/:id/market/give',requireDb,requireSameOrigin,auth,async
   try{if(!await campaignMemberOk(req.params.id,req.body?.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const k=marketKey(req.body?.key);
     const q=await pool.query(`UPDATE campaign_markets SET stock=jsonb_set(stock,ARRAY[$2::text],to_jsonb(COALESCE((stock->>$2::text)::int,0)+1)) WHERE campaign_id=$1 AND stock ? $2::text RETURNING stock`,[req.params.id,k]);
     res.json({ok:true,stock:q.rows[0]?.stock||null})}catch(e){next(e)}
+});
+// V-MARKETSELL: a player sells a (non-exclusive) item into the shared market.
+// Already stocked: +1 copy, and a premium it still carries shrinks by 10 %
+// (down to the base price). Not stocked yet: it enters with 1 copy at a 50 %
+// premium. The answer says which case applied, so the client pays the seller
+// accordingly (half the current price, or 75 % of the base price).
+app.post('/api/campaigns/:id/market/sell',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
+  const client=await pool.connect();
+  try{if(!await campaignMemberOk(req.params.id,req.body?.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const k=marketKey(req.body?.key);if(!k)return res.status(400).json({error:'INVALID_ITEM'});
+    await client.query('BEGIN');
+    const q=await client.query('SELECT stock,premium FROM campaign_markets WHERE campaign_id=$1 FOR UPDATE',[req.params.id]);
+    if(!q.rowCount){await client.query('ROLLBACK');return res.status(404).json({error:'NOT_STOCKED'})}
+    const stock={...(q.rows[0].stock||{})},premium={...(q.rows[0].premium||{})};
+    const present=Object.prototype.hasOwnProperty.call(stock,k);const before=Number(premium[k])||1;
+    if(present){stock[k]=Math.min(9999,Math.floor(Number(stock[k]||0))+1);if(premium[k]!=null){const next=Math.round(before*0.9*10000)/10000;if(next<=1.0001)delete premium[k];else premium[k]=next}}
+    else{stock[k]=1;premium[k]=1.5}
+    await client.query('UPDATE campaign_markets SET stock=$2,premium=$3 WHERE campaign_id=$1',[req.params.id,JSON.stringify(stock),JSON.stringify(premium)]);
+    await client.query('COMMIT');
+    res.json({ok:true,present,premiumBefore:before,stock,premium})}
+  catch(e){try{await client.query('ROLLBACK')}catch(_){}next(e)}finally{client.release()}
 });
 app.post('/api/campaigns/:id/trades',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
   try{const b=req.body||{};if(!await campaignMemberOk(req.params.id,b.rosterId,req.user.user_id))return res.status(403).json({error:'NOT_A_MEMBER'});const kind=b.kind==='request'?'request':'offer';const price=Math.max(0,Math.min(100000,Math.floor(Number(b.price)||0)));const itemName=String(b.itemName||'').trim().slice(0,120);if(!itemName)return res.status(400).json({error:'INVALID_ITEM'});

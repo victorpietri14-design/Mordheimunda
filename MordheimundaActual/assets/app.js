@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0704.0';
+const APP_BUILD='110.0706.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3888,9 +3888,19 @@ function ruleImageDataUrl(file){
     reader.readAsDataURL(file);
   });
 }
+// V-SCNFORMAT: the rule-text toolbar can write into another textarea than
+// the rules editor's own (#ruleEditTextarea): the scenario editor points
+// ruleEditTargetId at whichever of its text fields has the cursor.
+let ruleEditTargetId=null;
+function ruleEditTarget(){
+ const el=ruleEditTargetId?document.getElementById(ruleEditTargetId):null;
+ if(el)return el;
+ if(document.querySelector('.scn-format-bar')){toast(siteLanguage==='en'?'Click in one of the scenario text fields first':'Clique d’abord dans un des champs de texte du scénario');return null}
+ return document.getElementById('ruleEditTextarea');
+}
 function insertRuleEditToken(kind){
  const en=siteLanguage==='en';
- const el=document.getElementById('ruleEditTextarea');
+ const el=ruleEditTarget();
  if(!el)return;
  const start=el.selectionStart??el.value.length,end=el.selectionEnd??el.value.length;
  const before=el.value.slice(0,start),selected=el.value.slice(start,end),after=el.value.slice(end);
@@ -3953,7 +3963,7 @@ function ruleTableEditorSerialize(){
 }
 function openRuleTableEditor(){
  const en=siteLanguage==='en';
- const el=document.getElementById('ruleEditTextarea');if(!el)return;
+ const el=ruleEditTarget();if(!el)return;
  ruleTableEditorRows=null;ruleTableEditorSelRange=null;
  const start=el.selectionStart??0,end=el.selectionEnd??0;
  const selected=el.value.slice(start,end);
@@ -3990,7 +4000,7 @@ function ruleTableEditorRemoveCol(j){if(ruleTableEditorRows[0].length<=1)return;
 function ruleTableEditorCellInput(i,j,value){if(ruleTableEditorRows[i]&&ruleTableEditorRows[i][j])ruleTableEditorRows[i][j].text=value;}
 function ruleTableEditorToggleHi(i,j){ruleTableEditorRows[i][j].hi=!ruleTableEditorRows[i][j].hi;renderRuleTableEditorOverlay();}
 function ruleTableEditorInsert(){
- const el=document.getElementById('ruleEditTextarea');if(!el||!ruleTableEditorRows)return;
+ const el=ruleEditTarget();if(!el||!ruleTableEditorRows)return;
  // Cells update their own data on every keystroke via oninput, but a redraw
  // (add/remove row or column) rebuilds all the <input> elements, so pick up
  // whatever's live in the DOM right now too, just in case.
@@ -9389,16 +9399,16 @@ function playSessionMarkupBase(){
 
    <section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Battlefield':'Champ de Bataille'}</div>
      <p style="margin:0 0 10px;font-size:13px;color:var(--text-dim)"><strong>${en?'Terrain:':'Terrain :'}</strong> ${esc(s.battlefield?.terrainType||'—')}</p>
-     <p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.battlefield?.setupInstructions||'')}</p>
+     <div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.battlefield?.setupInstructions||'')}</div>
    </section>
 
    <section class="scn-sec"><span class="scn-secnum">02</span><div class="scn-sectitle">${en?'Attacker & Defender':'Attaquant & Défenseur'}</div>
-     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.attacker||'')}</p></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.defender||'')}</p></div></div>
+     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.attacker||'')}</div></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.defender||'')}</div></div></div>
    </section>
 
-   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.preparation.text||'')}</p></section>`:''}
+   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.preparation.text||'')}</div></section>`:''}
 
-   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioSpecialRulesText(s))}</p></section>`:''}
+   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioSpecialRulesText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">05</span><div class="scn-sectitle">${en?'Warbands (How Many)':'Bandes (Combien)'}</div>
      <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
@@ -9413,7 +9423,7 @@ function playSessionMarkupBase(){
      </div>
    </section>
 
-   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioUnderdogBonusText(s))}</p></section>`:''}
+   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioUnderdogBonusText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">07</span><div class="scn-sectitle">${en?'Deployment':'Déploiement'}</div>
      ${playDeploymentBlockMarkup(ps,s,en,sizes)}
@@ -9422,13 +9432,13 @@ function playSessionMarkupBase(){
    ${(s.experience||[]).length?`<section class="scn-sec"><span class="scn-secnum">08</span><div class="scn-sectitle">${en?'Experience':'Expérience'}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">${s.experience.map(x=>`<div style="background:var(--bg);border-radius:4px;padding:10px 12px"><strong style="font-size:12.5px;color:var(--text)">${esc(x.name)}</strong><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${esc(x.text)}</div></div>`).join('')}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">09</span><div class="scn-sectitle">${en?'Objectives':'Objectifs'}</div>
-     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${esc(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${esc(s.objectives.secondary)}</div>`:''}</div>
+     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${scenarioText(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(s.objectives.secondary)}</div>`:''}</div>
    </section>
 
-   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.endCondition||'')}</p></section>
+   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.endCondition||'')}</div></section>
 
    <section class="scn-sec"><span class="scn-secnum">11</span><div class="scn-sectitle">${en?'Victory':'Victoire'}</div>
-     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${esc(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${esc(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${esc(s.victory.draw)}</div>`:''}</div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
    </section>
 
    ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${esc(r)}</div>`).join('')}</div></section>`:''}
@@ -10487,16 +10497,16 @@ function scenarioDetail(){
 
    <section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Battlefield':'Champ de Bataille'}</div>
      <p style="margin:0 0 10px;font-size:13px;color:var(--text-dim)"><strong>${en?'Terrain:':'Terrain :'}</strong> ${esc(s.battlefield?.terrainType||'—')}</p>
-     <p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.battlefield?.setupInstructions||'')}</p>
+     <div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.battlefield?.setupInstructions||'')}</div>
    </section>
 
    <section class="scn-sec"><span class="scn-secnum">02</span><div class="scn-sectitle">${en?'Attacker & Defender':'Attaquant & Défenseur'}</div>
-     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.attacker||'')}</p></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.defender||'')}</p></div></div>
+     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.attacker||'')}</div></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.defender||'')}</div></div></div>
    </section>
 
-   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.preparation.text||'')}</p></section>`:''}
+   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.preparation.text||'')}</div></section>`:''}
 
-   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioSpecialRulesText(s))}</p></section>`:''}
+   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioSpecialRulesText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">05</span><div class="scn-sectitle">${en?'Warbands (How Many)':'Bandes (Combien)'}</div>
      <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
@@ -10511,13 +10521,13 @@ function scenarioDetail(){
      </div>
    </section>
 
-   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioUnderdogBonusText(s))}</p></section>`:''}
+   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioUnderdogBonusText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">07</span><div class="scn-sectitle">${en?'Deployment':'Déploiement'}</div>
      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
        <div class="scn-map-slot">${drawnMap?`<div onclick="openDeploymentMapLightbox()" style="cursor:zoom-in">${deploymentMapPreviewMarkup(drawnMap,{forceDims:true})}</div><span class="chip">#${drawnMap.number} ${esc(drawnMap.name||'')}</span>`:`<span style="color:var(--muted);font-size:12px;text-align:center">${en?'No map drawn yet':'Aucune carte tirée'}</span>`}<button type="button" class="dash-btn-primary" onclick="drawDeploymentMap('${esc(s.id)}')">⟳ ${en?'Generate a map':'Générer une carte'}</button></div>
        <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:12px">
-         <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:5px">${en?'Table edges':'Bords de table'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.deployment?.tableEdgeRule||'')}</p></div>
+         <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:5px">${en?'Table edges':'Bords de table'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.deployment?.tableEdgeRule||'')}</div></div>
          ${(s.deployment?.zones||[]).length?`<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:5px">${en?'Zones':'Zones'}</div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.deployment.zones.map(z=>`<span class="chip">${esc(z)}</span>`).join('')}</div></div>`:''}
        </div>
      </div>
@@ -10526,13 +10536,13 @@ function scenarioDetail(){
    ${(s.experience||[]).length?`<section class="scn-sec"><span class="scn-secnum">08</span><div class="scn-sectitle">${en?'Experience':'Expérience'}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">${s.experience.map(x=>`<div style="background:var(--bg);border-radius:4px;padding:10px 12px"><strong style="font-size:12.5px;color:var(--text)">${esc(x.name)}</strong><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${esc(x.text)}</div></div>`).join('')}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">09</span><div class="scn-sectitle">${en?'Objectives':'Objectifs'}</div>
-     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${esc(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${esc(s.objectives.secondary)}</div>`:''}</div>
+     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${scenarioText(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(s.objectives.secondary)}</div>`:''}</div>
    </section>
 
-   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.endCondition||'')}</p></section>
+   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.endCondition||'')}</div></section>
 
    <section class="scn-sec"><span class="scn-secnum">11</span><div class="scn-sectitle">${en?'Victory':'Victoire'}</div>
-     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${esc(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${esc(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${esc(s.victory.draw)}</div>`:''}</div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
    </section>
 
    ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${esc(r)}</div>`).join('')}</div></section>`:''}
@@ -10603,6 +10613,18 @@ function initScenarioEditorAutoGrow(){document.querySelectorAll('.scn-autogrow')
 // array-shaped data (old scenarios saved before the fix) into one readable
 // paragraph so it still displays — and gets converted to a plain string for
 // good the next time that scenario is saved.
+// V-SCNFORMAT: a scenario text written with the rule toolbar (table, title,
+// bullet, mini title, colored text, picture) is shown like rules text; a
+// plain text keeps showing exactly as before.
+const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en place'],seAttacker:['Attacker rule','Règle — Attaquant'],seDefender:['Defender rule','Règle — Défenseur'],sePrepText:['Preparation text','Texte de préparation'],seSpecialRules:['Special rules text','Texte des règles spéciales'],seUnderdog:['Underdog bonus','Underdogs Bonus'],seTableEdge:['Table edge rule','Règle des bords de table'],seObjPrimary:['Primary objective','Objectif principal'],seObjSecondary:['Secondary objective','Objectif secondaire'],seEndCondition:['End of game','Fin de partie'],seVictoryMajor:['Major victory','Victoire majeure'],seVictoryMinor:['Minor victory','Victoire mineure'],seVictoryDraw:['Draw','Match nul']};
+function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
+function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{})}</div>`:esc(v)}
+function scenarioFormatFocus(ev){
+  const t=ev.target;if(!t||t.tagName!=='TEXTAREA')return;
+  const en=siteLanguage==='en';const lab=document.getElementById('scnFormatTarget');
+  if(SCN_RICH_FIELDS[t.id]){ruleEditTargetId=t.id;if(lab)lab.textContent=(en?'Formatting goes into: ':'La mise en forme va dans : ')+SCN_RICH_FIELDS[t.id][en?0:1];}
+  else{ruleEditTargetId=null;if(lab)lab.textContent=en?'This field takes plain text only':'Ce champ prend seulement du texte simple';}
+}
 function scenarioSpecialRulesText(s){
   const v=s?.specialRules;
   if(typeof v==='string')return v;
@@ -10794,10 +10816,12 @@ function scenarioEditorPanel(){
   const maps=DEPLOYMENT_MAPS_CACHE||[];
   const selectedMapIds=new Set(d.deployment?.mapIds||[]);
   const curTableSizes=(Array.isArray(d.tableSizes)&&d.tableSizes.length)?d.tableSizes:['48x48'];
-  return `<div class="admin-page">
+  return `<div class="admin-page" onfocusin="scenarioFormatFocus(event)">
    <div class="page-intro"><div><div class="eyebrow">ADMIN / SCENARIOS</div><h2>${adminScenarioEditId?(en?'Edit scenario':'Modifier le scénario'):(en?'New scenario':'Nouveau scénario')}</h2></div>
      <div style="display:flex;gap:8px"><button type="button" class="button secondary" onclick="closeScenarioEditor()">${en?'Cancel':'Annuler'}</button><button type="button" class="dash-btn-primary" onclick="saveScenarioEditor()">✓ ${en?'Save':'Enregistrer'}</button></div>
    </div>
+
+   <div class="scn-format-bar">${ruleEditToolbarMarkup('',en?'Same formatting as the rules: click in a text field, then use the buttons.':'Même mise en forme que les règles : clique dans un champ de texte, puis utilise les boutons.')}<div class="scn-format-target" id="scnFormatTarget">${en?'Click in a text field to format it':'Clique dans un champ de texte pour le mettre en forme'}</div></div>
 
    <section class="scn-sec"><div class="scn-sectitle">${en?'Identity & Category':'Identité & Catégorie'}</div>
      <div class="scn-row2">
@@ -12362,7 +12386,7 @@ const MARKET_STOCK_RANGES=[[0,8,12],[7,6,8],[8,5,7],[9,4,6],[10,3,5],[11,2,4],[1
 function marketStockRange(rarity){if(!rarity)return [8,12];if(rarity<=7)return [6,8];if(rarity>=12)return [1,2];return (MARKET_STOCK_RANGES.find(x=>x[0]===rarity)||[0,1,2]).slice(1)}
 function loadCampaignMarket(cid,view){if(!cid)return;campaignLoad('m:'+cid,async()=>{let m=null;try{m=await window.MordheimundaAPI.campaignMarket(cid)}catch(e){}campaignMarketCache.set(cid,m||{stock:null,trades:[],failed:true});if(view)render(view)})}
 function campaignMarketOf(r){if(!r?.campaignId)return null;const m=campaignMarketCache.get(r.campaignId);if(!m){loadCampaignMarket(r.campaignId,'builder');return null}return m}
-function campaignMarketPost(r){const m=campaignMarketOf(r);if(!m?.stock)return null;const en=siteLanguage==='en';return {id:'campaign:'+r.campaignId,en:'Campaign market',fr:'Marché de campagne',stock:m.stock,initial:m.initial||{},campaignId:r.campaignId}}
+function campaignMarketPost(r){const m=campaignMarketOf(r);if(!m?.stock)return null;const en=siteLanguage==='en';return {id:'campaign:'+r.campaignId,en:'Campaign market',fr:'Marché de campagne',stock:m.stock,initial:m.initial||{},premium:m.premium||{},campaignId:r.campaignId}}
 function campaignMarketRise(post,name,baseRarity){if(!post?.campaignId)return 0;return campaignHeldCount(post.campaignId,name)*campaignRisePct(baseRarity)}
 async function campaignMarketServer(kind,post,name,r){
   const en=siteLanguage==='en';const api=window.MordheimundaAPI;
@@ -12743,7 +12767,10 @@ function tradingPostById(id){return tradingPostList().find(t=>t.id===id)||tradin
 function tradingPostStock(post,name){if(!post?.stock)return null;const n=post.stock[normName(name)];return Number.isFinite(n)?n:0}
 function tradingPostTake(post,name){if(!post?.stock)return true;const k=normName(name);if(!(post.stock[k]>0))return false;post.stock[k]--;if(post.campaignId)campaignMarketServer('take',post,name,activeRoster());return true}
 function tradingPostGive(post,name){if(!post?.stock)return;const k=normName(name);post.stock[k]=(post.stock[k]||0)+1;if(post.campaignId)campaignMarketServer('give',post,name,activeRoster())}
-function tradingRarity(w){const raw=String(w?.availability||w?.rarity||'');const m=raw.match(/rare\s*(\d+)/i);if(m)return Number(m[1]);return 0}
+function tradingRarity(w){const raw=String(w?.availability||w?.rarity||'');const m=raw.match(/rare\s*(?:e\s*)?(\d+)/i);if(m)return Number(m[1]);return 0}
+// V-MARKETSELL: "Rare E X" marks an item exclusive to some warbands: it can
+// be sold, but never goes into a campaign's shared market.
+function itemIsExclusiveRarity(w){return /\brare\s*e\s*\d+/i.test(String(w?.availability||'')+' '+String(w?.rarity||''))}
 function tradingData(r){const p=ensurePostBattleData(r);if(!p.trading||typeof p.trading!=='object')p.trading={};const t=p.trading;if(!t.postId)t.postId=tradingPostList()[0].id;if(!Array.isArray(t.purchases))t.purchases=[];return t}
 function tradingSeekBonus(r){const p=ensurePostBattleData(r);return p.actionsApplied&&Number.isFinite(p.rareBonus)?p.rareBonus:pbaRareBonus(r).total}
 function tradingAvailability(r){const t=tradingData(r);if(Number.isFinite(t.availability))return t.availability;return null}
@@ -12787,17 +12814,20 @@ function campaignMarketApply(r,list,src){
   // prices, held-copy rises) only touch the general market — the warband's
   // own Band List always sells at its book price and rarity.
   if(src==='band')return r?.campaignId?list.map(it=>({...it,basePrice:it.price,baseRarity:it.rarity,minPrice:it.price,campaignMod:false})):list;
-  const m=rosterCampaignMarket(r);if(!m)return r?.campaignId?list.map(it=>({...it,basePrice:it.price})):list;const t=tradingData(r);const rolls=t.priceRolls||{};const mk=m.st?.market||{};
+  // V-MARKETSELL: an item a player sold into the shared market without it
+  // being stocked carries a price premium (x1.5, -10 % per later sale).
+  const premOf=it=>{const cp=r?.campaignId?campaignMarketPost(r):null;return Number(cp?.premium?.[normName(it.w?.name)])||1};
+  const m=rosterCampaignMarket(r);if(!m)return r?.campaignId?list.map(it=>{const pr=premOf(it);return {...it,price:pr!==1&&it.price>0?Math.round(it.price*pr):it.price,basePrice:it.price,campaignMod:pr!==1}}):list;const t=tradingData(r);const rolls=t.priceRolls||{};const mk=m.st?.market||{};
   return list.map(it=>{
     const base=it.rarity;let rarity=base;
     if(src!=='band'){if(m.outsider)rarity=(base||4)+m.pen.rarity;if(rarity>0)rarity-=Number(mk.allFind||0)+Number(base>0?mk.rareFind||0:mk.commonFind||0)}
     const exprTxt=base>0?mk.rarePrice:mk.commonPrice;const e=campaignPriceExpr(exprTxt);
-    const post=src!=='band'?(campaignMarketPost(r)||tradingPostById(t.postId)):null;const pct=(m.outsider?m.pen.pricePct:0)+(post?.campaignId?campaignMarketRise(post,it.w.name,base):0);const fin=v=>{if(!(it.price>0))return 0;return Math.max(1,Math.round((it.price+v)*(100+pct)/100))};
+    const post=src!=='band'?(campaignMarketPost(r)||tradingPostById(t.postId)):null;const pct=(m.outsider?m.pen.pricePct:0)+(post?.campaignId?campaignMarketRise(post,it.w.name,base):0);const prem=premOf(it);const fin=v=>{if(!(it.price>0))return 0;return Math.max(1,Math.round((it.price*prem+v)*(100+pct)/100))};
     const key=src+':'+normName(it.w.name);const rolled=rolls[key];
     let price=fin(0),label='',minPrice=price;
     if(rolled!=null){price=rolled;minPrice=rolled}
     else if(e&&it.price>0){const [lo,hi]=campaignPriceRange(e);minPrice=fin(lo);price=minPrice;label=lo===hi?`${fin(lo)} GC`:`${fin(lo)}–${fin(hi)} GC`}
-    return {...it,rarity:Math.max(0,rarity),baseRarity:base,price,minPrice,priceExpr:rolled==null&&e&&it.price>0?e:null,priceLabel:label,basePrice:it.price,campaignMod:!!(pct||e||rarity!==base)};
+    return {...it,rarity:Math.max(0,rarity),baseRarity:base,price,minPrice,priceExpr:rolled==null&&e&&it.price>0?e:null,priceLabel:label,basePrice:it.price,campaignMod:!!(pct||e||rarity!==base||prem!==1)};
   });
 }
 function tradingShopItems(r,src,post){return campaignMarketApply(r,tradingCoveredItems(r,src,post,src==='band'?tradingBandItems(r):tradingPostItems(r,post)),src)}
@@ -12856,7 +12886,7 @@ function tradingPostView(r,f){
     <section class="tp-shop tp-shop-band"><div class="tp-shop-h"><div class="tp-ttl"><h4>Band List</h4><small>${band.length} ${en?'items':'objets'}</small></div><small>${en?'Your warband’s equipment list, at its own prices. Everything here can be bought, whatever its rarity.':'La liste d’équipement de ta bande, à ses propres prix. Tout peut être acheté, quelle que soit la rareté.'}</small>${r.campaignId?`<div class="transit-banner"><b>🚚 ${en?'Supplies on their way':'Provisions en route'}</b><span>${en?'In a campaign, what you buy from your Band List after creation is shipped from outside: you receive it once your next campaign game with this warband is recorded in the campaign. Until then it waits in your Stash under “On its way”.':'En campagne, ce que tu achètes dans ta liste de bande après la création est acheminé de l’extérieur : tu le reçois dès que ta prochaine partie de campagne avec cette bande est enregistrée dans la campagne. D’ici là, il attend dans ta réserve sous « En route ».'}</span></div>`:''}${tradingChipsMarkup('band',band)}<input type="search" class="search" value="${esc(tpBandSearch)}" placeholder="${en?'Search the band list…':'Rechercher dans la band list…'}" oninput="filterTradingList('band',this.value)"></div><div class="tp-list" id="tp-list-band">${tradingItemsMarkup(r,'band',band)}</div></section>
     <section class="tp-shop tp-shop-post"><div class="tp-shop-h"><div class="tp-ttl"><h4>${esc(en?post.en:post.fr)}</h4><small>${openCount} / ${market.length} ${en?'available':'disponibles'}</small></div>${postPicker}<small>${en?'Common items always. Rare items only up to your Availability level.':'Objets Common toujours. Objets Rare seulement jusqu’à ton niveau de disponibilité.'}</small>${tradingChipsMarkup('post',market)}<div class="tp-tools"><input type="search" class="search" value="${esc(tpPostSearch)}" placeholder="${en?'Search the Trading Post…':'Rechercher au Trading Post…'}" oninput="filterTradingList('post',this.value)"><label class="tp-toggle"><input type="checkbox" ${tpShowLocked?'checked':''} onchange="setTradingShowLocked(this.checked)"> ${en?'Show locked rare items':'Afficher les objets Rare verrouillés'}</label></div></div><div class="tp-list" id="tp-list-post">${tradingItemsMarkup(r,'post',market)}</div></section>
     <aside class="tp-cart"><h4>${en?'This visit':'Cette visite'}</h4><div class="pba-ledger"><div><span>${en?'Spent':'Dépensé'}</span><span class="pba-mono pba-minus">${spent?`−${spent}`:'0'} GC</span></div><div class="tot"><span>${en?'Treasury':'Trésor'}</span><span class="pba-mono">${Number(r.gold||0)} GC</span></div></div><div class="tp-bought">${t.purchases.length?t.purchases.map(x=>`<div><span>${esc(x.name)} <small>${x.src==='band'?'Band List':esc(en?tradingPostById(x.postId).en:tradingPostById(x.postId).fr)}</small></span><span class="pba-mono">${x.price} GC <button type="button" title="${en?'Undo purchase':'Annuler l’achat'}" aria-label="${en?'Undo':'Annuler'} ${esc(x.name)}" onclick="undoTradingPurchase('${esc(x.id)}')">✕</button></span></div>`).join(''):`<div class="tp-empty">${en?'Nothing bought yet.':'Rien acheté pour l’instant.'}</div>`}</div><small class="pba-hint">${en?'Bought items go to the Stash, where you hand them out to fighters. ✕ undoes a purchase while the item is still in the Stash.':'Les objets achetés vont dans la réserve, d’où tu les distribues aux combattants. ✕ annule un achat tant que l’objet est dans la réserve.'}</small></aside>
-  </div></div>`;
+  </div>${tradingSellSectionMarkup(r)}</div>`;
 }
 function postBattleView(r,f){const en=siteLanguage==='en';ensurePostBattleData(r);return `<div class="postbattle-accordion">${eyeOfTheGodsStep(r)}<details class="postbattle-step" open><summary><span><b>STEP 3</b> Income / Exploration <small>${en?'Dice, wyrdstone and exploration':'Dés, wyrdstone et exploration'}</small></span><i>⌄</i></summary><div class="postbattle-step-body">${campaignAwareIncomeView(r,f)}</div></details><details class="postbattle-step"${postBattleStep4Open?' open':''} ontoggle="postBattleStep4Open=this.open"><summary><span><b>STEP 4</b> Post-battle action <small>${en?'Leader and Champion actions':'Actions des Leaders et Champions'}</small></span><i>⌄</i></summary><div class="postbattle-step-body">${postBattleActionsView(r,f)}</div></details><details class="postbattle-step"${postBattleStep5Open?' open':''} ontoggle="postBattleStep5Open=this.open"><summary><span><b>STEP 5</b> Trading Post <small>${en?'Rarity roll, Band List and Trading Post':'Jet de rareté, Band List et Trading Post'}</small></span><i>⌄</i></summary><div class="postbattle-step-body">${tradingPostView(r,f)}</div></details></div>`}
 function reserveView(r,f){const en=siteLanguage==='en';const reserve=Array.isArray(r.reserve)?r.reserve:[];const total=reserve.reduce((n,e)=>n+equipmentBandValue(e,f),0);return `<div class="roster-toolbar"><div><div class="eyebrow">${en?'RESERVE / STORED EQUIPMENT':'RESERVE / ÉQUIPEMENT STOCKÉ'}</div><h3>${en?'Warband stash':'Réserve de la bande'}</h3><p>${en?'Equipment bought or recovered, not assigned to a fighter. Its value still counts toward the warband’s value.':'Équipement acheté ou récupéré, non attribué à un combattant. La valeur reste comptée dans la valeur de bande.'}</p></div>${reserve.length?`<span class="reserve-summary-badge">${reserve.length} ${en?`item${reserve.length!==1?'s':''}`:`objet${reserve.length!==1?'s':''}`} · <span class="v">${total} GC</span></span>`:''}</div>${transitSectionMarkup(r)}${reserve.length?(reserve.some(e=>!reserveInTransit(r,e))?`<div class="reserve-list">${reserve.map((e,i)=>reserveInTransit(r,e)?'':reserveItemRow(e,i)).join('')}</div>`:''):`<div class="empty large"><strong>${en?'Stash is empty.':'Réserve vide.'}</strong><span>${en?'Use the small ▣ button on a fighter’s equipment to put an item here.':'Utilise le petit bouton ▣ sur l\'équipement d\'un combattant pour placer un objet ici.'}</span></div>`}${captivesSectionMarkup(r)}`}
@@ -13982,8 +14012,49 @@ function transferReserveEquipment(i){const en=siteLanguage==='en';const r=active
 function confirmTransferReserve(ri,fi){const r=activeRoster(),e=r?.reserve?.[ri],x=r?.fighters?.[fi];if(!r||!e||!x)return;if(reserveInTransit(r,e)){toast(siteLanguage==='en'?'Still on its way: it arrives after your next recorded campaign game':'Encore en route : il arrive après ta prochaine partie de campagne enregistrée');return}if(fighterNoEquipment(x)){toast(siteLanguage==='en'?'This fighter cannot receive equipment':'Ce combattant ne peut pas recevoir d’équipement');return}if(isHiredSword(x)||!henchmanBandListAllows(x,e)){toast(siteLanguage==='en'?'Henchmen can only equip items from their Band List':'Les Henchmen ne peuvent équiper que des objets de leur Band List');return}
   // V-STASHTRANSFER-FIX: mirror the eligibility check in transferReserveEquipment above.
   const access=isCustomEquipment(e)?!!customEquipmentForFaction(e,faction(r)?.id):true,check=fighterUsesLoadouts(x)?{ok:true,msg:''}:canEquip(x,e);if(!access||!check.ok){toast(!access?(siteLanguage==='en'?'Equipment not allowed for this profile':'Équipement non autorisé pour ce profil'):check.msg);return}const copy={...JSON.parse(JSON.stringify(e)),stashId:crypto.randomUUID(),paid:0};if(fighterUsesLoadouts(x)){ensureFighterLoadouts(x);x.equipmentStash=x.equipmentStash||[];x.equipmentStash.push(copy);syncLoadoutProjection(x);}else{x.equipmentSelected=x.equipmentSelected||[];x.equipmentSelected.push(copy);}syncCustomEquipmentEffects(x);r.reserve.splice(ri,1);logHistory(r,'equipment',siteLanguage==='en'?`<b>${esc(e.name)}</b> transferred from the <b>Stash</b> to <b>${esc(x.name)}</b>`:`<b>${esc(e.name)}</b> transféré de la <b>Réserve</b> vers <b>${esc(x.name)}</b>`);save(true);closeModal();gangTab='reserve';render('builder');toast(siteLanguage==='en'?`${e.name} placed in ${x.name}'s kit`:`${e.name} placé dans le coffre de ${x.name}`)}
-function sellReserveEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),e=r?.reserve?.[i];if(!r||!e)return;if(reserveInTransit(r,e)){toast(en?'Still on its way: it arrives after your next recorded campaign game':'Encore en route : il arrive après ta prochaine partie de campagne enregistrée');return}const sale=e.sellFormula?rollDiceFormula(e.sellFormula).total:Math.max(0,Math.floor(Number(e.value??e.price??0)/2));openModal(`<div class="sell-dialog"><div class="eyebrow">${en?'SELL FROM STASH':'VENTE DE RÉSERVE'}</div><h2>${en?`Sell “${esc(e.name)}”?`:`Vendre « ${esc(e.name)} » ?`}</h2><p>${e.sellFormula?(en?`Resale of this find: ${esc(e.sellFormula)} gc — rolled: <b>${sale} GC</b>.`:`Revente de cette trouvaille : ${esc(e.sellFormula)} gc — jet : <b>${sale} GC</b>.`):(en?'The M17 resale rule lets you sell equipment for half its listed price.':'La règle de revente du M17 permet de vendre l’équipement pour la moitié de son prix indiqué.')}</p><label>${en?'Gold recovered (GC)':'Or récupéré (GC)'}<input id="saleGold" type="number" min="0" step="1" value="${sale}"></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="confirmSellReserveEquipment(${i})">${en?'Sell':'Vendre'}</button></div></div>`)}
-function confirmSellReserveEquipment(i){const r=activeRoster(),e=r?.reserve?.[i];if(!r||!e)return;const gold=Math.max(0,Number($('#saleGold')?.value||0));if(!Number.isFinite(gold)){toast(siteLanguage==='en'?'Invalid amount':'Montant invalide');return}r.gold+=gold;if(Number(e.quantity||1)>1)e.quantity=Number(e.quantity)-1;else r.reserve.splice(i,1);{const cp=campaignMarketPost(r);if(cp&&normName(e.name) in cp.initial&&!e.skin&&!e.artifact){cp.stock[normName(e.name)]=(cp.stock[normName(e.name)]||0)+1;campaignMarketServer('give',cp,e.name,r)}}if(e.artifact)pushCampaignEntryStats(r,true);logHistory(r,'equipment',siteLanguage==='en'?`<b>${esc(eqShownName(e))}</b> sold from the stash — <b style="color:var(--accent)">+${gold} GC</b>`:`<b>${esc(e.name)}</b> vendu depuis la réserve — <b style="color:var(--accent)">+${gold} GC</b>`);save(true);closeModal();render('builder');toast(siteLanguage==='en'?`${e.name} sold · +${gold} GC`:`${e.name} vendu · +${gold} GC`)}
+// V-MARKETSELL: what a Stash item sells for.
+// - a find with its own resale formula: that formula;
+// - outside a campaign with a stocked (evolving) market, an artifact or a
+//   re-skinned find: half its value (M17 resale rule);
+// - in such a campaign: an exclusive item (Rare E X) sells for half its
+//   catalogue price and stays out of the shared market; an item the market
+//   already lists sells for half its current market price and adds a copy;
+//   an item the market doesn't list sells for 75 % of its catalogue price and
+//   enters the market at catalogue price +50 %.
+function stashSaleBase(e){const def=liveEquipmentDef(e)||D.weapons.find(w=>normName(w.name)===normName(e.name))||e;return {def,base:Math.max(0,Number(def?.price??e.price??0))}}
+function stashSaleQuote(r,e){
+  if(e.sellFormula)return {kind:'formula'};
+  const half=Math.max(0,Math.floor(Number(e.value??e.price??0)/2));
+  const cp=r?.campaignId?campaignMarketPost(r):null;
+  if(!cp||e.artifact||e.skin)return {kind:'half',gold:half};
+  const {def,base}=stashSaleBase(e);
+  if(itemIsExclusiveRarity(def)||itemIsExclusiveRarity(e))return {kind:'exclusive',gold:Math.floor(base/2)};
+  const k=normName(e.name);
+  if(Object.prototype.hasOwnProperty.call(cp.stock,k)){const f=faction(r)||{};const it=campaignMarketApply(r,[{w:def,price:Number(equipmentPrice(def,f,'market')??base)||0,rarity:tradingRarity(def)}],'post')[0];const cur=Number(it?.price||0);return {kind:'present',gold:Math.floor(cur/2),current:cur}}
+  return {kind:'new',gold:Math.floor(base*0.75),newPrice:Math.round(base*1.5),base};
+}
+function stashSaleQuoteText(q,e,en){
+  if(q.kind==='formula')return en?`Resale of this find: ${esc(e.sellFormula)} gc.`:`Revente de cette trouvaille : ${esc(e.sellFormula)} gc.`;
+  if(q.kind==='half')return en?'The M17 resale rule lets you sell equipment for half its listed price.':'La règle de revente du M17 permet de vendre l’équipement pour la moitié de son prix indiqué.';
+  if(q.kind==='exclusive')return en?'Exclusive item (Rare E): sold for half its catalogue price. It does not go into the campaign market.':'Objet exclusif (Rare E) : vendu à la moitié de son prix catalogue. Il ne va pas dans le marché de la campagne.';
+  if(q.kind==='present')return en?`Already in the campaign market at ${q.current} GC: you get half, and one more copy goes on sale for everyone.`:`Déjà au marché de campagne à ${q.current} GC : tu touches la moitié, et un exemplaire de plus est mis en vente pour tous.`;
+  return en?`Not in the campaign market yet: +50 % sale bonus (75 % of its ${q.base} GC catalogue price). It goes on sale for everyone at ${q.newPrice} GC.`:`Absent du marché de campagne : bonus de vente de +50 % (75 % de son prix catalogue de ${q.base} GC). Il est mis en vente pour tous à ${q.newPrice} GC.`;
+}
+function sellReserveEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),e=r?.reserve?.[i];if(!r||!e)return;if(reserveInTransit(r,e)){toast(en?'Still on its way: it arrives after your next recorded campaign game':'Encore en route : il arrive après ta prochaine partie de campagne enregistrée');return}const q=stashSaleQuote(r,e);const sale=q.kind==='formula'?rollDiceFormula(e.sellFormula).total:q.gold;openModal(`<div class="sell-dialog"><div class="eyebrow">${en?'SELL FROM STASH':'VENTE DE RÉSERVE'}</div><h2>${en?`Sell “${esc(e.name)}”?`:`Vendre « ${esc(e.name)} » ?`}</h2><p>${stashSaleQuoteText(q,e,en)}${q.kind==='formula'?(en?` Rolled: <b>${sale} GC</b>.`:` Jet : <b>${sale} GC</b>.`):''}</p><label>${en?'Gold recovered (GC)':'Or récupéré (GC)'}<input id="saleGold" type="number" min="0" step="1" value="${sale}"></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="confirmSellReserveEquipment(${i},'${q.kind}',${Number(sale)||0})">${en?'Sell':'Vendre'}</button></div></div>`)}
+async function confirmSellReserveEquipment(i,kind,quoted){const en=siteLanguage==='en';const r=activeRoster(),e=r?.reserve?.[i];if(!r||!e)return;let gold=Math.max(0,Number($('#saleGold')?.value||0));if(!Number.isFinite(gold)){toast(en?'Invalid amount':'Montant invalide');return}
+  if(kind==='present'||kind==='new'){
+    const cp=campaignMarketPost(r);if(!cp){toast(en?'The campaign market needs a connection to the server':'Le marché de campagne nécessite une connexion au serveur');return}
+    let res;try{res=await window.MordheimundaAPI.campaignMarketSell(cp.campaignId,{rosterId:r.id,key:normName(e.name)})}catch(err){toast(authError(err,en));return}
+    const m=campaignMarketCache.get(cp.campaignId);if(m&&res){m.stock=res.stock||m.stock;m.premium=res.premium||{}}
+    // someone else put it on (or the market already had it) meanwhile: pay by the case the server applied
+    const applied=res?.present?'present':'new';if(applied!==kind&&Number(gold)===Number(quoted)){const {base}=stashSaleBase(e);gold=applied==='new'?Math.floor(base*0.75):Math.floor(Math.round(base*(Number(res.premiumBefore)||1))/2)}
+  }
+  if(r.reserve[i]!==e){toast(en?'The stash changed, try again':'La réserve a changé, réessaie');return}
+  r.gold+=gold;if(Number(e.quantity||1)>1)e.quantity=Number(e.quantity)-1;else r.reserve.splice(i,1);if(e.artifact)pushCampaignEntryStats(r,true);logHistory(r,'equipment',en?`<b>${esc(eqShownName(e))}</b> sold from the stash — <b style="color:var(--accent)">+${gold} GC</b>`:`<b>${esc(e.name)}</b> vendu depuis la réserve — <b style="color:var(--accent)">+${gold} GC</b>`);save(true);closeModal();render('builder');toast(en?`${e.name} sold · +${gold} GC`:`${e.name} vendu · +${gold} GC`)}
+// V-MARKETSELL: the Trading Post step lists the Stash too, to sell from there.
+function tradingSellSectionMarkup(r){const en=siteLanguage==='en';const items=(r.reserve||[]).map((e,i)=>({e,i})).filter(x=>!reserveInTransit(r,x.e)&&!x.e.artifact);
+  const rows=items.map(({e,i})=>{const q=stashSaleQuote(r,e);const gain=q.kind==='formula'?`${esc(e.sellFormula)} GC`:`+${q.gold} GC`;const tag=q.kind==='new'?`<span class="tp-sell-tag new">${en?'+50 % · new in the market':'+50 % · nouveau au marché'}</span>`:q.kind==='present'?`<span class="tp-sell-tag">${en?'in the market':'au marché'}</span>`:q.kind==='exclusive'?`<span class="tp-sell-tag excl">${en?'exclusive':'exclusif'}</span>`:'';return `<div class="tp-sell-row"><span class="tp-sell-name">${esc(eqShownName(e))}${Number(e.quantity||1)>1?` ×${e.quantity}`:''} ${tag}</span><button type="button" class="button secondary small" onclick="sellReserveEquipment(${i})">${en?'Sell':'Vendre'} · ${gain}</button></div>`}).join('');
+  return `<section class="tp-sell"><div class="tp-shop-h"><div class="tp-ttl"><h4>${en?'Sell from your Stash':'Vendre depuis le Stash'}</h4><small>${items.length} ${en?'items':'objets'}</small></div><small>${campaignMarketPost(r)?(en?'Campaign market: half its market price if the market lists it (one more copy goes on sale), 75 % of its catalogue price if it doesn’t (it goes on sale at +50 %). Exclusive items (Rare E) sell for half and stay out of the market. Artifacts sell from the Campaign tab.':'Marché de campagne : la moitié de son prix au marché s’il y est déjà (un exemplaire de plus est mis en vente), 75 % de son prix catalogue s’il n’y est pas (il est mis en vente à +50 %). Les objets exclusifs (Rare E) se vendent à moitié prix et restent hors du marché. Les artefacts se vendent depuis l’onglet Campagne.'):(en?'Half its price (M17 resale rule).':'La moitié de son prix (règle de revente du M17).')}</small></div>${rows?`<div class="tp-sell-list">${rows}</div>`:`<div class="tp-empty">${en?'Nothing to sell in your Stash.':'Rien à vendre dans ton Stash.'}</div>`}</section>`}
 function removeReserveEquipment(i){const en=siteLanguage==='en';const r=activeRoster(),e=r?.reserve?.[i];if(!r||!e)return;openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE EQUIPMENT':'SUPPRESSION D’ÉQUIPEMENT'}</div><h2>${en?`Delete “${esc(e.name)}”?`:`Supprimer « ${esc(e.name)} » ?`}</h2><p>${en?'The item will be removed from the stash with no refund.':'L’objet sera retiré de la réserve sans remboursement.'}</p><button type="button" class="big-delete" onclick="confirmRemoveReserveEquipment(${i})">${en?'DELETE THE EQUIPMENT':'SUPPRIMER L’ÉQUIPEMENT'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
 function confirmRemoveReserveEquipment(i){const r=activeRoster();if(!r?.reserve?.[i])return;r.reserve.splice(i,1);save(true);closeModal();render('builder')}
 function updateFighterStat(i,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;if(!Array.isArray(x.profile))x.profile=Array.isArray(x.baseProfile)?x.baseProfile.slice():[];let n=Math.round(Number(val));if(!Number.isFinite(n))n=Number(x.profile[i]||0);const max=maxProfileFor(x);n=Math.max(0,n);x.profile[i]=n;save(true);render('fighter')}

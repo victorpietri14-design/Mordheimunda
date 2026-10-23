@@ -137,6 +137,7 @@
   adminAdjustCampaignMarket:(id,p)=>request('/api/admin/campaigns/'+encodeURIComponent(id)+'/market/adjust',{method:'POST',body:JSON.stringify(p)}),
   campaignMarketTake:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/market/take',{method:'POST',body:JSON.stringify(p)}),
   campaignMarketGive:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/market/give',{method:'POST',body:JSON.stringify(p)}),
+  campaignMarketSell:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/market/sell',{method:'POST',body:JSON.stringify(p)}),
   campaignTradePost:(id,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/trades',{method:'POST',body:JSON.stringify(p)}),
   campaignTradeAccept:(id,tid,p)=>request('/api/campaigns/'+encodeURIComponent(id)+'/trades/'+encodeURIComponent(tid)+'/accept',{method:'POST',body:JSON.stringify(p)}),
   campaignTradeCancel:(id,tid)=>request('/api/campaigns/'+encodeURIComponent(id)+'/trades/'+encodeURIComponent(tid)+'/cancel',{method:'POST'}),
