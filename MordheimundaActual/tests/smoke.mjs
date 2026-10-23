@@ -268,6 +268,28 @@ await test('[desktop] Dramatis Personae: hired like a Hired Sword, static, own r
   expect(out.card&&out.rulesPage&&out.progress,'its own rules / static notice are missing: '+JSON.stringify(out));
   expect(!out.catalogue,'its own rules must not enter the rules catalogue');
 });
+await test('[desktop] Dramatis Personae for one game: price from gap and warband, gold or points, unique per game',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const fs=D.factions.filter(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const fa=fs[0],fb=fs[1];
+    state.customFighters=[{customFighterId:'dp-g',name:'Grimgor the Passing',type:'Hired Sword',hiredSword:true,dramatis:true,dpMode:'game',dpGame:{base:100,step:50,perStep:10,factions:[{id:fa.id,mod:-20,banned:false}]},cost:0,upkeep:0,max:1,profile:[4,5,4,4,4,2,4,2,8,8,8,8],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:['Sword'],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Passing Through',text:'Leaves after the game.'}]}];
+    const L=f=>{const w=f.warriors.find(q=>q.type==='Leader');return {...JSON.parse(JSON.stringify(w)),wid:w.id,instance:'L-'+f.id,equipmentSelected:[]}};
+    state.rosters=[{id:'A',name:'Weak',factionId:fa.id,gold:200,fighters:[L(fa)]},{id:'B',name:'Strong',factionId:fb.id,gold:200,fighters:[L(fb)]}];state.active='A';
+    state.playSession={slots:[{source:'own',rosterId:'A',rosterName:'Weak'},{source:'own',rosterId:'B',rosterName:'Strong'}],engaged:{}};const ps=state.playSession;
+    const [A,B]=state.rosters;const eA=playEngEntry(ps,A),eB=playEngEntry(ps,B);eA.picks=[A.fighters[0].instance];eA.total=150;eB.picks=[B.fighters[0].instance];eB.total=300;
+    const inHirePool=hiredSwordsFor(fa,A).some(w=>w.name==='Grimgor the Passing');const w=hiredSwordsFor(fb,B,'dp')[0];
+    const pA=dpGamePrice(w,ps,A).price,pB=dpGamePrice(w,ps,B).price;
+    playDpPick('B',w.id,'gold');const goldAfter=B.gold;const tB=playEngEntry(ps,B).ud.temps.find(t=>t.kind==='dp');
+    playDpPick('A',w.id,'gold');const aTook=playEngEntry(ps,A).ud.temps.some(t=>t.kind==='dp');
+    playDpDrop('B');const refunded=state.rosters.find(r=>r.id==='B').gold;
+    const sum=hiredSwordsRulesPageMarkup();
+    return {inHirePool,found:!!w,pA,pB,goldAfter,dramatis:!!tB?.fighter?.dramatis,aTook,refunded,sum:/POUR UNE PARTIE|FOR ONE GAME/.test(sum)};
+  });
+  expect(out.found&&!out.inHirePool,'a one-game-only DP must not be in the hire pool but must be offered for the game: '+JSON.stringify(out));
+  expect(out.pB===130&&out.pA===50,'price: 100 base, ±10 per 50 pts of gap, -20 for the warband: '+JSON.stringify(out));
+  expect(out.goldAfter===70&&out.dramatis,'gold payment failed: '+JSON.stringify(out));
+  expect(!out.aTook,'the same DP was taken by two warbands in one game');
+  expect(out.refunded===200&&out.sum,'drop must refund the gold / rules page must show the one-game price: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
