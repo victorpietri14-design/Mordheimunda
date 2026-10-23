@@ -5082,4 +5082,13 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .dp-rule-name{border-bottom:1px dotted var(--muted);cursor:help}
 .dp-rule-row{display:grid;grid-template-columns:minmax(120px,200px) 1fr auto;gap:8px;align-items:start;margin-bottom:8px}
 @media (max-width:600px){.dp-rule-row{grid-template-columns:1fr auto}.dp-rule-row textarea{grid-column:1/-1}}
+.dp-game-form{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line,rgba(255,255,255,.15))}
+.dp-game-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.dp-fac-row{display:grid;grid-template-columns:1fr 90px auto auto;gap:8px;align-items:center;margin:6px 0}
+.dp-fac-ban{display:flex;gap:4px;align-items:center;font-size:12px;white-space:nowrap}
+@media (max-width:600px){.dp-fac-row{grid-template-columns:1fr 80px}}
+.dp-game-sum p{margin:2px 0 0;font-size:13px}
+.dp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:10px 0;padding:8px 10px;border:1px solid rgba(215,169,75,.45);border-radius:10px}
+.dp-pay{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dp-pay .button{flex:1 1 140px}
 .dp-check{margin-top:6px}
