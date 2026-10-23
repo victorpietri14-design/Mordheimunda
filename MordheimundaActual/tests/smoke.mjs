@@ -228,6 +228,20 @@ await test('[desktop] stash: an Unrestricted custom item can be given to a hero'
   expect(!out.ok[1],'an item linked to another warband only should stay refused');
   expect(out.given,'the Elven Boots were not given to the Leader');
 });
+await test('[desktop] weapon category bonus: "melee weapons +1 Strength and -1 AP" boosts the weapons, not the fighter',null,async page=>{
+  const out=await page.evaluate(()=>{
+    const sword=D.weapons.find(w=>w.name==='Sword'),bow=D.weapons.find(w=>w.name==='Bow');
+    state.customEquipment=[{customEquipmentId:'t-gl',name:'Brute Gloves',type:'equipment',category:'Équipements divers',price:10,rulesText:'Les armes de mêlée de ce combattant ont +1 Force et -1 AP.'}];
+    const x={name:'X',type:'Champion',profile:[4,4,3,3,3,1,3,1,7,7,7,7],equipmentSelected:[{...sword},{...bow},{name:'Brute Gloves',customEquipmentId:'t-gl',category:'Équipements divers',price:10}]};
+    syncCustomEquipmentEffects(x);
+    return {S:x.profile[3],sword:fighterWeaponView(x,x.equipmentSelected[0]).profile,bow:fighterWeaponView(x,x.equipmentSelected[1]).profile,
+      ranged:weaponModsInText('Ranged weapons have +6" range.',null)[0]?.range,cond:weaponModsInText('Ses armes de tir gagnent +1 Force quand il ne bouge pas.',null).length}});
+  expect(out.S===3,'the fighter\'s Strength changed: '+out.S);
+  expect(out.sword.strength==='S+1'&&out.sword.ap==='-1','the melee weapon should be S+1 / AP -1: '+JSON.stringify(out.sword));
+  expect(out.bow.ap==='-'&&!/\+/.test(String(out.bow.strength)),'the bow should not change: '+JSON.stringify(out.bow));
+  expect(out.ranged===6,'ranged range bonus not read: '+out.ranged);
+  expect(out.cond===0,'a conditional weapon bonus should not apply for good');
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0707.0';
+const APP_BUILD='110.0708.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14692,7 +14692,7 @@ function fighterSpellsCardMarkup(x){
  const spells=Array.isArray(x.spells)?x.spells:[];
  return spells.length?`<div><span class="micro-label">${en?'SPELLS':'SORTS'}</span><p>${spells.map(s=>refLink('spells',s)).join(' · ')}</p></div>`:'';
 }
-function ownedFighterCard(x,i,f){const en=siteLanguage==='en';if(isHiredSword(x)&&x.hsLeft)return hiredSwordLeftCardMarkup(x,i,f);const weapons=[...(x.equipmentSelected||[]).filter(e=>isWeaponLike(e)).map(e=>fighterWeaponView(x,e)),...(fighterHasMisericordia(x)?[MISERICORDIA]:[]),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div>${isHiredSword(x)?hiredSwordUpkeepBadge(x):`<div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div>`}</div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!isWeaponLike(e)).map(e=>eqNameLink(e)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div></article>`}
+function ownedFighterCard(x,i,f){const en=siteLanguage==='en';if(isHiredSword(x)&&x.hsLeft)return hiredSwordLeftCardMarkup(x,i,f);const weapons=[...(x.equipmentSelected||[]).filter(e=>isWeaponLike(e)).map(e=>fighterWeaponView(x,e)),...(fighterHasMisericordia(x)?[fighterWeaponView(x,MISERICORDIA)]:[]),...fighterSpellWeapons(x)];const mount=findEquippedMount(x);const instance=x.instance||`legacy-${i}`;const st=fighterStatus(x);if(st.recovery||st.captured||st.dead||st.critical)return `<article class="fighter-card-v5 owned-card draggable-fighter fighter-card-status-reduced" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-reduced-main"><div class="fighter-reduced-name"><span class="fighter-sigil">${factionSigils[f.id]||'◆'}</span><h4>${esc(x.name)}</h4></div><div class="fighter-reduced-visual">${st.recovery?`<span class="fighter-card-status-icon recovery" title="${en?'In recovery':'En récupération'}">✚</span>`:''}${st.captured?`<span class="fighter-card-status-icon captured" title="${en?'Captured':'Capturé'}">⛓</span>`:''}${st.dead?`<span class="fighter-card-status-icon dead" title="${en?'Dead':'Mort'}">☠</span>`:''}${st.critical&&!st.dead?`<span class="fighter-card-status-icon critical" title="${en?'Critical condition':'État critique'}">⚠</span>`:''}<div class="fighter-reduced-avatar">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</div></div></div></article>`;const roleClass=esc(x.type.toLowerCase().replace(/\s+/g,'-'));return `<article class="fighter-card-v5 owned-card draggable-fighter" data-fighter-index="${i}" data-instance="${esc(instance)}" tabindex="0" role="button"><div class="fighter-top"><div class="fighter-ident"><button type="button" class="fighter-avatar-square" title="${en?'Import / replace fighter image':'Importer / remplacer l’image du combattant'}" onclick="event.stopPropagation();pickImage('fighter-card',${i})">${imageMarkup(x.image,'fighter',en?`Portrait of ${x.name}`:`Portrait de ${x.name}`,x.imageFocus)}</button><div><h4>${esc(x.name)}</h4>${(()=>{const bn=fighterBaseName(x,f);return bn&&normName(bn)!==normName(x.name)?`<div class="fighter-subline fighter-sourcename-sub">${esc(bn)}</div>`:''})()}<div class="fighter-badge-row"><span class="role-badge role-${roleClass}">${esc(x.type)}</span><span class="fighter-race-badge">${esc(fighterRace(x,f))}</span>${mount?`<span class="fighter-mount-badge">🐎 ${esc(mount.name)}</span>`:''}</div><div class="fighter-subline">${Number(x.xp||0)} XP</div></div></div>${isHiredSword(x)?hiredSwordUpkeepBadge(x):`<div class="fighter-cost-badge role-${roleClass}"><strong>${fighterValue(x,f)}</strong><span>GC</span></div>`}</div>${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}${x.packModifiers?.length?`<div class="pack-modifiers"><span class="micro-label">${en?'PACK MODIFIERS':'MODIFICATEURS DU PACK'}</span><p>${x.packModifiers.map(m=>esc(m.rule+' · '+m.stat+' '+(m.amount>0?'+':'' )+m.amount)).join(' · ')}</p></div>`:''}${mount?mountCardMarkup(mount):''}${weapons.length?`<div class="card-weapons">${weapons.map(w=>weaponProfileMarkup(w,x)).join('')}</div>`:''}<div class="fighter-card-sections"><div><span class="micro-label">WARGEAR</span><p>${x.equipmentSelected?.length?x.equipmentSelected.filter(e=>!isWeaponLike(e)).map(e=>eqNameLink(e)).join(' · '):(en?'None':'Aucun')}</p></div>${fighterSkillsCardMarkup(x)}${fighterSpellsCardMarkup(x)}<div><span class="micro-label">${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><p>${fighterRuleNames(x,f).length?fighterRuleNames(x,f).map(n=>refLink('special',n)).join(' · '):'—'}</p></div><div><span class="micro-label">LASTING INJURIES</span><p>${x.injuries?.length?x.injuries.map(inj=>esc(typeof inj==='object'?inj.name:inj)).join(' · '):(en?'None':'Aucune')}</p></div></div></article>`}
 function filterFighters(){const q=($('#fighterSearch')?.value||'').toLowerCase(),t=$('#typeFilter')?.value||'';document.querySelectorAll('.fighter-row').forEach(x=>x.style.display=(!q||x.dataset.name.includes(q))&&(!t||x.dataset.type===t)?'':'none')}
 function openFighterCard(index){const r=activeRoster();if(!r||!r.fighters[index])return;editingIndex=index;equipmentTab='band';equipmentCategoryFilter='all';equipmentSearch='';equipmentOpen=false;loadoutView='loadout';fighterTab='skills';statsOpen=false;progressionOpen=false;progressionSubtab='stats';skillPickerOpen=false;injuryPickerOpen=false;lastInjuryRoll=null;magicDomainAddOpen=false;magicDomainAddSearch='';render('fighter')}
 function weaponSlots(e){if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return e?.weaponSlotCost!=null?Number(e.weaponSlotCost):1;if(!isWeaponLike(e))return 0;if(e?.weaponSlotCost!=null)return Number(e.weaponSlotCost);const t=(e?.profile?.traits||'').toLowerCase();if(/two[- ]handed/.test(t))return 2;if(['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'].includes(e?.name))return 1;if(/paired/.test(t))return 2;if(['Unarmed','Natural Weapons','Tail Blade'].includes(e?.name))return 0;return 1}
@@ -16612,6 +16612,16 @@ function weaponScopedTarget(sentence,names){
   }
   return null;
 }
+// V-WEAPONCATBONUS: "Les armes de mêlée de ce combattant ont +1 Force et
+// -1 AP", "his close combat weapons gain +1 Strength", "ranged weapons have
+// +6\" range": a bonus aimed at a CATEGORY of weapons, not at the fighter.
+function weaponCategoryScope(sentence){
+  const t=String(sentence||'');
+  if(/\b(?:melee|close[- ]combat|hand[- ]to[- ]hand)\s+(?:weapons?|attacks?)\b|\barmes?\s+(?:de\s+)?(?:m[êe]l[ée]e|corps[- ]?[àa][- ]?corps|cac|contact)\b|\battaques?\s+(?:de\s+|au\s+)?(?:m[êe]l[ée]e|corps[- ]?[àa][- ]?corps|cac)\b/i.test(t))return 'melee';
+  if(/\b(?:ranged|missile|shooting|blackpowder|black powder)\s+(?:weapons?|attacks?)\b|\barmes?\s+(?:de\s+tir|[àa]\s+distance|de\s+jet|[àa]\s+poudre)\b|\btirs?\s+de\s+ce\b/i.test(t))return 'ranged';
+  if(/\ball\s+(?:of\s+)?(?:his|her|their|its|the(?:\s+fighter['’]s|\s+warrior['’]s)?)\s+weapons\b|\b(?:his|her|their|its)\s+weapons\b|\btoutes?\s+(?:ses|les)\s+armes\b|\bses\s+armes\b|\bles\s+armes\s+de\s+ce\b/i.test(t))return 'all';
+  return null;
+}
 function detectStatBonusesInText(rawText,ctx,opts){
   try{
     const text=String(rawText||'');
@@ -16625,7 +16635,7 @@ function detectStatBonusesInText(rawText,ctx,opts){
       if(mode!=='set'&&!delta)return;
       const own=statBonusOwnSentence(text,idx,len);
       if(!subtypeGate(own))return;
-      const weapon=weaponNames.length&&stat!=='SAVE'?weaponScopedTarget(own,weaponNames):null;
+      const weapon=stat==='SAVE'?null:((weaponNames.length?weaponScopedTarget(own,weaponNames):null)||(weaponCategoryScope(own)?'@'+weaponCategoryScope(own):null));
       if(!!opts?.weapons!==!!weapon)return;
       // one armour-save bonus per stretch of text, whichever pattern found it
       if(stat==='SAVE'){if(saveSpans.some(([a,b])=>idx<b&&idx+len>a))return;saveSpans.push([idx,idx+len])}
@@ -17413,22 +17423,64 @@ function liveEquipmentView(e){
   if(!def)return e;
   return {...e,name:def.name||e.name,category:def.category||e.category,subcategory:def.subcategory||e.subcategory,rarity:def.rarity??e.rarity,availability:def.availability??e.availability,profile:def.profile||e.profile||null,profile2:(e.customEquipmentId&&def.customEquipmentId===e.customEquipmentId)?(def.profile2||null):(def.profile2||e.profile2||null),traits:def.traits??e.traits,rulesText:def.rulesText??e.rulesText,creatureProfile:def.creatureProfile||e.creatureProfile||null,creatureSv:def.creatureSv??e.creatureSv};
 }
-// V-WEAPONSCOPEDBONUS: one weapon of this fighter as shown on its sheet,
-// with the bonuses its other items give to that weapon only (e.g. Oversized
-// Jaws: +1 Strength to the Bite Attack → S becomes S+1).
+// V-WEAPONCATBONUS: weapon modifiers written in a rule text, sentence by
+// sentence: each sentence that targets one weapon the fighter carries
+// ("his bite attack") or a category of weapons (melee / ranged / all) gives
+// its Strength, AP, Damage and Range modifiers to the matching weapons.
+// "+ Force" with no number counts as +1. A conditional sentence ("when
+// charging", "if…") is left out.
+function weaponModsInText(text,x){
+  const out=[];const names=x?fighterCarriedWeaponNames(x):[];
+  String(text||'').split(/(?<=[.!?;])\s+|\n+/).forEach(sen=>{
+    if(!sen.trim())return;
+    const target=(names.length?weaponScopedTarget(sen,names):null)||(weaponCategoryScope(sen)?'@'+weaponCategoryScope(sen):null);if(!target)return;
+    if(CONDITIONAL_TRIGGER_PATTERNS.some(re=>re.test(sen)))return;
+    const N='([+\\-−–])\\s*(\\d*)';const val=(sg,d)=>(/[\-−–]/.test(sg)?-1:1)*(d?Number(d):1);
+    const grab=(fwd,rev)=>{let m=new RegExp(fwd,'i').exec(sen);if(m)return val(m[1],m[2]);if(rev){m=new RegExp(rev,'i').exec(sen);if(m)return val(m[1],m[2])}return 0};
+    const mod={target,
+      strength:grab(N+"\\s*(?:to\\s+|en\\s+|de\\s+|à\\s+(?:la\\s+)?|a\\s+|d['’]\\s*)?(?:strength|str|force)\\b","\\b(?:strength|force)\\s*"+N),
+      ap:grab(N+"\\s*(?:to\\s+|en\\s+|de\\s+|d['’]\\s*)?(?:AP|PA|armou?r[- ]piercing|perforation)\\b","\\b(?:AP|PA)\\s*"+N),
+      damage:grab(N+"\\s*(?:to\\s+|en\\s+|de\\s+|aux?\\s+)?(?:damage|dégâts?|degats?|dommages?|dmg)\\b","\\b(?:damage|dégâts?|degats?|dommages?)\\s*"+N),
+      range:grab(N+"\\s*(?:[\"”″]|pouces?|inch(?:es)?)?\\s*(?:to\\s+|en\\s+|de\\s+|d['’]\\s*)?(?:range|portée|portee|reach|allonge)\\b","\\b(?:range|portée|portee)\\s*"+N)};
+    if(mod.strength||mod.ap||mod.damage||mod.range)out.push(mod);
+  });
+  return out;
+}
+// Every rule text that can modify this fighter's weapons: its items, skills,
+// spells and special rules (rule overrides honoured).
+function fighterWeaponModTexts(x){
+  const texts=[];
+  (x?.equipmentSelected||[]).forEach(it=>{
+    const live=isCustomEquipment(it)?((typeof liveEquipmentDef==='function'?liveEquipmentDef(it):null)||it):null;
+    if(live){if(live.rulesText)texts.push(live.rulesText);return}
+    try{const et=equipmentEffectiveText(it.name,true);if(et?.ge&&et.override)texts.push(et.text)}catch(err){}
+  });
+  const scan=(names,cat)=>(Array.isArray(names)?names:[]).forEach(name=>{const e=referenceFind(cat,name);if(!e)return;const o=ruleMechanicsText(referenceOverrideSectionId(cat,e.id),0);const t=o!=null?o:e.text;if(t)texts.push(t)});
+  try{scan(x?.skills,'skills');scan(x?.spells,'spells');scan(fighterRuleNames(x,faction(activeRoster())),'special')}catch(err){}
+  return texts;
+}
+function weaponIsRanged(p){return !!p&&/^\s*\d/.test(String(p.range||''))}
+function bumpWeaponRange(v,d){const s=String(v??'').trim();const m=s.match(/^(\d+)(.*)$/);if(m)return `${Math.max(0,Number(m[1])+d)}${m[2]}`;return coveringBump('range',v,d)}
+// V-WEAPONSCOPEDBONUS / V-WEAPONCATBONUS: one weapon of this fighter as shown
+// on its sheet, with the modifiers its rules give to that weapon or to its
+// category (e.g. Oversized Jaws: Bite Attack S → S+1; "melee weapons +1
+// Strength and -1 AP": every melee weapon S → S+1, AP - → -1).
 function fighterWeaponView(x,e){
   const v=liveEquipmentView(e);
-  if(!x||!v?.profile||!Array.isArray(x.equipmentSelected))return v;
-  let ds=0;
-  x.equipmentSelected.forEach(it=>{
-    const live=isCustomEquipment(it)?((typeof liveEquipmentDef==='function'?liveEquipmentDef(it):null)||it):null;
-    let text=live?live.rulesText:'';
-    if(!live){try{const et=equipmentEffectiveText(it.name,true);if(et?.ge&&et.override)text=et.text}catch(err){}}
-    if(!text)return;
-    detectStatBonusesInText(text,x,{weapons:true}).forEach(b=>{if(!b.conditional&&(b.mode||'delta')==='delta'&&b.index===3&&normName(b.weapon)===normName(v.name))ds+=Number(b.delta)||0});
-  });
-  if(!ds)return v;
-  return {...v,profile:{...v.profile,strength:coveringBump('strength',v.profile.strength,ds)}};
+  if(!x||!v?.profile)return v;
+  const melee=coveringIsMelee(v.profile),ranged=weaponIsRanged(v.profile);
+  const sum={strength:0,ap:0,damage:0,range:0};
+  fighterWeaponModTexts(x).forEach(t=>weaponModsInText(t,x).forEach(m=>{
+    const hit=m.target==='@all'||(m.target==='@melee'&&melee)||(m.target==='@ranged'&&ranged)||normName(m.target)===normName(v.name);
+    if(hit)['strength','ap','damage','range'].forEach(k=>sum[k]+=m[k]||0);
+  }));
+  if(!sum.strength&&!sum.ap&&!sum.damage&&!sum.range)return v;
+  const p={...v.profile};
+  if(sum.strength)p.strength=coveringBump('strength',p.strength,sum.strength);
+  if(sum.ap)p.ap=coveringBump('ap',p.ap,sum.ap);
+  if(sum.damage)p.damage=coveringBump('damage',p.damage,sum.damage);
+  if(sum.range)p.range=bumpWeaponRange(p.range,sum.range);
+  return {...v,profile:p,ruleBoosted:true};
 }
 // V-POOLSCOPEALL: server.js's toOfficialFaction marks an item officialized
 // to the "No warband (available to every warband)" content pool with the
