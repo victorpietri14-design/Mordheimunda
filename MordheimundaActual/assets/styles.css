@@ -5057,3 +5057,9 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .equipment-choice .covering-chip{flex:0 0 auto}
 .covering-heroes{margin:10px 0 4px}
 [data-covering-show]{display:none}.custom-form-covering [data-covering-show]{display:block;margin:6px 0 10px}
+/* V-SCNFORMAT: shared rule-text toolbar on the scenario editor */
+.scn-format-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--bg);padding:8px 0 10px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.scn-format-bar .rule-edit-toolbar{margin-bottom:6px}
+.scn-format-target{font-size:11px;color:var(--muted)}
+.scn-rich{white-space:normal}
+.scn-rich>:first-child{margin-top:0}.scn-rich>:last-child{margin-bottom:0}

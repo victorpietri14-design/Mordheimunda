@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0704.0';
+const APP_BUILD='110.0705.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3888,9 +3888,19 @@ function ruleImageDataUrl(file){
     reader.readAsDataURL(file);
   });
 }
+// V-SCNFORMAT: the rule-text toolbar can write into another textarea than
+// the rules editor's own (#ruleEditTextarea): the scenario editor points
+// ruleEditTargetId at whichever of its text fields has the cursor.
+let ruleEditTargetId=null;
+function ruleEditTarget(){
+ const el=ruleEditTargetId?document.getElementById(ruleEditTargetId):null;
+ if(el)return el;
+ if(document.querySelector('.scn-format-bar')){toast(siteLanguage==='en'?'Click in one of the scenario text fields first':'Clique d’abord dans un des champs de texte du scénario');return null}
+ return document.getElementById('ruleEditTextarea');
+}
 function insertRuleEditToken(kind){
  const en=siteLanguage==='en';
- const el=document.getElementById('ruleEditTextarea');
+ const el=ruleEditTarget();
  if(!el)return;
  const start=el.selectionStart??el.value.length,end=el.selectionEnd??el.value.length;
  const before=el.value.slice(0,start),selected=el.value.slice(start,end),after=el.value.slice(end);
@@ -3953,7 +3963,7 @@ function ruleTableEditorSerialize(){
 }
 function openRuleTableEditor(){
  const en=siteLanguage==='en';
- const el=document.getElementById('ruleEditTextarea');if(!el)return;
+ const el=ruleEditTarget();if(!el)return;
  ruleTableEditorRows=null;ruleTableEditorSelRange=null;
  const start=el.selectionStart??0,end=el.selectionEnd??0;
  const selected=el.value.slice(start,end);
@@ -3990,7 +4000,7 @@ function ruleTableEditorRemoveCol(j){if(ruleTableEditorRows[0].length<=1)return;
 function ruleTableEditorCellInput(i,j,value){if(ruleTableEditorRows[i]&&ruleTableEditorRows[i][j])ruleTableEditorRows[i][j].text=value;}
 function ruleTableEditorToggleHi(i,j){ruleTableEditorRows[i][j].hi=!ruleTableEditorRows[i][j].hi;renderRuleTableEditorOverlay();}
 function ruleTableEditorInsert(){
- const el=document.getElementById('ruleEditTextarea');if(!el||!ruleTableEditorRows)return;
+ const el=ruleEditTarget();if(!el||!ruleTableEditorRows)return;
  // Cells update their own data on every keystroke via oninput, but a redraw
  // (add/remove row or column) rebuilds all the <input> elements, so pick up
  // whatever's live in the DOM right now too, just in case.
@@ -9389,16 +9399,16 @@ function playSessionMarkupBase(){
 
    <section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Battlefield':'Champ de Bataille'}</div>
      <p style="margin:0 0 10px;font-size:13px;color:var(--text-dim)"><strong>${en?'Terrain:':'Terrain :'}</strong> ${esc(s.battlefield?.terrainType||'—')}</p>
-     <p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.battlefield?.setupInstructions||'')}</p>
+     <div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.battlefield?.setupInstructions||'')}</div>
    </section>
 
    <section class="scn-sec"><span class="scn-secnum">02</span><div class="scn-sectitle">${en?'Attacker & Defender':'Attaquant & Défenseur'}</div>
-     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.attacker||'')}</p></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.defender||'')}</p></div></div>
+     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.attacker||'')}</div></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.defender||'')}</div></div></div>
    </section>
 
-   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.preparation.text||'')}</p></section>`:''}
+   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.preparation.text||'')}</div></section>`:''}
 
-   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioSpecialRulesText(s))}</p></section>`:''}
+   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioSpecialRulesText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">05</span><div class="scn-sectitle">${en?'Warbands (How Many)':'Bandes (Combien)'}</div>
      <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
@@ -9413,7 +9423,7 @@ function playSessionMarkupBase(){
      </div>
    </section>
 
-   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioUnderdogBonusText(s))}</p></section>`:''}
+   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioUnderdogBonusText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">07</span><div class="scn-sectitle">${en?'Deployment':'Déploiement'}</div>
      ${playDeploymentBlockMarkup(ps,s,en,sizes)}
@@ -9422,13 +9432,13 @@ function playSessionMarkupBase(){
    ${(s.experience||[]).length?`<section class="scn-sec"><span class="scn-secnum">08</span><div class="scn-sectitle">${en?'Experience':'Expérience'}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">${s.experience.map(x=>`<div style="background:var(--bg);border-radius:4px;padding:10px 12px"><strong style="font-size:12.5px;color:var(--text)">${esc(x.name)}</strong><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${esc(x.text)}</div></div>`).join('')}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">09</span><div class="scn-sectitle">${en?'Objectives':'Objectifs'}</div>
-     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${esc(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${esc(s.objectives.secondary)}</div>`:''}</div>
+     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${scenarioText(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(s.objectives.secondary)}</div>`:''}</div>
    </section>
 
-   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.endCondition||'')}</p></section>
+   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.endCondition||'')}</div></section>
 
    <section class="scn-sec"><span class="scn-secnum">11</span><div class="scn-sectitle">${en?'Victory':'Victoire'}</div>
-     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${esc(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${esc(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${esc(s.victory.draw)}</div>`:''}</div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
    </section>
 
    ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${esc(r)}</div>`).join('')}</div></section>`:''}
@@ -10487,16 +10497,16 @@ function scenarioDetail(){
 
    <section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Battlefield':'Champ de Bataille'}</div>
      <p style="margin:0 0 10px;font-size:13px;color:var(--text-dim)"><strong>${en?'Terrain:':'Terrain :'}</strong> ${esc(s.battlefield?.terrainType||'—')}</p>
-     <p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.battlefield?.setupInstructions||'')}</p>
+     <div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.battlefield?.setupInstructions||'')}</div>
    </section>
 
    <section class="scn-sec"><span class="scn-secnum">02</span><div class="scn-sectitle">${en?'Attacker & Defender':'Attaquant & Défenseur'}</div>
-     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.attacker||'')}</p></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.roles?.defender||'')}</p></div></div>
+     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.attacker||'')}</div></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.defender||'')}</div></div></div>
    </section>
 
-   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.preparation.text||'')}</p></section>`:''}
+   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.preparation.text||'')}</div></section>`:''}
 
-   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioSpecialRulesText(s))}</p></section>`:''}
+   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioSpecialRulesText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">05</span><div class="scn-sectitle">${en?'Warbands (How Many)':'Bandes (Combien)'}</div>
      <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
@@ -10511,13 +10521,13 @@ function scenarioDetail(){
      </div>
    </section>
 
-   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${esc(scenarioUnderdogBonusText(s))}</p></section>`:''}
+   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioUnderdogBonusText(s))}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">07</span><div class="scn-sectitle">${en?'Deployment':'Déploiement'}</div>
      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
        <div class="scn-map-slot">${drawnMap?`<div onclick="openDeploymentMapLightbox()" style="cursor:zoom-in">${deploymentMapPreviewMarkup(drawnMap,{forceDims:true})}</div><span class="chip">#${drawnMap.number} ${esc(drawnMap.name||'')}</span>`:`<span style="color:var(--muted);font-size:12px;text-align:center">${en?'No map drawn yet':'Aucune carte tirée'}</span>`}<button type="button" class="dash-btn-primary" onclick="drawDeploymentMap('${esc(s.id)}')">⟳ ${en?'Generate a map':'Générer une carte'}</button></div>
        <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:12px">
-         <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:5px">${en?'Table edges':'Bords de table'}</div><p style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${esc(s.deployment?.tableEdgeRule||'')}</p></div>
+         <div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:5px">${en?'Table edges':'Bords de table'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.deployment?.tableEdgeRule||'')}</div></div>
          ${(s.deployment?.zones||[]).length?`<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:5px">${en?'Zones':'Zones'}</div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.deployment.zones.map(z=>`<span class="chip">${esc(z)}</span>`).join('')}</div></div>`:''}
        </div>
      </div>
@@ -10526,13 +10536,13 @@ function scenarioDetail(){
    ${(s.experience||[]).length?`<section class="scn-sec"><span class="scn-secnum">08</span><div class="scn-sectitle">${en?'Experience':'Expérience'}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">${s.experience.map(x=>`<div style="background:var(--bg);border-radius:4px;padding:10px 12px"><strong style="font-size:12.5px;color:var(--text)">${esc(x.name)}</strong><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${esc(x.text)}</div></div>`).join('')}</div></section>`:''}
 
    <section class="scn-sec"><span class="scn-secnum">09</span><div class="scn-sectitle">${en?'Objectives':'Objectifs'}</div>
-     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${esc(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${esc(s.objectives.secondary)}</div>`:''}</div>
+     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${scenarioText(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(s.objectives.secondary)}</div>`:''}</div>
    </section>
 
-   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><p style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${esc(s.endCondition||'')}</p></section>
+   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.endCondition||'')}</div></section>
 
    <section class="scn-sec"><span class="scn-secnum">11</span><div class="scn-sectitle">${en?'Victory':'Victoire'}</div>
-     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${esc(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${esc(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${esc(s.victory.draw)}</div>`:''}</div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
    </section>
 
    ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${esc(r)}</div>`).join('')}</div></section>`:''}
@@ -10603,6 +10613,18 @@ function initScenarioEditorAutoGrow(){document.querySelectorAll('.scn-autogrow')
 // array-shaped data (old scenarios saved before the fix) into one readable
 // paragraph so it still displays — and gets converted to a plain string for
 // good the next time that scenario is saved.
+// V-SCNFORMAT: a scenario text written with the rule toolbar (table, title,
+// bullet, mini title, colored text, picture) is shown like rules text; a
+// plain text keeps showing exactly as before.
+const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en place'],seAttacker:['Attacker rule','Règle — Attaquant'],seDefender:['Defender rule','Règle — Défenseur'],sePrepText:['Preparation text','Texte de préparation'],seSpecialRules:['Special rules text','Texte des règles spéciales'],seUnderdog:['Underdog bonus','Underdogs Bonus'],seTableEdge:['Table edge rule','Règle des bords de table'],seObjPrimary:['Primary objective','Objectif principal'],seObjSecondary:['Secondary objective','Objectif secondaire'],seEndCondition:['End of game','Fin de partie'],seVictoryMajor:['Major victory','Victoire majeure'],seVictoryMinor:['Minor victory','Victoire mineure'],seVictoryDraw:['Draw','Match nul']};
+function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
+function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{})}</div>`:esc(v)}
+function scenarioFormatFocus(ev){
+  const t=ev.target;if(!t||t.tagName!=='TEXTAREA')return;
+  const en=siteLanguage==='en';const lab=document.getElementById('scnFormatTarget');
+  if(SCN_RICH_FIELDS[t.id]){ruleEditTargetId=t.id;if(lab)lab.textContent=(en?'Formatting goes into: ':'La mise en forme va dans : ')+SCN_RICH_FIELDS[t.id][en?0:1];}
+  else{ruleEditTargetId=null;if(lab)lab.textContent=en?'This field takes plain text only':'Ce champ prend seulement du texte simple';}
+}
 function scenarioSpecialRulesText(s){
   const v=s?.specialRules;
   if(typeof v==='string')return v;
@@ -10794,10 +10816,12 @@ function scenarioEditorPanel(){
   const maps=DEPLOYMENT_MAPS_CACHE||[];
   const selectedMapIds=new Set(d.deployment?.mapIds||[]);
   const curTableSizes=(Array.isArray(d.tableSizes)&&d.tableSizes.length)?d.tableSizes:['48x48'];
-  return `<div class="admin-page">
+  return `<div class="admin-page" onfocusin="scenarioFormatFocus(event)">
    <div class="page-intro"><div><div class="eyebrow">ADMIN / SCENARIOS</div><h2>${adminScenarioEditId?(en?'Edit scenario':'Modifier le scénario'):(en?'New scenario':'Nouveau scénario')}</h2></div>
      <div style="display:flex;gap:8px"><button type="button" class="button secondary" onclick="closeScenarioEditor()">${en?'Cancel':'Annuler'}</button><button type="button" class="dash-btn-primary" onclick="saveScenarioEditor()">✓ ${en?'Save':'Enregistrer'}</button></div>
    </div>
+
+   <div class="scn-format-bar">${ruleEditToolbarMarkup('',en?'Same formatting as the rules: click in a text field, then use the buttons.':'Même mise en forme que les règles : clique dans un champ de texte, puis utilise les boutons.')}<div class="scn-format-target" id="scnFormatTarget">${en?'Click in a text field to format it':'Clique dans un champ de texte pour le mettre en forme'}</div></div>
 
    <section class="scn-sec"><div class="scn-sectitle">${en?'Identity & Category':'Identité & Catégorie'}</div>
      <div class="scn-row2">

@@ -186,6 +186,20 @@ await test('[desktop] weapon-scoped bonus: Oversized Jaws improves the Bite Atta
   expect(out.view==='S+1','the Bite Attack should show S+1, got '+out.view);
   expect(out.s2===5,'a plain "+1 Strength" item should still raise the profile: '+out.s2);
 });
+await test('[desktop] scenario editor: rule toolbar writes into the focused field, tables render',null,async page=>{
+  const out=await page.evaluate(()=>{
+    adminScenarioEditId=null;adminScenarioEditData=blankScenarioDraft();
+    document.querySelector('#content').innerHTML=scenarioEditorPanel();
+    const ta=document.getElementById('seSpecialRules');ta.focus();ta.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));
+    ta.value='Intro.';ta.setSelectionRange(6,6);insertRuleEditToken('table');
+    const z=document.getElementById('seZones');z.focus();z.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));
+    return {bar:!!document.querySelector('.scn-format-bar .rule-edit-toolbar'),inserted:ta.value.includes('[TABLE]'),zoneTarget:ruleEditTargetId,table:/<table/i.test(scenarioText(ta.value)),plain:scenarioText('One line.\nTwo <b>')}});
+  expect(out.bar,'the scenario editor has no formatting toolbar');
+  expect(out.inserted,'the table was not inserted into the focused field');
+  expect(out.zoneTarget===null,'a list field (zones) should not take formatting');
+  expect(out.table,'a [TABLE] block in a scenario text does not render as a table');
+  expect(out.plain==='One line.\nTwo &lt;b&gt;','a plain scenario text should stay plain and escaped: '+out.plain);
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');
