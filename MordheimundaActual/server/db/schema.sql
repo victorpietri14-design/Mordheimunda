@@ -431,6 +431,10 @@ CREATE TABLE IF NOT EXISTS campaign_markets (
   initial JSONB NOT NULL DEFAULT '{}'::jsonb,
   stocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- V-MARKETSELL: an item a player sells into the market that it didn't stock
+-- yet enters it at a premium (key -> price multiplier, 1.5 at first), which
+-- shrinks by 10 % at each later sale of that item, down to its base price.
+ALTER TABLE campaign_markets ADD COLUMN IF NOT EXISTS premium JSONB NOT NULL DEFAULT '{}'::jsonb;
 CREATE TABLE IF NOT EXISTS campaign_trades (
   id UUID PRIMARY KEY,
   campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,

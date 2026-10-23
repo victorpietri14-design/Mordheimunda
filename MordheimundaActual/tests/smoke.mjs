@@ -200,6 +200,22 @@ await test('[desktop] scenario editor: rule toolbar writes into the focused fiel
   expect(out.table,'a [TABLE] block in a scenario text does not render as a table');
   expect(out.plain==='One line.\nTwo &lt;b&gt;','a plain scenario text should stay plain and escaped: '+out.plain);
 });
+await test('[desktop] campaign market: sell from the Stash (present, new at +50 %, exclusive)',null,async page=>{
+  const out=await page.evaluate(async()=>{
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.length);const sword=D.weapons.find(w=>w.name==='Sword');const axe=D.weapons.find(w=>w.name==='Axe');
+    const cid='c-sell';campaignMarketCache.set(cid,{stock:{sword:2},initial:{sword:2},premium:{},trades:[]});
+    state.rosters=[{id:'rs',name:'RS',factionId:f.id,campaignId:cid,gold:0,fighters:[],reserve:[{name:'Sword',price:sword.price,value:sword.price},{name:'Axe',price:axe.price,value:axe.price},{name:'Elf Blade',price:40,value:40,availability:'Rare E 9'}]}];state.active='rs';
+    const r=state.rosters[0];const q=r.reserve.map(e=>stashSaleQuote(r,e));
+    window.MordheimundaAPI.campaignMarketSell=async(id,p)=>{const m=campaignMarketCache.get(id);const present=p.key in m.stock;const stock={...m.stock};const premium={...m.premium};if(present)stock[p.key]++;else{stock[p.key]=1;premium[p.key]=1.5}return {ok:true,present,premiumBefore:1,stock,premium}};
+    sellReserveEquipment(1);await confirmSellReserveEquipment(1,'new',q[1].gold);
+    const m=campaignMarketCache.get(cid);const listed=tradingShopItems(r,'post',campaignMarketPost(r)).find(it=>it.w.name==='Axe');
+    return {kinds:q.map(x=>x.kind),swordGold:q[0].gold,axeGold:q[1].gold,gold:r.gold,axeStock:m.stock.axe,axePrice:listed?.price,axeBase:axe.price,section:/Sell from your Stash|Vendre depuis le Stash/.test(tradingSellSectionMarkup(r)),exclusiveRarity:tradingRarity({availability:'Rare E 9'})}});
+  expect(out.kinds.join()==='present,new,exclusive','sale kinds: '+out.kinds.join());
+  expect(out.axeGold===Math.floor(out.axeBase*0.75)&&out.gold===out.axeGold,'a new item should sell for 75 % of its base: '+JSON.stringify(out));
+  expect(out.axeStock===1&&out.axePrice===Math.round(out.axeBase*1.5),'the sold item should be in the market at base +50 %: '+JSON.stringify(out));
+  expect(out.section,'the Trading Post has no Sell section');
+  expect(out.exclusiveRarity===9,'Rare E 9 should still read as rarity 9');
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');
