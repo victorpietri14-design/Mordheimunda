@@ -380,6 +380,23 @@ await test('[desktop] Lustria maze (five 4s): the lost Hero keeps the effect unt
   expect(out.set&&out.blocked&&out.card,'the maze state is not kept on the hero / he can still be engaged: '+JSON.stringify(out));
   expect(out.g1===1&&out.gone&&out.back,'maze progression is wrong: '+JSON.stringify(out));
 });
+await test('[desktop] exploration effects are applied for real (Well → misses the game, undone by clear; Gold Plaque for Lizardmen)',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&!/possess|undead|skaven|orc/i.test(x.id));const L=f.warriors.find(w=>w.type==='Leader');
+    const hero={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h-well',equipmentSelected:[],status:{},profile:[4,4,4,3,3,1,4,1,7,7,7,7]};
+    state.rosters=[{id:'wl',name:'WL',factionId:f.id,gold:0,fighters:[hero]}];state.active='wl';const r=activeRoster();const p=ensurePostBattleData(r);
+    p.survivingHeroIds=['h-well'];p.dice=[{value:1,selected:true},{value:1,selected:true}];
+    const rnd=Math.random;Math.random=()=>0.99;applyExplorationReward();Math.random=rnd;
+    const st=()=>fighterStatus(activeRoster().fighters[0]);const after=st().recovery;clearExplorationReward();const cleared=!st().recovery;
+    // Lustria Gold Plaque: 200 gc for a Lizardmen warband, no hatred
+    campaignDetailCache.set('gp1',{id:'gp1',name:'GP',members:[],definition:{exploration:{entries:LUSTRIA_EXPLORATION}}});
+    const lz=D.factions.find(x=>/lizard/i.test(x.displayName||x.id));let lizard=null;
+    if(lz){state.rosters=[{id:'lz',name:'LZ',factionId:lz.id,campaignId:'gp1',gold:0,fighters:[]}];state.active='lz';resolveCampaignExplore('6-2');const r2=activeRoster();lizard={gold:r2.gold,hate:explorationBonusList(r2).some(b=>b.id==='lustria-lizard-hate')}}
+    state.rosters=[{id:'nl',name:'NL',factionId:f.id,campaignId:'gp1',gold:0,fighters:[]}];state.active='nl';resolveCampaignExplore('6-2');const r3=activeRoster();
+    return {after,cleared,lizard,other:{gold:r3.gold,hate:explorationBonusList(r3).some(b=>b.id==='lustria-lizard-hate')}}});
+  expect(out.after&&out.cleared,'Well failure must set Recovery and clear must undo it: '+JSON.stringify(out));
+  expect(!out.lizard||(out.lizard.gold===200&&!out.lizard.hate),'Lizardmen must earn 200 gc from the Gold Plaque: '+JSON.stringify(out));
+  expect(out.other.hate&&out.other.gold>=110,'other warbands get the gold and the Lizardmen hatred: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
