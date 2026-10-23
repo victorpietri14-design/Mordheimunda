@@ -337,8 +337,9 @@ await test('[desktop] mount rule "+1 armour save for the rider" improves the rid
 await test('[desktop] weapon slots: armour and mounts never take a weapon slot',null,async page=>{
   const out=await page.evaluate(()=>{const gs=D.weapons.find(w=>w.name==='Great Sword'),sw=D.weapons.find(w=>w.name==='Sword');
     const armour={name:'Spiked plate',category:'Armure',profile:{range:'Melee',strength:'S',ap:'-',damage:'1'}};const mount={name:'Steed',category:'Montures',mountCreatureId:'m9',profile:null,creatureProfile:[8,3,0,3,3,1,3,1,5,5,5,5]};
-    const x={name:'Recruit',type:'Raw Recruit',equipmentSelected:[{...gs},armour,mount]};return {slots:currentWeaponSlots(x),ok:canEquip(x,sw).ok}});
+    const x={name:'Recruit',type:'Raw Recruit',equipmentSelected:[{...gs},armour,mount]};const sh=D.weapons.find(w=>w.name==='Shield');const y={name:'Recruit',type:'Raw Recruit',equipmentSelected:[{...D.weapons.find(w=>w.name==='Halberd'),weaponSlotCost:2},{...sh,weaponSlotCost:1},mount]};return {slots:currentWeaponSlots(x),ok:canEquip(x,sw).ok,halberdShield:currentWeaponSlots(y)}});
   expect(out.slots===2&&out.ok,'armour / mount counted as weapon slots: '+JSON.stringify(out));
+  expect(out.halberdShield===2,'Halberd + Shield + mount must use 2 slots (the shield takes none): '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
