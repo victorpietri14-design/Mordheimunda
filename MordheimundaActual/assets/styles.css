@@ -5109,3 +5109,6 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .hub-artifact>span:nth-child(2){flex:1 1 200px}
 .hub-artifact-ico{font-size:18px}
 .hub-artifact-name{color:var(--gold,#d7a94b);cursor:help}
+.hub-scn{cursor:help;font-weight:700}
+.hub-scn.all{color:var(--gold,#d7a94b)}
+.hub-scn.all::after{content:" ★"}
