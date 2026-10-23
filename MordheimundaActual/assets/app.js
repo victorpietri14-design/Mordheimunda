@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0726.0';
+const APP_BUILD='110.0727.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -9109,19 +9109,6 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
 // takes it back. The library below is the base set; an admin can edit it
 // (Admin → Manage · Quests), stored server-side and loaded over it.
 const QUEST_BASE={trees:[
- // V-RACEQUESTS: race-bound signature trees (scope.races) — added after the
- // first libraries were saved, so they are merged into a saved library too
- // (see questLibrary) unless an admin deleted them.
- {id:'skink',name:'Skink',icon:'🦎',color:'#4fc3a1',addedLater:true,ignoreSkills:true,scope:{races:['Skink']},skillTrees:[],quests:[
-  {id:'skk-darts',name:'Poisoned darts',text:'Take an enemy Out of Action with a shooting attack (blowpipe, javelins…).',xp:2},
-  {id:'skk-ambush',name:'Jungle ambush',text:'Charge an enemy while you were Hidden at the start of your turn.',xp:1},
-  {id:'skk-scout',name:'Swift scout',text:'Be the first model of your warband to reach an objective or the enemy deployment zone.',xp:1},
-  {id:'skk-slippery',name:'Slippery',text:'Break away from a close combat and still be standing at the end of the game.',xp:1}]},
- {id:'saurus',name:'Saurus',icon:'🐊',color:'#5aa36b',addedLater:true,ignoreSkills:true,scope:{races:['Saurus']},skillTrees:[],quests:[
-  {id:'sau-jaws',name:'Jaws of the Old Ones',text:'Take an enemy Out of Action with a bite attack (Oversized Jaws).',xp:2},
-  {id:'sau-warmblood',name:'Slayer of warm-bloods',text:'Take an enemy Hero Out of Action in close combat.',xp:2},
-  {id:'sau-cold',name:'Cold-blooded',text:'Pass every Leadership, Fear and Rout test you take this game.',xp:1},
-  {id:'sau-wall',name:'Scaled wall',text:'Fight 3 rounds of close combat in the same game without going Out of Action.',xp:1}]},
  {id:'commander',name:'Commander',icon:'♛',color:'#f2c94c',skillTrees:['Leadership'],quests:[
   {id:'cmd-headhunter',name:'Headhunter',text:'Take the enemy Leader Out of Action.',xp:3},
   {id:'cmd-holdline',name:'Hold the line',text:'Your warband takes no Rout test before turn 4.',xp:2},
@@ -9200,7 +9187,7 @@ let questLibraryOverride=null;
 // save so a stale editor can't overwrite a newer library.
 let questLibraryState='loading',questLibraryStamp=null;
 async function loadQuestLibrary(){try{const r=await window.MordheimundaAPI.quests();questLibraryOverride=r?.library&&Array.isArray(r.library.trees)?r.library:null;questLibraryStamp=r?.updatedAt||null;questLibraryState='ok';if(adminQuestDraft&&!adminQuestDraft.__dirty)adminQuestDraft=null}catch(e){questLibraryState='error';console.warn('Quest library unavailable',e)}}
-function questLibrary(){const o=questLibraryOverride;if(!o)return QUEST_BASE;const have=new Set((o.trees||[]).map(t=>t.id));const removed=new Set(o.removedBase||[]);const extra=QUEST_BASE.trees.filter(t=>t.addedLater&&!have.has(t.id)&&!removed.has(t.id));return extra.length?{...o,trees:[...(o.trees||[]),...extra]}:o}
+function questLibrary(){return questLibraryOverride||QUEST_BASE}
 function questTrees(){return questLibrary().trees||[]}
 function questTreeById(id){return questTrees().find(t=>t.id===id)||null}
 function questById(id){for(const t of questTrees()){const q=(t.quests||[]).find(q=>q.id===id);if(q)return {...q,tree:t}}return null}
@@ -9399,13 +9386,13 @@ function adminQuestSet(ti,qi,field,v){if(adminQuestDraft)adminQuestDraft.__dirty
 function adminQuestAdd(ti){if(adminQuestDraft)adminQuestDraft.__dirty=true;const t=adminQuestDraft.trees[ti];t.quests=t.quests||[];t.quests.push({id:'q-'+crypto.randomUUID().slice(0,8),name:'',text:'',xp:1});t.__open=true;render('admin')}
 function adminQuestRemove(ti,qi){if(adminQuestDraft)adminQuestDraft.__dirty=true;const t=adminQuestDraft.trees[ti];t.quests.splice(qi,1);t.__open=true;render('admin')}
 function adminQuestAddTree(){if(adminQuestDraft)adminQuestDraft.__dirty=true;adminQuestDraft.trees.push({id:'t-'+crypto.randomUUID().slice(0,8),name:siteLanguage==='en'?'New tree':'Nouvel arbre',icon:'◆',color:'#99d65d',skillTrees:[],quests:[],__open:true});render('admin')}
-function adminQuestRemoveTree(ti){if(adminQuestDraft)adminQuestDraft.__dirty=true;const en=siteLanguage==='en';const t=adminQuestDraft.trees[ti];if(!confirm(en?`Delete the tree “${t.name}”?`:`Supprimer l’arbre « ${t.name} » ?`))return;if(QUEST_BASE.trees.some(b=>b.addedLater&&b.id===t.id)){adminQuestDraft.removedBase=[...new Set([...(adminQuestDraft.removedBase||[]),t.id])]}adminQuestDraft.trees.splice(ti,1);render('admin')}
+function adminQuestRemoveTree(ti){if(adminQuestDraft)adminQuestDraft.__dirty=true;const en=siteLanguage==='en';const t=adminQuestDraft.trees[ti];if(!confirm(en?`Delete the tree “${t.name}”?`:`Supprimer l’arbre « ${t.name} » ?`))return;adminQuestDraft.trees.splice(ti,1);render('admin')}
 async function adminQuestRestoreBackup(){const en=siteLanguage==='en';try{const r=await window.MordheimundaAPI.adminQuestsBackup();if(!r?.library||!Array.isArray(r.library.trees))return toast(en?'No previous save yet':'Pas encore de sauvegarde précédente');if(!confirm(en?`Load the library as it was before the last save (${r.library.trees.length} trees)? Nothing changes until you save.`:`Charger la bibliothèque telle qu’avant le dernier enregistrement (${r.library.trees.length} arbres) ? Rien ne change tant que tu n’enregistres pas.`))return;adminQuestDraft={...JSON.parse(JSON.stringify(r.library)),__dirty:true};render('admin');toast(en?'Previous save loaded — save to apply it':'Sauvegarde précédente chargée — enregistre pour l’appliquer')}catch(e){toast(authError(e,en))}}
 function adminQuestReset(){const en=siteLanguage==='en';if(!confirm(en?'Replace every tree with the base set? Your own trees will be lost once you save.':'Remplacer tous les arbres par le set de base ? Tes propres arbres seront perdus à l’enregistrement.'))return;adminQuestDraft={...JSON.parse(JSON.stringify(QUEST_BASE)),universalXp:JSON.parse(JSON.stringify(UNIVERSAL_XP_BASE)),__dirty:true};render('admin');toast(siteLanguage==='en'?'Base set loaded — save to apply it':'Set de base chargé — enregistre pour l’appliquer')}
 function adminUxSet(i,f,v){if(adminQuestDraft)adminQuestDraft.__dirty=true;const l=adminQuestDraft?.universalXp?.[i];if(!l)return;l[f]=f==='xp'?Math.max(0,Math.min(10,Math.round(Number(v)||0))):f==='repeatable'?!!v:String(v);adminQuestDraft.__uxOpen=true;if(f==='repeatable')render('admin')}
 function adminUxAdd(){if(adminQuestDraft)adminQuestDraft.__dirty=true;adminQuestDraft.universalXp.push({id:'ux-'+crypto.randomUUID().slice(0,8),name:'',xp:1,repeatable:false});adminQuestDraft.__uxOpen=true;render('admin')}
 function adminUxRemove(i){if(adminQuestDraft)adminQuestDraft.__dirty=true;adminQuestDraft.universalXp.splice(i,1);adminQuestDraft.__uxOpen=true;render('admin')}
-async function adminQuestSave(){const en=siteLanguage==='en';if(questLibraryState!=='ok'||!adminQuestDraft)return toast(en?'Quest library not loaded — nothing saved':'Bibliothèque non chargée — rien n’a été enregistré');const lib={universalXp:(adminQuestDraft.universalXp||[]).filter(l=>l.name),removedBase:(adminQuestDraft.removedBase||[]).slice(),trees:adminQuestDraft.trees.map(({__open,...t})=>({...t,quests:(t.quests||[]).filter(q=>q.name)}))};try{const r=await window.MordheimundaAPI.adminSaveQuests(lib,questLibraryStamp);questLibraryOverride=r?.library||lib;questLibraryStamp=r?.updatedAt||questLibraryStamp;adminQuestDraft=null;render('admin');toast(en?'Quests saved for everyone':'Quêtes enregistrées pour tous')}catch(e){if(e?.status===409){toast(en?'The quest library changed elsewhere — reloaded, redo your change':'La bibliothèque de quêtes a changé ailleurs — rechargée, refais ta modification');adminQuestDraft=null;await loadQuestLibrary();render('admin');return}toast(authError(e,en))}}
+async function adminQuestSave(){const en=siteLanguage==='en';if(questLibraryState!=='ok'||!adminQuestDraft)return toast(en?'Quest library not loaded — nothing saved':'Bibliothèque non chargée — rien n’a été enregistré');const lib={universalXp:(adminQuestDraft.universalXp||[]).filter(l=>l.name),trees:adminQuestDraft.trees.map(({__open,...t})=>({...t,quests:(t.quests||[]).filter(q=>q.name)}))};try{const r=await window.MordheimundaAPI.adminSaveQuests(lib,questLibraryStamp);questLibraryOverride=r?.library||lib;questLibraryStamp=r?.updatedAt||questLibraryStamp;adminQuestDraft=null;render('admin');toast(en?'Quests saved for everyone':'Quêtes enregistrées pour tous')}catch(e){if(e?.status===409){toast(en?'The quest library changed elsewhere — reloaded, redo your change':'La bibliothèque de quêtes a changé ailleurs — rechargée, refais ta modification');adminQuestDraft=null;await loadQuestLibrary();render('admin');return}toast(authError(e,en))}}
 
 // V-PLAYCOLLAPSE: every numbered section of the play page folds by
 // clicking its title (state kept for this game, per tab), plus Collapse /
