@@ -257,6 +257,17 @@ await test('[desktop] Dramatis Personae: hired like a Hired Sword, static, own r
   expect(out.card&&out.rulesPage&&out.progress,'its own rules / static notice are missing: '+JSON.stringify(out));
   expect(!out.catalogue,'its own rules must not enter the rules catalogue');
 });
+await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
+  const out=await page.evaluate(()=>{
+    state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
+    state.customSpecialRules=[{id:'cr1',name:'Quorlax frenzy',text:'x'}];
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'scn-x',name:'Plain Fight',summary:'',specialRules:'The Bloodmoonrise lasts until turn 4.'}];
+    campaignsCache=[...(campaignsCache||[]),{id:'camp-x',name:'Test Campaign',status:'published',definition:{pages:[{id:'p1',title:'2. Volcanic Vents',text:'Each turn roll for Ashfall.'}],artifacts:[{name:'Crown of Xylmar',text:'+1 Leadership'}]}}];
+    const has=(q,key,title)=>searchRun(q).some(g=>(!key||g.key===key)&&g.items.some(i=>!title||i.title===title));
+    return {dp:has('zorvak','hiredSwords','Zorvak the Unbound'),dpRule:has('gloomwalker','hiredSwords'),scn:has('bloodmoonrise','scenarios','Plain Fight'),camp:has('ashfall','campaigns','2. Volcanic Vents'),art:has('xylmar','campaigns','Crown of Xylmar'),page:has('armurerie','pages')||has('armory','pages'),mine:has('quorlax','custom')};
+  });
+  expect(Object.values(out).every(Boolean),'search misses some content: '+JSON.stringify(out));
+});
 await test('[desktop] item penalties: stat lists, clause-level conditions, Strength exemption',null,async page=>{
   const out=await page.evaluate(()=>{const t='Encumbered: Due to the extra weight and restricted movement of this armour, the warrior’s Ballistic Skill and Initiative are reduced by 1, and their Movement by 1" when making a Charge action. Warriors with Strength 5 or higher ignore these penalties.';
     const sh=r=>r.map(b=>`${b.stat}${b.delta}${b.conditional?'c':''}`).sort().join(' ');

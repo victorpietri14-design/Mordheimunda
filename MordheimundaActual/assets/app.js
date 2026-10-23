@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0709.0';
+const APP_BUILD='110.0710.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7770,22 +7770,52 @@ function searchRun(q){
   const fighters=[];rosters.forEach(r=>(r.fighters||[]).forEach(x=>{if(!x)return;const sc=Math.max(searchScore(q,x.name),searchScore(q,x.type||'')*0.6|0,searchScore(q,x.profileName||x.baseName||'')*0.8|0);fighters.push({score:sc?sc+4:0,title:x.name,sub:`${r.name}${x.type?' · '+x.type:''}`,go:()=>navigateApp(fighterPath(r.id,x.instance))})}));
   add('fighters',en?'My fighters':'Mes combattants',fighters);
   const fx=(D.factions||[]).filter(f=>!f.packId&&!isContentPoolFaction(f));
-  add('warbands','Warbands',fx.map(f=>({score:searchScore(q,f.displayName),title:f.displayName,sub:en?'Rules: Warbands':'Règles : Warbands',go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})));
+  add('warbands','Warbands',fx.map(f=>({score:(s=>s>=50?s:s?6:0)(searchScore(q,f.displayName,(f.specialRules||[]).map(t=>t?.name||'').join(' · '))),title:f.displayName,sub:en?'Rules: Warbands':'Règles : Warbands',go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})));
   const prof=[];fx.forEach(f=>(f.warriors||[]).forEach(w=>{const sc=searchScore(q,w.name);if(sc>=50)prof.push({score:sc-6,title:w.name,sub:f.displayName,go:()=>navigateApp('/rules/warbands/'+encodeURIComponent(f.id))})}));
   add('profiles',en?'Warband profiles':'Profils de warbands',prof);
-  add('scenarios',en?'Scenarios':'Scénarios',(SCENARIOS_CACHE||[]).map(sc=>({score:Math.max(searchScore(q,sc.name),searchScore(q,'',sc.summary)>=20?18:0),title:sc.name,sub:sc.summary?String(sc.summary).slice(0,80):'',go:()=>navigateApp('/rules/scenarios/'+encodeURIComponent(sc.id))})));
+  add('scenarios',en?'Scenarios':'Scénarios',(SCENARIOS_CACHE||[]).map(sc=>{const body=searchDeepText(sc);const n=searchScore(q,sc.name);const b=n?0:searchScore(q,'',body);return {score:Math.max(n,b>=20?18:b?8:0),title:sc.name,sub:!n&&b?searchSnippet(body,q):sc.summary?String(sc.summary).slice(0,80):'',go:()=>navigateApp('/rules/scenarios/'+encodeURIComponent(sc.id))}}));
   const ref=[];Object.keys(REFERENCE_CATEGORIES).forEach(cat=>{let list=[];try{list=referenceEntries(cat)||[]}catch(e){}list.forEach(e=>{if(!e?.name)return;const nm=refDisplayName(cat,e);const sc=searchScore(q,nm,e.text);if(sc)ref.push({score:sc,title:nm,sub:(en?REFERENCE_CATEGORIES_EN:REFERENCE_CATEGORIES)[cat]+(sc<50&&e.text?' · '+searchSnippet(e.text,q):''),go:()=>searchOpenRef(cat,e.id)})})});
   add('reference',en?'Reference':'Référentiel',ref);
   const seen=new Set();const rl=[];searchRulesIndex().forEach((h,i)=>{const sc=searchScore(q,h.label,h.body);if(!sc)return;const k=h.sec+'|'+searchNorm(h.label);if(seen.has(k))return;seen.add(k);rl.push({score:sc,title:h.label===h.section?h.section:`${h.label}`,sub:(h.label===h.section?(en?'Rules: The Game':'Règles : Le Jeu'):h.section)+(sc<50?' · '+searchSnippet(h.body,q):''),go:()=>searchOpenRule(i)})});
   add('rules',en?'Rules':'Règles',rl);
+  searchMoreGroups(q,en,add);
   return groups.sort((a,b)=>b.best-a.best);
 }
+// Every text value of a record (scenario, campaign page, artifact…), minus
+// ids, images and map data, so body words are searchable too.
+function searchDeepText(o,depth=0){
+  if(o==null||depth>5)return '';if(typeof o==='string')return /^data:|^https?:\/\//.test(o)?'':o;if(typeof o!=='object')return '';
+  if(Array.isArray(o))return o.map(v=>searchDeepText(v,depth+1)).join(' ');
+  return Object.keys(o).filter(k=>!/^(id|.*Id|.*Ids|thumbnail|image|images|img|map|maps|svg|color|icon|updatedAt|createdAt)$/.test(k)).map(k=>searchDeepText(o[k],depth+1)).join(' ');
+}
+// V-SEARCH2: the sources the first version missed — site pages, Hired Swords
+// and Dramatis Personae, campaigns (pages, artifacts, settlements), Armory
+// items without a Reference entry, and the player's own Custom content.
+const SEARCH_PAGES=[['dashboard','Home','Accueil','dashboard tableau de bord'],['rosters','My warbands','Mes bandes','rosters'],['create','Create a warband','Créer une bande','new nouvelle'],['myCampaigns','My campaigns','Mes campagnes',''],['playMode','Play mode','Mode jeu','jouer partie battle bataille'],['rules','Rules: The Game','Règles : Le Jeu','rulebook livre'],['rulesWarbands','Rules: Warbands','Règles : Warbands','bandes'],['rulesCampaign','Rules: Campaign','Règles : Campagne','campaigns campagnes'],['scenarios','Scenarios','Scénarios','missions'],['underdogBonus','Underdog bonus','Bonus Underdog',''],['references','Reference','Référentiel','glossary glossaire skills compétences'],['armory','Armory','Armurerie','equipment équipement weapons armes'],['custom','Custom','Custom','personnalisé hired swords dramatis personae'],['printList','Print','Imprimer','pdf'],['account','Account','Compte','profil login'],['admin','Admin','Admin','administration']];
+function searchMoreGroups(q,en,add){
+  const tr=(fn)=>{try{return fn()||[]}catch(e){console.warn(e);return []}};
+  add('pages',en?'Pages':'Pages',tr(()=>SEARCH_PAGES.filter(p=>p[0]!=='admin'||isAdminSession()).map(([k,a,b,kw])=>({score:Math.max(searchScore(q,en?a:b),searchScore(q,en?b:a)*0.9|0,searchScore(q,'',kw)?15:0),title:en?a:b,sub:APP_ROUTES[k],go:()=>navigateApp(APP_ROUTES[k])}))));
+  add('hiredSwords','Hired Swords · Dramatis Personae',tr(()=>hiredSwordRawList().map(w=>{const rules=(Array.isArray(w.dpRules)?w.dpRules:[]).map(r=>`${r.name||''} ${r.text||''}`).join(' ');const body=[rules,w.specialRules&&searchDeepText(w.specialRules),(w.defaultEquipment||[]).map(e=>e?.name||e).join(' '),(w.skills||[]).map(e=>e?.name||e).join(' ')].join(' ');const sc=searchScore(q,w.name,body);return {score:sc?sc+3:0,title:w.name,sub:(w.dramatis?'Dramatis Personae':'Hired Sword')+(sc<50?' · '+searchSnippet(body,q):''),go:()=>navigateApp('/rules/warbands/hired-swords')}})));
+  const camp=[];tr(()=>campaignListAll()).forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;const d=c.definition||{};const base='/rules/campaign/'+encodeURIComponent(c.id);
+    const sc=searchScore(q,c.name||c0.name||'',d.description);if(sc)camp.push({score:sc,title:c.name||c0.name,sub:(en?'Campaign':'Campagne')+(sc<50?' · '+searchSnippet(d.description,q):''),go:()=>navigateApp(base)});
+    (Array.isArray(d.pages)?d.pages:[]).forEach((p,i)=>{const t=String(p.title||'');const s=searchScore(q,t.replace(/^[\d.]+\s*/,''),p.text);if(s)camp.push({score:s,title:t,sub:(c.name||'')+(s<50?' · '+searchSnippet(p.text,q):''),go:()=>navigateApp(base+'/'+encodeURIComponent('rule-'+(p.id||i)))})});
+    (Array.isArray(d.artifacts)?d.artifacts:[]).forEach(a=>{const b=searchDeepText(a);const s=searchScore(q,a?.name||'',b);if(s)camp.push({score:s,title:a.name,sub:`${c.name||''} · ${en?'Artifact':'Artefact'}`+(s<50?' · '+searchSnippet(b,q):''),go:()=>navigateApp(base+'/artifacts')})});
+    (Array.isArray(d.settlements)?d.settlements:[]).forEach(a=>{const b=searchDeepText(a);const s=searchScore(q,a?.name||'',b);if(s)camp.push({score:s,title:a.name,sub:`${c.name||''} · ${en?'Settlement':'Colonie'}`+(s<50?' · '+searchSnippet(b,q):''),go:()=>navigateApp(base+'/settlements')})});
+  });
+  add('campaigns',en?'Campaigns':'Campagnes',camp);
+  const refNames=new Set(tr(()=>referenceEntries('equipment')).map(e=>normName(e?.name||'')));const armSeen=new Set();
+  add('armory',en?'Armory':'Armurerie',tr(()=>[...(D.weapons||[]).filter(w=>!w.hidden),...allCustomEquipmentList()].filter(w=>{const k=normName(w?.name||'');if(!k||refNames.has(k)||armSeen.has(k))return false;armSeen.add(k);return true}).map(w=>({score:searchScore(q,w.name,w.rulesText||w.rules||''),title:w.name,sub:(en?'Armory':'Armurerie')+(equipmentCategory(w)?' · '+equipmentCategory(w):''),go:()=>searchOpenArmory(w.name)}))));
+  const mine=[];const kinds=[['customFighters',en?'Custom fighter':'Combattant custom'],['customWarbands',en?'Custom warband':'Bande custom'],['customEquipment',en?'Custom equipment':'Équipement custom'],['customSkills',en?'Custom skill':'Compétence custom'],['customSpecialRules',en?'Custom rule':'Règle custom'],['customSpells',en?'Custom spell':'Sort custom'],['customTraits',en?'Custom trait':'Trait custom'],['customSkillTrees',en?'Skill tree':'Arbre de compétences'],['customMagicDomains',en?'Magic domain':'Domaine de magie'],['customCreatures',en?'Creature':'Créature']];
+  kinds.forEach(([k,label])=>(Array.isArray(state[k])?state[k]:[]).forEach(x=>{if(!x?.name)return;const sc=searchScore(q,x.name,x.rulesText||x.text||x.description||'');if(sc)mine.push({score:sc,title:x.name,sub:x.dramatis?'Dramatis Personae':x.hiredSword?'Hired Sword':label,go:()=>navigateApp(APP_ROUTES.custom)})}));
+  add('custom',en?'My custom content':'Mon contenu custom',mine);
+}
+function searchOpenArmory(name){navigateApp(APP_ROUTES.armory);setTimeout(()=>{const i=document.getElementById('weaponSearch');if(!i)return;i.value=name;try{renderArmory()}catch(e){}},30)}
 let siteSearchQuery='',siteSearchSel=0,siteSearchFlat=[],siteSearchOpenGroups=new Set();
 function openSiteSearch(){
   closeTabSheet&&closeTabSheet();let el=document.getElementById('siteSearch');
   if(!el){el=document.createElement('div');el.id='siteSearch';el.className='site-search';el.onclick=e=>{if(e.target===el)closeSiteSearch()};document.body.appendChild(el)}
   const en=siteLanguage==='en';
-  el.innerHTML=`<div class="site-search-panel" role="dialog" aria-label="${en?'Search':'Rechercher'}"><div class="site-search-bar"><span aria-hidden="true">🔍</span><input id="siteSearchInput" type="search" autocomplete="off" placeholder="${en?'Warband, fighter, rule, skill, scenario…':'Bande, combattant, règle, compétence, scénario…'}" value="${esc(siteSearchQuery)}" oninput="siteSearchQuery=this.value;siteSearchSel=0;siteSearchOpenGroups.clear();drawSiteSearch()" onkeydown="siteSearchKey(event)"><button type="button" class="site-search-close" onclick="closeSiteSearch()">${en?'Close':'Fermer'}</button></div><div class="site-search-results" id="siteSearchResults"></div></div>`;
+  el.innerHTML=`<div class="site-search-panel" role="dialog" aria-label="${en?'Search':'Rechercher'}"><div class="site-search-bar"><span aria-hidden="true">🔍</span><input id="siteSearchInput" type="search" autocomplete="off" placeholder="${en?'Warband, fighter, rule, item, scenario, campaign…':'Bande, combattant, règle, objet, scénario, campagne…'}" value="${esc(siteSearchQuery)}" oninput="siteSearchQuery=this.value;siteSearchSel=0;siteSearchOpenGroups.clear();drawSiteSearch()" onkeydown="siteSearchKey(event)"><button type="button" class="site-search-close" onclick="closeSiteSearch()">${en?'Close':'Fermer'}</button></div><div class="site-search-results" id="siteSearchResults"></div></div>`;
   el.hidden=false;document.body.classList.add('search-open');drawSiteSearch();const inp=document.getElementById('siteSearchInput');if(inp){inp.focus();inp.select()}
 }
 function closeSiteSearch(){const el=document.getElementById('siteSearch');if(el)el.hidden=true;document.body.classList.remove('search-open')}
