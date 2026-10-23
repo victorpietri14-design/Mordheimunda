@@ -297,6 +297,17 @@ await test('[desktop] rule hover: "Ward" does not open "Warden of the Castle"',n
   expect(out.ward!=='Warden of the Castle','"Ward" still opens "Warden of the Castle"');
   expect(out.plural==='Warden of the Castle','a plural form should still find the rule: '+JSON.stringify(out));
 });
+await test('[desktop] recruitment options: paid Wizard option adds the rule, stats and cost',null,async page=>{
+  await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const w=f.warriors.find(q=>q.type==='Leader');
+    w.recruitOptions=[{id:'wiz',name:'Wizard',cost:25,rules:['Wizard'],stats:{1:1},magic:[]},{id:'tough',name:'Tough',cost:10,rules:[],stats:{4:1},magic:[]}];
+    state.rosters=[{id:'ro',name:'RO',factionId:f.id,gold:1000,fighters:[]}];state.active='ro';window.__ro={wid:w.id,ws:Number(effectiveFighterProfile(w,f)[1])};navigateApp(warbandPath('ro'));addFighter(w.id)});
+  await page.waitForSelector('.roPick');await page.check('.roPick[value="wiz"]');await page.click('#roGo');await page.waitForTimeout(300);
+  const out=await page.evaluate(()=>{const r=activeRoster(),f=faction(r);const x=r.fighters.find(q=>q.wid===window.__ro.wid);if(!x)return {found:false};
+    return {found:true,opts:(x.recruitPicks||[]).map(o=>o.name),rules:fighterRuleNames(x,f).includes('Wizard'),ws:Number(x.profile[1])-window.__ro.ws,spent:1000-r.gold,value:fighterValue(x,f),base:liveFighterCost(x,f),card:/OPTIONS DE RECRUTEMENT|RECRUITMENT OPTIONS/.test(ownedFighterCard(x,0,f))}});
+  expect(out.found&&out.opts.join()==='Wizard','the option was not recorded: '+JSON.stringify(out));
+  expect(out.rules&&out.ws===1,'the Wizard rule / +1 WS were not applied: '+JSON.stringify(out));
+  expect(out.value-out.base>=25&&out.spent>=25&&out.card,'the option cost is missing from gold / value / card: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
