@@ -5092,3 +5092,15 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .dp-pay{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .dp-pay .button{flex:1 1 140px}
 .dp-check{margin-top:6px}
+.ro-list{display:grid;gap:8px;margin:10px 0}
+.ro-opt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;cursor:pointer}
+.ro-opt small{display:block;margin-top:2px}
+.ro-cost{color:var(--gold,#d7a94b);font-weight:700}
+.ro-total{margin:6px 0 4px;font-size:14px}
+.ro-chip{display:inline-block;padding:2px 8px;margin:2px 2px 2px 0;border:1px solid rgba(215,169,75,.45);border-radius:999px;font-size:12px}
+.ro-chip small{opacity:.75}
+.ro-pool{padding:4px 12px 8px;font-size:12px}
+.ro-edit-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.12);align-items:center}
+.ro-edit-row input{flex:1 1 170px;min-width:0}
+.ro-edit-row .roName{flex:2 1 200px}
+.ro-edit-row .roCost{flex:0 0 80px}
