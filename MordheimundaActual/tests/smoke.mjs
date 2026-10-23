@@ -346,6 +346,13 @@ await test('[desktop] weapon slots follow the current weapon definition, not the
     const before=weaponSlots(item);h.profile={...h.profile,traits:'Hack, Knock back'};const after=weaponSlots(item);h.profile=old;return {before,after}});
   expect(out.before===2&&out.after===1,'dropping Two Handed from the Halberd must free a slot on owned copies: '+JSON.stringify(out));
 });
+await test('[desktop] campaign overview lists the artifacts found, between Events and Favoured scenario',null,async page=>{
+  const out=await page.evaluate(()=>{const c={id:'ca1',name:'Lustria test',definition:{events:[],artifacts:[{name:'Sun Disc',table:'minor',roll:'4',rules:'Glows.'}]},members:[{rosterId:'r1',username:'Alice',rosterName:'Sun Hunters',stats:{artifactsFound:[{name:'Sun Disc',at:Date.UTC(2026,9,20)}]}},{rosterId:'r2',username:'Bob',rosterName:'Old Guard',stats:{artifacts:['Crown of Thorns']}}]};
+    const h=hubOverviewMarkup(c);const iE=h.indexOf('hub-events'),iA=h.indexOf('hub-artifacts'),iF=h.search(/Favoured scenario|Scénario favori/);
+    return {order:iE>=0&&iA>iE&&iF>iA,alice:/Alice/.test(h)&&/Sun Disc/.test(h)&&/2026-10-20/.test(h),bob:/Bob/.test(h)&&/Crown of Thorns/.test(h)}});
+  expect(out.order,'the artifacts panel is not between Events and Favoured scenario: '+JSON.stringify(out));
+  expect(out.alice&&out.bob,'found artifacts are missing from the overview: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
