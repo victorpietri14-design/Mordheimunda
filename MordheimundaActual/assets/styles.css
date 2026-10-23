@@ -5120,3 +5120,9 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .maze-line p{color:#c9a0ff}
 .maze-line.back p{color:#99d65d}.maze-line.gone p{color:#e66}
 .maze-start{margin-bottom:8px}
+.explore-tasks{border-color:rgba(242,201,76,.45)}
+.et-task{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+.et-task.done{opacity:.8}
+.et-task small{color:var(--muted)}
+.et-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.et-done{margin:0;color:#99d65d}

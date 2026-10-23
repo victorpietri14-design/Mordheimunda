@@ -380,6 +380,49 @@ await test('[desktop] Lustria maze (five 4s): the lost Hero keeps the effect unt
   expect(out.set&&out.blocked&&out.card,'the maze state is not kept on the hero / he can still be engaged: '+JSON.stringify(out));
   expect(out.g1===1&&out.gone&&out.back,'maze progression is wrong: '+JSON.stringify(out));
 });
+await test('[desktop] exploration effects are applied for real (Well → misses the game, undone by clear; Gold Plaque for Lizardmen)',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&!/possess|undead|skaven|orc/i.test(x.id));const L=f.warriors.find(w=>w.type==='Leader');
+    const hero={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h-well',equipmentSelected:[],status:{},profile:[4,4,4,3,3,1,4,1,7,7,7,7]};
+    state.rosters=[{id:'wl',name:'WL',factionId:f.id,gold:0,fighters:[hero]}];state.active='wl';const r=activeRoster();const p=ensurePostBattleData(r);
+    p.survivingHeroIds=['h-well'];p.dice=[{value:1,selected:true},{value:1,selected:true}];
+    const rnd=Math.random;Math.random=()=>0.99;applyExplorationReward();Math.random=rnd;
+    const st=()=>fighterStatus(activeRoster().fighters[0]);const after=st().recovery;clearExplorationReward();const cleared=!st().recovery;
+    // Lustria Gold Plaque: 200 gc for a Lizardmen warband, no hatred
+    campaignDetailCache.set('gp1',{id:'gp1',name:'GP',members:[],definition:{exploration:{entries:LUSTRIA_EXPLORATION}}});
+    const lz=D.factions.find(x=>/lizard/i.test(x.displayName||x.id));let lizard=null;
+    if(lz){state.rosters=[{id:'lz',name:'LZ',factionId:lz.id,campaignId:'gp1',gold:0,fighters:[]}];state.active='lz';resolveCampaignExplore('6-2');const r2=activeRoster();lizard={gold:r2.gold,hate:explorationBonusList(r2).some(b=>b.id==='lustria-lizard-hate')}}
+    state.rosters=[{id:'nl',name:'NL',factionId:f.id,campaignId:'gp1',gold:0,fighters:[]}];state.active='nl';resolveCampaignExplore('6-2');const r3=activeRoster();
+    return {after,cleared,lizard,other:{gold:r3.gold,hate:explorationBonusList(r3).some(b=>b.id==='lustria-lizard-hate')}}});
+  expect(out.after&&out.cleared,'Well failure must set Recovery and clear must undo it: '+JSON.stringify(out));
+  expect(!out.lizard||(out.lizard.gold===200&&!out.lizard.hate),'Lizardmen must earn 200 gc from the Gold Plaque: '+JSON.stringify(out));
+  expect(out.other.hate&&out.other.gold>=110,'other warbands get the gold and the Lizardmen hatred: '+JSON.stringify(out));
+});
+await test('[desktop] exploration tasks: notebook (Academic), Training Manual, Cold One, Boulder Race, Stegadon armour, Returning a Favour',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&!/possess|undead|skaven|orc/i.test(x.id));const L=f.warriors.find(w=>w.type==='Leader');
+    const mk=(id,S)=>({...JSON.parse(JSON.stringify(L)),wid:L.id,instance:id,name:'Hero '+id,equipmentSelected:[],status:{},xp:0,profile:[5,4,4,S,3,1,4,1,7,7,7,7]});
+    state.rosters=[{id:'et',name:'ET',factionId:f.id,gold:0,fighters:[mk('h1',3),mk('h2',4)]}];state.active='et';
+    // five 2s = Alchemist's Laboratory → a task; applying it gives Academic Primary; clearing removes everything
+    let r=activeRoster();let p=ensurePostBattleData(r);p.survivingHeroIds=['h1'];p.dice=[2,2,2,2,2].map(v=>({value:v,selected:true}));applyExplorationReward();
+    r=activeRoster();const t1=(r.exploreTasks||[]).find(t=>t.kind==='access');document.body.insertAdjacentHTML('beforeend',`<select id="etSel-${t1.id}"><option value="h1" selected>h1</option></select>`);exploreTaskHero(t1.id);
+    const acad=skillAccessFor(activeRoster().fighters[0]).Academic;clearExplorationReward();const acadAfter=skillAccessFor(activeRoster().fighters[0]).Academic||null;const tasksLeft=(activeRoster().exploreTasks||[]).length;
+    // three 6s = Returning a Favour → bonus
+    p=ensurePostBattleData(activeRoster());p.exploration={resolved:false,rewards:[],notes:[],rolls:[],history:[]};p.dice=[6,6,6].map(v=>({value:v,selected:true}));applyExplorationReward();const favour=explorationBonusList(activeRoster()).some(b=>b.id==='returning_favour');
+    // Lustria: Boulder Race (auto) + Cold One task + Stegadon armour
+    campaignDetailCache.set('ex1',{id:'ex1',name:'Ex',members:[],definition:{exploration:{entries:LUSTRIA_EXPLORATION}}});
+    state.rosters=[{id:'lu',name:'LU',factionId:f.id,campaignId:'ex1',gold:0,fighters:[mk('l1',3),mk('l2',4)]}];state.active='lu';r=activeRoster();campaignExploreState(r).lead='l1';
+    const rnd=Math.random;Math.random=()=>0;resolveCampaignExplore('5-3');Math.random=rnd;const boulderGold=activeRoster().gold;
+    resolveCampaignExplore('5-5');r=activeRoster();const co=(r.exploreTasks||[]).find(t=>t.kind==='coldone');const n0=r.fighters.length;exploreTaskColdOne(co.id,'win');r=activeRoster();const coldAdded=r.fighters.length===n0+1&&r.fighters.some(x=>/Cold One/.test(x.name));const leadXp=r.fighters.find(x=>x.instance==='l1').xp;
+    undoCampaignExplore('5-5');r=activeRoster();const coldUndone=r.fighters.length===n0&&r.fighters.find(x=>x.instance==='l1').xp===0;
+    const steg=campaignStashItem(activeRoster(),{n:'Stegadon Bone Armour',b:'Heavy armour',statMods:[{index:0,amount:-1}],minS:4},1,'test');
+    const y=activeRoster().fighters.find(x=>x.instance==='l2');const S=Number(y.profile[3]);const okS=canEquip(y,steg).ok===(S>=4);const low=canEquip({...y,profile:y.profile.map((v,i)=>i===3?3:v)},steg).ok;
+    const m0=Number(y.profile[0]);y.equipmentSelected=[{...steg}];syncCustomEquipmentEffects(y);const m=Number(y.profile[0])-m0;
+    return {acad,acadAfter,tasksLeft,favour,boulderGold,coldAdded,leadXp,coldUndone,okS,low,m}});
+  expect(out.acad==='Primary'&&!out.acadAfter&&out.tasksLeft===0,'Alchemist notebook task / undo failed: '+JSON.stringify(out));
+  expect(out.favour,'Returning a Favour bonus missing: '+JSON.stringify(out));
+  expect(out.boulderGold===50,'Boulder Race success must give 50 gc: '+JSON.stringify(out));
+  expect(out.coldAdded&&out.leadXp===1&&out.coldUndone,'Cold One task failed: '+JSON.stringify(out));
+  expect(out.okS&&!out.low&&out.m===-1,'Stegadon armour: S4+ only and -1 Movement: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
