@@ -449,6 +449,23 @@ await test('[desktop] quest trees and quests can be limited to races',null,async
   expect(out.skinkHas&&out.skinkNoSaurus&&out.humanNo,'race scope is wrong: '+JSON.stringify(out));
   expect(out.noBuiltIn,'no built-in race trees should ship');
 });
+await test('[desktop] confirmations open in a site dialog, never a native browser box',null,async page=>{
+  let native=0;page.on('dialog',d=>{native++;d.dismiss().catch(()=>{})});
+  await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.length);state.rosters=[{id:'dlg1',name:'DLG',factionId:f.id,gold:0,fighters:[]},{id:'dlg2',name:'DLG2',factionId:f.id,gold:0,fighters:[]}];state.active='dlg1';deleteRoster('dlg1')});
+  await page.waitForTimeout(150);
+  const shown=await page.evaluate(()=>{const m=document.querySelector('#siteDialog');return !!m&&!m.classList.contains('hidden')&&m.textContent.length>5});
+  await page.click('#siteDialogOkBtn');await page.waitForTimeout(150);
+  const gone=await page.evaluate(()=>!state.rosters.some(r=>r.id==='dlg1'));
+  await page.evaluate(()=>{window.__pv='x';sitePrompt('Value?','7').then(v=>window.__pv=v)});await page.waitForTimeout(100);
+  await page.fill('#siteDialogInput','12');await page.press('#siteDialogInput','Enter');await page.waitForTimeout(100);
+  const pv=await page.evaluate(()=>window.__pv);
+  await page.evaluate(()=>{window.__cv='x';siteConfirm('Delete?').then(v=>window.__cv=v)});await page.waitForTimeout(100);
+  await page.evaluate(()=>document.querySelector('#siteDialog .button.secondary').click());await page.waitForTimeout(100);
+  const cv=await page.evaluate(()=>window.__cv);
+  expect(shown&&gone,'the delete confirmation did not show in the site dialog: '+JSON.stringify({shown,gone}));
+  expect(pv==='12'&&cv===false,'site prompt/confirm returned wrong values: '+JSON.stringify({pv,cv}));
+  expect(native===0,'a native browser dialog was opened');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
