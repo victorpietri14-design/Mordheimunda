@@ -5104,3 +5104,8 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .ro-edit-row input{flex:1 1 170px;min-width:0}
 .ro-edit-row .roName{flex:2 1 200px}
 .ro-edit-row .roCost{flex:0 0 80px}
+.hub-artifacts{display:flex;flex-direction:column;gap:8px}
+.hub-artifact{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:8px 12px;flex-wrap:wrap}
+.hub-artifact>span:nth-child(2){flex:1 1 200px}
+.hub-artifact-ico{font-size:18px}
+.hub-artifact-name{color:var(--gold,#d7a94b);cursor:help}
