@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0714.0';
+const APP_BUILD='110.0715.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -405,6 +405,8 @@ const RACE_SPECIAL_RULES={
 // physical book. Extensible the same way as RACE_SPECIAL_RULES above for
 // any other core rule found to be missing the same way.
 const CORE_SPECIAL_RULES=[
+  // Ward: profiles write "Ward (5)" / "Ward (5+)"; the text is the rulebook's WARD SAVES paragraph.
+  {name:'Ward (X+)',text:'A ward save represents some kind of rare magical protection, be it a spell, enchanted armour or perhaps even the innate nature of a Daemon or other magical creature. The value of the ward save is shown in the warrior’s entry: Ward (5+) means a 5+ ward save.\nUnlike armour saves, ward saves are never modified by AP or anything else. If a model has more than one ward save, only make one roll, for the best.\nIf a warrior has both an armour save and a ward save, it takes its armour save as normal first. If the armour save is failed (or modified to the point at which the warrior cannot pass it), the warrior then takes its ward save.'},
   {name:'Terror',text:'There are creatures so fierce that their mere appearance can cause the bravest to flee. Models with this special rule cause Terror. Models that cause Terror also cause Fear.\nWhen a unit that causes Terror makes a Charge action, the charged model must immediately after moving the charging model make a Leadership test. If this test is failed the model charged becomes Broken. If this test is passed the charge action is carried out normally. Models with the Fear special rule treat Terror as Fear. Models that cause Terror are immune to Terror.'}
 ];
 (function mergeCoreSpecialRules(){

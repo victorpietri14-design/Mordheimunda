@@ -292,9 +292,10 @@ await test('[desktop] Dramatis Personae for one game: price from gap and warband
 });
 await test('[desktop] rule hover: "Ward" does not open "Warden of the Castle"',null,async page=>{
   const out=await page.evaluate(()=>{state.customSpecialRules=[{id:'w1',name:'Warden of the Castle',text:'Castle rule.'}];try{__refEntriesCache=null}catch(e){}
-    const w=referenceFind('special','Warden of the Castle');const ward=referenceFind('special','Ward');const plural=referenceFind('special','Wardens of the Castle');return {w:w?.name||null,ward:ward?.name||null,plural:plural?.name||null}});
+    const w=referenceFind('special','Warden of the Castle');const ward=referenceFind('special','Ward');const plural=referenceFind('special','Wardens of the Castle');const w5=referenceFind('special','Ward (5)'),w5p=referenceFind('special','Ward (5+)'),w4=referenceFind('special','Ward(4+)');return {w:w?.name||null,ward:ward?.name||null,plural:plural?.name||null,w5:w5?.name||null,w5p:w5p?.name||null,w4:w4?.name||null}});
   expect(out.w==='Warden of the Castle','the custom rule itself is not found: '+JSON.stringify(out));
   expect(out.ward!=='Warden of the Castle','"Ward" still opens "Warden of the Castle"');
+  expect(out.ward==='Ward (X+)'&&out.w5==='Ward (X+)'&&out.w5p==='Ward (X+)'&&out.w4==='Ward (X+)','Ward (5) / (5+) / (4+) must open the Ward rule: '+JSON.stringify(out));
   expect(out.plural==='Warden of the Castle','a plural form should still find the rule: '+JSON.stringify(out));
 });
 await test('[desktop] recruitment options: paid Wizard option adds the rule, stats and cost',null,async page=>{
