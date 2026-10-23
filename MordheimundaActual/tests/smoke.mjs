@@ -353,6 +353,13 @@ await test('[desktop] campaign overview lists the artifacts found, between Event
   expect(out.order,'the artifacts panel is not between Events and Favoured scenario: '+JSON.stringify(out));
   expect(out.alice&&out.bob,'found artifacts are missing from the overview: '+JSON.stringify(out));
 });
+await test('[desktop] new Leaders start with 20 XP and Champions with 9 XP',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors.some(w=>w.type==='Champion')&&x.warriors.some(w=>w.type==='Henchman'));
+    state.rosters=[{id:'sx',name:'SX',factionId:f.id,gold:2000,fighters:[]}];state.active='sx';
+    const xpOf=t=>{const w=f.warriors.find(q=>q.type===t);addFighterCore(w.id);const r=activeRoster();return Number(r.fighters[r.fighters.length-1].xp)};
+    return {leader:xpOf('Leader'),champion:xpOf('Champion'),henchman:xpOf('Henchman')}});
+  expect(out.leader===20&&out.champion===9&&out.henchman===0,'starting XP is wrong: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
