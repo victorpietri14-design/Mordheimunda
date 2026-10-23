@@ -5132,3 +5132,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .site-dialog-msg{margin:0 0 16px;white-space:pre-line;line-height:1.5;color:var(--text)}
 .site-dialog-input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:10px 12px;margin:0 0 16px;font:500 14px 'IBM Plex Sans'}
 .site-dialog-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.desc-clear{margin-top:8px}
