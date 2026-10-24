@@ -524,6 +524,12 @@ await test('[desktop] scenario editor puts the formatting bar right above the fo
   const v=await ta.inputValue();
   expect(near==='seSpecialRules','format bar not next to the field: '+near);
   expect(v.includes('• '),'bullet not inserted: '+JSON.stringify(v));
+  const xp=page.locator('#seExperience');await xp.scrollIntoViewIfNeeded();await xp.click();
+  const off=await page.evaluate(()=>{const b=document.querySelector('.scn-format-bar');return b.classList.contains('scn-format-off')&&b.nextElementSibling?.id==='seExperience'});
+  expect(off,'plain-text field should show the bar greyed out');
+  const rw=page.locator('#seRewards');await rw.scrollIntoViewIfNeeded();await rw.click();
+  const rwOn=await page.evaluate(()=>{const b=document.querySelector('.scn-format-bar');return !b.classList.contains('scn-format-off')&&ruleEditTargetId==='seRewards'});
+  expect(rwOn,'Rewards should accept formatting');
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
