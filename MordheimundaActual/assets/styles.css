@@ -5137,3 +5137,4 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .ban-exc{margin-top:8px}
 .scn-format-bar.scn-format-inline{position:sticky;top:0;margin:4px 0 6px;padding:6px 0;border:0;border-bottom:1px solid var(--line)}
 .dash-wcard-pb{position:absolute;left:10px;bottom:10px;z-index:3;border:1px solid #ff6b5e;background:rgba(40,8,6,.85);color:#ff8a7d;font:800 10px "IBM Plex Sans";letter-spacing:.4px;padding:5px 9px;border-radius:999px;cursor:pointer}
+.scn-format-bar.scn-format-off .rule-edit-toolbar{opacity:.35;pointer-events:none}.scn-format-bar.scn-format-off .scn-format-target{color:var(--danger)}

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0734.0';
+const APP_BUILD='110.0736.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8311,7 +8311,11 @@ function homeCanAdvance(x){
   return false;
 }
 function homeLiving(r){return (r?.fighters||[]).filter(x=>x&&!fighterStatus(x).dead&&!x.hsLeft)}
-function homePostBattleOpen(r){const p=r?.postBattle;if(!p||typeof p!=='object')return false;return !p.incomeApplied&&(!!p.result||(Array.isArray(p.dice)&&p.dice.some(d=>d&&d.value!==null&&d.value!==''&&Number(d.value)>=1&&Number(d.value)<=6)))}
+// V-PBOPEN: "post-battle in progress" = exploration dice rolled but nothing
+// collected yet (no income applied, no wyrdstone put in reserve). Recording
+// the game result alone, or keeping shards in reserve without selling them,
+// no longer counts — it kept the red badge on forever.
+function homePostBattleOpen(r){const p=r?.postBattle;if(!p||typeof p!=='object')return false;if(p.incomeApplied||Number(p.shards)>0)return false;return Array.isArray(p.dice)&&p.dice.some(d=>d&&d.value!==null&&d.value!==''&&Number(d.value)>=1&&Number(d.value)<=6)}
 function homeTodos(r){
   const en=siteLanguage==='en';const out=[];const living=homeLiving(r);
   if(homePostBattleOpen(r))out.push({text:en?'Post-battle not finished':'Post-bataille non terminée',dot:'#ff8a3d',go:`homeOpen('${esc(r.id)}','postbattle')`});
@@ -9496,7 +9500,7 @@ function playSessionMarkupBase(){
      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
    </section>
 
-   ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${esc(r)}</div>`).join('')}</div></section>`:''}
+   ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${scenarioText(r)}</div>`).join('')}</div></section>`:''}
   </div>`;
 }
 function playMode(){
@@ -10600,7 +10604,7 @@ function scenarioDetail(){
      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
    </section>
 
-   ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${esc(r)}</div>`).join('')}</div></section>`:''}
+   ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${scenarioText(r)}</div>`).join('')}</div></section>`:''}
   </div>`;
 }
 
@@ -10671,7 +10675,7 @@ function initScenarioEditorAutoGrow(){document.querySelectorAll('.scn-autogrow')
 // V-SCNFORMAT: a scenario text written with the rule toolbar (table, title,
 // bullet, mini title, colored text, picture) is shown like rules text; a
 // plain text keeps showing exactly as before.
-const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en place'],seAttacker:['Attacker rule','Règle — Attaquant'],seDefender:['Defender rule','Règle — Défenseur'],sePrepText:['Preparation text','Texte de préparation'],seSpecialRules:['Special rules text','Texte des règles spéciales'],seUnderdog:['Underdog bonus','Underdogs Bonus'],seTableEdge:['Table edge rule','Règle des bords de table'],seObjPrimary:['Primary objective','Objectif principal'],seObjSecondary:['Secondary objective','Objectif secondaire'],seEndCondition:['End of game','Fin de partie'],seVictoryMajor:['Major victory','Victoire majeure'],seVictoryMinor:['Minor victory','Victoire mineure'],seVictoryDraw:['Draw','Match nul']};
+const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en place'],seAttacker:['Attacker rule','Règle — Attaquant'],seDefender:['Defender rule','Règle — Défenseur'],sePrepText:['Preparation text','Texte de préparation'],seSpecialRules:['Special rules text','Texte des règles spéciales'],seUnderdog:['Underdog bonus','Underdogs Bonus'],seTableEdge:['Table edge rule','Règle des bords de table'],seObjPrimary:['Primary objective','Objectif principal'],seObjSecondary:['Secondary objective','Objectif secondaire'],seEndCondition:['End of game','Fin de partie'],seVictoryMajor:['Major victory','Victoire majeure'],seVictoryMinor:['Minor victory','Victoire mineure'],seVictoryDraw:['Draw','Match nul'],seRewards:['Rewards','Récompenses']};
 function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
 function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{})}</div>`:esc(v)}
 function scenarioFormatFocus(ev){
@@ -10682,8 +10686,9 @@ function scenarioFormatFocus(ev){
     // from the field it formats (and on some mobile browsers it didn't stay
     // pinned), so inserts landed out of sight. Move it right above the
     // focused field instead.
-    const bar=document.querySelector('.scn-format-bar');if(bar&&bar.nextElementSibling!==t){t.parentElement.insertBefore(bar,t);bar.classList.add('scn-format-inline')}}
-  else{ruleEditTargetId=null;if(lab)lab.textContent=en?'This field takes plain text only':'Ce champ prend seulement du texte simple';}
+    const bar=document.querySelector('.scn-format-bar');if(bar){bar.classList.remove('scn-format-off');if(bar.nextElementSibling!==t){t.parentElement.insertBefore(bar,t);bar.classList.add('scn-format-inline')}}}
+  else{ruleEditTargetId=null;if(lab)lab.textContent=en?'This field takes plain text only (one item per line) — the buttons don’t apply here':'Ce champ prend seulement du texte simple (un élément par ligne) — les boutons ne s’appliquent pas ici';
+    const bar=document.querySelector('.scn-format-bar');if(bar){bar.classList.add('scn-format-off');if(bar.nextElementSibling!==t){t.parentElement.insertBefore(bar,t);bar.classList.add('scn-format-inline')}}}
 }
 function scenarioSpecialRulesText(s){
   const v=s?.specialRules;
@@ -10766,7 +10771,7 @@ function scenarioEditorCollect(){
     objectives:{primary:v('seObjPrimary'),secondary:v('seObjSecondary')},
     endCondition:v('seEndCondition'),
     victory:{major:v('seVictoryMajor'),minor:v('seVictoryMinor'),draw:v('seVictoryDraw')},
-    rewards:linesToList(v('seRewards')),
+    rewards:(t=>scenarioTextIsRich(t)?[t.trim()]:linesToList(t))(v('seRewards')),
     campaignSeries:{seriesId:'',seriesName:v('seSeriesName'),position:v('seSeriesPosition')},
     eventWindow:{start:v('seEventStart'),end:v('seEventEnd')},
     thumbnail:adminScenarioEditData?.thumbnail||'',

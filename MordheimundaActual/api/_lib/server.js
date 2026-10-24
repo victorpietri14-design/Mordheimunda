@@ -1118,7 +1118,7 @@ function validateScenarioDefinition(body){
     objectives:{primary:str(body?.objectives?.primary,2000),secondary:str(body?.objectives?.secondary,2000)},
     endCondition:str(body?.endCondition,2000),
     victory:{major:str(body?.victory?.major,1000),minor:str(body?.victory?.minor,1000),draw:str(body?.victory?.draw,1000)},
-    rewards:arrOf(body?.rewards,30,300),
+    rewards:arrOf(body?.rewards,30,2000),
     campaignSeries:{seriesId:str(body?.campaignSeries?.seriesId,120),seriesName:str(body?.campaignSeries?.seriesName,120),position:str(body?.campaignSeries?.position,20)},
     eventWindow:{start:str(body?.eventWindow?.start,40),end:str(body?.eventWindow?.end,40)},
     // Only real images: an uploaded data:image (png/jpeg/webp/gif) or an https URL.
