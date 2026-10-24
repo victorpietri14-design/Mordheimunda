@@ -509,6 +509,21 @@ await test('[desktop] henchman advancement roll spends 6 XP and raises a stat',n
   expect(!out.err,'henchman roll crashed: '+out.err);
   expect(out.xp===1&&out.changed&&out.adv===1,'henchman roll did not apply: '+JSON.stringify(out));
 });
+await test('[desktop] warband card explains the red post-battle badge',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.length);state.rosters=[{id:'pb1',name:'PB',factionId:f.id,gold:0,fighters:[],postBattle:{result:'win',incomeApplied:false}},{id:'pb2',name:'Clean',factionId:f.id,gold:0,fighters:[],postBattle:{dice:[{value:null},{value:''}]}}];
+    const a=dashWarbandCard(state.rosters[0],null),b=dashWarbandCard(state.rosters[1],null);return {a:a.includes('dash-wcard-pb'),b:b.includes('dash-wcard-pb'),open:homePostBattleOpen(state.rosters[1])}});
+  expect(out.a&&!out.b&&!out.open,'post-battle chip wrong: '+JSON.stringify(out));
+});
+await test('[desktop] scenario editor puts the formatting bar right above the focused field',null,async page=>{
+  await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(400);
+  await page.evaluate(()=>{adminOpenCategory='scenarios';openScenarioEditor(null)});await page.waitForTimeout(500);
+  const ta=page.locator('#seSpecialRules');await ta.scrollIntoViewIfNeeded();await ta.click();await ta.type('X');
+  const near=await page.evaluate(()=>document.querySelector('.scn-format-bar')?.nextElementSibling?.id);
+  await page.locator('.scn-format-bar .rule-edit-tool-bullet').click();
+  const v=await ta.inputValue();
+  expect(near==='seSpecialRules','format bar not next to the field: '+near);
+  expect(v.includes('• '),'bullet not inserted: '+JSON.stringify(v));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

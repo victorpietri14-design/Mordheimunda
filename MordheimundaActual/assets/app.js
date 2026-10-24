@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0733.0';
+const APP_BUILD='110.0734.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8111,7 +8111,7 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
   // so reordering here is enough; nothing else needs to read a separate
   // "position" field.
   const reorderBtns=reorder?`<div class="dash-wcard-reorder"><button type="button" class="dash-wcard-move" title="${en?'Move up':'Monter'}" aria-label="${en?'Move up':'Monter'}" ${reorder.index<=0?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',-1)">▲</button><button type="button" class="dash-wcard-move" title="${en?'Move down':'Descendre'}" aria-label="${en?'Move down':'Descendre'}" ${reorder.index>=reorder.total-1?'disabled':''} onclick="event.preventDefault();event.stopPropagation();moveRosterOrder('${r.id}',1)">▼</button></div>`:'';
-  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span></div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}${greatQuestAchieved(r).length?` <span class="gq-trophy" title="${esc((en?'Great Quest achieved: ':'Grande Quête accomplie : ')+greatQuestAchieved(r).map(q=>q.name).join(', '))}">${trophyMarkup(greatQuestAchieved(r)[0].trophy,22)}</span>`:''}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
+  return `<a href="${warbandPath(r.id)}" data-app-route="1"${reorder?` data-roster-id="${esc(r.id)}"`:''} class="dash-wcard"><div class="dash-wcard-banner">${bannerVisual}<span class="dash-wcard-bar" style="background:${bar}"></span>${reorderBtns}<button type="button" class="dash-wcard-dup" title="${en?'Duplicate':'Dupliquer'}" aria-label="${en?'Duplicate':'Dupliquer'} ${esc(r.name)}" onclick="event.preventDefault();event.stopPropagation();duplicateRoster('${r.id}')">⧉</button><span class="dash-wcard-rep">${en?'Rep.':'Rép.'} ${Number(r.reputation||0)}</span>${homePostBattleOpen(r)?`<button type="button" class="dash-wcard-pb" title="${en?'This warband has a post-battle in progress (counted in the red badge)':'Cette bande a une post-bataille en cours (comptée dans la pastille rouge)'}" onclick="event.preventDefault();event.stopPropagation();homeOpen('${esc(r.id)}','postbattle')">● ${en?'Post-battle to finish':'Post-bataille à finir'}</button>`:''}</div><div class="dash-wcard-body"><div class="dash-wcard-text"><span class="dash-wcard-faction" style="color:${labelColor}">${esc(f.displayName)}</span><strong class="dash-wcard-name">${esc(r.name)}${greatQuestAchieved(r).length?` <span class="gq-trophy" title="${esc((en?'Great Quest achieved: ':'Grande Quête accomplie : ')+greatQuestAchieved(r).map(q=>q.name).join(', '))}">${trophyMarkup(greatQuestAchieved(r)[0].trophy,22)}</span>`:''}</strong></div><div class="dash-wcard-cote"><span>${en?'Rating':'Cote'}</span><b>${total(r)}</b></div></div></a>`}
 // V-ORDERSYNC: the warband list order is a separate, stamped record
 // (state.rosterOrder) so another device can tell a newer reorder from its own
 // older one; mergeAccountData keeps the newest. Same stamp as save() puts on
@@ -8311,7 +8311,7 @@ function homeCanAdvance(x){
   return false;
 }
 function homeLiving(r){return (r?.fighters||[]).filter(x=>x&&!fighterStatus(x).dead&&!x.hsLeft)}
-function homePostBattleOpen(r){const p=r?.postBattle;if(!p||typeof p!=='object')return false;return !p.incomeApplied&&(!!p.result||(Array.isArray(p.dice)&&p.dice.some(d=>Number.isInteger(Number(d?.value))&&d.value!==null)))}
+function homePostBattleOpen(r){const p=r?.postBattle;if(!p||typeof p!=='object')return false;return !p.incomeApplied&&(!!p.result||(Array.isArray(p.dice)&&p.dice.some(d=>d&&d.value!==null&&d.value!==''&&Number(d.value)>=1&&Number(d.value)<=6)))}
 function homeTodos(r){
   const en=siteLanguage==='en';const out=[];const living=homeLiving(r);
   if(homePostBattleOpen(r))out.push({text:en?'Post-battle not finished':'Post-bataille non terminée',dot:'#ff8a3d',go:`homeOpen('${esc(r.id)}','postbattle')`});
@@ -10677,7 +10677,12 @@ function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<di
 function scenarioFormatFocus(ev){
   const t=ev.target;if(!t||t.tagName!=='TEXTAREA')return;
   const en=siteLanguage==='en';const lab=document.getElementById('scnFormatTarget');
-  if(SCN_RICH_FIELDS[t.id]){ruleEditTargetId=t.id;if(lab)lab.textContent=(en?'Formatting goes into: ':'La mise en forme va dans : ')+SCN_RICH_FIELDS[t.id][en?0:1];}
+  if(SCN_RICH_FIELDS[t.id]){ruleEditTargetId=t.id;if(lab)lab.textContent=(en?'Formatting goes into: ':'La mise en forme va dans : ')+SCN_RICH_FIELDS[t.id][en?0:1];
+    // V-SCNBARINLINE: the toolbar used to sit at the top of the page, far
+    // from the field it formats (and on some mobile browsers it didn't stay
+    // pinned), so inserts landed out of sight. Move it right above the
+    // focused field instead.
+    const bar=document.querySelector('.scn-format-bar');if(bar&&bar.nextElementSibling!==t){t.parentElement.insertBefore(bar,t);bar.classList.add('scn-format-inline')}}
   else{ruleEditTargetId=null;if(lab)lab.textContent=en?'This field takes plain text only':'Ce champ prend seulement du texte simple';}
 }
 function scenarioSpecialRulesText(s){
