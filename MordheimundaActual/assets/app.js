@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0734.0';
+const APP_BUILD='110.0735.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8311,7 +8311,11 @@ function homeCanAdvance(x){
   return false;
 }
 function homeLiving(r){return (r?.fighters||[]).filter(x=>x&&!fighterStatus(x).dead&&!x.hsLeft)}
-function homePostBattleOpen(r){const p=r?.postBattle;if(!p||typeof p!=='object')return false;return !p.incomeApplied&&(!!p.result||(Array.isArray(p.dice)&&p.dice.some(d=>d&&d.value!==null&&d.value!==''&&Number(d.value)>=1&&Number(d.value)<=6)))}
+// V-PBOPEN: "post-battle in progress" = exploration dice rolled but nothing
+// collected yet (no income applied, no wyrdstone put in reserve). Recording
+// the game result alone, or keeping shards in reserve without selling them,
+// no longer counts — it kept the red badge on forever.
+function homePostBattleOpen(r){const p=r?.postBattle;if(!p||typeof p!=='object')return false;if(p.incomeApplied||Number(p.shards)>0)return false;return Array.isArray(p.dice)&&p.dice.some(d=>d&&d.value!==null&&d.value!==''&&Number(d.value)>=1&&Number(d.value)<=6)}
 function homeTodos(r){
   const en=siteLanguage==='en';const out=[];const living=homeLiving(r);
   if(homePostBattleOpen(r))out.push({text:en?'Post-battle not finished':'Post-bataille non terminée',dot:'#ff8a3d',go:`homeOpen('${esc(r.id)}','postbattle')`});

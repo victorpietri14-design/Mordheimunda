@@ -510,9 +510,10 @@ await test('[desktop] henchman advancement roll spends 6 XP and raises a stat',n
   expect(out.xp===1&&out.changed&&out.adv===1,'henchman roll did not apply: '+JSON.stringify(out));
 });
 await test('[desktop] warband card explains the red post-battle badge',null,async page=>{
-  const out=await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.length);state.rosters=[{id:'pb1',name:'PB',factionId:f.id,gold:0,fighters:[],postBattle:{result:'win',incomeApplied:false}},{id:'pb2',name:'Clean',factionId:f.id,gold:0,fighters:[],postBattle:{dice:[{value:null},{value:''}]}}];
-    const a=dashWarbandCard(state.rosters[0],null),b=dashWarbandCard(state.rosters[1],null);return {a:a.includes('dash-wcard-pb'),b:b.includes('dash-wcard-pb'),open:homePostBattleOpen(state.rosters[1])}});
-  expect(out.a&&!out.b&&!out.open,'post-battle chip wrong: '+JSON.stringify(out));
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.length);state.rosters=[{id:'pb1',name:'PB',factionId:f.id,gold:0,fighters:[],postBattle:{dice:[{value:4},{value:null}],incomeApplied:false}},{id:'pb2',name:'Clean',factionId:f.id,gold:0,fighters:[],postBattle:{dice:[{value:null},{value:''}]}}];
+    const res={id:'pb3',postBattle:{result:'win',incomeApplied:false}},kept={id:'pb4',postBattle:{dice:[{value:5}],shards:2,incomeApplied:false}};
+    const a=dashWarbandCard(state.rosters[0],null),b=dashWarbandCard(state.rosters[1],null);return {a:a.includes('dash-wcard-pb'),b:b.includes('dash-wcard-pb'),open:homePostBattleOpen(state.rosters[1]),res:homePostBattleOpen(res),kept:homePostBattleOpen(kept)}});
+  expect(out.a&&!out.b&&!out.open&&!out.res&&!out.kept,'post-battle chip wrong: '+JSON.stringify(out));
 });
 await test('[desktop] scenario editor puts the formatting bar right above the focused field',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(400);
