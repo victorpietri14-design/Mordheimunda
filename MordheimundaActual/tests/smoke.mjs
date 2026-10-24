@@ -499,6 +499,16 @@ await test('[desktop] forbidden equipment categories block buying and Stash item
   expect(!out.pool,'banned category still offered for purchase');
   expect(out.axe===true&&out.bow===false,'exception (Throwing axe) not honoured: '+JSON.stringify(out));
 });
+await test('[desktop] henchman advancement roll spends 6 XP and raises a stat',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.packId&&x.warriors?.some(w=>w.type==='Henchman'));const H=f.warriors.find(w=>w.type==='Henchman');
+    const h={...JSON.parse(JSON.stringify(H)),wid:H.id,instance:'h1',equipmentSelected:[],status:{},xp:7,profile:[3,2,2,2,2,1,2,1,5,5,5,5],advancements:[]};
+    state.rosters=[{id:'rh',name:'RH',factionId:f.id,gold:0,fighters:[h]}];state.active='rh';editingIndex=0;
+    const x=activeRoster().fighters[0];const before=x.profile.slice();let err='';
+    try{confirmHenchRoll(5,null)}catch(e){err=String(e)}
+    const y=activeRoster().fighters[0];return {err,xp:y.xp,changed:y.profile.some((v,i)=>v!==before[i]),adv:(y.advancements||[]).length}});
+  expect(!out.err,'henchman roll crashed: '+out.err);
+  expect(out.xp===1&&out.changed&&out.adv===1,'henchman roll did not apply: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
