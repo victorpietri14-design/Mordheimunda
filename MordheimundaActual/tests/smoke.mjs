@@ -543,6 +543,21 @@ await test('[desktop] light game-content export skips accounts and pictures',nul
   expect(!/x@y\.z|created_by|user_id|"u1"/.test(out.txt),'account fields leaked');
   expect(t.official_warbands?.[0]?.definition?.icon==='[image]'&&t.official_warbands[0].definition.warriors[0].cost===140,'content altered wrongly');
 });
+await test('[desktop] warband-wide equipment discount (%) on price and value, item rule wins',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&(x.warriors||[]).length);const w=D.weapons.find(a=>a.name==='Sword')||D.weapons.find(a=>Number(a.price)>=20);const x={wid:f.warriors[0].id};
+    const old=priceRules;const base=equipmentPrice(w,f,'band',x);const it={name:w.name,value:Number(w.price),paid:Number(w.price)};const baseV=equipmentBandValue(it,f,x);
+    priceRules=[{factionId:String(f.id),warriorId:null,item:'*',price:null,value:null,pricePct:20,valuePct:50}];
+    const p=equipmentPrice(w,f,'band',x),v=equipmentBandValue(it,f,x),m=equipmentPrice(w,f,'market',x),stash=equipmentBandValue(it,f,null);
+    priceRules.push({factionId:String(f.id),warriorId:null,item:w.name,price:3,value:null});const p2=equipmentPrice(w,f,'band',x);
+    const html=(()=>{priceRules=[{factionId:String(f.id),warriorId:null,item:'*',price:null,value:null,pricePct:20,valuePct:null}];prFactionSel=String(f.id);return adminPriceRulesMarkup()})();
+    priceRules=old;return {base,baseV,p,v,m,stash,p2,html:/Tout l’équipement|All equipment/.test(html)&&/−20 %/.test(html)}});
+  expect(out.p===Math.round(out.base*0.8),'Band List price should be cut by 20%: '+JSON.stringify(out));
+  expect(out.v===Math.round(out.baseV*0.5),'value should be cut by 50%: '+JSON.stringify(out));
+  expect(out.m!==out.p||out.base===0,'market price must stay untouched: '+JSON.stringify(out));
+  expect(out.stash===out.baseV,'warband stash keeps its normal value: '+JSON.stringify(out));
+  expect(out.p2===3,'a special price for one item wins over the percentage: '+out.p2);
+  expect(out.html,'admin list should show the warband-wide discount');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
