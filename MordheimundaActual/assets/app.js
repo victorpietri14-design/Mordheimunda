@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0737.0';
+const APP_BUILD='110.0740.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3144,7 +3144,7 @@ function liveFighterCost(x,f){
 // V-BANDVALUE: what an item adds to the warband value. Equal to its cost by
 // default; an item can set its own band value (e.g. a Holy Tome bought for
 // 140 GC that only counts 30). Buying and selling still use the cost.
-function equipmentBandValue(e,f,x){{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
+function equipmentBandValue(e,f,x){{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;{const pp=f&&x&&!e?.intrinsic&&!e?.bandOnlyIntrinsic?priceRulePct(f,x,live||e):null;if(pp&&pctValueOf(pp)){const lb=live?.bandValue;const book=lb!==''&&lb!=null&&Number.isFinite(Number(lb))?Number(lb):Number(live?live.price:(e?.value??e?.price??0));if(Number.isFinite(book))return pctCut(Math.max(0,book),pctValueOf(pp))}}const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
 // Value shown on the fighter sheet / stash rows: same special-price rule as the rating.
 function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBandValue(e,r?faction(r):null,r?.fighters?.[editingIndex]||null)}catch(x){return equipmentBandValue(e)}}
 // A fighter's value counts the equipment they carry: for a Leader/Champion
@@ -15993,8 +15993,8 @@ function fixImmuneWarTrophies(){
 function applyPriceRuleRefunds(){
   if(!priceRules.length||!Array.isArray(state?.rosters))return 0;let total=0;const notes=[];
   try{state.rosters.forEach(r=>{const f=faction(r);if(!f)return;let back=0;
-    const refund=(e,x)=>{if(!e||e.intrinsic||e.bandOnlyIntrinsic)return;const paid=Number(e.paid);if(!Number.isFinite(paid)||paid<=0)return;const pr=priceRuleFor(e.name,f,x);if(!pr||pr.price==null||paid<=pr.price)return;
-      back+=paid-pr.price;e.priceRefund={from:paid,to:pr.price,at:new Date().toISOString()};e.paid=pr.price};
+    const refund=(e,x)=>{if(!e||e.intrinsic||e.bandOnlyIntrinsic)return;const paid=Number(e.paid);if(!Number.isFinite(paid)||paid<=0)return;const pr=priceRuleFor(e.name,f,x);let to=pr&&pr.price!=null?pr.price:null;if(to==null){const def=liveEquipmentDef(e);const pp=def?priceRulePct(f,x,def):null;if(def){const t=pp&&pp.pricePct?equipmentPrice(def,f,'band',x):null;if(t!=null&&Number.isFinite(Number(t)))to=Number(t)}}if(to==null||paid<=to)return;
+      back+=paid-to;e.priceRefund={from:paid,to,at:new Date().toISOString()};e.paid=to};
     (r.fighters||[]).forEach(x=>{if(isHiredSword(x))return;const seen=new Set();[...(x.equipmentStash||[]),...(x.equipmentSelected||[])].forEach(e=>{if(seen.has(e))return;seen.add(e);refund(e,x)})});
     (r.reserve||[]).forEach(e=>refund(e,null));
     if(back>0){r.gold=Number(r.gold||0)+back;total+=back;notes.push(`${r.name||'—'} +${back} GC`)}
@@ -16476,7 +16476,17 @@ function adminPriceRulesMarkup(){const en=siteLanguage==='en';const facs=[...(D.
    <label class="custom-field"><span>${en?'Value (GC, optional)':'Valeur (CO, facultatif)'}</span><input id="prValue" type="number" min="0" step="1"></label>
    <button type="button" class="button primary" onclick="addPriceRule()">＋ ${en?'Add':'Ajouter'}</button>
   </div>
-  ${groups.size?[...groups.entries()].sort((a,b)=>String(prFactionName(a[0])).localeCompare(String(prFactionName(b[0])))).map(([fid,list])=>`<details class="custom-collapse" style="margin-top:8px"${prOpenFactions.has(fid)?' open':''} ontoggle="if(this.open)prOpenFactions.add('${esc(fid)}');else prOpenFactions.delete('${esc(fid)}')"><summary><span>${esc(prFactionName(fid))}</span><small>${list.length} ${en?(list.length>1?'rules':'rule'):(list.length>1?'règles':'règle')}</small></summary><table style="width:100%;font-size:12.5px">${list.map(({r,i})=>{const b=book(r.item);return `<tr><td>${esc(r.warriorId?prWarriorName(fid,r.warriorId):(en?'Whole warband':'Toute la bande'))}</td><td><b>${esc(r.item)}</b>${b?` <small class="muted">(${en?'normally':'normalement'} ${b.price} GC)</small>`:''}</td><td>${r.price!=null?r.price+' GC':'—'}</td><td>${en?'value':'valeur'} ${r.value!=null?r.value:(r.price!=null?r.price:'—')} GC</td><td style="text-align:right"><button type="button" class="button secondary tiny" onclick="deletePriceRule(${i})">✕</button></td></tr>`}).join('')}</table></details>`).join(''):`<p class="muted" style="margin-top:12px">${en?'No special price yet.':'Aucun prix spécial pour l’instant.'}</p>`}
+  <div class="eyebrow" style="margin-top:14px">${en?'DISCOUNT ON ALL EQUIPMENT':'RÉDUCTION SUR TOUT L’ÉQUIPEMENT'}</div>
+  <p class="custom-field-help">${en?'Cut every item’s Band List price and/or value by a percentage for the chosen warband (or one fighter type of it), optionally only for a rarity range (Common = 0, Rare 8 = 8). A special price set above for one item wins over the percentage.':'Réduit d’un pourcentage le prix (Band List) et/ou la valeur de tous les objets pour la bande choisie (ou un type de combattant), éventuellement seulement pour une plage de rareté (Commun = 0, Rare 8 = 8). Un prix spécial défini ci-dessus pour un objet reste prioritaire.'}</p>
+  <div class="custom-form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;align-items:end">
+   <label class="custom-field"><span>${en?'Fighter':'Combattant'}</span><select id="prPctWarrior"><option value="">${en?'Whole warband':'Toute la bande'}</option>${(fac?.warriors||[]).map(w=>`<option value="${esc(w.id)}">${esc(w.name)}</option>`).join('')}</select></label>
+   <label class="custom-field"><span>${en?'Rarity from (empty = Common)':'Rareté de (vide = Commun)'}</span><input id="prPctRarMin" type="number" min="0" max="20" step="1" placeholder="${en?'Common':'Commun'}"></label>
+   <label class="custom-field"><span>${en?'Rarity to (empty = all)':'Rareté à (vide = toutes)'}</span><input id="prPctRarMax" type="number" min="0" max="20" step="1" placeholder="${en?'all':'toutes'}"></label>
+   <label class="custom-field"><span>${en?'Price −%':'Prix −%'}</span><input id="prPctPrice" type="number" min="0" max="100" step="1" placeholder="ex. 20"></label>
+   <label class="custom-field"><span>${en?'Value −% (empty = same as price)':'Valeur −% (vide = comme le prix)'}</span><input id="prPctValue" type="number" min="0" max="100" step="1" placeholder="${en?'= price':'= prix'}"></label>
+   <button type="button" class="button primary" onclick="addPricePctRule()">＋ ${en?'Apply to':'Appliquer à'} ${esc(fac?.displayName||'')}</button>
+  </div>
+  ${groups.size?[...groups.entries()].sort((a,b)=>String(prFactionName(a[0])).localeCompare(String(prFactionName(b[0])))).map(([fid,list])=>`<details class="custom-collapse" style="margin-top:8px"${prOpenFactions.has(fid)?' open':''} ontoggle="if(this.open)prOpenFactions.add('${esc(fid)}');else prOpenFactions.delete('${esc(fid)}')"><summary><span>${esc(prFactionName(fid))}</span><small>${list.length} ${en?(list.length>1?'rules':'rule'):(list.length>1?'règles':'règle')}</small></summary><table style="width:100%;font-size:12.5px">${list.map(({r,i})=>{if(r.item==='*')return `<tr><td>${esc(r.warriorId?prWarriorName(fid,r.warriorId):(en?'Whole warband':'Toute la bande'))}</td><td><b>${en?'All equipment':'Tout l’équipement'}</b>${r.rarityMin!=null||r.rarityMax!=null?` <small class="muted">(${en?'rarity':'rareté'} ${r.rarityMin==null?(en?'Common':'Commun'):r.rarityMin}–${r.rarityMax==null?'∞':r.rarityMax})</small>`:''}</td><td>${r.pricePct!=null?(en?'price':'prix')+' −'+r.pricePct+' %':'—'}</td><td>${pctValueOf(r)!=null?(en?'value':'valeur')+' −'+pctValueOf(r)+' %':'—'}</td><td style="text-align:right"><button type="button" class="button secondary tiny" onclick="deletePriceRule(${i})">✕</button></td></tr>`;const b=book(r.item);return `<tr><td>${esc(r.warriorId?prWarriorName(fid,r.warriorId):(en?'Whole warband':'Toute la bande'))}</td><td><b>${esc(r.item)}</b>${b?` <small class="muted">(${en?'normally':'normalement'} ${b.price} GC)</small>`:''}</td><td>${r.price!=null?r.price+' GC':'—'}</td><td>${en?'value':'valeur'} ${r.value!=null?r.value:(r.price!=null?r.price:'—')} GC</td><td style="text-align:right"><button type="button" class="button secondary tiny" onclick="deletePriceRule(${i})">✕</button></td></tr>`}).join('')}</table></details>`).join(''):`<p class="muted" style="margin-top:12px">${en?'No special price yet.':'Aucun prix spécial pour l’instant.'}</p>`}
   </div>`}
 async function savePriceRules(next,msg){const en=siteLanguage==='en';try{const r=await window.MordheimundaAPI.adminSavePriceRules(next);priceRules=Array.isArray(r?.rules)?r.rules:next;applyPriceRuleRefunds();render('admin');if(msg)toast(msg)}catch(e){toast(authError(e,en))}}
 function addPriceRule(){const en=siteLanguage==='en';const factionId=$('#prFaction')?.value||'',warriorId=$('#prWarrior')?.value||null,item=($('#prItem')?.value||'').trim();const pv=$('#prPrice')?.value,vv=$('#prValue')?.value;
@@ -16484,6 +16494,11 @@ function addPriceRule(){const en=siteLanguage==='en';const factionId=$('#prFacti
   const rule={factionId,warriorId:warriorId||null,item,price:pv===''?null:Math.max(0,Math.round(Number(pv))),value:vv===''?null:Math.max(0,Math.round(Number(vv)))};
   const next=priceRules.filter(r=>!(r.factionId===rule.factionId&&(r.warriorId||null)===rule.warriorId&&normName(r.item)===normName(rule.item)));next.push(rule);prOpenFactions.add(rule.factionId);
   savePriceRules(next,en?'Special price saved':'Prix spécial enregistré')}
+function addPricePctRule(){const en=siteLanguage==='en';const factionId=$('#prFaction')?.value||'',warriorId=$('#prPctWarrior')?.value||null;const pv=$('#prPctPrice')?.value,vv=$('#prPctValue')?.value;
+  if(!factionId)return toast(en?'Choose a warband':'Choisis une bande');if(pv===''&&vv==='')return toast(en?'Enter a price or value percentage':'Indique un pourcentage de prix ou de valeur');
+  const pct=v=>v===''?null:Math.min(100,Math.max(0,Math.round(Number(v))));const rv=id=>{const v=$(id)?.value;return v===''||v==null?null:Math.min(20,Math.max(0,Math.round(Number(v))))};const rule={factionId,warriorId:warriorId||null,item:'*',price:null,value:null,pricePct:pct(pv),valuePct:pct(vv),rarityMin:rv('#prPctRarMin'),rarityMax:rv('#prPctRarMax')};if(rule.rarityMin!=null&&rule.rarityMax!=null&&rule.rarityMin>rule.rarityMax)return toast(en?'Rarity range is reversed':'La plage de rareté est inversée');
+  const next=priceRules.filter(r=>!(r.factionId===rule.factionId&&(r.warriorId||null)===rule.warriorId&&r.item==='*'&&(r.rarityMin??null)===rule.rarityMin&&(r.rarityMax??null)===rule.rarityMax));if(rule.pricePct||rule.valuePct)next.push(rule);prOpenFactions.add(rule.factionId);
+  savePriceRules(next,en?'Discount saved':'Réduction enregistrée')}
 function deletePriceRule(i){const en=siteLanguage==='en';const next=priceRules.filter((_,k)=>k!==i);savePriceRules(next,en?'Special price removed':'Prix spécial supprimé')}
 // V-MTEXCLUDE admin: words never translated + this month's usage.
 let mtAdminData=null,mtAdminLoading=false;
@@ -17873,8 +17888,13 @@ async function saveWarbandSizeLimit(fid,raw){
   if(Number.isFinite(n)&&n>=1)next[fid]=Math.min(200,n);else delete next[fid];
   try{const r=await window.MordheimundaAPI.adminSaveWarbandSizeLimits(next);warbandSizeLimits=r?.limits||next;toast(next[fid]?(en?`Maximum size saved: ${next[fid]} fighters`:`Taille max enregistrée : ${next[fid]} combattants`):(en?'Maximum size removed':'Taille max retirée'))}catch(e){toast(authError(e,en))}
 }
-function priceRuleFor(itemName,f,x){if(!f||!itemName||!priceRules.length)return null;const n=normName(itemName),fid=String(f.id||'');const hits=priceRules.filter(r=>r.factionId===fid&&normName(r.item)===n);if(!hits.length)return null;const wid=x?.wid?String(x.wid):null;return (wid&&hits.find(r=>r.warriorId===wid))||hits.find(r=>!r.warriorId)||null}
-function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;if(w.coveredVariant&&w.__coveringBase){const b=equipmentPrice(w.__coveringBase,f,tab,x);return b==null?null:coveringPrice(w.__covering,b)}if(tab==='band'){const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}if(isCustomEquipment(w))return Number(w.price||0);if(tab==='band'&&w.bandPrices?.[f.id]!=null)return Number(w.bandPrices[f.id]);return w.price}
+function priceRuleFor(itemName,f,x){if(!f||!itemName||!priceRules.length)return null;const n=normName(itemName),fid=String(f.id||'');if(n==='*')return null;const hits=priceRules.filter(r=>r.factionId===fid&&normName(r.item)===n);if(!hits.length)return null;const wid=x?.wid?String(x.wid):null;return (wid&&hits.find(r=>r.warriorId===wid))||hits.find(r=>!r.warriorId)||null}
+// V-PRICEPCT: a warband-wide (or fighter-type) percentage cut on every item's
+// Band List price and/or value (rule item '*'). A rule for one item wins.
+function priceRulePct(f,x,w){if(!f||!priceRules.length)return null;const fid=String(f.id||'');const rar=w?tradingRarity(w):null;const fits=r=>rar==null||((r.rarityMin==null||rar>=r.rarityMin)&&(r.rarityMax==null||rar<=r.rarityMax));const hits=priceRules.filter(r=>r.factionId===fid&&r.item==='*'&&(r.pricePct!=null||r.valuePct!=null)&&fits(r));if(!hits.length)return null;const wid=x?.wid?String(x.wid):null;return (wid&&hits.find(r=>r.warriorId===wid))||hits.find(r=>!r.warriorId)||null}
+function pctValueOf(pp){return pp?(pp.valuePct!=null?pp.valuePct:pp.pricePct):null}
+function pctCut(n,pct){return Math.max(0,Math.round(Number(n)*(100-Number(pct))/100))}
+function equipmentPrice(w,f,tab=equipmentTab,x=null){if(w.bandOnlyIntrinsic)return 0;if(w.coveredVariant&&w.__coveringBase){const b=equipmentPrice(w.__coveringBase,f,tab,x);return b==null?null:coveringPrice(w.__covering,b)}if(tab==='band'){const pr=priceRuleFor(w?.name,f,x);if(pr&&pr.price!=null)return pr.price}const base=isCustomEquipment(w)?Number(w.price||0):(tab==='band'&&w.bandPrices?.[f.id]!=null)?Number(w.bandPrices[f.id]):w.price;if(tab==='band'&&base!=null&&Number.isFinite(Number(base))){const pp=priceRulePct(f,x,w);if(pp&&pp.pricePct)return pctCut(base,pp.pricePct)}return base}
 // V-NOSLOTGEAR: an item only counts as a weapon (weapon list + a weapon
 // slot) when its profile has real stats. An item edited in Admin / Custom
 // could carry an all-blank profile ({range:'',strength:'',…}) — e.g. an
@@ -18029,8 +18049,8 @@ function confirmEquipment(encoded){
   if(name==='Natural Weapons'&&Array.isArray(x.equipmentAccessGroups)&&x.equipmentAccessGroups.includes('Natural Weapons'))w={name:'Natural Weapons',category:'Armes de corps à corps',availability:'Inné',price:0,bandOnlyIntrinsic:true,profile:{range:'Melee 2',strength:'S',ap:'-',damage:'1',traits:'Natural weapon — ne prend pas d’emplacement'}};
   if(!w)return;
   if(!fighterUsesLoadouts(x)){const check=canEquip(x,w);if(!check.ok){toast(check.msg);return}}else{const b=categoryBanCheck(x,w);if(!b.ok){toast(b.msg);return}}
-  const pr=equipmentTab==='band'?priceRuleFor(w?.name,f,x):null;
-  openPurchaseConfirm(w,equipmentPrice(w,f,equipmentTab,x),equipmentTab,pr&&pr.value!=null?pr.value:null);
+  const pr=equipmentTab==='band'?priceRuleFor(w?.name,f,x):null;const pp=equipmentTab==='band'&&!pr?priceRulePct(f,x,w):null;
+  openPurchaseConfirm(w,equipmentPrice(w,f,equipmentTab,x),equipmentTab,pr&&pr.value!=null?pr.value:(pp&&pctValueOf(pp)&&!w.bandOnlyIntrinsic?equipmentBandValue({name:w.name,price:w.price,customEquipmentId:w.customEquipmentId},f,x):null));
 }
 function purchaseEquipment(encoded,tab){
   const r=activeRoster(),x=r?.fighters[editingIndex],f=faction(r),name=decodeURIComponent(encoded);
