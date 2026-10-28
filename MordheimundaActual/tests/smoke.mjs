@@ -549,12 +549,14 @@ await test('[desktop] warband-wide equipment discount (%) on price and value, it
     priceRules=[{factionId:String(f.id),warriorId:null,item:'*',price:null,value:null,pricePct:20,valuePct:50}];
     const p=equipmentPrice(w,f,'band',x),v=equipmentBandValue(it,f,x),m=equipmentPrice(w,f,'market',x),stash=equipmentBandValue(it,f,null);
     priceRules.push({factionId:String(f.id),warriorId:null,item:w.name,price:3,value:null});const p2=equipmentPrice(w,f,'band',x);
+    priceRules=[{factionId:String(f.id),warriorId:null,item:'*',price:null,value:null,pricePct:20,valuePct:null}];const vSame=equipmentBandValue(it,f,x);
     const html=(()=>{priceRules=[{factionId:String(f.id),warriorId:null,item:'*',price:null,value:null,pricePct:20,valuePct:null}];prFactionSel=String(f.id);return adminPriceRulesMarkup()})();
-    priceRules=old;return {base,baseV,p,v,m,stash,p2,html:/Tout l’équipement|All equipment/.test(html)&&/−20 %/.test(html)}});
+    priceRules=old;return {base,baseV,p,v,m,stash,p2,vSame,html:/Tout l’équipement|All equipment/.test(html)&&/−20 %/.test(html)}});
   expect(out.p===Math.round(out.base*0.8),'Band List price should be cut by 20%: '+JSON.stringify(out));
   expect(out.v===Math.round(out.baseV*0.5),'value should be cut by 50%: '+JSON.stringify(out));
   expect(out.m!==out.p||out.base===0,'market price must stay untouched: '+JSON.stringify(out));
   expect(out.stash===out.baseV,'warband stash keeps its normal value: '+JSON.stringify(out));
+  expect(out.vSame===Math.round(out.baseV*0.8),'with no value %, the value follows the price %: '+JSON.stringify(out));
   expect(out.p2===3,'a special price for one item wins over the percentage: '+out.p2);
   expect(out.html,'admin list should show the warband-wide discount');
 });
