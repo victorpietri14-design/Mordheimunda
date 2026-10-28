@@ -531,6 +531,18 @@ await test('[desktop] scenario editor puts the formatting bar right above the fo
   const rwOn=await page.evaluate(()=>{const b=document.querySelector('.scn-format-bar');return !b.classList.contains('scn-format-off')&&ruleEditTargetId==='seRewards'});
   expect(rwOn,'Rewards should accept formatting');
 });
+await test('[desktop] light game-content export skips accounts and pictures',null,async page=>{
+  const out=await page.evaluate(async()=>{const big='data:image/png;base64,'+'A'.repeat(3000);
+    const T={users:[{id:'u1',email:'x@y.z',payload:{}}],official_warbands:[{id:'w1',created_by:'u1',definition:{name:'Orcs',icon:big,warriors:[{name:'Boss',cost:140}]}}],rule_images:[{id:'i1',data:{base64:'AAAA'}}],scenarios:[{id:'s1',user_id:'u1',definition:{name:'Skirmish'}}]};
+    window.MordheimundaAPI.adminExport=async(t,off)=>t?{rows:off?[]:(T[t]||[]),done:true}:{tables:Object.keys(T).map(t=>({table:t,pageSize:20}))};
+    let blob=null;const oc=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return oc.call(URL,b)};
+    await adminExportAll(true);URL.createObjectURL=oc;const txt=blob?await blob.text():'';return {txt}});
+  const j=JSON.parse(out.txt||'{}');const t=j.tables||{};
+  expect(j.kind==='game-content','not marked as game content');
+  expect(!t.users&&!t.rule_images,'accounts or pictures exported: '+Object.keys(t).join(','));
+  expect(!/x@y\.z|created_by|user_id|"u1"/.test(out.txt),'account fields leaked');
+  expect(t.official_warbands?.[0]?.definition?.icon==='[image]'&&t.official_warbands[0].definition.warriors[0].cost===140,'content altered wrongly');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
