@@ -564,6 +564,19 @@ await test('[desktop] warband-wide equipment discount (%) on price and value, it
   expect(out.p2===3,'a special price for one item wins over the percentage: '+out.p2);
   expect(out.html,'admin list should show the warband-wide discount');
 });
+await test('[desktop] admin can forbid Hired Swords / Dramatis Personae for a warband; Feared-style text bans too',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&(x.warriors||[]).length);const r={factionId:f.id,fighters:[]};
+    const fake=[{id:'hs-x',name:'Test Blade',type:'Hired Sword',hiredSword:true},{id:'dp-x',name:'Test Legend',type:'Hired Sword',hiredSword:true,dramatis:true}];
+    const okHs=w=>hiredSwordAvailableFor(w,f,r);const before=[okHs(fake[0]),okHs(fake[1])];
+    const old=warbandHireRules;warbandHireRules={[f.id]:{hs:true}};const hsBan=[okHs(fake[0]),okHs(fake[1])];
+    warbandHireRules={[f.id]:{dp:true}};const dpBan=[okHs(fake[0]),okHs(fake[1])];warbandHireRules=old;
+    const oldTexts=bandRuleTexts;bandRuleTexts=()=>[{name:'Feared',text:'Strigoi Vampires may not hire any Hired Swords.'}];const feared=bandHiredSwordBan(r);bandRuleTexts=oldTexts;
+    return {before,hsBan,dpBan,feared:!!feared}});
+  expect(out.before[0]&&out.before[1],'without a ban both are available: '+JSON.stringify(out));
+  expect(!out.hsBan[0]&&out.hsBan[1],'Hired Swords ban hides Hired Swords only: '+JSON.stringify(out));
+  expect(out.dpBan[0]&&!out.dpBan[1],'Dramatis Personae ban hides Dramatis Personae only: '+JSON.stringify(out));
+  expect(out.feared,'“may not hire any Hired Swords” should be detected as a ban');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
