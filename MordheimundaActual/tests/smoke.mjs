@@ -577,6 +577,14 @@ await test('[desktop] admin can forbid Hired Swords / Dramatis Personae for a wa
   expect(out.dpBan[0]&&!out.dpBan[1],'Dramatis Personae ban hides Dramatis Personae only: '+JSON.stringify(out));
   expect(out.feared,'“may not hire any Hired Swords” should be detected as a ban');
 });
+await test('[desktop] race rule bundle only fills a bare Race (X): Slayers listing their own rules get no Expert Miners',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>(x.warriors||[]).length);
+    const listed=fighterRuleCardMarkup({name:'Test Slayer',type:'Henchman',rules:'Race (Dwarf), Hard Head, Elf Grudge, Magic Resistance (6)'},f);
+    const bare=fighterRuleCardMarkup({name:'Test Dwarf',type:'Henchman',rules:'Race (Dwarf)'},f);
+    return {listedMiners:/Expert Miners/.test(listed),listedGrudge:/Elf Grudge/.test(listed),bareMiners:/Expert Miners/.test(bare)}});
+  expect(!out.listedMiners&&out.listedGrudge,'a profile that lists its own race rules must not get Expert Miners added: '+JSON.stringify(out));
+  expect(out.bareMiners,'a bare Race (Dwarf) still shows the dwarf rules: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
