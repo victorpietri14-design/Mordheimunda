@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0740.0';
+const APP_BUILD='110.0741.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6602,7 +6602,7 @@ function adminWarbandRulesPanel(){
     :(en?'Edits the published warband directly — no draft or copy is ever created, and nothing shows up in your Custom tab. Saving pushes the whole definition back to the live warband at once.':'Modifie directement la bande publiée — aucun brouillon ni copie n’est jamais créé, et rien n’apparaît dans ton onglet Custom. Enregistrer renvoie la fiche complète vers la bande en ligne en une fois.');
   const supplementCard=isCatalog?'':adminSupplementControlMarkup(d);
   return `<div class="admin-page">
-    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div><label class="admin-wb-name-label" for="adminWbNameInput">✎ ${en?'Warband name':'Nom de la bande'}${isCatalog?` <small>(${en?'empty = book name':'vide = nom du livre'})</small>`:''}</label><h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="activeAdminEditData().name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2>${(()=>{const fid=isCatalog?adminCatalogFactionId:(adminRulesEditId?'official-'+adminRulesEditId:null);if(!fid)return '';const cur=Number(warbandSizeLimits[fid])||'';const fac=D.factions.find(x=>x.id===fid);const inh=!cur&&fac?warbandSizeLimitFor(fac):null;return `<label class="admin-wb-name-label" for="adminWbMaxSize">${en?'Maximum fighters':'Combattants max'} <small>(${en?'Hired Swords not counted, empty = no limit':'Hired Swords non compris, vide = pas de limite'}${inh?(en?` — currently ${inh} from the base warband`:` — actuellement ${inh} via la bande de base`):''})</small></label><input type="number" min="1" max="200" step="1" id="adminWbMaxSize" class="admin-wb-max-input" value="${cur}" placeholder="—" onchange="saveWarbandSizeLimit('${esc(fid)}',this.value)" style="max-width:120px">`})()}<p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
+    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div><label class="admin-wb-name-label" for="adminWbNameInput">✎ ${en?'Warband name':'Nom de la bande'}${isCatalog?` <small>(${en?'empty = book name':'vide = nom du livre'})</small>`:''}</label><h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="activeAdminEditData().name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2>${(()=>{const fid=isCatalog?adminCatalogFactionId:(adminRulesEditId?'official-'+adminRulesEditId:null);if(!fid)return '';const cur=Number(warbandSizeLimits[fid])||'';const fac=D.factions.find(x=>x.id===fid);const inh=!cur&&fac?warbandSizeLimitFor(fac):null;return `<label class="admin-wb-name-label" for="adminWbMaxSize">${en?'Maximum fighters':'Combattants max'} <small>(${en?'Hired Swords not counted, empty = no limit':'Hired Swords non compris, vide = pas de limite'}${inh?(en?` — currently ${inh} from the base warband`:` — actuellement ${inh} via la bande de base`):''})</small></label><input type="number" min="1" max="200" step="1" id="adminWbMaxSize" class="admin-wb-max-input" value="${cur}" placeholder="—" onchange="saveWarbandSizeLimit('${esc(fid)}',this.value)" style="max-width:120px"><div class="admin-hire-bans" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">${['hs','dp'].map(k=>{const own=!!(warbandHireRules[fid]||{})[k];const inhB=!own&&fac&&warbandHireBan(fac,k);return `<label class="toggle-line"><input type="checkbox" id="adminWbBan_${k}" ${own?'checked':''} onchange="saveWarbandHireRule('${esc(fid)}','${k}',this.checked)"><span>${k==='hs'?(en?'No Hired Swords':'Hired Swords interdits'):(en?'No Dramatis Personae':'Dramatis Personae interdits')}${inhB?` <small>(${en?'already, via the base warband':'déjà, via la bande de base'})</small>`:''}</span></label>`}).join('')}</div>`})()}<p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
     ${supplementCard}
     ${tabs}
     ${body}
@@ -12832,7 +12832,7 @@ function pbaFees(r,{pending=true}={}){return Object.values(pbaPlan(r)).filter(a=
 // ("Difficult Customers") or a Hired Sword ban ("Cannibals").
 function bandRuleTexts(r){const out=[];try{(warbandRuleEntries(r)||[]).forEach(e=>out.push({name:e.name,text:String(e.text||'')}))}catch(e){}try{(faction(r)?.specialRules||[]).forEach(e=>{if(e?.name)out.push({name:e.name,text:String(e.text||'')})})}catch(e){}return out}
 function bandRareSearchMod(r){for(const e of bandRuleTexts(r)){const m=e.text.match(/([-−+])\s?(\d+)\s+(?:when\s+rolling\s+)?(?:to\s+(?:find|search\s+for)|when\s+(?:looking|searching)\s+for|on\s+(?:the\s+)?rarity)[^.]{0,40}\brare/i)||e.text.match(/([-−+])\s?(\d+)\s+(?:au|aux|pour)\s+(?:jets?\s+(?:de|pour)\s+)?(?:trouver|rechercher)[^.]{0,40}\brares?/i);if(m)return {mod:(m[1]==='+'?1:-1)*Number(m[2]),label:e.name}}return {mod:0,label:''}}
-function bandHiredSwordBan(r){for(const e of bandRuleTexts(r)){if(!/never\s+(?:hire|recruit)\s+(?:any\s+)?hired\s+swords?|ne\s+peu\w*\s+(?:jamais\s+)?(?:engager|recruter)\s+(?:aucun|de)\s+hired\s+swords?/i.test(e.text))continue;const m=e.text.replace(/\([^)]*\)/g,' ').match(/(?:except|sauf|excepté)\s+(?:for\s+|pour\s+)?([^.;]+)/i);const clause=m?m[1].split(/\bor\s+unless\b|\bunless\b|\bà\s+moins\b/i)[0].replace(/\([^)]*\)/g,' '):'';const toks=clause.split(/,|\band\b|\bor\b|\bet\b|\bou\b/i).map(t=>normName(t.replace(/\b(?:the|les?|la|l['’])\b/gi,' ').replace(/\s+/g,' ')).trim()).filter(t=>t&&t.length>2&&!/^etc/.test(t)).map(t=>t.length>4&&t.endsWith('s')?t.slice(0,-1):t);return {rule:e.name,allow:toks}}return null}
+function bandHiredSwordBan(r){for(const e of bandRuleTexts(r)){if(!/(?:never|(?:may|can)\s*not|cannot|can['’]t|may\s+never)\s+(?:hire|recruit)\s+(?:any\s+)?hired\s+swords?|ne\s+peu\w*\s+(?:jamais\s+)?(?:engager|recruter)\s+(?:aucun|de)\s+hired\s+swords?/i.test(e.text))continue;const m=e.text.replace(/\([^)]*\)/g,' ').match(/(?:except|sauf|excepté)\s+(?:for\s+|pour\s+)?([^.;]+)/i);const clause=m?m[1].split(/\bor\s+unless\b|\bunless\b|\bà\s+moins\b/i)[0].replace(/\([^)]*\)/g,' '):'';const toks=clause.split(/,|\band\b|\bor\b|\bet\b|\bou\b/i).map(t=>normName(t.replace(/\b(?:the|les?|la|l['’])\b/gi,' ').replace(/\s+/g,' ')).trim()).filter(t=>t&&t.length>2&&!/^etc/.test(t)).map(t=>t.length>4&&t.endsWith('s')?t.slice(0,-1):t);return {rule:e.name,allow:toks}}return null}
 function pbaRareBonus(r){const plan=pbaPlan(r),el=pbaEligible(r).filter(x=>plan[x.instance]?.action==='trade');const lead=el.some(x=>x.type==='Leader')?2:0,champs=el.filter(x=>x.type==='Champion').length,rep=Math.floor(Math.max(0,Number(r.reputation||0))/10);const cm=choiceRarityMod(r);const bm=bandRareSearchMod(r);const mod=cm.mod+bm.mod;return {lead,champs,rep,mod,modLabel:[cm.label,bm.mod?`${bm.label} ${bm.mod>0?'+':''}${bm.mod}`:''].filter(Boolean).join(', '),total:lead+champs+rep+mod}}
 function pbaChange(fn){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);if(p.actionsApplied)return;postBattleStep4Open=true;fn(r,pbaPlan(r));save(true);render('builder')}
 function pbaSetAction(inst,a){pbaChange((r,plan)=>{const cur=plan[inst];plan[inst]=cur?.action===a?{action:null}:{action:a,captives:[],patient:null,cost:null,costDice:null,pay:true,roll:null,li:null}})}
@@ -13958,6 +13958,7 @@ function hiredSwordAsWarrior(w){const a=customFighterAsWarrior({...w,customFight
 // hsFactions: only these warbands may hire it (empty = all); hsExcluded: every
 // warband except these.
 function hiredSwordAvailableFor(w,f,r){
+  if(warbandHireBan(f,w?.dramatis?'dp':'hs'))return false;
   if(r){const ban=bandHiredSwordBan(r);if(ban){const nm=normName(w?.name||''),race=normName(w?.race||'');if(!ban.allow.some(t=>nm.includes(t)||race.includes(t)))return false}}
   const ids=new Set([f?.id,f?.displayName,f?.baseFactionId,r?.factionId,r?.customWarbandId?'custom-warband-'+r.customWarbandId:null].filter(Boolean).map(normName));
   const excluded=Array.isArray(w?.hsExcluded)?w.hsExcluded:[];if(excluded.some(id=>ids.has(normName(id))))return false;
@@ -17882,6 +17883,20 @@ function warbandSizeLimitFor(f){
   return null;
 }
 function warbandSizeCount(r){return (Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x)&&!fighterStatus(x).dead).length}
+// V-HIREBAN: Admin can forbid Hired Swords and/or Dramatis Personae for a
+// warband (a supplement without its own setting follows its base warband).
+let warbandHireRules={};
+async function loadWarbandHireRules(){try{const r=await window.MordheimundaAPI.warbandHireRules();warbandHireRules=r?.rules&&typeof r.rules==='object'?r.rules:{}}catch(e){}}
+function warbandHireBan(f,kind){
+  if(!f)return false;let cur=f;const seen=new Set();
+  while(cur&&!seen.has(cur.id)){seen.add(cur.id);const e=warbandHireRules[cur.id];if(e)return !!e[kind];const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(x=>x.id===pid)||{id:pid}}
+  return false;
+}
+async function saveWarbandHireRule(fid,kind,on){
+  const en=siteLanguage==='en';if(!isAdminSession()||!fid)return;
+  const next={...warbandHireRules};const e={...(next[fid]||{})};if(on)e[kind]=true;else delete e[kind];if(e.hs||e.dp)next[fid]=e;else delete next[fid];
+  try{const r=await window.MordheimundaAPI.adminSaveWarbandHireRules(next);warbandHireRules=r?.rules||next;const what=kind==='hs'?'Hired Swords':'Dramatis Personae';toast(on?(en?`${what} forbidden for this warband`:`${what} interdits pour cette bande`):(en?`${what} allowed again`:`${what} de nouveau autorisés`))}catch(e){toast(authError(e,en))}
+}
 async function saveWarbandSizeLimit(fid,raw){
   const en=siteLanguage==='en';if(!isAdminSession()||!fid)return;
   const n=Math.round(Number(raw));const next={...warbandSizeLimits};
@@ -20730,7 +20745,7 @@ const hasStoredAccountSession=!!localStorage.getItem(ACCOUNT_SESSION_KEY);
 // D.factions — this just guarantees a render happens once those are
 // actually correct, regardless of which side of the race won.
 const bootTimeout=new Promise(resolve=>setTimeout(resolve,1500));
-const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands(),loadPriceRules(),loadWarbandSizeLimits()]);
+const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands(),loadPriceRules(),loadWarbandSizeLimits(),loadWarbandHireRules()]);
 costAffectingLoadsReady.then(()=>renderCurrentRoute());
 if(hasStoredAccountSession){
   Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{try{applyPriceRuleRefunds()}catch(e){}renderCurrentRoute();showPasswordReset();});
