@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0741.0';
+const APP_BUILD='110.0742.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11146,7 +11146,12 @@ function fighterRuleCardMarkup(w,f){
   const raceMatch=rawRuleParts.find(r=>/^Race\s*\(/i.test(r));
   const raceName=raceMatch?(/^Race\s*\(([^)]+)\)/i.exec(raceMatch)||[])[1]?.trim():null;
   const raceBundle=raceName?(RACE_SPECIAL_RULES[raceName]||[]):[];
-  const ruleNames=[...rawRuleParts.filter(r=>r&&!/^Race\s*\(/i.test(r)&&r.toLowerCase()!==String(w.type||'').toLowerCase()),...raceBundle.map(r=>r.name).filter(n=>!rawRuleParts.some(r2=>r2.toLowerCase()===n.toLowerCase()))];
+  // V-RACEBUNDLEOPT: when the profile already lists some of its race's rules
+  // itself (e.g. the Slayer Cult lists Elf Grudge and Magic Resistance but
+  // not Expert Miners), that list is the author's choice: the missing bundle
+  // rules are not added back. The bundle only fills in a bare "Race (X)".
+  const listsOwnRaceRules=raceBundle.some(b=>rawRuleParts.some(r2=>normName(r2)===normName(b.name)));
+  const ruleNames=[...rawRuleParts.filter(r=>r&&!/^Race\s*\(/i.test(r)&&r.toLowerCase()!==String(w.type||'').toLowerCase()),...(listsOwnRaceRules?[]:raceBundle.map(r=>r.name).filter(n=>!rawRuleParts.some(r2=>r2.toLowerCase()===n.toLowerCase())))];
   // V-WBKEYWORDPEEK: these keywords used to jump straight to the Référentiel
   // page on click (openReference), leaving no way to just glance at the rule
   // without losing the fighter card. Now built with refLink — same
