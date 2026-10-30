@@ -649,6 +649,24 @@ await test('[mobile] interface polish: no split words, delete at the bottom, kil
   expect(asked&&!dead,'killing a fighter asks first and does nothing until confirmed: '+JSON.stringify({asked,dead}));
   expect(compact,'compact recruit list hides the rules block');
 });
+await test('[mobile] guided post-battle: steps keep what was done, back and forth, finish resets the tab',null,async page=>{
+  await page.setViewportSize({width:390,height:844});await seed(page);
+  await page.evaluate(()=>{navigateApp(warbandPath('smoke'));openRecruitPanel()});await page.waitForTimeout(400);
+  await page.locator('.recruit-panel button',{hasText:/Recruit — \d+ GC/}).first().click();await page.waitForTimeout(400);
+  await page.evaluate(()=>{setPbMode('all');setGangTab('postbattle')});await page.waitForTimeout(300);
+  const all=await page.evaluate(()=>!!document.querySelector('.postbattle-accordion')&&!document.querySelector('.pbg'));
+  await page.evaluate(()=>setPbMode('guided'));await page.waitForTimeout(300);
+  const titles=[];for(let i=0;i<8;i++){titles.push(await page.evaluate(()=>document.querySelector('.pbg-title')?.textContent||''));await page.evaluate(()=>pbGuideGo(1));await page.waitForTimeout(150)}
+  await page.evaluate(()=>{pbGuideJump(0);const x=activeRoster().fighters[0];pbgSetStatus(x.instance,'recovery');pbGuideGo(1);pbgXp(x.instance,2);pbGuideGo(1);pbGuideGo(-1);pbGuideGo(-1)});await page.waitForTimeout(300);
+  const kept=await page.evaluate(()=>{const r=activeRoster(),x=r.fighters[0];return {rec:fighterStatus(x).recovery,xp:Number(x.xp)-Number(r.postBattle.guide.startXp[x.instance]),step:r.postBattle.guide.step,checked:!!document.querySelector('.pbg-chip.warn.on')}});
+  await page.evaluate(()=>{pbGuideJump(pbGuideSteps(activeRoster()).length-1);pbgFinish()});await page.waitForTimeout(300);await page.evaluate(()=>siteDialogOk());await page.waitForTimeout(400);
+  const after=await page.evaluate(()=>{const r=activeRoster();return {fresh:Number(r.postBattle?.guide?.step||0)===0&&!(r.postBattle?.dice||[]).length&&!r.postBattle?.actionsApplied,rec:fighterStatus(r.fighters[0]).recovery,hist:(r.history||[]).some(h=>/post-battle finished|après-bataille terminé/i.test(h.text))}});
+  await page.evaluate(()=>setPbMode('all'));
+  expect(all,'"All on one page" keeps the current layout');
+  expect(titles[0]==='Injured and dead'&&titles.includes('Exploration')&&titles.includes('Trading Post')&&titles[7]==='Summary','guided steps in order: '+JSON.stringify(titles));
+  expect(kept.rec&&kept.xp===2&&kept.step===0&&kept.checked,'back and forth keeps what was done: '+JSON.stringify(kept));
+  expect(after.fresh&&after.rec&&after.hist,'finish records history, keeps the results and starts the tab again: '+JSON.stringify(after));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
