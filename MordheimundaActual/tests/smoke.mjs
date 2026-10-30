@@ -585,6 +585,18 @@ await test('[desktop] race rule bundle only fills a bare Race (X): Slayers listi
   expect(!out.listedMiners&&out.listedGrudge,'a profile that lists its own race rules must not get Expert Miners added: '+JSON.stringify(out));
   expect(out.bareMiners,'a bare Race (Dwarf) still shows the dwarf rules: '+JSON.stringify(out));
 });
+await test('[desktop] Play Mode fighter cards keep the rule hover peek (no need to open the sheet)',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=state.rosters[0];const f=faction(r);const w=f.warriors[0];const x={instance:'t1',wid:w.id,name:w.name,type:w.type,profile:w.profile,rules:w.rules,xp:0,skills:['Resolute'],equipmentSelected:[],injuries:[]};
+    const box=document.createElement('div');box.className='roster-sections play-cards';box.innerHTML=playCardMarkup(x,f,'','engc-test','',null,r.id);document.body.appendChild(box);
+    const ref=box.querySelector('.rule-ref');if(!ref)return {ref:false};const pe=getComputedStyle(ref).pointerEvents;
+    let opened=false;const old=window.playOpenFighter;window.playOpenFighter=()=>{opened=true};ref.dispatchEvent(new MouseEvent('mouseenter'));ref.click();window.playOpenFighter=old;
+    const peek=document.getElementById('rulePeek');const shown=!!peek&&peek.textContent.trim().length>0;box.remove();return {ref:true,pe,opened,shown}});
+  expect(out.ref,'the play card should contain linked rules');
+  expect(out.pe!=='none','rule links must react to hover in Play Mode: '+JSON.stringify(out));
+  expect(!out.opened,'tapping a rule must not open the fighter sheet: '+JSON.stringify(out));
+  expect(out.shown,'the rule peek should show: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

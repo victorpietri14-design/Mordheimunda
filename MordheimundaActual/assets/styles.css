@@ -4914,7 +4914,9 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .ud-pick-list{display:grid;gap:6px;margin:10px 0}
 .ud-left{color:var(--gold,#f2c94c)}
 .play-cards .owned-card{cursor:default}
-.play-cards .owned-card button,.play-cards .owned-card [onclick]:not(.eng-badge),.play-cards .owned-card input{pointer-events:none}
+.play-cards .owned-card button:not(.rule-ref-info),.play-cards .owned-card [onclick]:not(.eng-badge):not(.rule-ref):not(.rule-ref-info),.play-cards .owned-card input{pointer-events:none}
+/* V-PLAYPEEK: rules, skills, spells, wargear and weapon traits keep their hover / tap peek in Play Mode (a tap on them shows the rule instead of opening the sheet) */
+.play-cards .owned-card .rule-ref,.play-cards .owned-card .rule-ref-info{pointer-events:auto;cursor:help}
 .eng-badge{display:inline-block;font:700 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.05em;padding:4px 9px;border-radius:10px;background:var(--bc);color:#111;margin:8px 0 0 10px}
 .eng-badge.click{cursor:pointer;pointer-events:auto}
 .play-card.reinf-wait .owned-card{border-style:dashed;border-color:var(--gold,#f2c94c)}
