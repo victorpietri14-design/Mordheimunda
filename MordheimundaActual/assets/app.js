@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0745.0';
+const APP_BUILD='110.0746.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4634,6 +4634,7 @@ function account(){
   <div class="eyebrow">${en?'PREFERENCES':'PRÉFÉRENCES'}</div><h3>${en?'Display':'Affichage'}</h3>
   <div class="acct-pref-row"><span>${en?'Language':'Langue'}<span class="acct-pref-sub">${en?'':''}</span></span><select id="acctLanguageSelect" aria-label="Site language" onchange="setSiteLanguage(this.value)"><option value="en" ${siteLanguage==='en'?'selected':''}>English</option><option value="fr" ${siteLanguage==='fr'?'selected':''}>Français</option></select></div>
   <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Day mode':'Mode jour'}<span class="acct-pref-sub">${en?'White background, easier to read in bright light':'Fond blanc, plus lisible en plein soleil'}</span></span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label></div>
+  <div class="acct-pref-row"><span>${en?'Interface size':'Taille de l’interface'}<span class="acct-pref-sub">${en?'Bigger text and buttons, for a phone that is hard to read. Only on this device.':'Textes et boutons plus grands, pour un téléphone difficile à lire. Seulement sur cet appareil.'}</span></span>${comfortSelectMarkup(en)}</div>
   <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Automatic translation':'Traduction automatique'}<span class="acct-pref-sub">${en?'In French, texts only written in English (rules, quests, scenarios…) are translated automatically':'En français, les textes écrits seulement en anglais (règles, quêtes, scénarios…) sont traduits automatiquement'}</span></span><input type="checkbox" ${mtEnabled?'checked':''} onchange="setAutoTranslate(this.checked)"></label></div>
 </div>
 <div class="account-prefs card danger-zone">
@@ -7742,6 +7743,37 @@ function applySiteTheme(){
 }
 function setSiteTheme(v){siteTheme=v==='light'?'light':'dark';localStorage.setItem(SITE_THEME_KEY,siteTheme);applySiteTheme();}
 function toggleSiteTheme(){setSiteTheme(siteTheme==='light'?'dark':'light');}
+// V-COMFORT: opt-in reading comfort for players less at ease with a phone.
+// Off by default (the site looks exactly as before). "large"/"xlarge"
+// enlarge the whole interface (CSS zoom on <html>, the layout reflows to the
+// narrower width) and lift every text below a floor to that floor, so the
+// many 7–10 px labels stay readable. Remembered on this device only.
+const SITE_COMFORT_KEY='mordheimunda_comfort';
+let siteComfort=(()=>{try{const v=localStorage.getItem(SITE_COMFORT_KEY);return v==='large'||v==='xlarge'?v:'normal'}catch(e){return 'normal'}})();
+function comfortMinFont(){return siteComfort==='xlarge'?13:siteComfort==='large'?12:0}
+function applyComfortFonts(){
+  const min=comfortMinFont();
+  document.querySelectorAll('[data-cf]').forEach(e=>{if(!min||Number(e.dataset.cf)!==min){e.style.removeProperty('font-size');delete e.dataset.cf}});
+  if(!min)return;
+  document.body.querySelectorAll('body *:not(script):not(style):not(svg *)').forEach(e=>{
+    if(e.dataset.cf||e.closest('#tabbar'))return;
+    const txt=e.tagName==='INPUT'||e.tagName==='SELECT'||e.tagName==='TEXTAREA'||[...e.childNodes].some(c=>c.nodeType===3&&c.textContent.trim());
+    if(!txt)return;const fs=parseFloat(getComputedStyle(e).fontSize);
+    if(fs&&fs<min){e.style.setProperty('font-size',min+'px','important');e.dataset.cf=String(min)}
+  });
+}
+let comfortObserver=null,comfortFrame=0;
+function applySiteComfort(){
+  const root=document.documentElement;
+  if(siteComfort==='normal')root.removeAttribute('data-comfort');else root.setAttribute('data-comfort',siteComfort);
+  document.querySelectorAll('.comfort-select').forEach(el=>{el.value=siteComfort});
+  if(siteComfort!=='normal'&&!comfortObserver&&document.body){comfortObserver=new MutationObserver(()=>{if(comfortFrame)return;comfortFrame=requestAnimationFrame(()=>{comfortFrame=0;applyComfortFonts()})});comfortObserver.observe(document.body,{childList:true,subtree:true})}
+  if(siteComfort==='normal'&&comfortObserver){comfortObserver.disconnect();comfortObserver=null}
+  applyComfortFonts();
+}
+function setSiteComfort(v){siteComfort=v==='large'||v==='xlarge'?v:'normal';try{localStorage.setItem(SITE_COMFORT_KEY,siteComfort)}catch(e){}applySiteComfort()}
+function comfortSelectMarkup(en,extra){return `<select class="comfort-select" aria-label="${en?'Interface size':'Taille de l’interface'}" onchange="${extra||''}setSiteComfort(this.value)"><option value="normal" ${siteComfort==='normal'?'selected':''}>${en?'Normal':'Normale'}</option><option value="large" ${siteComfort==='large'?'selected':''}>${en?'Large':'Grande'}</option><option value="xlarge" ${siteComfort==='xlarge'?'selected':''}>${en?'Extra large':'Très grande'}</option></select>`}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applySiteComfort);else applySiteComfort();
 
 /* ================= ADMIN / PLAYER VIEW TOGGLE =================
    An admin account can flip a purely cosmetic "view mode" switch, without
@@ -8071,6 +8103,7 @@ function openTabSheet(kind){
      +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
      +`<div class="tab-sheet-sep"></div><label class="tab-sheet-row"><span>${en?'Day mode':'Mode jour'}</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label>`
      +(admin?`<label class="tab-sheet-row"><span>${en?'Player view':'Vue Joueur'}</span><span class="theme-switch"><input type="checkbox" class="admin-view-toggle-input" ${adminViewMode==='player'?'checked':''}><i>🎭</i></span></label>`:'')
+     +`<label class="tab-sheet-row"><span>${en?'Interface size':'Taille de l’interface'}</span>${comfortSelectMarkup(en)}</label>`
      +`<label class="tab-sheet-row"><span>${en?'Language':'Langue'}</span><select onchange="closeTabSheet();setSiteLanguage(this.value)"><option value="en" ${en?'selected':''}>English</option><option value="fr" ${en?'':'selected'}>Français</option></select></label>`;
   }
   sheet.innerHTML=html;wrap.dataset.kind=kind;wrap.hidden=false;

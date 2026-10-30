@@ -5140,3 +5140,24 @@ body.shared-view .warroom-versions-btn,body.shared-view .warroom-edit-btn,body.s
 .scn-format-bar.scn-format-inline{position:sticky;top:0;margin:4px 0 6px;padding:6px 0;border:0;border-bottom:1px solid var(--line)}
 .dash-wcard-pb{position:absolute;left:10px;bottom:10px;z-index:3;border:1px solid #ff6b5e;background:rgba(40,8,6,.85);color:#ff8a7d;font:800 10px "IBM Plex Sans";letter-spacing:.4px;padding:5px 9px;border-radius:999px;cursor:pointer}
 .scn-format-bar.scn-format-off .rule-edit-toolbar{opacity:.35;pointer-events:none}.scn-format-bar.scn-format-off .scn-format-target{color:var(--danger)}
+
+/* V-COMFORT: opt-in larger interface (Plus › Taille de l'interface). The
+   zoom reflows the page to the narrower width; small texts are lifted to a
+   floor in JS (applyComfortFonts). Nothing here applies in Normal size. */
+html[data-comfort="large"]{zoom:1.15}
+html[data-comfort="xlarge"]{zoom:1.3}
+html[data-comfort] :is(button,.button,a,label){overflow-wrap:normal;word-break:normal;hyphens:none}
+html[data-comfort] .warroom-head-btns .button{flex:1 1 auto}
+html[data-comfort] :is(.button,select){min-height:40px}
+html[data-comfort] #content :is(h1,h2,h3,h4,h5,p,small,span,div,strong,b,em,label,th,td){overflow-wrap:break-word;word-break:normal;letter-spacing:0}
+html[data-comfort] #content :is(h1,h2,h3){white-space:normal;text-overflow:clip}
+html[data-comfort="xlarge"] #tabbar{zoom:.85}
+html[data-comfort] #tabbar .tab span{white-space:nowrap;letter-spacing:0}
+@media(max-width:700px){
+  html[data-comfort] .gang-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px}
+  html[data-comfort] .gang-tab{display:grid;justify-items:center;gap:2px;padding:8px 2px;text-transform:none;letter-spacing:0}
+  html[data-comfort] .gang-tab .gt-lbl{display:block;line-height:1.15;text-align:center;white-space:normal}
+  html[data-comfort] .gang-tab .gt-count{display:none}
+}
+html[data-comfort="large"] .sheet-name{font-size:26px}
+html[data-comfort="xlarge"] .sheet-name{font-size:22px}
