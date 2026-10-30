@@ -631,6 +631,24 @@ await test('[mobile] interface size: off by default, larger sizes lift small tex
   expect(big.attr==='xlarge'&&big.tiny===0&&big.sw<=big.cw+1,'extra large lifts every small text and fits the width: '+JSON.stringify(big));
   expect(back.attr===null&&back.tiny===normal.tiny,'switching back restores the original sizes: '+JSON.stringify(back));
 });
+await test('[mobile] interface polish: no split words, delete at the bottom, kill asks first, compact recruit list',null,async page=>{
+  await page.setViewportSize({width:390,height:844});await seed(page);
+  await page.evaluate(()=>{navigateApp(warbandPath('smoke'));openRecruitPanel()});await page.waitForTimeout(500);
+  await page.locator('.recruit-panel button',{hasText:/Recruit — \d+ GC/}).first().click();await page.waitForTimeout(500);
+  const split=()=>page.evaluate(()=>[...document.querySelectorAll('.warroom-head-btns .button,.fighter-section-tab')].filter(b=>{const words=b.textContent.trim().split(/\s+/).length;const r=document.createRange();r.selectNodeContents(b);return r.getClientRects().length>words+1}).map(b=>b.textContent.trim()));
+  await page.evaluate(()=>navigateApp(warbandPath('smoke')));await page.waitForTimeout(500);const s1=await split();
+  await page.evaluate(()=>openFighterCard(0));await page.waitForTimeout(500);const s2=await split();
+  const sheet=await page.evaluate(()=>({top:!!document.querySelector('.fighter-page-actions [onclick="removeEditingFighter()"], .fighter-page > :first-child [onclick="removeEditingFighter()"]'),zone:!!document.querySelector('.fighter-danger-zone [onclick="removeEditingFighter()"]'),kill:!!document.querySelector('[onclick="confirmKillFighter()"]')}));
+  await page.evaluate(()=>{confirmKillFighter()});await page.waitForTimeout(300);const asked=await page.evaluate(()=>!!document.querySelector('#siteDialog:not(.hidden)'));await page.evaluate(()=>siteDialogClose(false));
+  const dead=await page.evaluate(()=>!!activeRoster().fighters[0].status?.dead);
+  await page.evaluate(()=>{navigateApp(warbandPath('smoke'));openRecruitPanel();if(!recruitCompact)toggleRecruitCompact()});await page.waitForTimeout(400);
+  const compact=await page.evaluate(()=>{const p=document.getElementById('fighterPool');const fb=p?.querySelector('.fighter-bottom');return !!p&&p.classList.contains('compact')&&(!fb||getComputedStyle(fb).display==='none')});
+  await page.evaluate(()=>{if(recruitCompact)toggleRecruitCompact()});
+  expect(!s1.length&&!s2.length,'no button or tab splits a word: '+JSON.stringify([s1,s2]));
+  expect(sheet.zone&&!sheet.top&&sheet.kill,'delete sits at the bottom, kill goes through a confirmation: '+JSON.stringify(sheet));
+  expect(asked&&!dead,'killing a fighter asks first and does nothing until confirmed: '+JSON.stringify({asked,dead}));
+  expect(compact,'compact recruit list hides the rules block');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
