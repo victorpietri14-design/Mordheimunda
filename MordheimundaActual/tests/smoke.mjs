@@ -621,6 +621,16 @@ await test('[desktop] site rule pages: house rules, exploration, experience with
   expect(out.quests&&out.adv&&out.income&&out.shards,'live tables carry the real data: '+JSON.stringify(out));
   expect(out.tables>=5,'exploration page renders its tables: '+JSON.stringify(out));
 });
+await test('[mobile] interface size: off by default, larger sizes lift small text without sideways scroll',null,async page=>{
+  await page.setViewportSize({width:390,height:844});await seed(page);
+  const read=()=>page.evaluate(()=>{let tiny=0;document.querySelectorAll('#content *').forEach(e=>{if([...e.childNodes].some(c=>c.nodeType===3&&c.textContent.trim().length>1)&&parseFloat(getComputedStyle(e).fontSize)<11)tiny++});return {attr:document.documentElement.getAttribute('data-comfort'),tiny,sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}});
+  await page.evaluate(()=>{setSiteComfort('normal');navigateApp(warbandPath('smoke'))});await page.waitForTimeout(500);const normal=await read();
+  await page.evaluate(()=>setSiteComfort('xlarge'));await page.waitForTimeout(500);const big=await read();
+  await page.evaluate(()=>setSiteComfort('normal'));await page.waitForTimeout(300);const back=await read();
+  expect(normal.attr===null&&normal.tiny>0,'normal size leaves the site as it is: '+JSON.stringify(normal));
+  expect(big.attr==='xlarge'&&big.tiny===0&&big.sw<=big.cw+1,'extra large lifts every small text and fits the width: '+JSON.stringify(big));
+  expect(back.attr===null&&back.tiny===normal.tiny,'switching back restores the original sizes: '+JSON.stringify(back));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
