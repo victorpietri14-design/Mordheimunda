@@ -5161,3 +5161,46 @@ html[data-comfort] #tabbar .tab span{white-space:nowrap;letter-spacing:0}
 }
 html[data-comfort="large"] .sheet-name{font-size:26px}
 html[data-comfort="xlarge"] .sheet-name{font-size:22px}
+/* V-NOWORDBREAK: buttons and tabs never split a word over two lines (the
+   phone-wide overflow-wrap:anywhere guard stays for long names in text). */
+.warroom-head-btns .button,.fighter-section-tab,.skill-add-button{overflow-wrap:normal;word-break:normal;white-space:nowrap}
+@media(max-width:700px){
+  .warroom-head-btns{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .warroom-head-btns .button{min-width:0}
+  .fighter-section-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .fighter-section-tabs::-webkit-scrollbar{display:none}
+  .fighter-section-tab{flex:0 0 auto;padding:11px 12px}
+}
+/* V-HEADERFIT: the name field took 65vw (the sidebar not counted), pushing
+   the value badge out of the card on laptop widths. It now takes the room
+   left beside the picture and value. */
+.fighter-page-header>:first-child{flex:1 1 auto;min-width:0}
+.fighter-page-header .sheet-name{width:100%;max-width:700px}
+/* V-COMPACTCARD: a warband without a picture no longer shows a big empty
+   banner; the card shrinks to a slim strip with its controls. */
+.dash-wcard.no-cover{aspect-ratio:auto}
+.dash-wcard.no-cover .dash-wcard-banner{flex:none;height:46px}
+.dash-wcard.no-cover .dash-wcard-banner .gang-icon{display:none}
+.dash-wcard.no-cover .dash-wcard-body{flex:none;padding:12px 16px}
+/* V-LABELFLOOR: the smallest labels (6.5–9 px) brought up to a readable size, same look. */
+.dash-wcard-rep{font-size:10px}
+.dash-wcard-cote span{font-size:9px}
+.dash-wcard-faction{font-size:10.5px}
+.fighter-hero-value span,.fighter-hero-value em{font-size:9px}
+.image-remove-button{font-size:10px}
+.profile-stat span{font-size:9px}
+.micro-label{font-size:9px}
+.role-badge{font-size:9px}
+.fighter-subline{font-size:10px}
+.faction-line span{font-size:9.5px}
+@media(max-width:700px){.warband-stat small{font-size:9px}.postbattle-income-table th,.postbattle-income-table td{font-size:10.5px}}
+/* V-TOASTPASS: a confirmation message never blocks a tap on what is under it. */
+.toast:not(.exploration-toast){pointer-events:none;font-size:12px}
+/* V-RECRUITCOMPACT */
+.recruit-select-row{align-items:flex-end}
+.recruit-compact-btn{flex:none;white-space:nowrap}
+.recruit-compact-btn.active{border-color:var(--accent);color:var(--accent)}
+.fighter-pool.compact .fighter-description,.fighter-pool.compact .fighter-bottom{display:none}
+.fighter-pool.compact .profile-stat b{font-size:16px}
+@media(max-width:700px){.recruit-compact-btn{margin-top:8px;width:100%}}
+.dash-wcard.no-cover .dash-wcard-rep{left:auto;right:44px;bottom:auto;top:12px}
