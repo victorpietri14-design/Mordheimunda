@@ -411,3 +411,113 @@ window.MORDHEIMUNDA_FR_RULES={
 "types:14": "TYPES D’ACTION\nLa section suivante présente les types d’actions que les figurines peuvent effectuer lorsqu’elles sont activées.\nLes joueurs noteront que si les actions qu’une figurine peut effectuer dépendent de son Status et de son Secondary Status actuels, effectuer une action peut, et va dans de nombreux cas, modifier son Status, son Secondary Status, ou les deux.\nIl existe quatre types d’action qu’une figurine peut effectuer lorsqu’elle est activée :\n\nACTION SIMPLE\nUne figurine peut effectuer la même action Simple plusieurs fois au cours de son activation. Chaque fois qu’une action Simple est répétée au cours d’une activation, elle consomme une action. Par exemple, un combattant Standing et Active peut effectuer deux actions Move (Simple), utilisant ainsi ses deux actions mais lui permettant de se déplacer deux fois. Si la première action d’une figurine active est une action Simple, elle peut la résoudre entièrement avant de déclarer sa deuxième action.\n\n[CALLOUT]\nCHANGER D’ORIENTATION\nUn guerrier Standing peut se tourner dans la direction de son choix lorsqu’il est activé, avant d’effectuer l’une ou l’autre de ses actions.\n[/CALLOUT]\n\nACTION BASIC\nUne action Basic ne peut être effectuée qu’une seule fois par activation de figurine. Si la première action d’une figurine activée est une action Basic, elle peut la résoudre entièrement avant de déclarer sa deuxième action.\nACTION DOUBLE\nEffectuer une action Double compte comme effectuer deux actions. Par exemple, si un véhicule Mobile effectue une action Ram (Double), il aura utilisé ses deux actions et ne pourra pas en effectuer d’autre pendant cette activation. Si une figurine ne peut effectuer qu’une seule action pendant son activation pour une raison quelconque, elle ne peut pas effectuer d’action Double.\nACTION FREE\nEffectuer une action Free ne compte pas comme l’utilisation de l’une de vos actions. Chaque action Free ne peut être effectuée qu’une fois par activation. Une figurine ne peut pas effectuer une action Free portant le même nom qu’une action Basic qu’elle a effectuée pendant cette activation, et inversement.\nCHANGER LE TYPE D’ACTION\nCertains effets peuvent changer le type d’une action ; par exemple, le trait Unwieldy transforme l’action Shoot (Basic) en action Shoot (Double). Sauf indication contraire, tout effet qui s’applique à une action s’applique quel que soit le type de l’action (c.-à-d. que si une tactique de gang est déclenchée par une action Shoot (Basic), elle sera aussi déclenchée par une action Shoot (Double) ou Shoot (Simple)).",
 "underdogbonus:1": "Underdog Bonus\n\n[SUBHEAD]Vue d’ensemble[/SUBHEAD]\nÉcrivez ici les règles de l’Underdog Bonus.\n\nNote : cette page est volontairement vide — cliquez sur le bouton ✎ Edit ci-dessus pour écrire le vrai texte. Le bouton ▦ de la barre d’outils de l’éditeur (ou l’option TABLE) ouvre un constructeur visuel de tableaux : ajoutez/supprimez des lignes et des colonnes avec des boutons et tapez directement dans les cellules, afin qu’un tableau puisse être corrigé ou complété plus tard sans avoir à le ressaisir entièrement."
 };
+// V-HOUSEPAGES: French text of the three site rule pages (see RULES_BOOK.push in app.js).
+Object.assign(window.MORDHEIMUNDA_FR_RULES,{
+"houserules:901":`Règles maison
+Le site applique les règles ci-dessous à toutes les bandes, en plus du livre M17. Elles sont prises en compte automatiquement sur les fiches, les prix et les profils.
+
+SAUVEGARDE D’ARMURE
+[SUBHEAD]Plafond de l’infanterie[/SUBHEAD]
+La sauvegarde d’armure d’un combattant à pied ne peut jamais être meilleure que 3+. Si son équipement donne mieux, la fiche affiche les deux valeurs : 3+ (2+).
+La PA s’applique d’abord sur la vraie valeur, puis le résultat est plafonné à 3+. Exemple : une sauvegarde de 2+ contre une PA -1 devient 3+ ; contre une PA -2, elle devient 4+.
+Un combattant monté n’a pas ce plafond.
+[SUBHEAD]Armures cumulables[/SUBHEAD]
+Un combattant peut porter plusieurs armures. Il utilise la meilleure sauvegarde parmi elles. Les bonus du type « +1 à la sauvegarde » (bouclier, objets, règles) s’ajoutent ensuite.
+
+ARMES ET EMPLACEMENTS
+Un combattant dispose de 3 emplacements d’arme. Une arme Two-Handed en prend 2.
+[TABLE]
+Objet|Emplacements
+Arme de corps à corps ou de tir|1 (2 si Two-Handed)
+Shield|0 : il se combine avec n’importe quelle arme, même à deux mains
+Buckler, Main Gauche, Left hand dagger, Sword breaker|1
+Armures, montures, équipement divers, poisons et drogues|0
+Misericordia|0
+[/TABLE]
+[SUBHEAD]Misericordia[/SUBHEAD]
+Tout combattant porte une Misericordia, gratuite. Elle ne prend pas d’emplacement et ne peut être ni achetée ni vendue.
+[TABLE]
+Portée|F|PA|D|Traits
+Mêlée|F|+1|1|Backstab
+[/TABLE]
+Exceptions : les War Beasts et les profils indiqués « sans Misericordia » (par exemple les Zombies).
+
+MONTURES
+Une monture utilise la sauvegarde de son cavalier, améliorée de 1 si elle porte un Barding. La sauvegarde écrite sur le profil de la monture n’est pas utilisée.
+Chez les Lizardmen, la monture elle-même donne ce +1 aux Saurus et aux Skinks. La sauvegarde 4+ du Kroxigor ne change jamais.
+
+ÉQUIPEMENT DES HENCHMEN
+Un Henchman ne peut acheter ou recevoir que des objets de la liste d’équipement de sa bande (Band List). Une fois devenu Veteran, il peut recevoir le même équipement qu’un Héros.
+
+COMPÉTENCES POUR TOUS
+Tout combattant peut apprendre les compétences de l’arbre Ride, même s’il ne figure pas dans ses arbres de compétences.
+
+VALEUR DE BANDE
+• L’équipement de départ compte dans la valeur pour son prix, même s’il a été reçu gratuitement.
+• Certains objets ont une valeur de bande différente de leur prix d’achat ; elle est indiquée sur leur fiche. Exemple : un Holy Tome acheté 140 gc ne compte que pour 30.
+• Un Hired Sword ajoute la moitié de son coût d’embauche à la valeur.
+• Quand l’admin baisse un prix spécial, la différence est remboursée une fois au trésor pour les objets déjà achetés.`,
+"exploration:902":`Exploration et revenus
+Après chaque partie, la bande fouille les ruines à l’étape 3 de la séquence d’après-bataille. Le site fait les calculs dans l’onglet Après-bataille ; cette page explique ce qu’il applique.
+
+1. NOMBRE DE DÉS
+[TABLE]
+Source|Dés
+Chaque Héros survivant (Leader, Champion, Raw Recruit) ni capturé ni en récupération|1
+Le Leader participe à l’exploration|+2 (en plus de son dé de Héros)
+Victoire|+1
+Bonus Underdog « Exploration » : chaque Champion survivant|+1
+Règles de bande ou d’objet|selon la règle
+[/TABLE]
+Lance tous les dés obtenus. Si tu en as plus de 6, choisis les 6 que tu gardes.
+
+2. ÉCLATS DE WYRDSTONE
+Additionne les dés gardés :
+[AUTO shards]
+
+3. REVENUS
+Vends tes éclats. Le prix dépend du nombre de combattants de la bande (Hired Swords non compris) et du nombre d’éclats vendus :
+[AUTO income]
+Les éclats non vendus restent dans la réserve de la bande.
+
+4. DOUBLES, TRIPLES ET PLUS
+Si au moins deux dés gardés montrent la même valeur, la bande découvre un lieu. Utilise le plus grand groupe de dés identiques ; en cas d’égalité, la valeur la plus haute. Le site applique les effets et demande les choix à faire (qui reçoit un objet, qui fait un test…).
+En campagne Lustria, la table d’exploration de la campagne remplace celle-ci (Règles : Campagne).
+[AUTO exploration]
+
+5. REVENDRE L’ÉQUIPEMENT
+Hors campagne, un objet de la réserve se vend pour la moitié de sa valeur, arrondie à l’inférieur. Dans une campagne avec marché partagé, la fenêtre de vente indique le prix du marché de campagne. Les trouvailles avec un jet de revente (par exemple 3D6x10) se vendent au résultat du jet.`,
+"experience:903":`Expérience et avancement
+Les combattants gagnent de l’expérience (XP) à chaque partie et la dépensent en avancements avant la partie suivante (étape 2 de la séquence pré-bataille).
+
+1. GAGNER DE L’EXPÉRIENCE
+Tous les combattants qui ont pris part à la partie peuvent gagner :
+[AUTO xp-game]
+Le site la compte dans l’onglet Quests du Mode de jeu, avec les lignes d’expérience du scénario joué et les quêtes.
+[SUBHEAD]Qui ne gagne pas d’XP[/SUBHEAD]
+• Les Dramatis Personae : ils restent tels qu’ils sont écrits.
+• Les combattants dont une règle dit qu’ils ne gagnent jamais d’expérience (War Beasts, No Brain…).
+
+2. QUÊTES
+Une quête est un objectif personnel qu’un combattant peut accomplir pendant une partie. Seuls les Héros, les Veterans et les Hired Swords prennent des quêtes. Dans la fiche du combattant, onglet Quêtes, chacun choisit des arbres de quêtes : 3 pour le Leader (dont Commander, toujours actif), 2 pour les autres. Un combattant ne voit que les arbres qui lui sont ouverts : par l’un de ses arbres de compétences (Primary ou Secondary), comme Wizard ou Prêtre, comme Leader, ou parce que l’arbre est réservé à sa race ou à sa bande. Les arbres se changent entre les parties. Pendant la partie, les quêtes choisies apparaissent dans l’onglet Quests du Mode de jeu ; une quête réussie donne son XP tout de suite.
+[AUTO quests]
+
+3. XP DE DÉPART
+À son recrutement, un Leader reçoit 20 XP et un Champion 9 XP, à dépenser tout de suite ou plus tard.
+
+4. AVANCEMENTS DES HÉROS
+Leaders, Champions, Raw Recruits et Veterans achètent leurs avancements dans ce tableau et paient le coût en XP :
+[AUTO adv-heroes]
+[SUBHEAD]Coût croissant[/SUBHEAD]
+Chaque nouvel achat de la même caractéristique coûte 2 XP de plus que le précédent. Exemple : la 1re hausse de CC coûte 6 XP, la 2e 8 XP, la 3e 10 XP. Chaque caractéristique a son propre compteur. Les compétences gardent toujours leur coût de base, et les Raw Recruits paient toujours le coût de base.
+[SUBHEAD]Moitié d’expérience[/SUBHEAD]
+Un combattant dont la règle dit qu’il gagne moitié moins d’expérience (par exemple Slow Witted) paie chaque avancement le double.
+
+5. AVANCEMENTS DES HENCHMEN
+Un Henchman qui atteint 6 XP lance 2D6 sur la table ci-dessous ; le jet consomme les 6 XP. Sur 2 ou 12, il devient Veteran et utilise ensuite le tableau des Héros.
+[AUTO adv-henchmen]
+
+6. MAXIMUMS DE CARACTÉRISTIQUES
+[AUTO stat-max]
+La fiche du combattant affiche toujours ses maximums réels.`
+});
