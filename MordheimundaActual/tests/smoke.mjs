@@ -597,6 +597,30 @@ await test('[desktop] Play Mode fighter cards keep the rule hover peek (no need 
   expect(!out.opened,'tapping a rule must not open the fighter sheet: '+JSON.stringify(out));
   expect(out.shown,'the rule peek should show: '+JSON.stringify(out));
 });
+await test('[desktop] Underdog starts at a 100-point gap; decided rulings patch published texts',null,async page=>{
+  const out=await page.evaluate(()=>({b99:playUdGapBudget(99),b100:playUdGapBudget(100),b160:playUdGapBudget(160),
+    sell:patchRuleText('The item is deleted from the Stash, and the warband gains its value in gold crowns, minus D6x10 (to a minimum of five).'),
+    ud:patchRuleText('You can use the Underdog bonus for each 100 points in difference above the first 100 points of difference.'),
+    krox:patchRuleText('Kroxigor have a 4+ save\n\nLight Armour adds +1 to the save, as does the addition of a shield.'),
+    baked:RULES_BOOK.find(x=>x.id==='postbattlesequence').content.some(c=>/minus D6x10/.test(c.text))}));
+  expect(out.b99===0&&out.b100===100&&out.b160===160,'budget is the whole gap from 100 points: '+JSON.stringify(out));
+  expect(/half its value/.test(out.sell)&&!/D6x10/.test(out.sell),'resale text says half: '+out.sell);
+  expect(/100 points or more behind/.test(out.ud),'underdog text rewritten: '+out.ud);
+  expect(/never be modified/.test(out.krox),'Kroxigor text rewritten: '+out.krox);
+  expect(!out.baked,'baked post-battle text no longer says D6x10');
+});
+await test('[desktop] site rule pages: house rules, exploration, experience with live tables',null,async page=>{
+  const out=await page.evaluate(()=>{const ids=['houserules','exploration','experience'];const secs=ids.map(id=>RULES_BOOK.find(s=>s.id===id));
+    const nav=ids.map(id=>RULES_NAV_GROUPS.some(g=>g.ids.includes(id)));
+    const exp=expandRuleAutoBlocks(secs[2]?.content[0].text||'',false);const ex=expandRuleAutoBlocks(secs[1]?.content[0].text||'',false);
+    const box=document.createElement('div');box.innerHTML=rulePageMarkup(secs[1].content[0],'exploration',[]);
+    return {have:secs.map(Boolean),nav,leftover:/\[AUTO /.test(exp+ex),tables:box.querySelectorAll('table').length,
+      quests:/Headhunter/.test(exp),adv:/Initiative \+1/.test(exp),income:/\|45\|60\|/.test(ex),shards:/36 et plus\|7/.test(ex)}});
+  expect(out.have.every(Boolean)&&out.nav.every(Boolean),'the three pages exist and are in the nav: '+JSON.stringify(out));
+  expect(!out.leftover,'every [AUTO] block expands: '+JSON.stringify(out));
+  expect(out.quests&&out.adv&&out.income&&out.shards,'live tables carry the real data: '+JSON.stringify(out));
+  expect(out.tables>=5,'exploration page renders its tables: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
