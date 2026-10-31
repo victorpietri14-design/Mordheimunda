@@ -511,7 +511,7 @@ Leaders, Champions, Raw Recruits et Veterans achètent leurs avancements dans ce
 [SUBHEAD]Coût croissant[/SUBHEAD]
 Chaque nouvel achat de la même caractéristique coûte 2 XP de plus que le précédent. Exemple : la 1re hausse de CC coûte 6 XP, la 2e 8 XP, la 3e 10 XP. Chaque caractéristique a son propre compteur. Les compétences gardent toujours leur coût de base, et les Raw Recruits paient toujours le coût de base.
 [SUBHEAD]Moitié d’expérience[/SUBHEAD]
-Un combattant dont la règle dit qu’il gagne moitié moins d’expérience (par exemple Slow Witted) paie chaque avancement le double.
+Un combattant dont la règle dit qu’il gagne moitié moins d’expérience (par exemple Slow Witted) paie chaque avancement ×1,5, arrondi au supérieur (un avancement à 6 XP coûte 9). Pour démarrer comme tout le monde, il reçoit aussi ×1,5 l’XP de départ : 30 XP pour un Leader, 14 pour un Champion.
 
 5. AVANCEMENTS DES HENCHMEN
 Un Henchman qui atteint 6 XP lance 2D6 sur la table ci-dessous ; le jet consomme les 6 XP. Sur 2 ou 12, il devient Veteran et utilise ensuite le tableau des Héros.
