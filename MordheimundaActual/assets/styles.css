@@ -5239,3 +5239,9 @@ html[data-comfort="xlarge"] .sheet-name{font-size:22px}
 .pbg-hint{font-size:12px;color:var(--muted2)}
 .pbg-explore .postbattle-toolbar>div{display:none}
 .pbg-explore .postbattle-toolbar{justify-content:flex-end}
+.pbg-xptable{display:grid;gap:10px}
+.pbg-scen{display:grid;gap:4px;font-size:13px;color:var(--muted2)}
+.pbg-scen select{min-height:42px}
+.pbg-manual{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel)}
+.pbg-manual summary{cursor:pointer;font-weight:700;font-size:13.5px}
+.pbg-manual[open] summary{margin-bottom:10px}
