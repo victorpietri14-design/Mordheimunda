@@ -667,6 +667,19 @@ await test('[mobile] guided post-battle: steps keep what was done, back and fort
   expect(kept.rec&&kept.xp===2&&kept.step===0&&kept.checked,'back and forth keeps what was done: '+JSON.stringify(kept));
   expect(after.fresh&&after.rec&&after.hist,'finish records history, keeps the results and starts the tab again: '+JSON.stringify(after));
 });
+await test('[mobile] guided post-battle XP step: same XP & quest table as Play mode, writes to the fighter, stays on the warband',null,async page=>{
+  await page.setViewportSize({width:390,height:844});await seed(page);
+  await page.evaluate(()=>{navigateApp(warbandPath('smoke'));openRecruitPanel()});await page.waitForTimeout(400);
+  await page.locator('.recruit-panel button',{hasText:/Recruit — \d+ GC/}).first().click();await page.waitForTimeout(400);
+  await page.evaluate(()=>{setPbMode('guided');setGangTab('postbattle');pbGuideJump(1)});await page.waitForTimeout(400);
+  const x0=await page.evaluate(()=>activeRoster().fighters[0].xp);
+  await page.evaluate(()=>{const b=[...document.querySelectorAll('.pbg-xptable [onclick^="pbgGameXp"]')].find(b=>/,1\)$/.test(b.getAttribute('onclick')));b&&b.click()});await page.waitForTimeout(300);
+  const out=await page.evaluate(()=>({xp:activeRoster().fighters[0].xp,rec:(activeRoster().fighters[0].gameXpRecord||[]).length,table:!!document.querySelector('.pbg-xptable .ms-row'),onPage:location.pathname.startsWith('/warbands/smoke')&&!!document.querySelector('.pbg'),ctx:xpCtx}));
+  await page.evaluate(()=>setPbMode('all'));
+  expect(out.table,'the guided XP step shows the Play mode table');
+  expect(out.xp>x0&&out.rec===1,'a + adds the line XP to the fighter: '+JSON.stringify({x0,...out}));
+  expect(out.onPage&&out.ctx===null,'stays on the warband page and leaves no context behind: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

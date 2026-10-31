@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0748.0';
+const APP_BUILD='110.0749.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8863,6 +8863,7 @@ function confirmPlayEndSession(){
   closeModal();
   try{playUdApplyEnd(state.playSession)}catch(e){}
   {const sh=state.playSession?.shared;if(sh)window.MordheimundaAPI.playAction(sh.id,sh.role==='guest'?'leave':'end').catch(()=>{});playShareLastJson='';playInvitesAt=0}
+  try{const ps=state.playSession;if(ps)playQuestRosters(ps).forEach(r=>{r.lastGame={questKey:ps.questKey||null,scenarioId:ps.scenarioId||null,at:Date.now()}})}catch(err){}
   state.playSession=null;save();render('playMode');
 }
 // Every slot/alliance/size edit routes through here: mutate ps in place via
@@ -9517,8 +9518,14 @@ function playQuestsMarkup(ps,rosters){
   }));
   return `<section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'XP & quests this game':'XP & quêtes de la partie'}</div><div class="ms-sum"><div><small>${en?'Quests completed':'Quêtes réussies'}</small><b class="ok">${done}</b></div><div><small>${en?'XP earned':'XP gagnée'}</small><b class="xp">+${xpTotal}</b></div><p>${en?'Experience (Universal + this scenario) for every fighter who can earn it, and the quest trees chosen on Heroes’ sheets. Ticking or + adds the XP to the fighter’s sheet straight away; unticking or − takes it back.':'L’expérience (Universelle + ce scénario) pour chaque combattant qui peut en gagner, et les arbres de quêtes choisis sur la fiche des Héros. Cocher ou + ajoute l’XP tout de suite à sa fiche ; décocher ou − la retire.'}</p></div></section>${bands.join('')}`;
 }
+// V-PBGXP: the post-battle XP check reuses this exact table; xpCtx points
+// the handlers at that post-battle "session" (key + scenario) and re-renders
+// the warband page instead of Play mode while one of its buttons runs.
+let xpCtx=null;
+function xpPs(){return xpCtx?.ps||state.playSession}
+function xpRerender(){render(xpCtx?.view||'playMode')}
 function playGameXp(rid,inst,lineId,delta){
-  const en=siteLanguage==='en';const ps=state.playSession;if(!ps)return;const key=playQuestKey(ps);
+  const en=siteLanguage==='en';const ps=xpPs();if(!ps)return;const key=playQuestKey(ps);
   const r=(state.rosters||[]).find(z=>String(z.id)===String(rid));const x=r?.fighters?.find(f=>f.instance===inst);if(!x)return;
   const s=SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId);const line=[...universalXpList(),...scenarioXpList(s)].find(l=>l.id===lineId);if(!line)return;
   x.gameXpRecord=Array.isArray(x.gameXpRecord)?x.gameXpRecord:[];
@@ -9529,17 +9536,17 @@ function playGameXp(rid,inst,lineId,delta){
   else if(e){if(next>0)e.count=next;else x.gameXpRecord=x.gameXpRecord.filter(z=>z!==e)}
   logHistory(r,'xp',`${x.name}: ${line.name}${line.repeatable?` ×${next}`:(next?'':(en?' (undone)':' (annulé)'))} (${diff>=0?'+':''}${diff} XP)`);
   toast(`${diff>=0?'✓':'↺'} ${line.name} · ${x.name} ${diff>=0?'+':''}${diff} XP (${before} → ${x.xp})`);
-  save(true);render('playMode');
+  save(true);xpRerender();
 }
-function togglePlayQuestRow(k){if(playQuestOpen.has(k))playQuestOpen.delete(k);else playQuestOpen.add(k);render('playMode')}
+function togglePlayQuestRow(k){if(playQuestOpen.has(k))playQuestOpen.delete(k);else playQuestOpen.add(k);xpRerender()}
 function togglePlayQuest(rid,inst,qid){
-  const en=siteLanguage==='en';const ps=state.playSession;if(!ps)return;const key=playQuestKey(ps);
+  const en=siteLanguage==='en';const ps=xpPs();if(!ps)return;const key=playQuestKey(ps);
   const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const x=r?.fighters?.find(f=>f.instance===inst);const q=questById(qid);if(!x||!q)return;
   x.questRecord=Array.isArray(x.questRecord)?x.questRecord:[];
   const i=x.questRecord.findIndex(e=>e.sessionKey===key&&e.questId===qid);const before=Number(x.xp||0);
   if(i>=0){const e=x.questRecord[i];x.questRecord.splice(i,1);x.xp=Math.max(0,before-Number(e.xp||0));logHistory(r,'xp',en?`${x.name}: quest “${q.name}” undone (−${e.xp} XP)`:`${x.name} : quête « ${q.name} » annulée (−${e.xp} XP)`);toast(en?`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`:`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`)}
   else{const xp=Number(q.xp||0);const s=SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId);x.questRecord.push({id:crypto.randomUUID(),questId:q.id,name:q.name,tree:q.tree?.name||'',xp,scenario:s?.name||'',date:Date.now(),sessionKey:key});x.xp=before+xp;logHistory(r,'xp',en?`${x.name}: quest “${q.name}” completed (+${xp} XP)`:`${x.name} : quête « ${q.name} » réussie (+${xp} XP)`);toast(en?`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`:`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`)}
-  save(true);render('playMode');
+  save(true);xpRerender();
 }
 // ---- Admin → Manage · Quests
 let adminQuestDraft=null;
@@ -13310,9 +13317,28 @@ function pbgInjuriesMarkup(r,en){
     return `<div class="pbg-row${st.dead?' dead':''}"><div class="pbg-who"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))}${inj?` · ${en?'injuries':'blessures'} : ${inj}`:''}</small></div><div class="pbg-chips">${chip(st.recovery,'warn',en?'Recovery':'Convalescence',x.instance,'recovery')}${chip(st.critical,'bad',en?'Critical':'Critique',x.instance,'critical')}${chip(st.captured,'warn',en?'Captured':'Capturé',x.instance,'captured')}${chip(st.dead,'bad',en?'Dead':'Mort',x.instance,'dead')}<button type="button" class="pbg-chip" onclick="pbgOpenInjuries('${esc(x.instance)}')">${en?'Lasting injury…':'Blessure durable…'}</button></div></div>`}).join('')}</div>`}
 // --- step 2: XP check
 function pbgXp(inst,d){const r=activeRoster();const x=r?.fighters.find(q=>q.instance===inst);if(!x)return;const was=Number(x.xp||0);x.xp=Math.max(0,was+d);if(x.xp===was)return;logHistory(r,'fighters',`<b>${esc(x.name)}</b> ${d>0?'+':''}${x.xp-was} XP (${siteLanguage==='en'?'post-battle':'après-bataille'})`);save(true);render('builder')}
+// The "session" the post-battle XP table writes to: the live game if this
+// warband is still in one, else the last game it played in Play mode (same
+// key, so what was ticked during the game shows and is never counted twice),
+// else a key of this post-battle's own.
+function pbgXpPs(r){const live=state.playSession;if(live&&playQuestRosters(live).some(x=>String(x.id)===String(r.id)))return live;const g=pbGuide(r);if(!g.xpPs){g.xpPs={questKey:r.lastGame?.questKey||crypto.randomUUID(),scenarioId:r.lastGame?.scenarioId||null,fromGame:!!r.lastGame?.questKey};save(true)}return g.xpPs}
+function pbgXpRun(fn){const r=activeRoster();if(!r)return;xpCtx={ps:pbgXpPs(r),view:'builder'};try{fn()}finally{xpCtx=null}}
+function pbgGameXp(rid,inst,lineId,d){pbgXpRun(()=>playGameXp(rid,inst,lineId,d))}
+function pbgQuest(rid,inst,qid){pbgXpRun(()=>togglePlayQuest(rid,inst,qid))}
+function pbgQuestRow(k){pbgXpRun(()=>togglePlayQuestRow(k))}
+function pbgSetScenario(id){const r=activeRoster();if(!r)return;const ps=pbgXpPs(r);if(ps===state.playSession)return;ps.scenarioId=id||null;save(true);render('builder')}
+const pbgXpUnfolded=new Set();
+function pbgXpTableMarkup(r,en){const ps=pbgXpPs(r);const live=ps===state.playSession;
+  // fighters' rows start unfolded the first time the step is shown, so what to tick is visible at once
+  if(!pbgXpUnfolded.has(r.id)){pbgXpUnfolded.add(r.id);(r.fighters||[]).filter(fighterCanEarnXp).forEach(x=>playQuestOpen.add(r.id+':'+x.instance))}
+  const scen=(typeof SCENARIOS_CACHE!=='undefined'?SCENARIOS_CACHE:[]).filter(x=>x&&x.id&&x.name);
+  const pick=live?'':`<label class="pbg-scen"><span>${en?'Scenario played':'Scénario joué'}</span><select onchange="pbgSetScenario(this.value)"><option value="">${en?'— none (universal XP only) —':'— aucun (XP universelle seulement) —'}</option>${scen.map(x=>`<option value="${esc(x.id)}" ${String(x.id)===String(ps.scenarioId)?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`;
+  const note=live?(en?'This warband is still in a game: this is the same table as in Play mode.':'Cette bande est encore en partie : c’est le même tableau que dans le Mode de jeu.'):ps.fromGame?(en?'Taken from your last game in Play mode: what was ticked there is already counted.':'Repris de ta dernière partie dans le Mode de jeu : ce qui y a été coché est déjà compté.'):(en?'Not counted in Play mode? Tick here what happened in the game.':'Pas compté dans le Mode de jeu ? Coche ici ce qui s’est passé pendant la partie.');
+  const html=playQuestsMarkup(ps,[r]).replace(/playGameXp\(/g,'pbgGameXp(').replace(/togglePlayQuestRow\(/g,'pbgQuestRow(').replace(/togglePlayQuest\(/g,'pbgQuest(');
+  return `<div class="pbg-xptable"><p class="pbg-hint">${note}</p>${pick}${html}</div>`}
 function pbgXpMarkup(r,en){const g=pbGuide(r);const xs=(r.fighters||[]).filter(fighterCanEarnXp);
-  return `<div class="pbg-list">${xs.map(x=>{const now=Number(x.xp||0),start=Number(g.startXp?.[x.instance]??now),diff=now-start;let can=false;try{can=homeCanAdvance(x)}catch(e){}
-    return `<div class="pbg-row"><div class="pbg-who"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))} · ${now} XP${diff?` <em class="pbg-diff">(${diff>0?'+':''}${diff} ${en?'here':'ici'})</em>`:''}${can?` · <span class="pbg-ok">${en?'can advance':'peut progresser'}</span>`:''}</small></div><div class="pbg-xp"><button type="button" class="pbg-chip" aria-label="${en?'Remove 1 XP from':'Retirer 1 XP à'} ${esc(x.name)}" onclick="pbgXp('${esc(x.instance)}',-1)">−</button><b class="pbg-xpv">${now}</b><button type="button" class="pbg-chip" aria-label="${en?'Add 1 XP to':'Ajouter 1 XP à'} ${esc(x.name)}" onclick="pbgXp('${esc(x.instance)}',1)">＋</button></div></div>`}).join('')||`<div class="empty compact">${en?'No fighter earns experience.':'Aucun combattant ne gagne d’expérience.'}</div>`}</div>`}
+  return pbgXpTableMarkup(r,en)+`<details class="pbg-manual"><summary>${en?'Free correction (− / +)':'Correction libre (− / +)'}</summary><div class="pbg-list">${xs.map(x=>{const now=Number(x.xp||0),start=Number(g.startXp?.[x.instance]??now),diff=now-start;let can=false;try{can=homeCanAdvance(x)}catch(e){}
+    return `<div class="pbg-row"><div class="pbg-who"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))} · ${now} XP${diff?` <em class="pbg-diff">(${diff>0?'+':''}${diff} ${en?'here':'ici'})</em>`:''}${can?` · <span class="pbg-ok">${en?'can advance':'peut progresser'}</span>`:''}</small></div><div class="pbg-xp"><button type="button" class="pbg-chip" aria-label="${en?'Remove 1 XP from':'Retirer 1 XP à'} ${esc(x.name)}" onclick="pbgXp('${esc(x.instance)}',-1)">−</button><b class="pbg-xpv">${now}</b><button type="button" class="pbg-chip" aria-label="${en?'Add 1 XP to':'Ajouter 1 XP à'} ${esc(x.name)}" onclick="pbgXp('${esc(x.instance)}',1)">＋</button></div></div>`}).join('')||`<div class="empty compact">${en?'No fighter earns experience.':'Aucun combattant ne gagne d’expérience.'}</div>`}</div></details>`}
 // --- summary + finish
 function pbgSummaryMarkup(r,en){const g=pbGuide(r);const p=ensurePostBattleData(r);
   const xpGain=(r.fighters||[]).reduce((n,x)=>n+Math.max(0,Number(x.xp||0)-Number(g.startXp?.[x.instance]??x.xp??0)),0);
@@ -13322,14 +13348,14 @@ function pbgSummaryMarkup(r,en){const g=pbGuide(r);const p=ensurePostBattleData(
 async function pbgFinish(){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;if(!await siteConfirm(en?'Finish this post-battle? It is recorded in the history and the tab starts again from scratch.':'Terminer cet après-bataille ? Il est enregistré dans l’historique et l’onglet repart de zéro.'))return;
   const g=pbGuide(r);const p=ensurePostBattleData(r);
   logHistory(r,'postbattle',en?`Post-battle finished — treasury ${g.startGold} → ${Number(r.gold||0)} GC, ${Number(p.soldShards||0)} shard(s) sold`:`Après-bataille terminé — trésor ${g.startGold} → ${Number(r.gold||0)} GC, ${Number(p.soldShards||0)} éclat(s) vendu(s)`);
-  delete r.underdogExplore;
+  delete r.underdogExplore;delete r.lastGame;
   r.postBattle={heroCount:0,extraDice:0,winner:false,dice:[],bonusDice:[],shards:0,shardsCashed:false,soldShards:0,income:0,incomeApplied:false,survivingHeroIds:[],exploration:{resolved:false,rewards:[],notes:[],rolls:[],bonuses:[],history:[]},explorationBonuses:p.explorationBonuses||[]};
   save(true);render('builder');toast(en?'Post-battle finished':'Après-bataille terminé')}
 function postBattleGuidedView(r,f){const en=siteLanguage==='en';const g=pbGuide(r);const steps=pbGuideSteps(r);const i=Math.max(0,Math.min(steps.length-1,Number(g.step||0)));const k=steps[i];
   const n=steps.filter(s=>s!=='summary').length;const num=k==='summary'?n:i+1;
   const T={eye:[en?'Eye of the Gods':'Œil des Dieux',en?'Roll for your Leader if your warband allows it.':'Fais le jet de ton Leader si ta bande y a droit.'],
    injuries:[en?'Injured and dead':'Blessés et morts',en?'Check what happened during the game. Normally done in the game: fix or complete here if needed.':'Vérifie ce qui s’est passé pendant la partie. Normalement fait en jeu : corrige ou complète ici si besoin.'],
-   xp:[en?'Experience':'Expérience',en?'Check each fighter’s XP. Counted during the game in Play mode; add or remove here if something was missed.':'Vérifie l’XP de chacun. Elle se compte pendant la partie dans le Mode de jeu ; ajoute ou retire ici s’il manque quelque chose.'],
+   xp:[en?'Experience':'Expérience',en?'Check the experience and quests of the game. Same table as in Play mode: tick what was forgotten, untick a mistake.':'Vérifie l’expérience et les quêtes de la partie. Même tableau que dans le Mode de jeu : coche ce qui a été oublié, décoche une erreur.'],
    explore:[en?'Exploration':'Exploration',en?'Tick the Heroes who survived, roll the dice and enter the results. The site does the rest.':'Coche les Héros survivants, lance les dés et entre les résultats. Le site fait le reste.'],
    income:[en?'Income':'Revenus',en?'Sell your shards, then pay your Hired Swords’ upkeep.':'Vends tes éclats, puis paie l’entretien de tes Hired Swords.'],
    actions:[en?'Heroes’ actions':'Actions des Héros',en?'Choose one action for each Leader and Champion, then apply.':'Choisis une action pour chaque Leader et Champion, puis applique.'],
