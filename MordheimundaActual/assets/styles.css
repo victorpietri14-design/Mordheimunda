@@ -5245,3 +5245,9 @@ html[data-comfort="xlarge"] .sheet-name{font-size:22px}
 .pbg-manual{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel)}
 .pbg-manual summary{cursor:pointer;font-weight:700;font-size:13.5px}
 .pbg-manual[open] summary{margin-bottom:10px}
+/* V-BIOME: account rows built as a <label> read like the others (small bold
+   title, subtitle under it); the quest rules link uses the accent colour. */
+.acct-pref-row>label>span:first-child{font:700 12.5px 'IBM Plex Sans';color:var(--text);display:flex;flex-direction:column;gap:2px}
+.acct-pref-row>label{gap:12px}
+.qx-rules-link{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}

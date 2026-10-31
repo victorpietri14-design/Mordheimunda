@@ -423,7 +423,7 @@ await test('[desktop] exploration tasks: notebook (Academic), Training Manual, C
   expect(out.coldAdded&&out.leadXp===1&&out.coldUndone,'Cold One task failed: '+JSON.stringify(out));
   expect(out.okS&&!out.low&&out.m===-1,'Stegadon armour: S4+ only and -1 Movement: '+JSON.stringify(out));
 });
-await test('[desktop] Ogre rules: Slow Witted doubles XP costs, Difficult Customers -3 Rare, Cannibals Hired Sword ban',null,async page=>{
+await test('[desktop] Ogre rules: Slow Witted costs x1.5 XP, Difficult Customers -1 Rare, Cannibals Hired Sword ban',null,async page=>{
   const out=await page.evaluate(()=>{state.customSpecialRules=[{id:'sw1',name:'Slow Witted',text:'Ogres only improve at half the rate of everyone else. They earn half the usual number of experience points (to a minimum of 1).'}];try{__refEntriesCache=null}catch(e){}
     const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');const keep=f.specialRules;
     f.specialRules=[...(keep||[]),{name:'Difficult Customers',text:'Ogre Heroes suffer -3 when rolling to find Rare items that are not exclusively available to Ogres.'},{name:'Cannibals',text:'An Ogre warband may never hire any Hired Swords, except for Halflings (Scout, Thief, etc.) and the Ogre Bodyguard, or unless stated otherwise.'}];
@@ -432,8 +432,8 @@ await test('[desktop] Ogre rules: Slow Witted doubles XP costs, Difficult Custom
     const e=ADVANCEMENT_MAIN.find(a=>a.kind!=='veteranPromote'&&Number(a.xp)>0);const slow=advancementCost(r.fighters[0],e),normal=advancementCost(r.fighters[1],e);
     const rare=bandRareSearchMod(r).mod;const hs=n=>hiredSwordAvailableFor({name:n,race:''},f,r);const ban={body:hs('Ogre Bodyguard'),half:hs('Halfling Scout'),pit:hs('Pit Fighter')};
     f.specialRules=keep;return {slow,normal,rare,ban}});
-  expect(out.slow===out.normal*2,'Slow Witted must double advancement costs: '+JSON.stringify(out));
-  expect(out.rare===-3,'Difficult Customers must give -3 to Rare searches: '+JSON.stringify(out));
+  expect(out.slow===Math.ceil(out.normal*1.5),'Slow Witted pays x1.5 (rounded up): '+JSON.stringify(out));
+  expect(out.rare===-1,'Difficult Customers gives -1 to Rare searches (decided ruling): '+JSON.stringify(out));
   expect(out.ban.body&&out.ban.half&&!out.ban.pit,'Cannibals: only Halflings and the Ogre Bodyguard may be hired: '+JSON.stringify(out));
 });
 await test('[desktop] quest trees and quests can be limited to races',null,async page=>{
@@ -679,6 +679,25 @@ await test('[mobile] guided post-battle XP step: same XP & quest table as Play m
   expect(out.table,'the guided XP step shows the Play mode table');
   expect(out.xp>x0&&out.rec===1,'a + adds the line XP to the fighter: '+JSON.stringify({x0,...out}));
   expect(out.onPage&&out.ctx===null,'stays on the warband page and leaves no context behind: '+JSON.stringify(out));
+});
+await test('[desktop] Slow Witted: advancements cost x1.5 (rounded up), starting XP x1.5, normal fighters unchanged',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const slowL={name:'Ogre Test',type:'Leader',ruleNames:['Race (Ogre)','Slow Witted'],rules:'Race (Ogre), Slow Witted',profile:[6,4,3,4,4,4,3,3,8,9,6,6]};
+    const slowC={...slowL,type:'Champion'};const normL={name:'Human Test',type:'Leader',ruleNames:['Race (Human)'],rules:'Race (Human)',profile:[4,4,4,3,3,2,4,3,9,8,7,7]};
+    return {mult:xpCostMultiplier(slowL),six:xpCostFor(slowL,6),three:xpCostFor(slowL,3),startL:startingXpFor(slowL),startC:startingXpFor(slowC),normal:[xpCostMultiplier(normL),xpCostFor(normL,6),startingXpFor(normL)]}});
+  expect(out.mult===1.5&&out.six===9&&out.three===5,'x1.5 rounded up: '+JSON.stringify(out));
+  expect(out.startL===30&&out.startC===14,'starting XP x1.5 (30 / 14): '+JSON.stringify(out));
+  expect(out.normal.join()==='1,6,20','normal fighters unchanged: '+JSON.stringify(out));
+});
+await test('[desktop] Gluttony: each Ogre counts 1.5 models for wyrdstone income (rounded up), others 1',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');const keep=f.specialRules;
+    const mk=(i,race)=>({...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'g'+i,extraRuleNames:race==='Ogre'?['Race (Ogre)']:[],equipmentSelected:[],status:{}});
+    state.rosters=[{id:'gl',name:'GL',factionId:f.id,gold:0,fighters:[mk(1,'Ogre'),mk(2,'Ogre'),mk(3,'Ogre'),mk(4,'Gnoblar'),mk(5,'Gnoblar')]}];state.active='gl';const r=activeRoster();
+    const without=postBattleWarriorCount(r);f.specialRules=[...(keep||[]),{name:'Gluttony',text:'Because of a voracious appetite, each Ogre model counts as two models when selling wyrdstone or treasure.'}];
+    const withG=postBattleWarriorCount(r);const txt=bandRuleTexts(r).find(e=>e.name==='Gluttony')?.text||'';f.specialRules=keep;return {without,withG,txt}});
+  expect(out.without===5,'no Gluttony rule: one per fighter: '+JSON.stringify(out));
+  expect(out.withG===7,'3 Ogres x1.5 + 2 = 6.5 -> 7: '+JSON.stringify(out));
+  expect(/one and a half/.test(out.txt),'Gluttony text updated: '+out.txt);
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
