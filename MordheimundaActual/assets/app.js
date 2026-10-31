@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0750.0';
+const APP_BUILD='110.0751.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3970,6 +3970,8 @@ function rerenderOverrideHost(){const v=parseAppRoute().view;if(v==='rules'||v==
 // replaced wherever it still appears, so the corrected wording shows at once
 // and is kept the next time the admin saves that text.
 const RULE_TEXT_PATCHES=[
+  {from:"each Ogre model counts as two models when selling wyrdstone or treasure.",to:"each Ogre model counts as one and a half models when selling wyrdstone or treasure (the total is rounded up)."},
+  {from:"Ogre Heroes suffer -3 when rolling to find Rare items",to:"Ogre Heroes suffer -1 when rolling to find Rare items"},
   {from:"the warband gains its value in gold crowns, minus D6x10 (to a minimum of five).",to:"the warband gains half its value in gold crowns (rounded down). In a campaign with a shared market, the campaign market price applies instead (see the sale window)."},
   {from:"la bande gagne sa valeur en couronnes d’or, moins D6x10 (avec un minimum de cinq).",to:"la bande gagne la moitié de sa valeur en couronnes d’or (arrondie à l’inférieur). Dans une campagne avec marché partagé, le prix du marché de campagne s’applique à la place (voir la fenêtre de vente)."},
   {from:"You can use the Underdog bonus for each 100 points in difference above the first 100 points of difference.",to:"Once every warband has chosen the fighters it engages, compare engaged values (each fighter's value, plus half the hire cost of each Hired Sword) with the strongest warband. A warband 100 points or more behind is the Underdog and receives Underdog points equal to the whole gap: 160 points behind gives 160 points. Below a 100-point gap, no Underdog bonus is available.\n\nThe Underdog spends these points on the bonuses below, up to the number of selections shown. A Variable cost is the value of the fighter brought as a reinforcement, or the hire price of the Hired Sword or Dramatis Personae. Points left unspent are lost at the end of the game."},
@@ -13055,7 +13057,7 @@ function pbaFees(r,{pending=true}={}){return Object.values(pbaPlan(r)).filter(a=
 // V-BANDRULETEXT: warband-wide rule texts (the faction's own special rules +
 // band-wide picks), read for generic effects such as a Rare search malus
 // ("Difficult Customers") or a Hired Sword ban ("Cannibals").
-function bandRuleTexts(r){const out=[];try{(warbandRuleEntries(r)||[]).forEach(e=>out.push({name:e.name,text:String(e.text||'')}))}catch(e){}try{(faction(r)?.specialRules||[]).forEach(e=>{if(e?.name)out.push({name:e.name,text:String(e.text||'')})})}catch(e){}return out}
+function bandRuleTexts(r){const out=[];try{(warbandRuleEntries(r)||[]).forEach(e=>out.push({name:e.name,text:patchRuleText(String(e.text||''))}))}catch(e){}try{(faction(r)?.specialRules||[]).forEach(e=>{if(e?.name)out.push({name:e.name,text:patchRuleText(String(e.text||''))})})}catch(e){}return out}
 function bandRareSearchMod(r){for(const e of bandRuleTexts(r)){const m=e.text.match(/([-−+])\s?(\d+)\s+(?:when\s+rolling\s+)?(?:to\s+(?:find|search\s+for)|when\s+(?:looking|searching)\s+for|on\s+(?:the\s+)?rarity)[^.]{0,40}\brare/i)||e.text.match(/([-−+])\s?(\d+)\s+(?:au|aux|pour)\s+(?:jets?\s+(?:de|pour)\s+)?(?:trouver|rechercher)[^.]{0,40}\brares?/i);if(m)return {mod:(m[1]==='+'?1:-1)*Number(m[2]),label:e.name}}return {mod:0,label:''}}
 function bandHiredSwordBan(r){for(const e of bandRuleTexts(r)){if(!/(?:never|(?:may|can)\s*not|cannot|can['’]t|may\s+never)\s+(?:hire|recruit)\s+(?:any\s+)?hired\s+swords?|ne\s+peu\w*\s+(?:jamais\s+)?(?:engager|recruter)\s+(?:aucun|de)\s+hired\s+swords?/i.test(e.text))continue;const m=e.text.replace(/\([^)]*\)/g,' ').match(/(?:except|sauf|excepté)\s+(?:for\s+|pour\s+)?([^.;]+)/i);const clause=m?m[1].split(/\bor\s+unless\b|\bunless\b|\bà\s+moins\b/i)[0].replace(/\([^)]*\)/g,' '):'';const toks=clause.split(/,|\band\b|\bor\b|\bet\b|\bou\b/i).map(t=>normName(t.replace(/\b(?:the|les?|la|l['’])\b/gi,' ').replace(/\s+/g,' ')).trim()).filter(t=>t&&t.length>2&&!/^etc/.test(t)).map(t=>t.length>4&&t.endsWith('s')?t.slice(0,-1):t);return {rule:e.name,allow:toks}}return null}
 function pbaRareBonus(r){const plan=pbaPlan(r),el=pbaEligible(r).filter(x=>plan[x.instance]?.action==='trade');const lead=el.some(x=>x.type==='Leader')?2:0,champs=el.filter(x=>x.type==='Champion').length,rep=Math.floor(Math.max(0,Number(r.reputation||0))/10);const cm=choiceRarityMod(r);const bm=bandRareSearchMod(r);const mod=cm.mod+bm.mod;return {lead,champs,rep,mod,modLabel:[cm.label,bm.mod?`${bm.label} ${bm.mod>0?'+':''}${bm.mod}`:''].filter(Boolean).join(', '),total:lead+champs+rep+mod}}
@@ -14206,7 +14208,10 @@ function dramatisRulesMarkup(x,compact){const en=siteLanguage==='en';const list=
 function hiredSwordRatingShare(x){return isHiredSword(x)&&!x.hsLeft&&!fighterStatus(x).dead?Math.floor(Number(x.cost||0)/2):0}
 // Warriors counted by the Income / selling formulas: Hired Swords never
 // count (10 warriors + 3 Hired Swords = 10).
-function postBattleWarriorCount(r){return (r?.fighters||[]).filter(x=>!isHiredSword(x)).length}
+// V-GLUTTONY: in a warband with the Gluttony rule, each Ogre counts as 1.5
+// models when selling wyrdstone (the total is rounded up).
+const GLUTTONY_WEIGHT=1.5;
+function postBattleWarriorCount(r){const xs=(r?.fighters||[]).filter(x=>!isHiredSword(x)&&!fighterStatus(x).dead);let glut=false;try{glut=bandRuleTexts(r).some(e=>/^gluttony$/i.test(String(e.name||'').trim()))}catch(e){}if(!glut)return xs.length;const f=faction(r);return Math.ceil(xs.reduce((n,x)=>{let race='';try{race=String(fighterRace(x,f)||'')}catch(e){}let rules=[];try{rules=fighterRuleNames(x,f)}catch(e){}const isOgre=(/ogre/i.test(race)&&!/rat\s*ogre/i.test(race))||rules.some(n=>/^race\s*\(\s*ogre\s*\)$/i.test(String(n).trim()));return n+(isOgre?GLUTTONY_WEIGHT:1)},0))}
 // Every Hired Sword profile: this account's Custom ones first, then the
 // published ones (any official warband or the shared pool).
 // V-HSTWIN: a published Hired Sword lives twice — the author's personal
