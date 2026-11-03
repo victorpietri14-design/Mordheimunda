@@ -699,6 +699,32 @@ await test('[desktop] Gluttony: each Ogre counts 1.5 models for wyrdstone income
   expect(out.withG===7,'3 Ogres x1.5 + 2 = 6.5 -> 7: '+JSON.stringify(out));
   expect(/one and a half/.test(out.txt),'Gluttony text updated: '+out.txt);
 });
+await test('[desktop] Dramatis Personae own weapons: given free with it, no slot, synced after an edit, never in shop lists',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const id='dpw-test';state.customFighters=[...(state.customFighters||[]),{customFighterId:id,name:'Test Prophet',type:'Hired Sword',hiredSword:true,dramatis:true,dpMode:'hire',cost:50,upkeep:0,max:1,profile:[6,3,3,3,2,2,5,2,8,8,9,8],ruleNames:[],rules:'',dpRules:[],defaultEquipment:[],
+      dpWeapons:[{id:'b1',name:'Blade of the Test',profile:{range:'Melee 0',strength:'S+1',ap:'-1',damage:'1',traits:'Poison'},rulesText:'A test blade.'}]}];save(true);
+    const r=activeRoster();r.gold=500;const w=hiredSwordAsWarrior(hiredSwordRawById(id));hiredSwordDoHire(w,{});
+    const x=r.fighters.find(f=>f.customFighterId===id||f.name==='Test Prophet');if(!x)return {hired:false};
+    const own=(x.equipmentSelected||[]).filter(e=>e.dpOwn);const slots=currentWeaponSlots(x);const val=fighterValue(x,faction(r));
+    const cf=state.customFighters.find(c=>c.customFighterId===id);cf.dpWeapons[0].profile.strength='S+2';cf.dpWeapons.push({id:'b2',name:'Second Test',profile:{range:'12',strength:'3',ap:'-',damage:'1',traits:''},rulesText:''});cf.updatedAt=Date.now();
+    syncAdminManagedFighter(x,r);const own2=(x.equipmentSelected||[]).filter(e=>e.dpOwn);
+    const inShop=(()=>{try{return JSON.stringify(equipmentPool(faction(r),'band',null)||[]).includes('Blade of the Test')}catch(e){return 'n/a'}})();
+    return {hired:true,own:own.map(e=>e.name),s:own[0]?.profile?.strength,slots,val,own2:own2.map(e=>e.name+':'+e.profile.strength),inShop}});
+  expect(out.hired&&out.own.length===1&&out.s==='S+1','the own weapon comes with the hire: '+JSON.stringify(out));
+  expect(out.slots===0,'own weapons take no weapon slot: '+JSON.stringify(out));
+  expect(out.own2.join()==='Blade of the Test:S+2,Second Test:3','an edit of the character updates the hired copy: '+JSON.stringify(out));
+  expect(out.inShop!==true,'own weapons are not in the shop: '+JSON.stringify(out));
+});
+await test('[desktop] custom fighter default skills: ticked from a list grouped by tree, with search',null,async page=>{
+  await page.evaluate(()=>navigateApp('/custom'));await page.waitForTimeout(400);
+  const out=await page.evaluate(()=>{const box=document.createElement('div');box.innerHTML=cfSkillPickerMarkup([],false);document.body.appendChild(box);
+    const trees=box.querySelectorAll('.cf-skill-tree').length;const first=box.querySelector('.cf-skill-opt');const name=first?.dataset.skill;customFighterSkillDraft=[];
+    toggleCustomFighterSkill(name);const added=customFighterSkillDraft.includes(name)&&first.classList.contains('on');toggleCustomFighterSkill(name);const removed=!customFighterSkillDraft.length&&!first.classList.contains('on');
+    cfSkillFilter(name.slice(0,4));const shown=[...box.querySelectorAll('.cf-skill-opt')].filter(b=>!b.hidden).map(b=>b.dataset.skill);box.remove();return {trees,added,removed,shown,name}});
+  expect(out.trees>3,'skills are grouped by tree: '+JSON.stringify(out));
+  expect(out.added&&out.removed,'a click ticks then unticks a skill: '+JSON.stringify(out));
+  expect(out.shown.includes(out.name),'search keeps the matching skill: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
