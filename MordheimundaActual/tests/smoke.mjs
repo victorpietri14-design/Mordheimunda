@@ -261,7 +261,7 @@ await test('[desktop] Dramatis Personae: hired like a Hired Sword, static, own r
     const listed=hiredSwordsFor(f,state.rosters[0]).some(w=>w.customFighterId==='dp-1');
     hireHiredSword('dp-1');const r=activeRoster();const x=r.fighters.find(q=>q.customFighterId==='dp-1'||normName(q.sourceName||q.name)===normName('Aenur, Sword of Twilight'));
     if(x){x.xp=7}const x2=activeRoster().fighters.find(q=>q===x||q.instance===x?.instance);
-    const card=x2?ownedFighterCard(x2,0,f):'';const rulesPage=hiredSwordsRulesPageMarkup();
+    const card=x2?ownedFighterCard(x2,0,f):'';const rulesPage=hiredSwordsRulesPageMarkup(true);
     return {listed,hired:!!x,dramatis:!!x2?.dramatis,xp:x2?.xp,canXp:fighterCanEarnXp(x2),card:/Wanderer/.test(card),catalogue:!!referenceFind('special','Wanderer'),rulesPage:/Wanderer/.test(rulesPage)&&/DRAMATIS PERSONAE/.test(rulesPage),progress:/Dramatis Personae/.test(progressionStatsMarkup(x2))}});
   expect(out.listed&&out.hired,'the Dramatis Personae could not be hired: '+JSON.stringify(out));
   expect(out.dramatis&&out.xp===0&&!out.canXp,'a Dramatis Personae must stay at 0 XP: '+JSON.stringify(out));
@@ -281,7 +281,7 @@ await test('[desktop] Dramatis Personae for one game: price from gap and warband
     playDpPick('B',w.id,'gold');const goldAfter=B.gold;const tB=playEngEntry(ps,B).ud.temps.find(t=>t.kind==='dp');
     playDpPick('A',w.id,'gold');const aTook=playEngEntry(ps,A).ud.temps.some(t=>t.kind==='dp');
     playDpDrop('B');const refunded=state.rosters.find(r=>r.id==='B').gold;
-    const sum=hiredSwordsRulesPageMarkup();
+    const sum=hiredSwordsRulesPageMarkup(true);
     return {inHirePool,found:!!w,pA,pB,goldAfter,dramatis:!!tB?.fighter?.dramatis,aTook,refunded,sum:/POUR UNE PARTIE|FOR ONE GAME/.test(sum)};
   });
   expect(out.found&&!out.inHirePool,'a one-game-only DP must not be in the hire pool but must be offered for the game: '+JSON.stringify(out));
@@ -724,6 +724,22 @@ await test('[desktop] custom fighter default skills: ticked from a list grouped 
   expect(out.trees>3,'skills are grouped by tree: '+JSON.stringify(out));
   expect(out.added&&out.removed,'a click ticks then unticks a skill: '+JSON.stringify(out));
   expect(out.shown.includes(out.name),'search keeps the matching skill: '+JSON.stringify(out));
+});
+await test('[desktop] Dramatis Personae: trait picker per own weapon, shown as Dramatis Personae, own Rules listing',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const box=document.createElement('div');box.id='dpWeaponsBox';document.body.appendChild(box);
+    box.innerHTML=dpWeaponRowsMarkup([{id:'w1',name:'Fang',profile:{range:'Melee 0',strength:'S',ap:'-',damage:'1',traits:'Parry'},rulesText:'Poison on a 6.'}]);
+    const picker=!!box.querySelector('#dpwInput-w1')&&!box.querySelector('.dpwTraits');const linkedTag=!!box.querySelector('#dpwTags-w1 [data-ref-id]');
+    box.querySelector('#dpwInput-w1').value='Poison';addTraitFor('dpw:w1');const read=dpWeaponsReadRaw()[0].profile.traits;box.remove();
+    const id='dpl-test';state.customFighters=[...(state.customFighters||[]),{customFighterId:id,name:'Label Prophet',type:'Hired Sword',hiredSword:true,dramatis:true,dpMode:'hire',cost:50,upkeep:0,max:1,profile:[6,3,3,3,2,2,5,2,8,8,9,8],ruleNames:[],rules:'',dpRules:[{name:'Old Wrath',text:'Causes Fear.'}],defaultEquipment:[],dpWeapons:[]}];save(true);
+    const r=activeRoster();r.gold=500;hiredSwordDoHire(hiredSwordAsWarrior(hiredSwordRawById(id)),{});const x=r.fighters.find(f=>f.name==='Label Prophet');
+    const groups=rosterGroupedIndices(r).map(g=>g.role);const dpPage=hiredSwordsRulesPageMarkup(true),hsPage=hiredSwordsRulesPageMarkup(false);
+    return {picker,linkedTag,read,label:fighterTypeLabel(x),stillHS:isHiredSword(x),groups,dpPage:dpPage.includes('Label Prophet'),hsPage:hsPage.includes('Label Prophet'),ruleLinked:/data-ref-/.test(dramatisRulesMarkup(x))}});
+  expect(out.picker&&out.linkedTag,'each own weapon row has the trait picker with linked tags: '+JSON.stringify(out));
+  expect(out.read==='Parry, Poison','picked traits are saved: '+JSON.stringify(out));
+  expect(out.label==='Dramatis Personae'&&out.stillHS&&out.groups.includes('Dramatis Personae'),'a DP shows as Dramatis Personae: '+JSON.stringify(out));
+  expect(out.dpPage&&!out.hsPage,'DPs have their own Rules page: '+JSON.stringify(out));
+  expect(out.ruleLinked,'keywords in own rules are linked: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
