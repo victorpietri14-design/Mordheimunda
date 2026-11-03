@@ -715,6 +715,16 @@ await test('[desktop] Dramatis Personae own weapons: given free with it, no slot
   expect(out.own2.join()==='Blade of the Test:S+2,Second Test:3','an edit of the character updates the hired copy: '+JSON.stringify(out));
   expect(out.inShop!==true,'own weapons are not in the shop: '+JSON.stringify(out));
 });
+await test('[desktop] custom fighter default skills: ticked from a list grouped by tree, with search',null,async page=>{
+  await page.evaluate(()=>navigateApp('/custom'));await page.waitForTimeout(400);
+  const out=await page.evaluate(()=>{const box=document.createElement('div');box.innerHTML=cfSkillPickerMarkup([],false);document.body.appendChild(box);
+    const trees=box.querySelectorAll('.cf-skill-tree').length;const first=box.querySelector('.cf-skill-opt');const name=first?.dataset.skill;customFighterSkillDraft=[];
+    toggleCustomFighterSkill(name);const added=customFighterSkillDraft.includes(name)&&first.classList.contains('on');toggleCustomFighterSkill(name);const removed=!customFighterSkillDraft.length&&!first.classList.contains('on');
+    cfSkillFilter(name.slice(0,4));const shown=[...box.querySelectorAll('.cf-skill-opt')].filter(b=>!b.hidden).map(b=>b.dataset.skill);box.remove();return {trees,added,removed,shown,name}});
+  expect(out.trees>3,'skills are grouped by tree: '+JSON.stringify(out));
+  expect(out.added&&out.removed,'a click ticks then unticks a skill: '+JSON.stringify(out));
+  expect(out.shown.includes(out.name),'search keeps the matching skill: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
