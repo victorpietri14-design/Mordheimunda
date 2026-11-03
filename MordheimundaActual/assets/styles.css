@@ -5251,3 +5251,14 @@ html[data-comfort="xlarge"] .sheet-name{font-size:22px}
 .acct-pref-row>label{gap:12px}
 .qx-rules-link{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
+/* V-DPWEAPONS: own weapons block in the Dramatis Personae builder */
+.dp-weapons-label{display:block;margin-top:14px;font-size:12px;color:var(--muted2)}
+.dp-weapon-row{display:grid;gap:6px;border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0;background:var(--bg)}
+.dp-weapon-line{display:flex;gap:6px;align-items:center}.dp-weapon-line .dpwName{flex:1}
+.dp-weapon-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.dp-weapon-row input,.dp-weapon-row textarea{width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:8px;font:600 12px 'IBM Plex Sans'}
+@media(max-width:600px){.dp-weapon-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.hs-gear-row-item{display:grid;gap:4px}
+.hs-gear-row-item .equipped-inline-profile{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--muted2)}
+.hs-gear-row-item .equipped-inline-profile b{color:var(--accent)}
+.dp-own-text{font-size:12px;color:var(--muted2)}
