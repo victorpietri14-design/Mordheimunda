@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0755.0';
+const APP_BUILD='110.0756.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11536,7 +11536,7 @@ function rulesWarbandDetail(){
   const en=siteLanguage==='en';
   if(currentRulesWarbandId==='hired-swords'||currentRulesWarbandId==='dramatis-personae'){$('#content').innerHTML=hiredSwordsRulesPageMarkup(currentRulesWarbandId==='dramatis-personae');return}
   const f=D.factions.find(x=>x.id===currentRulesWarbandId);
-  if(!f){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Warband not found.':'Warband introuvable.'}</strong><span><a href="#" onclick="navigateApp('/rules/warbands');return false;">${en?'← Back to Rules: Warbands':'← Retour à Règles : Warbands'}</a></span></div>`;return}
+  if(!f){$('#content').innerHTML=`<div class="empty large"><strong>${en?'Warband not found.':'Warband introuvable.'}</strong><button type="button" class="button secondary rules-back" onclick="navigateApp('/rules/warbands')">← ${en?'Rules: Warbands':'Règles : Warbands'}</button></div>`;return}
   const race=raceTagMap.get(f.id)||'';
   const isSupplement=!!f.packId;
   const baseFaction=isSupplement?D.factions.find(x=>x.id===f.baseFactionId):null;
@@ -11631,7 +11631,7 @@ function rulesWarbandDetail(){
   const hsNames=hsAvail.map(w=>w.name);
   const hsSection=`<div class="section-block wb-hired-swords"><h2><span class="n">6</span>Hired Swords${hsAvail.some(isDramatis)?' · Dramatis Personae':''}</h2>${hsNames.length?`<div class="tree-box" style="display:flex;flex-wrap:wrap;gap:8px">${hsAvail.map(w=>`<span class="pill equip"><a href="#" onclick="openRulesWarband('${isDramatis(w)?'dramatis-personae':'hired-swords'}');return false;">${isDramatis(w)?'🎭 ':''}${esc(w.name)}</a></span>`).join('')}</div>`:`<div class="tree-box"><span class="empty-note">${en?'No Hired Sword can be hired by this warband.':'Aucun Hired Sword ne peut être recruté par cette warband.'}</span></div>`}</div>`;
 
-  $('#content').innerHTML=`<a href="#" onclick="navigateApp('/rules/warbands');return false;" style="font-size:11px;color:var(--muted2);display:inline-block;margin-bottom:14px">← ${en?'Rules: Warbands':'Règles : Warbands'}</a>
+  $('#content').innerHTML=`<button type="button" class="button secondary rules-back" onclick="navigateApp('/rules/warbands')">← ${en?'Rules: Warbands':'Règles : Warbands'}</button>
 <div class="wb-header"><div><div class="eyebrow">${esc(race||(en?'Warband':'Warband'))}</div><h1>${esc(f.displayName||f.name)}</h1>${isSupplement?`<span class="tag" style="margin-top:8px">${en?'Supplement':'Supplément'} · ${esc(baseFaction?.displayName||baseFaction?.name||'')}</span>`:''}</div><span class="chip">${(f.warriors||[]).length} ${en?'fighter profiles':'profils de combattant'}</span></div>
 ${factionRulesSection}
 ${combatantsSection}

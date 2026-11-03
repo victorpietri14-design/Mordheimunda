@@ -5274,7 +5274,7 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .cf-skill-opt.on::before{content:'✓ '}
 .cf-skill-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* V-HSRULESGEAR: starting equipment on the Hired Swords / Dramatis Personae rules pages */
-.rules-head .rules-back{margin-bottom:12px;display:inline-flex;align-items:center;gap:6px}
+.rules-back{margin-bottom:14px;display:inline-flex;align-items:center;gap:6px}
 .hs-rules-gear{margin:10px 0 18px;display:grid;gap:6px}
 .hs-rules-gear>.micro-label{margin-bottom:2px}
 .hs-rules-choice{border:1px dashed var(--line2,var(--line));border-radius:9px;padding:8px 10px 2px}
