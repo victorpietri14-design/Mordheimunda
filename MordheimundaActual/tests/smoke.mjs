@@ -750,6 +750,18 @@ await test('[desktop] Rules: Hired Swords / Dramatis Personae page lists startin
   expect(out.links>=4,'items and traits are linked: '+JSON.stringify(out));
   expect(out.back,'the back link is a site button: '+JSON.stringify(out));
 });
+await test('[desktop] Dramatis Personae lore: shown on the Rules page only',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const id='dplore';state.customFighters=[...(state.customFighters||[]),{customFighterId:id,name:'Lore Prophet',type:'Hired Sword',hiredSword:true,dramatis:true,dpMode:'hire',cost:50,upkeep:0,max:1,profile:[6,3,3,3,2,2,5,2,8,8,9,8],ruleNames:[],rules:'',dpRules:[],defaultEquipment:[],dpWeapons:[],dpLore:'Born under the twin moons of Zerbravia.'}];save(true);
+    const rules=hiredSwordsRulesPageMarkup(true).includes('twin moons of Zerbravia');
+    const r=activeRoster();r.gold=500;hiredSwordDoHire(hiredSwordAsWarrior(hiredSwordRawById(id)),{});const i=r.fighters.findIndex(f=>f.name==='Lore Prophet');
+    const card=ownedFighterCard(r.fighters[i],i,faction(r)).includes('twin moons');
+    const form=(()=>{try{return customFighterForm?String(customFighterForm(hiredSwordRawById(id),'hired-swords')||''):''}catch(e){return ''}})();
+    return {rules,card,search:searchRun('zerbravia').some(g=>g.key==='hiredSwords')}});
+  expect(out.rules,'lore shows on the Rules page: '+JSON.stringify(out));
+  expect(!out.card,'lore is not on the warband card: '+JSON.stringify(out));
+  expect(out.search,'lore is searchable: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
