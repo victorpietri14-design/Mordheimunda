@@ -5265,8 +5265,8 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 /* V-SKILLPICKER: default skills checklist grouped by tree */
 .cf-skill-picker{display:grid;gap:6px;margin-top:8px}
 .cf-skill-search{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:10px 11px;font:600 12px 'IBM Plex Sans'}
-.cf-skill-tree{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-.cf-skill-tree summary{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;cursor:pointer;font:700 12.5px 'IBM Plex Sans';color:var(--text)}
+.cf-skill-tree,.cf-spell-tree{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.cf-skill-tree summary,.cf-spell-tree summary{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;cursor:pointer;font:700 12.5px 'IBM Plex Sans';color:var(--text)}
 .cf-skill-count{color:var(--accent);font-weight:700}
 .cf-skill-grid{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px}
 .cf-skill-opt{border:1px solid var(--line2);background:var(--panel);color:var(--muted);border-radius:999px;padding:7px 12px;font:600 12px 'IBM Plex Sans';cursor:pointer}
@@ -5282,3 +5282,11 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .hs-rules-choice-head b{color:var(--text)}
 /* V-DPLORE: a Dramatis Personae's lore, Rules page only */
 .dp-lore{margin:8px 0 12px;padding:10px 14px;border-left:3px solid #e0b04a;background:rgba(224,176,74,.06);border-radius:0 8px 8px 0;font-style:italic;color:var(--muted2);font-size:13px;line-height:1.6}
+/* V-HSENTRY: one block per Hired Sword / Dramatis Personae on the Rules page */
+.hs-entry{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;margin:0 0 18px}
+.hs-entry.dp{border-color:rgba(224,176,74,.45)}
+.hs-entry>.fcard{border:0;border-radius:0;margin:0}
+.hs-entry-body{padding:12px 16px 16px;display:grid;gap:12px;border-top:1px solid var(--line)}
+.hs-entry-body>*{margin:0}
+.hs-entry-body .hs-rules-gear{margin:0}
+.hs-entry-body .dp-lore{margin:0}

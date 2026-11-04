@@ -262,7 +262,7 @@ await test('[desktop] Dramatis Personae: hired like a Hired Sword, static, own r
     hireHiredSword('dp-1');const r=activeRoster();const x=r.fighters.find(q=>q.customFighterId==='dp-1'||normName(q.sourceName||q.name)===normName('Aenur, Sword of Twilight'));
     if(x){x.xp=7}const x2=activeRoster().fighters.find(q=>q===x||q.instance===x?.instance);
     const card=x2?ownedFighterCard(x2,0,f):'';const rulesPage=hiredSwordsRulesPageMarkup(true);
-    return {listed,hired:!!x,dramatis:!!x2?.dramatis,xp:x2?.xp,canXp:fighterCanEarnXp(x2),card:/Wanderer/.test(card),catalogue:!!referenceFind('special','Wanderer'),rulesPage:/Wanderer/.test(rulesPage)&&/DRAMATIS PERSONAE/.test(rulesPage),progress:/Dramatis Personae/.test(progressionStatsMarkup(x2))}});
+    return {listed,hired:!!x,dramatis:!!x2?.dramatis,xp:x2?.xp,canXp:fighterCanEarnXp(x2),card:/Wanderer/.test(card),catalogue:!!referenceFind('special','Wanderer'),rulesPage:/Wanderer/.test(rulesPage)&&/class="hs-entry dp"/.test(rulesPage)&&/role-badge[^>]*>Dramatis Personae</.test(rulesPage),progress:/Dramatis Personae/.test(progressionStatsMarkup(x2))}});
   expect(out.listed&&out.hired,'the Dramatis Personae could not be hired: '+JSON.stringify(out));
   expect(out.dramatis&&out.xp===0&&!out.canXp,'a Dramatis Personae must stay at 0 XP: '+JSON.stringify(out));
   expect(out.card&&out.rulesPage&&out.progress,'its own rules / static notice are missing: '+JSON.stringify(out));
@@ -761,6 +761,21 @@ await test('[desktop] Dramatis Personae lore: shown on the Rules page only',null
   expect(out.rules,'lore shows on the Rules page: '+JSON.stringify(out));
   expect(!out.card,'lore is not on the warband card: '+JSON.stringify(out));
   expect(out.search,'lore is searchable: '+JSON.stringify(out));
+});
+await test('[desktop] Custom starting spells: picked like skills, given at hire, synced; DP rules card has no choice menus',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const doms=customMergedMagicDomains(null);const [dom,list]=Object.entries(doms).find(([,l])=>l.length>1);
+    customFighterSpellDraft=[];const box=document.createElement('div');box.innerHTML=`<div id="cfSpellTags"></div>`+cfSpellPickerMarkup(false);document.body.appendChild(box);
+    toggleCustomFighterSpell(list[0]);const picked=customFighterSpellDraft.slice();const btnOn=box.querySelector('.cf-spell-opt.on')?.dataset.spell;box.remove();
+    const id='dpsp';state.customFighters=[...(state.customFighters||[]),{customFighterId:id,name:'Spell Prophet',type:'Hired Sword',hiredSword:true,dramatis:true,dpMode:'hire',cost:50,upkeep:0,max:1,profile:[6,3,3,3,2,2,5,2,8,8,9,8],ruleNames:[],rules:'',dpRules:[],defaultEquipment:[],dpWeapons:[],defaultSkills:[],defaultSpells:[list[0]]}];save(true);
+    const r=activeRoster();r.gold=500;hiredSwordDoHire(hiredSwordAsWarrior(hiredSwordRawById(id)),{});const x=r.fighters.find(f=>f.name==='Spell Prophet');const hired=(x?.spells||[]).slice();
+    const cf=state.customFighters.find(c=>c.customFighterId===id);cf.defaultSpells=[list[1]];cf.updatedAt=Date.now();try{syncAdminManagedFighter(x,r)}catch(e){}try{ensureFighterSourceData(x,r)}catch(e){}
+    const card=fighterRuleCardMarkup(hiredSwordAsWarrior(cf),null);
+    return {picked,btnOn,first:list[0],second:list[1],hired,synced:(x?.spells||[]).slice(),menus:/Available skills|Compétences disponibles|Equipment available|Magie disponible|Magic available/.test(card),spellRow:card.includes(list[1])}});
+  expect(out.picked.length===1&&out.picked[0]===out.first&&out.btnOn===out.first,'a click picks a spell: '+JSON.stringify(out));
+  expect(out.hired.includes(out.first),'the hired copy knows the spell: '+JSON.stringify(out));
+  expect(out.synced.includes(out.second)&&!out.synced.includes(out.first),'an edit updates the hired copy: '+JSON.stringify(out));
+  expect(!out.menus&&out.spellRow,'DP rules card: no choice menus, spells listed: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
