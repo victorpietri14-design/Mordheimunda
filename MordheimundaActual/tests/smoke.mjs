@@ -762,6 +762,21 @@ await test('[desktop] Dramatis Personae lore: shown on the Rules page only',null
   expect(!out.card,'lore is not on the warband card: '+JSON.stringify(out));
   expect(out.search,'lore is searchable: '+JSON.stringify(out));
 });
+await test('[desktop] Custom starting spells: picked like skills, given at hire, synced; DP rules card has no choice menus',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const doms=customMergedMagicDomains(null);const [dom,list]=Object.entries(doms).find(([,l])=>l.length>1);
+    customFighterSpellDraft=[];const box=document.createElement('div');box.innerHTML=`<div id="cfSpellTags"></div>`+cfSpellPickerMarkup(false);document.body.appendChild(box);
+    toggleCustomFighterSpell(list[0]);const picked=customFighterSpellDraft.slice();const btnOn=box.querySelector('.cf-spell-opt.on')?.dataset.spell;box.remove();
+    const id='dpsp';state.customFighters=[...(state.customFighters||[]),{customFighterId:id,name:'Spell Prophet',type:'Hired Sword',hiredSword:true,dramatis:true,dpMode:'hire',cost:50,upkeep:0,max:1,profile:[6,3,3,3,2,2,5,2,8,8,9,8],ruleNames:[],rules:'',dpRules:[],defaultEquipment:[],dpWeapons:[],defaultSkills:[],defaultSpells:[list[0]]}];save(true);
+    const r=activeRoster();r.gold=500;hiredSwordDoHire(hiredSwordAsWarrior(hiredSwordRawById(id)),{});const x=r.fighters.find(f=>f.name==='Spell Prophet');const hired=(x?.spells||[]).slice();
+    const cf=state.customFighters.find(c=>c.customFighterId===id);cf.defaultSpells=[list[1]];cf.updatedAt=Date.now();try{syncAdminManagedFighter(x,r)}catch(e){}try{ensureFighterSourceData(x,r)}catch(e){}
+    const card=fighterRuleCardMarkup(hiredSwordAsWarrior(cf),null);
+    return {picked,btnOn,first:list[0],second:list[1],hired,synced:(x?.spells||[]).slice(),menus:/Available skills|Compétences disponibles|Equipment available|Magie disponible|Magic available/.test(card),spellRow:card.includes(list[1])}});
+  expect(out.picked.length===1&&out.picked[0]===out.first&&out.btnOn===out.first,'a click picks a spell: '+JSON.stringify(out));
+  expect(out.hired.includes(out.first),'the hired copy knows the spell: '+JSON.stringify(out));
+  expect(out.synced.includes(out.second)&&!out.synced.includes(out.first),'an edit updates the hired copy: '+JSON.stringify(out));
+  expect(!out.menus&&out.spellRow,'DP rules card: no choice menus, spells listed: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

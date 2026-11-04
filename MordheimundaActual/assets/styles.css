@@ -5265,8 +5265,8 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 /* V-SKILLPICKER: default skills checklist grouped by tree */
 .cf-skill-picker{display:grid;gap:6px;margin-top:8px}
 .cf-skill-search{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:10px 11px;font:600 12px 'IBM Plex Sans'}
-.cf-skill-tree{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
-.cf-skill-tree summary{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;cursor:pointer;font:700 12.5px 'IBM Plex Sans';color:var(--text)}
+.cf-skill-tree,.cf-spell-tree{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.cf-skill-tree summary,.cf-spell-tree summary{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;cursor:pointer;font:700 12.5px 'IBM Plex Sans';color:var(--text)}
 .cf-skill-count{color:var(--accent);font-weight:700}
 .cf-skill-grid{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px}
 .cf-skill-opt{border:1px solid var(--line2);background:var(--panel);color:var(--muted);border-radius:999px;padding:7px 12px;font:600 12px 'IBM Plex Sans';cursor:pointer}
