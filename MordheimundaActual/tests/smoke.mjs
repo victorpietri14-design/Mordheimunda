@@ -777,6 +777,24 @@ await test('[desktop] Custom starting spells: picked like skills, given at hire,
   expect(out.synced.includes(out.second)&&!out.synced.includes(out.first),'an edit updates the hired copy: '+JSON.stringify(out));
   expect(!out.menus&&out.spellRow,'DP rules card: no choice menus, spells listed: '+JSON.stringify(out));
 });
+await test('[desktop] play & reading helpers: rout threshold, combat screen order, scenario sections, find in page, pins',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);(f.warriors||[]).slice(0,5).forEach(w=>r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]}));
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'ps1',name:'Plain',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const secs=scenarioSections(SCENARIOS_CACHE.find(x=>x.id==='ps1'),true,'<div>dep</div>').map(x=>x.title);
+    const ps=blankPlaySession();ps.scenarioId='ps1';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};state.playSession=ps;
+    const e=playEngEntry(ps,r);e.picks=r.fighters.map(x=>x.instance);const before=playFightersMarkup(ps);e.validated=true;const after=playFightersMarkup(ps);
+    ps.rout={};ps.rout[r.id]=2;const row=playRoutRowMarkup(ps,r);
+    state.playSession=null;
+    navigateApp('/rules');const c=document.getElementById('content');const probe=document.createElement('p');probe.textContent='Zorblax test word';c.appendChild(probe);pfSearch('zorblax');const hits=pfState.hits.length;pfClose();probe.remove();
+    localStorage.removeItem('mu_read_pins');readTogglePin();const pins=readPins().length;readTogglePin();
+    return {secs,firstIsCardsAfter:after.indexOf('ROUT')>=0&&after.indexOf('eng-ingame')>=0,beforeNoRout:before.indexOf('rout-box')<0,row:/4\+/.test(row),hits,pins,pinsAfter:readPins().length}});
+  expect(!out.secs.some(t=>/End of Game/.test(t))&&out.secs.some(t=>/Victory/.test(t)),'empty scenario sections are left out: '+JSON.stringify(out));
+  expect(out.beforeNoRout&&out.firstIsCardsAfter,'combat screen comes first once validated, with the rout test: '+JSON.stringify(out));
+  expect(out.row,'5 starting fighters, 2 down: the warband flees on 4+: '+JSON.stringify(out));
+  expect(out.hits===1,'find in page highlights the word: '+JSON.stringify(out));
+  expect(out.pins===1&&out.pinsAfter===0,'a page can be pinned and unpinned: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
