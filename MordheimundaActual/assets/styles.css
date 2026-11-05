@@ -5290,3 +5290,85 @@ input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
 .hs-entry-body>*{margin:0}
 .hs-entry-body .hs-rules-gear{margin:0}
 .hs-entry-body .dp-lore{margin:0}
+/* V-ROSTERCOMPACT: one-line fighter cards */
+.fighter-compact-weapons{display:none}
+.roster-compact .fighter-card-v5.owned-card{padding:10px 12px}
+.roster-compact .fighter-card-v5 .card-weapons,.roster-compact .fighter-card-v5 .fighter-card-sections,.roster-compact .fighter-card-v5 .pack-modifiers,.roster-compact .fighter-card-v5 .mount-card,.roster-compact .fighter-card-v5 .fighter-avatar-square,.roster-compact .fighter-card-v5 .fighter-sourcename-sub{display:none!important}
+.roster-compact .fighter-compact-weapons{display:block;font-size:12px;color:var(--muted2);margin-top:6px;line-height:1.45}
+.roster-compact .fighter-card-v5 .fighter-ident h4{font-size:18px!important}
+.roster-compact .fighter-list{gap:8px}
+/* V-NAMEWRAP: fighter names wrap between words, never mid-word ("YOUNGBLO/OD") */
+.fighter-ident>div>h4,.fighter-card-v5 .fighter-name-line h4{overflow-wrap:normal!important;word-break:normal!important;hyphens:manual}
+@media(max-width:700px){.fighter-ident>div>h4{font-size:clamp(16px,5.4vw,22px)!important;line-height:1.1!important}}
+/* V-COMPACTHEAD: smaller page headers and warband header on phones */
+.warroom-more-btn{display:none}
+.warroom-more-list{display:grid;gap:8px;margin-top:10px}
+@media(max-width:700px){
+  .page-intro h2,.rules-page-title,.rules-head h1{font-size:26px!important;line-height:1.1!important;margin-bottom:4px!important}
+  .page-intro>div>p:not(.scn-summary),.rules-head>p{font-size:12px!important;line-height:1.45!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:2px 0 8px!important}
+  .warroom-head{padding:12px!important;gap:10px!important}
+  .warroom-head .gang-icon{width:52px!important;height:52px!important;min-width:52px!important}
+  .warroom-head h2{font-size:22px!important;line-height:1.1!important;margin:2px 0!important}
+  .warband-overview{display:flex!important;flex-wrap:wrap;gap:6px!important}
+  .warband-overview .warband-stat{flex:0 1 auto;min-width:0;padding:5px 9px!important;border-radius:999px!important;gap:6px!important;align-items:center}
+  .warband-overview .warband-stat .stat-icon{display:none!important}
+  .warband-overview .warband-stat span:not(.stat-icon){display:none!important}
+  .warband-overview .warband-stat small{font-size:9px!important;letter-spacing:.5px}
+  .warband-overview .warband-stat strong{font-size:14px!important;display:inline!important;margin-left:4px}
+  .warband-overview .warband-stat>div{display:flex;align-items:baseline;gap:2px}
+  .warband-overview .custom-add small{display:none!important}
+  .warroom-head-btns{display:flex!important;gap:6px!important;margin-top:8px}
+  .warroom-history-btn,.warroom-versions-btn,.warroom-share-btn{display:none!important}
+  .warroom-more-btn{display:inline-flex!important;justify-content:center;flex:0 0 56px!important;width:56px!important;font-size:16px!important;padding:8px 12px!important}
+  .warroom-edit-btn{flex:1}
+  .roster-toolbar p{display:none}
+  .roster-toolbar h3{font-size:20px!important}
+}
+/* V-SCNCOMPACT: scenario page — tighter sections, readable on phones */
+.scn-facts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.scn-text{margin:0;font-size:13px;line-height:1.65;color:var(--muted2)}
+.scn-line{margin:0 0 8px;font-size:13px;color:var(--text-dim)}
+.scn-roles{display:flex;gap:14px;flex-wrap:wrap}.scn-roles>div{flex:1;min-width:200px}
+.scn-role-h{font:700 13px 'Cinzel';margin-bottom:6px}.scn-role-h.atk{color:var(--danger)}.scn-role-h.def{color:var(--info)}
+.scn-bands{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.scn-bands-box{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 16px;min-width:160px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+.scn-bands-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)}
+.scn-bands-val{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--accent);line-height:1.3}
+.scn-deploy{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.scn-deploy-info{flex:1;min-width:200px;display:flex;flex-direction:column;gap:10px}
+.scn-mini-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:4px}
+.scn-xp{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.scn-xp-row{background:var(--bg);border-radius:6px;padding:8px 11px;font-size:12.5px;color:var(--muted2)}.scn-xp-row strong{color:var(--text)}
+.scn-list{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted2);line-height:1.6}.scn-list strong,.scn-victory strong{color:var(--text)}
+.scn-victory{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;font-size:13px;color:var(--muted2);line-height:1.6}
+.scn-summary{font-size:13px;color:var(--muted2);line-height:1.55}
+@media(max-width:700px){
+  .scn-detail .scn-sec{padding:14px 14px 12px;margin-bottom:20px;border-radius:9px}
+  .scn-detail .scn-secnum{top:-11px;left:14px;font-size:11px;padding:2px 8px}
+  .scn-detail .scn-sectitle{font-size:14px;margin:4px 0 8px}
+  .scn-detail .scn-map-slot{width:100%}
+  .scn-detail .page-intro{margin-bottom:22px}
+}
+/* V-WBINTROLINK */
+.wb-intro-link{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted2);margin:0 0 14px}
+.wb-intro-link a{color:var(--accent)}
+/* V-READABLE: no more 8–9 px labels; light theme greys a bit darker */
+.eyebrow,.micro-label,.faction-line,.profile-group-title,.stat .label,.box span{font-size:10px!important}
+.chip,.wbr-tag,.role-badge,.fighter-race-badge,.scn-cat-tag{font-size:10.5px!important}
+.fighter-subline,.roster-meta{font-size:11px}
+.custom-field-help,.sheet-help{font-size:11.5px}
+.profile-stat b{font-size:9.5px!important}
+html[data-theme="light"]{--muted3:#6f6e69;--muted2:#57564f}
+/* V-ROWWRAP: library rows never squeeze the name into a vertical column */
+.custom-item-row{flex-wrap:wrap}
+.custom-item-row>.custom-item-main{flex:1 1 220px;min-width:0}
+.custom-item-row>.custom-item-actions{flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+.custom-item-row>.custom-item-main strong,.custom-item-row>.custom-item-main small{overflow-wrap:normal;word-break:normal}
+/* V-CRUMBS */
+.site-crumbs{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.site-crumbs .rules-back{margin:0!important;padding:7px 12px!important;font-size:13px!important}
+.site-crumbs .rules-crumb{margin:0;font-size:12px;color:var(--muted2)}
+.site-crumbs .rules-crumb a{color:var(--muted2);text-decoration:none;border-bottom:1px dotted var(--muted3)}
+.site-crumbs .rules-crumb a:hover{color:var(--accent)}
+.site-crumbs .rules-crumb .cur{color:var(--text)}
+.rules-crumb{font-size:11px}
