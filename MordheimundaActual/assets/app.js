@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0760.0';
+const APP_BUILD='110.0761.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8109,7 +8109,7 @@ function openTabSheet(kind){
   if(!wrap.hidden&&wrap.dataset.kind===kind){closeTabSheet();return}
   let html='';
   if(kind==='rules'){
-    html=`<div class="tab-sheet-label">${en?'RULES':'RÈGLES'}</div>`+tabSheetLink(APP_ROUTES.rules,'♞',en?'Rules: The Game':'Règles : Le Jeu')+tabSheetLink(APP_ROUTES.rulesWarbands,'⛨',en?'Rules: Warbands':'Règles : Warbands')+tabSheetLink(APP_ROUTES.rulesCampaign,'⚑',en?'Rules: Campaign':'Règles : Campagne')+tabSheetLink(APP_ROUTES.scenarios,'⚔',en?'Scenarios':'Scénarios')+tabSheetLink(APP_ROUTES.references,'▤',en?'Reference':'Référentiel');
+    html=`<div class="tab-sheet-label">${en?'RULES':'RÈGLES'}</div>`+tabSheetLink(APP_ROUTES.rules,'♞',en?'Rules: The Game':'Règles : Le Jeu')+tabSheetLink(APP_ROUTES.rulesWarbands,'⛨',en?'Rules: Warbands':'Règles : Warbands')+tabSheetLink(APP_ROUTES.rulesCampaign,'⚑',en?'Rules: Campaign':'Règles : Campagne')+tabSheetLink(APP_ROUTES.scenarios,'⚔',en?'Scenarios':'Scénarios')+tabSheetLink(APP_ROUTES.references,'▤',en?'Reference':'Référentiel')+readPinsSheetMarkup();
   }else{
     const admin=isAdminSession();
     html=`<div class="tab-sheet-label">${en?'MORE':'PLUS'}</div>`+tabSheetLink(APP_ROUTES.custom,'✦',en?'Personal content':'Contenu perso')+tabSheetLink(APP_ROUTES.account,'👤',en?'Account':'Compte')+(admin?tabSheetLink(APP_ROUTES.admin,'⛉',en?'Admin panel':'Panneau admin'):'')
@@ -9684,54 +9684,10 @@ function playSessionMarkupBase(){
   if(ps.slots.some(sl=>sl.source==='friend'))ensurePlayFriendsLoaded();
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];
-  return `<div class="rules-shell-wrap">
+  return `<div class="rules-shell-wrap scn-detail">
    <div class="page-intro"><div><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><h2 style="margin-top:6px">${esc(s.name)}</h2><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
-   <section class="scn-sec"><span class="scn-secnum">01</span><div class="scn-sectitle">${en?'Battlefield':'Champ de Bataille'}</div>
-     <p style="margin:0 0 10px;font-size:13px;color:var(--text-dim)"><strong>${en?'Terrain:':'Terrain :'}</strong> ${esc(s.battlefield?.terrainType||'—')}</p>
-     <div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.battlefield?.setupInstructions||'')}</div>
-   </section>
-
-   <section class="scn-sec"><span class="scn-secnum">02</span><div class="scn-sectitle">${en?'Attacker & Defender':'Attaquant & Défenseur'}</div>
-     <div style="display:flex;gap:20px;flex-wrap:wrap"><div class="scn-attacker"><div style="font:700 13px 'Cinzel';color:var(--danger);margin-bottom:6px">⚔ ${en?'Attacker':'Attaquant'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.attacker||'')}</div></div><div class="scn-defender"><div style="font:700 13px 'Cinzel';color:var(--info);margin-bottom:6px">🛡 ${en?'Defender':'Défenseur'}</div><div style="margin:0;font-size:12.5px;color:var(--muted2);line-height:1.6">${scenarioText(s.roles?.defender||'')}</div></div></div>
-   </section>
-
-   ${s.preparation?.enabled?`<section class="scn-sec"><span class="scn-secnum">03</span><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${en?'Preparation':'Préparation'}</div><span class="scn-badge-opt">${en?'If allowed':'Si autorisée'}</span></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.preparation.text||'')}</div></section>`:''}
-
-   ${scenarioSpecialRulesText(s)?`<section class="scn-sec"><span class="scn-secnum">04</span><div class="scn-sectitle">${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioSpecialRulesText(s))}</div></section>`:''}
-
-   <section class="scn-sec"><span class="scn-secnum">05</span><div class="scn-sectitle">${en?'Warbands (How Many)':'Bandes (Combien)'}</div>
-     <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
-       <div style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:14px 20px;min-width:180px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center">
-         <span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted3)">${en?'Fighters per warband':'Combattants par bande'}</span>
-         <span style="font-family:'IBM Plex Mono',monospace;font-size:${scenarioFormulaText(s.bandsFormula,en).length>14?'16px':'26px'};font-weight:700;color:var(--accent);line-height:1.3">${scenarioFormulaMarkup(s.bandsFormula,en,bandsCount)}</span>
-         ${scenarioFormulaLegendMarkup(en)}
-       </div>
-       <div style="flex:1;min-width:220px;display:flex;flex-direction:column;justify-content:center;gap:6px">
-         ${s.bandsFormula?.adjacentText?`<p style="margin:0;font-size:12.5px;line-height:1.6;color:var(--muted2)">${customTextMarkup(s.bandsFormula.adjacentText)}</p>`:''}
-       </div>
-     </div>
-   </section>
-
-   ${scenarioUnderdogBonusText(s)?`<section class="scn-sec"><span class="scn-secnum">06</span><div class="scn-sectitle"><a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a></div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2);white-space:pre-line">${scenarioText(scenarioUnderdogBonusText(s))}</div></section>`:''}
-
-   <section class="scn-sec"><span class="scn-secnum">07</span><div class="scn-sectitle">${en?'Deployment':'Déploiement'}</div>
-     ${playDeploymentBlockMarkup(ps,s,en,sizes)}
-   </section>
-
-   ${(s.experience||[]).length?`<section class="scn-sec"><span class="scn-secnum">08</span><div class="scn-sectitle">${en?'Experience':'Expérience'}</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">${s.experience.map(x=>`<div style="background:var(--bg);border-radius:4px;padding:10px 12px"><strong style="font-size:12.5px;color:var(--text)">${esc(x.name)}</strong><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${esc(x.text)}</div></div>`).join('')}</div></section>`:''}
-
-   <section class="scn-sec"><span class="scn-secnum">09</span><div class="scn-sectitle">${en?'Objectives':'Objectifs'}</div>
-     <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.objectives?.primary?`<div><strong style="color:var(--text)">${en?'Primary:':'Principal :'}</strong> ${scenarioText(s.objectives.primary)}</div>`:''}${s.objectives?.secondary?`<div><strong style="color:var(--text)">${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(s.objectives.secondary)}</div>`:''}</div>
-   </section>
-
-   <section class="scn-sec"><span class="scn-secnum">10</span><div class="scn-sectitle">${en?'End of Game':'Fin de Partie'}</div><div style="margin:0;font-size:13px;line-height:1.7;color:var(--muted2)">${scenarioText(s.endCondition||'')}</div></section>
-
-   <section class="scn-sec"><span class="scn-secnum">11</span><div class="scn-sectitle">${en?'Victory':'Victoire'}</div>
-     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;font-size:12.5px;color:var(--muted2)">${s.victory?.major?`<div><strong style="color:var(--text)">${en?'Major:':'Majeure :'}</strong> ${scenarioText(s.victory.major)}</div>`:''}${s.victory?.minor?`<div><strong style="color:var(--text)">${en?'Minor:':'Mineure :'}</strong> ${scenarioText(s.victory.minor)}</div>`:''}${s.victory?.draw?`<div><strong style="color:var(--text)">${en?'Draw:':'Nul :'}</strong> ${scenarioText(s.victory.draw)}</div>`:''}</div>
-   </section>
-
-   ${(s.rewards||[]).length?`<section class="scn-sec"><span class="scn-secnum">12</span><div class="scn-sectitle">${en?'Rewards':'Récompenses'}</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--muted2)">${s.rewards.map(r=>`<div>${scenarioText(r)}</div>`).join('')}</div></section>`:''}
+   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)))}
   </div>`;
 }
 function playMode(){
@@ -10781,14 +10737,11 @@ function drawDeploymentMap(scenarioId){
   scenarioDrawnMap=deploymentMapHasShapes(picked)?{...picked,shapes:deploymentMapResizeShapes(picked.shapes,ts.w,ts.h)}:picked;
   render('scenarioDetail');
 }
-function scenarioDetail(){
-  const en=siteLanguage==='en';
-  const s=SCENARIOS_CACHE.find(x=>x.id===currentScenarioId);
-  if(!s){$('#content').innerHTML=`<div class="empty large">${en?'Scenario not found.':'Scénario introuvable.'}</div>`;return}
-  const drawnMap=scenarioDrawnMap;
+// V-SCNSECTIONS: the scenario's sections, empty ones left out, shared by
+// Rules › Scenarios and the Play mode Scenario tab (each passes its own
+// Deployment block).
+function scenarioSections(s,en,deployBody){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
-  // V-SCNCOMPACT: sections are built as a list; empty ones are left out and
-  // the rest are numbered in order (no more 01, 02, 04, 05, 07…).
   const has=v=>String(v??'').replace(/<[^>]*>/g,'').trim().length>0;
   const txt=v=>`<div class="scn-text">${scenarioText(v||'')}</div>`;
   const secs=[];
@@ -10808,11 +10761,7 @@ function scenarioDetail(){
        ${s.bandsFormula?.adjacentText?`<p class="scn-text" style="flex:1;min-width:200px;margin:0">${customTextMarkup(s.bandsFormula.adjacentText)}</p>`:''}
      </div>`);
   if(has(scenarioUnderdogBonusText(s)))secs.push({title:`<a href="#" onclick="navigateApp(APP_ROUTES.underdogBonus);return false;" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--muted3)">${en?'Underdog Bonus':'Underdogs Bonus'}</a>`,body:`<div class="scn-text" style="white-space:pre-line">${scenarioText(scenarioUnderdogBonusText(s))}</div>`});
-  const dep=s.deployment||{};const zones=(dep.zones||[]).map(z=>typeof z==='string'?z:(z?.name||z?.label||'')).filter(Boolean);
-  add(en?'Deployment':'Déploiement',`<div class="scn-deploy">
-       <div class="scn-map-slot">${drawnMap?`<div onclick="openDeploymentMapLightbox()" style="cursor:zoom-in">${deploymentMapPreviewMarkup(drawnMap,{forceDims:true})}</div><span class="chip">#${drawnMap.number} ${esc(drawnMap.name||'')}</span>`:`<span style="color:var(--muted);font-size:12px;text-align:center">${en?'No map drawn yet':'Aucune carte tirée'}</span>`}<button type="button" class="dash-btn-primary" onclick="drawDeploymentMap('${esc(s.id)}')">⟳ ${en?'Generate a map':'Générer une carte'}</button></div>
-       ${has(dep.tableEdgeRule)||zones.length?`<div class="scn-deploy-info">${has(dep.tableEdgeRule)?`<div><div class="scn-mini-h">${en?'Table edges':'Bords de table'}</div>${txt(dep.tableEdgeRule)}</div>`:''}${zones.length?`<div><div class="scn-mini-h">Zones</div><div style="display:flex;gap:6px;flex-wrap:wrap">${zones.map(z=>`<span class="chip">${esc(z)}</span>`).join('')}</div></div>`:''}</div>`:''}
-     </div>`);
+  add(en?'Deployment':'Déploiement',deployBody);
   const xp=(s.experience||[]).filter(x=>has(x?.name)||has(x?.text));
   if(xp.length)add(en?'Experience':'Expérience',`<div class="scn-xp">${xp.map(x=>`<div class="scn-xp-row"><strong>${esc(x.name||'')}</strong>${has(x.text)?`<div>${esc(x.text)}</div>`:''}</div>`).join('')}</div>`);
   const ob=s.objectives||{};
@@ -10822,11 +10771,31 @@ function scenarioDetail(){
   add(en?'Victory':'Victoire',(has(v.major)||has(v.minor)||has(v.draw))?`<div class="scn-victory">${has(v.major)?`<div><strong>${en?'Major:':'Majeure :'}</strong> ${scenarioText(v.major)}</div>`:''}${has(v.minor)?`<div><strong>${en?'Minor:':'Mineure :'}</strong> ${scenarioText(v.minor)}</div>`:''}${has(v.draw)?`<div><strong>${en?'Draw:':'Nul :'}</strong> ${scenarioText(v.draw)}</div>`:''}</div>`:'');
   const rw=(Array.isArray(s.rewards)?s.rewards:[]).filter(has);
   if(rw.length)add(en?'Rewards':'Récompenses',`<div class="scn-list">${rw.map(r=>`<div>${scenarioText(r)}</div>`).join('')}</div>`);
+  return secs;
+}
+function scenarioSectionsMarkup(secs){return secs.map((c,i)=>`<section class="scn-sec"><span class="scn-secnum">${String(i+1).padStart(2,'0')}</span>${c.head?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${c.title}</div>${c.head}</div>`:`<div class="scn-sectitle">${c.title}</div>`}${c.body}</section>`).join('')}
+function scenarioDetail(){
+  const en=siteLanguage==='en';
+  const s=SCENARIOS_CACHE.find(x=>x.id===currentScenarioId);
+  if(!s){$('#content').innerHTML=`<div class="empty large">${en?'Scenario not found.':'Scénario introuvable.'}</div>`;return}
+  const drawnMap=scenarioDrawnMap;
+  const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
+  // V-SCNCOMPACT: sections are built as a list; empty ones are left out and
+  // the rest are numbered in order (no more 01, 02, 04, 05, 07…).
+  const has=v=>String(v??'').replace(/<[^>]*>/g,'').trim().length>0;
+  const txt=v=>`<div class="scn-text">${scenarioText(v||'')}</div>`;
+  const bf=s.battlefield||{};
+  const dep=s.deployment||{};const zones=(dep.zones||[]).map(z=>typeof z==='string'?z:(z?.name||z?.label||'')).filter(Boolean);
+  const deployBody=(`<div class="scn-deploy">
+       <div class="scn-map-slot">${drawnMap?`<div onclick="openDeploymentMapLightbox()" style="cursor:zoom-in">${deploymentMapPreviewMarkup(drawnMap,{forceDims:true})}</div><span class="chip">#${drawnMap.number} ${esc(drawnMap.name||'')}</span>`:`<span style="color:var(--muted);font-size:12px;text-align:center">${en?'No map drawn yet':'Aucune carte tirée'}</span>`}<button type="button" class="dash-btn-primary" onclick="drawDeploymentMap('${esc(s.id)}')">⟳ ${en?'Generate a map':'Générer une carte'}</button></div>
+       ${has(dep.tableEdgeRule)||zones.length?`<div class="scn-deploy-info">${has(dep.tableEdgeRule)?`<div><div class="scn-mini-h">${en?'Table edges':'Bords de table'}</div>${txt(dep.tableEdgeRule)}</div>`:''}${zones.length?`<div><div class="scn-mini-h">Zones</div><div style="display:flex;gap:6px;flex-wrap:wrap">${zones.map(z=>`<span class="chip">${esc(z)}</span>`).join('')}</div></div>`:''}</div>`:''}
+     </div>`);
+  const secs=scenarioSections(s,en,deployBody);
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:(s.tableSize?[s.tableSize]:[]);
   const facts=[has(bf.terrainType)?`🏚 ${esc(bf.terrainType)}`:'',sizes.length?`📐 ${sizes.map(esc).join(' / ')}`:'',`👥 ${bandsCount} ${en?'warbands':'bandes'}`].filter(Boolean);
   $('#content').innerHTML=`<div class="rules-shell-wrap scn-detail">
    <div class="page-intro scn-head"><div>${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2 style="margin-top:2px">${esc(s.name)}</h2>${has(s.summary)?`<p class="scn-summary">${esc(s.summary)}</p>`:''}<div class="scn-facts">${scenarioCategoryTagsMarkup(s,en,true)}${facts.map(t=>`<span class="chip">${t}</span>`).join('')}</div></div>${isAdminEditUI()?`<button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
-   ${secs.map((c,i)=>`<section class="scn-sec"><span class="scn-secnum">${String(i+1).padStart(2,'0')}</span>${c.head?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${c.title}</div>${c.head}</div>`:`<div class="scn-sectitle">${c.title}</div>`}${c.body}</section>`).join('')}
+   ${scenarioSectionsMarkup(secs)}
   </div>`;
 }
 
@@ -12607,7 +12576,7 @@ function playFightersMarkup(ps){
     const rowOf=x=>{const ok=playEngFighterOk(x);const on=e.picks.includes(x.instance);const re=e.ud.reinf.find(v=>v.instance===x.instance);const st=fighterStatus(x);
       return `<label class="eng-row${on?' on':''}${ok?'':' off'}"><input type="checkbox" ${on?'checked':''} ${ok&&!lock?'':'disabled'} onchange="playEngToggle('${esc(r.id)}','${esc(x.instance)}')"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))}${!ok?` · ${st.dead?(en?'dead':'mort'):st.captured?(en?'captured':'capturé'):st.recovery?(en?'injured, misses the game':'blessé, rate la partie'):(en?'left':'parti')}`:re?(en?' · reinforcement':' · renfort'):''}</small><span>${playEngValue(x,f)}</span></label>`};
     const list=rosterGroupedIndices(r).map(g=>{const xs=g.indices.map(i=>r.fighters[i]).filter(Boolean);return xs.length?`<div class="eng-group"><div class="section-label">${esc(rosterRoleLabel(g.role,en).toUpperCase())} <span>${xs.length}</span></div><div class="eng-list">${xs.map(rowOf).join('')}</div></div>`:''}).join('');
-    return `<details class="eng-box eng-fold"${playEngFolded('sel-'+r.id)?'':' open'} ontoggle="playEngFold('sel-${esc(r.id)}',this.open)"><summary class="eng-head"><div><span class="micro-label">${aw?(en?`FOR ${esc(aw.username.toUpperCase())} — NOT JOINED YET, YOU PICK FOR THEM`:`POUR ${esc(aw.username.toUpperCase())} — PAS ENCORE REJOINT, TU CHOISIS À SA PLACE`):`1 · ${en?'YOUR WARBAND':'TA BANDE'}`}</span><h3>${esc(r.name)}</h3><small class="muted">${en?'Scenario formula':'Formule du scénario'} : ${esc(scenarioFormulaText(s?.bandsFormula,en))}</small></div><div class="eng-total"><small class="muted">${en?'Engaged value':'Valeur engagée'} · ${e.picks.length}${lock?' ✔':''}</small><b>${total}</b></div><span class="eng-chev" aria-hidden="true">▾</span></summary>
+    return `<details class="eng-box eng-fold${lock?' eng-locked':''}"${playEngIsOpen('sel-'+r.id,!lock)?' open data-r="1"':' data-r="0"'} ontoggle="playEngFoldTap('sel-${esc(r.id)}',this)"><summary class="eng-head"><div><span class="micro-label">${aw?(en?`FOR ${esc(aw.username.toUpperCase())} — NOT JOINED YET, YOU PICK FOR THEM`:`POUR ${esc(aw.username.toUpperCase())} — PAS ENCORE REJOINT, TU CHOISIS À SA PLACE`):`1 · ${en?'YOUR WARBAND':'TA BANDE'}`}</span><h3>${esc(r.name)}</h3><small class="muted">${en?'Scenario formula':'Formule du scénario'} : ${esc(scenarioFormulaText(s?.bandsFormula,en))}</small></div><div class="eng-total"><small class="muted">${en?'Engaged value':'Valeur engagée'} · ${e.picks.length}${lock?' ✔':''}</small><b>${total}</b></div><span class="eng-chev" aria-hidden="true">▾</span></summary>
       <div class="eng-modes">${lock?`<span class="eng-ok">✔ ${en?'Selection confirmed':'Sélection validée'}</span><button type="button" class="button secondary small" onclick="playEngValidate('${esc(r.id)}',false)">✎ ${en?'Change':'Modifier'}</button>`:`<button type="button" class="button secondary small" onclick="playEngAll('${esc(r.id)}')">${en?'Whole warband':'Toute la bande'}</button><button type="button" class="button secondary small" onclick="playEngRandom('${esc(r.id)}')">🎲 ${en?'Random draw':'Tirage au hasard'}</button><button type="button" class="button secondary small" onclick="playEngNone('${esc(r.id)}')">${en?'Clear':'Vider'}</button><button type="button" class="button primary small" ${e.picks.length?'':'disabled'} onclick="playEngValidate('${esc(r.id)}',true)">✔ ${en?'Confirm my selection':'Valider ma sélection'}</button>`}</div>
       <div class="eng-groups">${list}</div><p class="muted eng-note">${en?'Random draw: at least one Leader or Champion, injured fighters left out.':'Tirage : au moins un chef ou champion, blessés exclus.'}</p></details>`}).join('');
   // 2 · underdog
@@ -12619,7 +12588,7 @@ function playFightersMarkup(ps){
   const dpBar=playOwnRosters(ps).map(r=>{const n=hiredSwordsFor(faction(r),r,'dp').length;const t=playEngEntry(ps,r).ud.temps.find(q=>q.kind==='dp');if(!n&&!t)return '';return `<div class="dp-bar"><span>🎭 <b>Dramatis Personae</b> · ${esc(r.name)}${t?` · <i>${esc(t.fighter?.name||'')} (${t.pay==='gold'?t.gold+' gc':t.cost+' pts'})</i>`:` · ${n} ${en?'available for this game':'disponible(s) pour cette partie'}`}</span><button type="button" class="button secondary small" onclick="playDpModal('${esc(r.id)}')">${t?(en?'Change':'Modifier'):(en?'Take one for this game':'En prendre un pour cette partie')}</button></div>`}).join('');
   const favBar=playOwnRosters(ps).map(r=>{if(!explorationBonusList(r).some(b=>b.id==='returning_favour'))return '';const t=playEngEntry(ps,r).ud.temps.find(q=>q.kind==='favour');return `<div class="dp-bar fav-bar"><span>🤝 <b>Returning a Favour</b> · ${esc(r.name)}${t?` · <i>${esc(t.fighter?.name||'')}</i>`:` · ${en?'a free Hired Sword for this battle':'un Hired Sword gratuit pour cette bataille'}`}</span><button type="button" class="button secondary small" onclick="playUdTempModal('${esc(r.id)}','favour')">${t?(en?'Change':'Modifier'):(en?'Choose':'Choisir')}</button></div>`}).join('');
   const myPts=playOwnRosters(ps).map(r=>{const b=playUdBudget(ps,r.id);return b>0?`${b-playUdSpent(playEngEntry(ps,r),r)} / ${b} pts`:''}).filter(Boolean).join(' · ');
-  const ud=`<details class="eng-box eng-fold"${playEngFolded('ud')?'':' open'} ontoggle="playEngFold('ud',this.open)"><summary class="eng-head"><div><span class="micro-label">2 · UNDERDOG</span><h3>${en?'Engaged value gap':'Écart de valeur engagée'}</h3></div>${myPts?`<div class="eng-total"><small class="muted">${en?'Your points left':'Tes points restants'}</small><b class="ud-pts">${esc(myPts)}</b></div>`:''}<span class="eng-chev" aria-hidden="true">▾</span></summary><div class="ud-table-wrap"><table class="ud-table"><tr><th>${en?'Warband':'Bande'}</th><th>${en?'Player':'Joueur'}</th><th>${en?'Engaged':'Engagée'}</th><th>${en?'Gap':'Écart'}</th><th>${en?'Underdog points':'Points Underdog'}</th></tr>${udRows}</table></div>${favBar}${dpBar}${shops||`<p class="muted eng-note">${en?'The biggest engaged warband is the yardstick; every smaller one gets the gap as points to spend here.':'La plus grande bande engagée sert d’étalon ; chaque bande plus petite reçoit l’écart en points à dépenser ici.'}</p>`}</details>`;
+  const ud=`<details class="eng-box eng-fold"${playEngIsOpen('ud',!playEngAllLocked(ps))?' open data-r="1"':' data-r="0"'} ontoggle="playEngFoldTap('ud',this)"><summary class="eng-head"><div><span class="micro-label">2 · UNDERDOG</span><h3>${en?'Engaged value gap':'Écart de valeur engagée'}</h3></div>${myPts?`<div class="eng-total"><small class="muted">${en?'Your points left':'Tes points restants'}</small><b class="ud-pts">${esc(myPts)}</b></div>`:''}<span class="eng-chev" aria-hidden="true">▾</span></summary><div class="ud-table-wrap"><table class="ud-table"><tr><th>${en?'Warband':'Bande'}</th><th>${en?'Player':'Joueur'}</th><th>${en?'Engaged':'Engagée'}</th><th>${en?'Gap':'Écart'}</th><th>${en?'Underdog points':'Points Underdog'}</th></tr>${udRows}</table></div>${favBar}${dpBar}${shops||`<p class="muted eng-note">${en?'The biggest engaged warband is the yardstick; every smaller one gets the gap as points to spend here.':'La plus grande bande engagée sert d’étalon ; chaque bande plus petite reçoit l’écart en points à dépenser ici.'}</p>`}</details>`;
   // 3 · cards
   const groups=[];const tag=(t,c,click)=>`<span class="eng-badge${click?' click':''}" style="--bc:${c}"${click?` role="button" tabindex="0" onclick="event.stopPropagation();${click}"`:''}>${t}</span>`;
   playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);const f=faction(r);const fx=id=>r.fighters.find(x=>x.instance===id);const rit=e.ud.ritual;const rb=x=>x.instance===rit?tag('🜂 RITUAL OF SURVIVAL','#c9a0ff'):'';
@@ -12630,17 +12599,39 @@ function playFightersMarkup(ps){
   });
   const waiting='';
   const allNames=groups.flatMap(g=>g.cards.map(c=>{const m=c.match(/id="(engc-[^"]+)"/);const n=c.match(/<h4>([^<]*)<\/h4>/);return m?[m[1],n?n[1]:'']:null}).filter(Boolean));
-  const cardsBox=`<section class="eng-box"><div class="roster-toolbar" style="margin-bottom:8px"><div><span class="micro-label">3 · ${en?'FIGHTERS IN PLAY':'COMBATTANTS EN JEU'}</span><h3>${en?'Engaged fighters':'Combattants engagés'}</h3></div>${allNames.length>1?`<div class="roster-toolbar-actions"><select class="roster-jump-select" onchange="playJumpCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${allNames.map(([id,n])=>`<option value="${esc(id)}">${n}</option>`).join('')}</select></div>`:''}</div>
+  const cardsBox=`<section class="eng-box"><div class="roster-toolbar" style="margin-bottom:8px"><div><span class="micro-label">3 · ${en?'FIGHTERS IN PLAY':'COMBATTANTS EN JEU'}</span><h3>${en?'Engaged fighters':'Combattants engagés'}</h3></div>${groups.length?`<div class="roster-toolbar-actions"><button type="button" class="button secondary small roster-compact-toggle" aria-pressed="${rosterCompact}" onclick="toggleRosterCompact()">${rosterCompact?(en?'▦ Detailed':'▦ Détaillé'):'☰ Compact'}</button></div>`:''}${allNames.length>1?`<div class="roster-toolbar-actions"><select class="roster-jump-select" onchange="playJumpCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${allNames.map(([id,n])=>`<option value="${esc(id)}">${n}</option>`).join('')}</select></div>`:''}</div>
     ${groups.length>1?`<div class="roster-category-nav">${groups.map(g=>`<button type="button" class="button secondary" style="padding:5px 12px;font-size:11px" onclick="playJumpCard('${esc(g.id)}')">${esc(g.label)} <span class="muted">${g.cards.length}</span></button>`).join('')}</div>`:''}
-    ${groups.length?`<div class="roster-sections play-cards">${groups.map(g=>`<div class="roster-section" id="${esc(g.id)}"><div class="section-label">${esc(g.label.toUpperCase())} <span>${g.cards.length}</span></div><div class="fighter-list">${g.cards.join('')}</div></div>`).join('')}</div>`:`<div class="empty compact">${en?'No fighter engaged yet.':'Aucun combattant engagé pour l’instant.'}</div>`}
+    ${groups.length?`<div class="roster-sections play-cards${rosterCompact?' roster-compact':''}">${groups.map(g=>`<div class="roster-section" id="${esc(g.id)}"><div class="section-label">${esc(g.label.toUpperCase())} <span>${g.cards.length}</span></div><div class="fighter-list">${g.cards.join('')}</div></div>`).join('')}</div>`:`<div class="empty compact">${en?'No fighter engaged yet.':'Aucun combattant engagé pour l’instant.'}</div>`}
     <p class="muted eng-note">${en?'Only your own fighters are shown here; the other warbands appear by their engaged value in the Underdog table.':'Seuls tes combattants sont affichés ici ; les autres bandes apparaissent par leur valeur engagée dans le tableau Underdog.'}</p></section>`;
   // end of game
   const endNotes=playOwnRosters(ps).map(r=>{const e=playEngagedMap(ps)[r.id];if(!e)return '';const b=e.ud?.buys||{};const parts=[];if(b.xp)parts.push(en?`+${b.xp} XP to every model that took part`:`+${b.xp} XP à chaque figurine qui a pris part`);if(b.explore)parts.push(en?`+${b.explore} exploration die per surviving Champion (post-battle)`:`+${b.explore} dé d’exploration par champion survivant (post-bataille)`);['ambush','tactical','escape'].forEach(k=>{if(b[k])parts.push(udBonus(k).name)});if(e.ud?.ritual)parts.push('Ritual of Survival : '+(r.fighters.find(x=>x.instance===e.ud.ritual)?.name||''));if(e.ud?.temps?.length)parts.push(en?'the temporary hire leaves after the battle — you can then recruit it for good from Hired Swords':'le recrutement provisoire repart après la bataille — tu pourras ensuite le recruter pour de bon depuis les Hired Swords');return parts.length?`<div class="eng-end">🏁 <b>${esc(r.name)}</b> — ${e.applied?(en?'applied':'appliqué'):(en?'at the end of the game':'à la fin de la partie')} : ${parts.map(esc).join(' · ')}</div>`:''}).join('');
-  return `<div class="eng-page">${sel||`<section class="eng-box"><p class="muted">${en?'None of your warbands is in this game.':'Aucune de tes bandes ne joue cette partie.'}</p></section>`}${ud}${cardsBox}${endNotes}</div>`;
+  const selBlock=sel||`<section class="eng-box"><p class="muted">${en?'None of your warbands is in this game.':'Aucune de tes bandes ne joue cette partie.'}</p></section>`;
+  // V-COMBATSCREEN: once every own selection is confirmed, the engaged
+  // fighters come first; selection and Underdog fold to one line below.
+  const inGame=playEngAllLocked(ps)&&groups.length;
+  return `<div class="eng-page${inGame?' eng-ingame':''}">${inGame?`${playRoutMarkup(ps)}${cardsBox}<div class="eng-setup-folded">${selBlock}${ud}</div>`:`${selBlock}${ud}${cardsBox}`}${endNotes}</div>`;
 }
 // Folded blocks of the Fighters tab (per device, kept with the game).
 function playEngFolded(k){return (state.playSession?.engFold||[]).includes(k)}
-function playEngFold(k,open){const ps=state.playSession;if(!ps)return;const set=new Set(ps.engFold||[]);if(open)set.delete(k);else set.add(k);ps.engFold=[...set];try{saveLocalOnly()}catch(e){}}
+// A block's open state: what the player chose last, else the default given.
+// V-ROUTBAR: when to take the Rout test. Starting crew = engaged fighters
+// (+ temporary ones); the player counts Seriously Injured / Out of Action
+// with the − / + buttons (tokens stay on the table) and sees the D6 needed.
+function playRoutCrew(ps,r){const e=playEngEntry(ps,r);return (e?.picks||[]).length+((e?.ud?.temps)||[]).length+((e?.ud?.reinf)||[]).filter(v=>v.arrived).length}
+function playRoutAdj(rid,d){const ps=state.playSession;if(!ps)return;ps.rout=ps.rout||{};const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const max=r?playRoutCrew(ps,r):99;ps.rout[rid]=Math.max(0,Math.min(max,(Number(ps.rout[rid])||0)+d));try{saveLocalOnly()}catch(e){}const box=document.getElementById('routbar-'+rid);if(box&&r)box.outerHTML=playRoutRowMarkup(ps,r)}
+function playRoutRowMarkup(ps,r){const en=siteLanguage==='en';const n=playRoutCrew(ps,r);const k=Number(ps.rout?.[r.id])||0;const need=n-k+1;
+  const verdict=!k?(en?'No test while nobody is Seriously Injured or Out of Action.':'Pas de test tant qu’aucun combattant n’est Gravement Blessé ou Hors de Combat.')
+    :need>6?(en?`Test at the End phase: D6 + ${k} — cannot fail yet.`:`Test en phase finale : D6 + ${k} — impossible d’échouer pour l’instant.`)
+    :need<=1?(en?`Test at the End phase: the warband flees whatever the roll (D6 + ${k} > ${n}).`:`Test en phase finale : la bande fuit quel que soit le dé (D6 + ${k} > ${n}).`)
+    :(en?`Test at the End phase: the warband flees on <b>${need}+</b> (D6 + ${k} > ${n}).`:`Test en phase finale : la bande fuit sur <b>${need}+</b> au D6 (D6 + ${k} > ${n}).`);
+  return `<div class="rout-row${k&&need<=6?' warn':''}" id="routbar-${esc(r.id)}"><div class="rout-head"><b>⚑ ${esc(r.name)}</b><small>${n} ${en?'at the start':'au départ'}</small></div><div class="rout-ctl"><span>${en?'Seriously Injured / Out of Action':'Gravement Blessés / Hors de Combat'}</span><button type="button" class="button secondary small" aria-label="−" onclick="playRoutAdj('${esc(r.id)}',-1)">−</button><b class="rout-k">${k}</b><button type="button" class="button secondary small" aria-label="+" onclick="playRoutAdj('${esc(r.id)}',1)">+</button></div><p>${verdict}</p></div>`}
+function playRoutMarkup(ps){const en=siteLanguage==='en';const rows=playOwnRosters(ps).filter(r=>playEngEntry(ps,r)?.validated).map(r=>playRoutRowMarkup(ps,r)).join('');return rows?`<section class="eng-box rout-box"><span class="micro-label">${en?'ROUT TEST':'TEST DE DÉROUTE'}</span>${rows}</section>`:''}
+function playEngIsOpen(k,dflt){const ps=state.playSession;if((ps?.engOpen||[]).includes(k))return true;if((ps?.engFold||[]).includes(k))return false;return !!dflt}
+function playEngFold(k,open){const ps=state.playSession;if(!ps)return;const set=new Set(ps.engFold||[]),op=new Set(ps.engOpen||[]);if(open){set.delete(k);op.add(k)}else{set.add(k);op.delete(k)}ps.engFold=[...set];ps.engOpen=[...op];try{saveLocalOnly()}catch(e){}}
+// The browser also fires "toggle" when a block is first drawn open: only a
+// change from the drawn state (a real tap) is remembered.
+function playEngFoldTap(k,el){const was=el.dataset.r==='1';if(el.open===was)return;el.dataset.r=el.open?'1':'0';playEngFold(k,el.open)}
+function playEngAllLocked(ps){const own=playOwnRosters(ps);return own.length>0&&own.every(r=>!!playEngEntry(ps,r)?.validated)}
 // A card opens the fighter's real sheet (injuries, XP… in real time); a
 // floating "Back to the game" button stays until the game screen is back.
 let playReturnToGame=false;
@@ -13453,7 +13444,7 @@ function rosterView(r,f){
   return `<div class="roster-toolbar"><div><div class="eyebrow">ACTIVE ROSTER</div><h3>${en?'Warband fighters':'Guerriers de la bande'}</h3><p>${en?'Click a fighter to open their full sheet. Changes are saved automatically. Drag the cards to set their order.':'Clique sur un combattant pour ouvrir sa fiche complète. Les modifications sont enregistrées automatiquement. Glisse les cartes pour définir leur ordre.'}</p></div><div class="roster-toolbar-actions">${r.fighters.length?`<button type="button" class="button secondary small roster-compact-toggle" aria-pressed="${rosterCompact}" onclick="toggleRosterCompact()">${rosterCompact?(en?'▦ Detailed':'▦ Détaillé'):(en?'☰ Compact':'☰ Compact')}</button>`:''}${r.fighters.length>1?`<select class="roster-jump-select" aria-label="${en?'Jump to a fighter':'Aller à un combattant'}" onchange="jumpToFighterCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${r.fighters.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('')}</select>`:''}</div></div>${recruitPanelMarkup(r,f)}${groups.length>1?`<div class="roster-category-nav">${groups.map(g=>`<button type="button" class="button secondary" style="padding:5px 12px;font-size:11px" onclick="jumpToRosterSection('${esc(g.role)}')">${esc(rosterRoleLabel(g.role,en))} <span class="muted">${g.indices.length}</span></button>`).join('')}</div>`:''}${groups.length?`<div class="roster-sections${rosterCompact?' roster-compact':''}">${groups.map(g=>`<div class="roster-section" id="roster-section-${esc(rosterRoleSlug(g.role))}"><div class="section-label">${esc(rosterRoleLabel(g.role,en).toUpperCase())} <span>${g.indices.length}</span></div><div class="fighter-list">${g.indices.map(i=>ownedFighterCard(r.fighters[i],i,f)).join('')}</div></div>`).join('')}</div>`:`<div class="empty large"><strong>${en?'Your warband is empty.':'Ta bande est vide.'}</strong><span>${en?'Use the Recruitment tab to pick your first fighters.':'Utilise l’onglet Recrutement pour choisir tes premiers combattants.'}</span><button class="button primary" onclick="openRecruitPanel()">${en?'Open recruitment':'Ouvrir le recrutement'}</button></div>`}`;
 }
 // V-ROSTERCOMPACT: one-line fighter cards (name, role, profile, weapons, XP); a click still opens the full sheet.
-function toggleRosterCompact(){rosterCompact=!rosterCompact;persistUiState('rosterCompact',rosterCompact?'1':'0');render('builder')}
+function toggleRosterCompact(){rosterCompact=!rosterCompact;persistUiState('rosterCompact',rosterCompact?'1':'0');const y=window.scrollY;try{renderCurrentRoute()}catch(e){render('builder')}window.scrollTo(0,y)}
 function jumpToFighterCard(i){if(i===''||i==null)return;const el=document.querySelector(`.fighter-list [data-fighter-index="${CSS.escape(String(i))}"]`);if(!el)return;el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('fighter-card-jump-highlight');setTimeout(()=>el.classList.remove('fighter-card-jump-highlight'),1400)}
 function jumpToRosterSection(role){const el=document.getElementById(`roster-section-${rosterRoleSlug(role)}`);if(!el)return;el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('fighter-card-jump-highlight');setTimeout(()=>el.classList.remove('fighter-card-jump-highlight'),1400)}
 function championLimitForRoster(r){return 2+Math.floor(Math.max(0,Number(r?.reputation||0))/10)}
@@ -21117,3 +21108,44 @@ if(hasStoredAccountSession){
 }
 startI18nObserver();loadRaceTags().then(()=>renderCurrentRoute());loadRaceMaximums().then(()=>renderCurrentRoute());loadFactionCategories().then(()=>renderCurrentRoute());loadRuleNavGroups().then(()=>renderCurrentRoute());loadQuestLibrary().then(()=>renderCurrentRoute());loadTrophyLibrary().then(()=>renderCurrentRoute());loadDomainOverrides().then(()=>renderCurrentRoute());loadSpellWeaponProfileOverrides();
 loadScenarios().then(()=>renderCurrentRoute());loadDeploymentMaps().then(()=>renderCurrentRoute());
+
+// ============ V-READTOOLS: reading on a phone ============================
+// Floating tools on reading pages (Rules, Reference, Scenarios, Campaign):
+// ↑ back to the top (after scrolling), 🔍 find in the page, ☆ pin the page.
+// Pinned pages are listed in the Rules sheet of the bottom bar.
+const READ_PINS_KEY='mu_read_pins';
+function readPins(){try{const v=JSON.parse(localStorage.getItem(READ_PINS_KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return []}}
+function readPinsSave(v){try{localStorage.setItem(READ_PINS_KEY,JSON.stringify(v.slice(0,30)))}catch(e){}}
+function readIsReadingPage(){const p=location.pathname;return p.startsWith('/rules')||p.startsWith('/reference')}
+function readPageKey(){const p=location.pathname;return p==='/rules'&&typeof rulesOpen!=='undefined'&&rulesOpen?'/rules#'+rulesOpen:p}
+function readPageTitle(){const c=document.getElementById('content');if(!c)return document.title;const h=c.querySelector('.rules-title,.rules-main h1,.rules-main h2,.rules-page-title,.wb-header h1,.scn-head h2,.page-intro h2,h1,h2');return (h?.textContent||document.title||'').replace(/\s+/g,' ').trim().slice(0,80)}
+function readTogglePin(){const en=siteLanguage==='en';const k=readPageKey();let v=readPins();const i=v.findIndex(x=>x.key===k);if(i>=0){v.splice(i,1);toast(en?'Unpinned':'Épingle retirée')}else{v.unshift({key:k,title:readPageTitle(),rule:k.startsWith('/rules#')?k.slice(7):null,href:location.pathname});toast(en?'Pinned — find it in the Rules menu':'Épinglé — retrouve-le dans le menu Règles')}readPinsSave(v);readToolsSync()}
+function readOpenPin(i){const x=readPins()[i];if(!x)return;try{closeTabSheet()}catch(e){}if(x.rule&&typeof openRulePage==='function')openRulePage(x.rule);else navigateApp(x.href)}
+function readRemovePin(i){const v=readPins();v.splice(i,1);readPinsSave(v);try{openTabSheet('rules');openTabSheet('rules')}catch(e){}readToolsSync()}
+function readPinsSheetMarkup(){const v=readPins();const en=siteLanguage==='en';if(!v.length)return '';return `<div class="tab-sheet-sep"></div><div class="tab-sheet-label">★ ${en?'PINNED':'ÉPINGLÉS'}</div>`+v.map((x,i)=>`<div class="read-pin-row"><button type="button" class="tab-sheet-link" onclick="readOpenPin(${i})"><i>★</i><span>${esc(x.title||x.href)}</span></button><button type="button" class="read-pin-x" aria-label="${en?'Remove':'Retirer'}" onclick="readRemovePin(${i})">×</button></div>`).join('')}
+function readToolsEl(){let el=document.getElementById('readTools');if(!el){el=document.createElement('div');el.id='readTools';el.className='read-tools';document.body.appendChild(el)}return el}
+function readToolsSync(){const el=readToolsEl();const en=siteLanguage==='en';const reading=readIsReadingPage();const pinned=readPins().some(x=>x.key===readPageKey());const top=window.scrollY>500;
+  el.innerHTML=`${reading?`<button type="button" class="read-tool" title="${en?'Find in this page':'Chercher dans la page'}" aria-label="${en?'Find in this page':'Chercher dans la page'}" onclick="pfOpen()">🔍</button><button type="button" class="read-tool${pinned?' on':''}" title="${pinned?(en?'Unpin':'Retirer l’épingle'):(en?'Pin this page':'Épingler cette page')}" aria-label="${en?'Pin':'Épingler'}" onclick="readTogglePin()">${pinned?'★':'☆'}</button>`:''}${top?`<button type="button" class="read-tool" title="${en?'Back to top':'Haut de page'}" aria-label="${en?'Back to top':'Haut de page'}" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>`:''}`;
+  el.hidden=!el.innerHTML;if(!reading)pfClose()}
+let readToolsTimer=null;function readToolsSoon(){clearTimeout(readToolsTimer);readToolsTimer=setTimeout(()=>{try{readToolsSync()}catch(e){}},80)}
+window.addEventListener('scroll',()=>{const want=window.scrollY>500;const has=!!document.querySelector('#readTools [aria-label="Haut de page"],#readTools [aria-label="Back to top"]');if(want!==has)readToolsSoon()},{passive:true});
+window.addEventListener('popstate',readToolsSoon);
+function readToolsInit(){const c=document.getElementById('content');if(c&&!c.__readObs){c.__readObs=new MutationObserver(()=>{readToolsSoon();if(pfState.q)pfRefreshSoon()});c.__readObs.observe(c,{childList:true})}readToolsSoon()}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',readToolsInit);else setTimeout(readToolsInit,0);
+// --- find in page
+const pfState={q:'',hits:[],i:-1};let pfTimer=null;
+function pfBar(){let b=document.getElementById('pfBar');if(!b){b=document.createElement('div');b.id='pfBar';b.className='pf-bar';b.hidden=true;document.body.appendChild(b)}return b}
+function pfOpen(){const en=siteLanguage==='en';const b=pfBar();b.innerHTML=`<input id="pfInput" type="search" placeholder="${en?'Find in this page…':'Chercher dans la page…'}" value="${esc(pfState.q)}" oninput="pfSearchSoon(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();pfGo(event.shiftKey?-1:1)}"><span id="pfCount" class="pf-count"></span><button type="button" aria-label="${en?'Previous':'Précédent'}" onclick="pfGo(-1)">↑</button><button type="button" aria-label="${en?'Next':'Suivant'}" onclick="pfGo(1)">↓</button><button type="button" aria-label="${en?'Close':'Fermer'}" onclick="pfClose()">×</button>`;b.hidden=false;setTimeout(()=>{const i=document.getElementById('pfInput');i?.focus();i?.select()},30);pfCount()}
+function pfClose(){const b=document.getElementById('pfBar');if(b)b.hidden=true;pfClear();pfState.q='';pfState.hits=[];pfState.i=-1}
+function pfClear(){const parents=new Set();document.querySelectorAll('#content mark.pf-hit').forEach(m=>{const p=m.parentNode;if(!p)return;p.replaceChild(document.createTextNode(m.textContent),m);parents.add(p)});parents.forEach(p=>{try{p.normalize()}catch(e){}})}
+function pfNorm(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+function pfSearchSoon(q){clearTimeout(pfTimer);pfTimer=setTimeout(()=>pfSearch(q),180)}
+function pfRefreshSoon(){clearTimeout(pfTimer);pfTimer=setTimeout(()=>pfSearch(pfState.q,true),250)}
+function pfSearch(q,keep){pfClear();pfState.q=q=String(q||'');pfState.hits=[];if(!keep)pfState.i=-1;const c=document.getElementById('content');const nq=pfNorm(q.trim());if(!c||nq.length<2){pfCount();return}
+  const walker=document.createTreeWalker(c,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement;if(!p||/^(SCRIPT|STYLE|TEXTAREA|INPUT|SELECT|OPTION|BUTTON)$/.test(p.tagName))return NodeFilter.FILTER_REJECT;return pfNorm(n.nodeValue).includes(nq)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_SKIP}});
+  const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+  nodes.forEach(n=>{const raw=n.nodeValue;const norm=pfNorm(raw);if(norm.length!==raw.length){const i=norm.indexOf(nq);const m=document.createElement('mark');m.className='pf-hit';const r=document.createRange();r.setStart(n,i);r.setEnd(n,i+nq.length);try{r.surroundContents(m);pfState.hits.push(m)}catch(e){}return}
+    const frag=document.createDocumentFragment();let last=0,i;while((i=norm.indexOf(nq,last))>=0){frag.appendChild(document.createTextNode(raw.slice(last,i)));const m=document.createElement('mark');m.className='pf-hit';m.textContent=raw.slice(i,i+nq.length);frag.appendChild(m);pfState.hits.push(m);last=i+nq.length}frag.appendChild(document.createTextNode(raw.slice(last)));n.parentNode.replaceChild(frag,n)});
+  if(pfState.hits.length&&!keep)pfGo(1);else pfCount()}
+function pfGo(d){const h=pfState.hits;if(!h.length){pfCount();return}h[pfState.i]?.classList.remove('cur');pfState.i=((pfState.i<0&&d<0)?h.length-1:(pfState.i+d+h.length)%h.length);const m=h[pfState.i];m.classList.add('cur');let p=m.parentElement;while(p){if(p.tagName==='DETAILS'&&!p.open)p.open=true;p=p.parentElement}m.scrollIntoView({block:'center',behavior:'smooth'});pfCount()}
+function pfCount(){const el=document.getElementById('pfCount');if(!el)return;const n=pfState.hits.length;el.textContent=pfState.q.trim().length<2?'':n?`${pfState.i+1}/${n}`:'0'}
