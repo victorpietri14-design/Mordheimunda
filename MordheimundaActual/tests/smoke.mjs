@@ -927,6 +927,14 @@ await test('[desktop] stats split and timeline, stat-up flash, veteran edges, vi
   expect(!out.clicked||out.flashed,'buying a characteristic flashes the cell: '+JSON.stringify(out));
   expect(out.win&&out.canvasOk,'a won game gets the victory card and image: '+JSON.stringify(out));
 });
+await test('[desktop] animated background: setting, mist and embers, off in Day mode',null,async page=>{
+  const out=await page.evaluate(()=>{const n=()=>({fog:document.querySelectorAll('#ambientFx .amb-fog').length,ash:document.querySelectorAll('#ambientFx .amb-ash').length});
+    setAmbientMode('both');const both=n();setAmbientMode('fog');const fog=n();setAmbientMode('ash');const ash=n();setAmbientMode('off');const off=!document.getElementById('ambientFx');
+    setAmbientMode('both');setSiteTheme('light');const light=!document.getElementById('ambientFx');setSiteTheme('dark');const back=!!document.getElementById('ambientFx');
+    navigateApp('/account');return {both,fog,ash,off,light,back,select:!!document.querySelector('.ambient-select')}});
+  expect(out.both.fog===3&&out.both.ash>=40&&out.fog.ash===0&&out.ash.fog===0&&out.off,'the setting picks mist, embers, both or none: '+JSON.stringify(out));
+  expect(out.light&&out.back,'off in Day mode, back afterwards: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

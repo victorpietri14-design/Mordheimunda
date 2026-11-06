@@ -5753,3 +5753,19 @@ body.read-mode .rule-page-text h4,body.read-mode .rule-page-text .rule-subhead{f
 .gsum-card.gsum-win>*{position:relative}
 .gsum-note-line{text-align:center;font-style:italic;font-size:13px;color:var(--muted);margin-top:10px}
 @media (prefers-reduced-motion: reduce){.fx-statup,.fx-statplus,.fx-newtag,.gsum-sparks{animation:none}}
+/* V-AMBIENT */
+#ambientFx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.amb-fog{position:absolute;left:-200px;width:calc(100% + 2200px);background-repeat:repeat-x;background-size:900px 100%;filter:blur(3px);will-change:transform;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%)}
+.amb-fog.f1{top:14%;height:46%;opacity:.19;animation:ambFog 95s linear infinite,ambBreath 14s ease-in-out infinite}
+.amb-fog.f2{top:34%;height:44%;opacity:.15;animation:ambFog 60s linear infinite reverse}
+.amb-fog.f3{top:56%;height:40%;opacity:.18;animation:ambFog 130s linear infinite;filter:blur(5px)}
+@keyframes ambFog{from{transform:translateX(0)}to{transform:translateX(-900px)}}
+@keyframes ambBreath{0%,100%{opacity:.14}50%{opacity:.24}}
+.amb-ash{position:absolute;bottom:-10px;border-radius:50%;opacity:0;will-change:transform,opacity;animation-name:ambAsh;animation-timing-function:linear;animation-iteration-count:infinite;background:radial-gradient(circle,#ddd7cc 0%,rgba(150,145,138,.6) 50%,rgba(120,115,110,0) 72%);--op:.8}
+.amb-ash.hot{background:radial-gradient(circle,#ffd59a 0%,#ff8a3d 45%,rgba(255,120,40,0) 70%);box-shadow:0 0 6px rgba(255,140,60,.35)}
+.amb-ash.d0{--op:.55;filter:blur(.6px)}.amb-ash.d2{--op:1}
+@keyframes ambAsh{0%{transform:translate(0,0);opacity:0}10%{opacity:var(--op)}50%{transform:translate(var(--sw),-50vh)}90%{opacity:calc(var(--op) * .7)}100%{transform:translate(calc(var(--sw) * -0.5),-105vh);opacity:0}}
+#ambientFx.paused *{animation-play-state:paused}
+html[data-theme="light"] #ambientFx{display:none}
+@media (prefers-reduced-motion: reduce){#ambientFx{display:none}}
+.ambient-select{border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:8px;padding:6px 8px;font:600 13px 'IBM Plex Sans';min-height:36px;max-width:170px}
