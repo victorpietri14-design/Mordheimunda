@@ -17,6 +17,8 @@ async function session(viewport){
   page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|net::ERR|HTTP_404|API_NOT_CONFIGURED|unavailable/i.test(m.text()))errors.push('console: '+m.text())});
   await page.goto(base+'/',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>typeof D!=='undefined'&&Array.isArray(D.factions)&&D.factions.length>0&&typeof render==='function',null,{timeout:20000});
+  // the rulebook text loads just after the first screen (V-RULESLAZY)
+  await page.evaluate(()=>typeof ensureRulesBook==='function'?ensureRulesBook():null).catch(()=>{});
   await page.waitForTimeout(800);
   return {ctx,page,errors};
 }
@@ -604,6 +606,7 @@ await test('[desktop] Play Mode fighter cards keep the rule hover peek (no need 
   expect(out.shown,'the rule peek should show: '+JSON.stringify(out));
 });
 await test('[desktop] Underdog starts at a 100-point gap; decided rulings patch published texts',null,async page=>{
+  await page.evaluate(()=>ensureRulesBook());
   const out=await page.evaluate(()=>({b99:playUdGapBudget(99),b100:playUdGapBudget(100),b160:playUdGapBudget(160),
     sell:patchRuleText('The item is deleted from the Stash, and the warband gains its value in gold crowns, minus D6x10 (to a minimum of five).'),
     ud:patchRuleText('You can use the Underdog bonus for each 100 points in difference above the first 100 points of difference.'),

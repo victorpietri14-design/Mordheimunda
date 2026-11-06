@@ -436,7 +436,6 @@ const CORE_SPECIAL_RULES=[
 })();
 const REFERENCE_CATEGORIES={skills:'Compétences',traits:'Traits d’armes',special:'Règles spéciales',spells:'Sorts & prières',equipment:'Équipement'};
 const REFERENCE_CATEGORIES_EN={skills:'Skills',traits:'Weapon traits',special:'Special rules',spells:'Spells & prayers',equipment:'Equipment'};
-function referenceCategoryLabel(c){return siteLanguage==='en'?(REFERENCE_CATEGORIES_EN[c]||REFERENCE_CATEGORIES[c]):REFERENCE_CATEGORIES[c];}
 // Small persistence helper for "which section was I on" UI state (Référentiel
 // category, Règles open section…) — a normal tab switch already keeps these
 // in memory (plain module-level variables), but a hard page refresh reloads
@@ -625,7 +624,6 @@ function referenceFind(category,name){const list=referenceEntries(category);cons
   const same=(a,b)=>a===b||a+'s'===b||a===b+'s';const lead=(a,b)=>a.length<=b.length&&a.every((w,i)=>same(w,b[i]));
   const bw=words(rawBase||raw);if(!bw.length)return null;
   return list.find(e=>{const ew=words(e.name);return ew.length&&(lead(bw,ew)||lead(ew,bw))})||null;}
-function referenceCategoryForEquipment(name){return referenceFind('equipment',name)?'equipment':null;}
 function refLink(category,name,display=name){
   // V-COVERINGS: a covered weapon ("Ithilmar Sword") — hover/tap shows its
   // live covered profile like any item, even where an old book entry of the
@@ -1311,7 +1309,6 @@ function magicSpellGalleryMarkup(en){
 // opened; a category pick only switches the visible section, closing only
 // via ✕ or the FAB again. ==========================================
 function toggleReferenceNav(){referenceNavOpen=!referenceNavOpen;rerenderReferenceNavPanel()}
-function closeReferenceNav(){if(!referenceNavOpen)return;referenceNavOpen=false;rerenderReferenceNavPanel()}
 function rerenderReferenceNavPanel(){
   const panel=document.getElementById('referenceNavPanel');
   const btn=document.getElementById('referenceNavFab');
@@ -3083,7 +3080,6 @@ function ensureFighterLoadouts(x){
 }
 function syncLoadoutProjection(x){if(!fighterUsesLoadouts(x))return;ensureFighterLoadouts(x);}
 function activeLoadout(x){if(!ensureFighterLoadouts(x))return null;return x.equipmentLoadouts.find(l=>l.id===x.activeLoadoutId)||x.equipmentLoadouts[0]||null;}
-function loadoutNames(x){return (x?.equipmentLoadouts||[]).map(l=>l.name||'Loadout');}
 function loadoutHasItem(x,item){const l=activeLoadout(x);const id=typeof item==='object'?item?.stashId:null;return !!l?.equipmentIds?.includes(id);}
 function loadoutSelectedEquipment(x){const l=activeLoadout(x);const ids=new Set(l?.equipmentIds||[]);return (x?.equipmentStash||[]).filter(e=>ids.has(e.stashId));}
 function setActiveLoadout(id){const x=activeRoster()?.fighters[editingIndex];if(!x||!fighterUsesLoadouts(x))return;x.activeLoadoutId=id;syncLoadoutProjection(x);syncCustomEquipmentEffects(x);save(true);render('fighter')}
@@ -3185,7 +3181,6 @@ function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBa
 // with several loadouts, only the active one (the stash's other sets don't).
 function fighterValue(x,f){if(isHiredSword(x))return 0;const eq=Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[];const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+recruitOptionsCost(x)+(eq.reduce((n,e)=>n+equipmentBandValue(e,f,x),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
 function fighterPaid(x,f){const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+Number(e?.paid ?? e?.price ?? 0),0))}
-function fighterCost(x,f){return fighterValue(x,f)}
 function recruitOptionsCost(x){return (Array.isArray(x?.recruitPicks)?x.recruitPicks:[]).reduce((n,o)=>n+(Number(o?.cost)||0),0)}
 function total(r){const fighters=Array.isArray(r?.fighters)?r.fighters:[];const reserve=Array.isArray(r?.reserve)?r.reserve:[];const f=faction(r);return fighters.reduce((n,x)=>n+fighterValue(x,f)+hiredSwordRatingShare(x),0)+reserve.reduce((n,e)=>n+equipmentBandValue(e,f),0)}
 const MAGIC_RULEBOOK={
@@ -3247,7 +3242,6 @@ const MAGIC_RULEBOOK={
 ['6','Gaze of Mork','-1 · Basic','Deux rayons causent chacun D3 touches S3 à 12" ; ils peuvent viser la même cible la plus proche ou les deux cibles les plus proches. Flaming Attack.']]
 };
 const MAGIC_RULEBOOK_EN={"Sigmar’s Fiery Hammer": "The Priest wields a magic hammer: S+2, AP -, D2, Flaming Attack, Stun.", "Beacon of Righteous Virtue": "Allies within 8\" become immune to Fear and Panic; the Leader may re-roll the D6 of the Rout test.", "Soulfire": "Every enemy within 4\" suffers an S3 Flaming Attack hit with no save; Undead and Daemonic suffer S5.", "Shield of Faith": "The Priest becomes immune to spells.", "Healing Hand": "A warrior within 2\" is restored to full Wounds; a Seriously Injured warrior stands up and nearby Flesh Wounds are removed.", "Armour of Righteousness": "The Priest gains a 2+ Armour Save and causes Fear.", "Soul Stealer": "A target within 6\" loses 1 Wound with no Armour Save; the Necromancer gains +1 Wound for the game. Does not work on Undead or Daemonic.", "Invocation of Nehek": "A Skeleton or Zombie Warrior of the warband that has just gone Out of Action returns within 6\" of the Necromancer, out of enemy contact.", "Hellish Vigour": "A friendly non-Vampiric Undead warrior within 6\" may immediately make a Fight (Basic) action.", "Gaze of Nagash": "Immediate attack at 12\": S4, AP -1, D1, D3 hits, no Armour Save.", "Vanhel’s Danse Macabre": "A friendly Undead warrior within 6\" immediately makes a Move (Simple) action; if it reaches contact, it counts as charging and may Fight.", "Spell of Awakening": "A slain enemy Hero or a dead Dreg (66) may be raised after the battle as a Skeleton Warrior, with its weapons and armour but no other equipment or skills; modified profile and the Undead rule.", "Vision of Torment": "A target within 6\" makes a Willpower check; pass: Pinned; fail: -1 Wound and Pinned. Does not affect Immune to Psychology.", "Eye of God": "Once per battle: a faithful warrior within 6\" gets a D6 result: 1 = Out of Action counting as Out Cold; 2–5 = +1 to one characteristic; 6 = +1 to all characteristics for the battle.", "Dark Blood": "Attack up to 8\": D3 S5 hits. After the spell, the Chaos Mage makes a Toughness check; fail = Flesh Wound.", "Lure of Chaos": "An enemy target within 12\" that has not activated makes a Willpower check; fail = it is activated under the Chaos Mage's control until it passes a Willpower check at the start of an activation.", "Wings of Darkness": "The Chaos Mage immediately makes a free Move (Basic) up to 12\", ignoring terrain and able to cross levels, but not walls or impassable terrain.", "Word of Pain": "Every warrior within 3\" of the Chaos Mage, friend or foe, suffers an S3 hit with no Armour Save.", "Fires of U’Zhul": "Immediate attack at 18\": S4, AP -1, D1, Flaming Attack.", "Flight of Zimmeran": "Free Move (Basic) up to 12\", ignoring terrain and levels, without crossing walls or impassable terrain.", "Dread of Aramar": "An enemy target within 12\" makes a Panic check; fail = Broken. Immune to Psychology is not affected.", "Silver Arrows of Arha": "Immediate attack at 24\": S3, AP -, D1, D3+2 hits.", "Luck of Shemtek": "The Wizard may re-roll failed rolls once; the second results stand. Until his next activation.", "Flaming Sword of Rhuin": "The Wizard wields a melee weapon S+2, AP -1, D1, +1 Attack dice, +2 WS, Parry, Flaming Attack.", "Warp Lightning": "Attack at 9\": S4, AP -1, D1, D3 hits; every warrior within 2\" of the target also suffers an S3 hit.", "Skitterleap": "The Sorcerer moves up to 13\" without ending within 1\" of an enemy. If Engaged, he counts as having made a Retreat with no Initiative test; enemies Engaged with him suffer -1 to their Initiative test.", "Vermintide": "A target within 8\" suffers 2D6 S1 hits with -1 to the save.", "Black Fury": "Immediate Charge (Double) up to 13\" with +2 Attacks and +1 Strength until the next activation.", "Eye of the Warp": "Enemies Engaged with the Sorcerer test Cool; fail = S3 hit, Broken and Running for Cover. Immune to Psychology avoids Broken.", "Sorcerer’s Curse": "Within 13\", a target in line of sight must re-roll its successful Armour Saves and successful hit rolls until the Sorcerer's next activation.", "Winter’s Chill": "Every warrior Engaged with the Priest suffers -1 to hit.", "Ice Blast": "Attack at 12\": S3, AP -6, D1, Blast (5\"), no Armour Save.", "Battle Fury": "The Priest attacks at Strength +2 and with Hack; if he already has Hack, a natural 5 or 6 to hit gives a further +1 Strength.", "Ulric’s Gift": "An ally within 12\" who is not a Hired Sword gains Frenzy.", "Heart of the Wolf": "Allies within 8\" become immune to Fear and Panic; the Leader may re-roll the D6 of the Rout test.", "Call of Ulric": "Immediate Charge (Double) up to 12\" with +2 Attacks and +1 Strength until the next activation.", "Stags Leap": "The Priest moves up to 9\"; on contact he counts as charging and gains +1 Strength in the first round. Against a fleeing enemy: 1 automatic hit at +1 Strength.", "Blessed Ale": "A model within 2\" recovers all its Wounds. Living enemies within 2\" lose 1 Attack next round; Undead and Daemonic are excluded.", "Bears Paw": "The Priest or an ally within 6\" gains +2 Strength until the Priest's next activation.", "Earth Shudder": "A building within 4\" collapses; enemies in contact suffer S3. Models on it fall following the falling rules and the building is replaced by rubble (Difficult Terrain).", "Tanglefoot": "All models within 12\" except Ostlander Jaeger move at half speed until the next shooting phase.", "Summon Squirrels": "An enemy target within 12\" suffers 2D6 S1 hits with no Armour Save.", "‘Ere we go!": "Orcs and Goblins within 4\" of the Shaman gain Strike First.", "The Hand of Gork": "A target within 8\" is moved D6\" directly away; a collision with a warrior or terrain = S3 hit to the models involved. Not on an Engaged target.", "Brain Bursta": "Attack at 12\": S4, AP -6, D1, D3 hits, no Armour Save.", "Fooled Ya!": "No enemy may charge the Shaman at his next activation. If Engaged, he may immediately move 4\"; lasts until his next activation.", "Fists of Gork": "The Shaman wields a weapon S+2, AP -1, D1, +1 Attack dice, Stun.", "Gaze of Mork": "Two beams each cause D3 S3 hits at 12\"; they may target the same nearest target or the two nearest targets. Flaming Attack."};
-function magicRulesMarkup(){const en=siteLanguage==='en';return `<div class="rule-spell-groups">${Object.entries(MAGIC_RULEBOOK).map(([domain,spells])=>`<details class="rule-spell-domain"><summary><b>${esc(domain)}</b><span>${en?'6 results · 1D6':'6 résultats · 1D6'}</span></summary><div class="rule-spell-list">${spells.map(x=>`<article><div class="spell-roll">${x[0]}</div><div><b>${esc(x[1])}</b><small>${esc(x[2])}</small><p>${esc(en&&MAGIC_RULEBOOK_EN[x[1]]||x[3])}</p></div></article>`).join('')}</div></details>`).join('')}</div>`}
 
 // V-RULESLAZY: the book's sections live in data/rules-book.js, loaded just
 // after the first screen (ensureRulesBook). Until then only House Rules.
@@ -4224,7 +4218,6 @@ async function restoreRuleOriginal(sectionId,page){
  }catch(e){toast(authError(e,en));}
 }
 
-function ruleSectionMarkup(section){return `<details class="rules-section" data-rule-id="${section.id}" ${rulesOpen===section.id?'open':''} ontoggle="if(this.open){rulesOpen='${section.id}';persistUiState('rulesOpen','${section.id}')}"><summary><span><b>${esc(section.title)}</b></span><i>＋</i></summary><div class="rules-section-body">${section.content.map(p=>rulePageMarkup(p,section.id)).join('')}</div></details>`}
 function openRuleSection(id){rulesOpen=id;persistUiState('rulesOpen',id);render('rules');const title=document.querySelector('.rules-main .title-row')||document.querySelector('.rules-title');if(title)title.scrollIntoView({block:'start',behavior:'auto'});else window.scrollTo({top:0,left:0,behavior:'auto'})}
 // Quick-nav on the Règles reading page: sticky list of the current page's
 // headings on desktop, a bottom-right ☰ dropdown on mobile/tablet (where the
@@ -4248,7 +4241,6 @@ function scrollToRuleHeading(e,id){
 // picking a link inside it never closes it on its own.
 let rulesPagesNavOpen=false;
 function toggleRulesPagesNav(){rulesPagesNavOpen=!rulesPagesNavOpen;rerenderRulesPagesNavPanel()}
-function closeRulesPagesNav(){if(!rulesPagesNavOpen)return;rulesPagesNavOpen=false;rerenderRulesPagesNavPanel()}
 function rerenderRulesPagesNavPanel(){
   const panel=document.getElementById('rulesPagesNavPanel');
   const btn=document.getElementById('rulesPagesNavFab');
@@ -5479,7 +5471,6 @@ function pruneDeletedWeaponsFromFactions(){
     if(f.equipmentItemGroups&&typeof f.equipmentItemGroups==='object')Object.keys(f.equipmentItemGroups).forEach(k=>{if(!keep(k))delete f.equipmentItemGroups[k]});
   });
 }
-function weaponDeletedForAll(name){return !!D.__deletedWeaponNames?.has(normName(name))}
 function officialWarbandsHoldingEquipment(name){const n=normName(name);return (D.factions||[]).filter(f=>f?.__official&&(f.equipment||[]).some(e=>e&&typeof e==='object'&&e.customEquipmentId&&normName(e.name)===n))}
 /* ================= OFFICIAL MAGIC DOMAIN OVERRIDES (Task #56) =============
    Admin-editable DISPLAY name + frame color for an official (book)
@@ -6568,7 +6559,6 @@ function applySiteTheme(){
 function setSiteTheme(v){siteTheme=v==='light'?'light':v==='candle'?'candle':'dark';localStorage.setItem(SITE_THEME_KEY,siteTheme);try{if(siteTheme==='candle')localStorage.setItem('mu_ui_candle','1');else localStorage.removeItem('mu_ui_candle')}catch(e){}applySiteTheme();try{ambientSync(true)}catch(e){}}
 function toggleCandleTheme(){setSiteTheme(siteTheme==='candle'?'dark':'candle')}
 try{if(localStorage.getItem('mu_ui_candle')==='1')siteTheme='candle'}catch(e){}
-function toggleSiteTheme(){setSiteTheme(siteTheme==='light'?'dark':'light');}
 // V-COMFORT: opt-in reading comfort for players less at ease with a phone.
 // Off by default (the site looks exactly as before). "large"/"xlarge"
 // enlarge the whole interface (CSS zoom on <html>, the layout reflows to the
@@ -6776,7 +6766,6 @@ document.addEventListener('click',(e)=>{
 // phone). Every query word must start a word of the result, so "Hired Swords"
 // no longer lists every plain "Sword"; names count far more than body text.
 function searchNorm(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[’'`]/g,' ').replace(/[^a-z0-9]+/g,' ').trim()}
-function searchWords(t){return searchNorm(t).split(' ').filter(Boolean)}
 function searchTokenHit(tok,words){const stem=tok.length>4&&tok.endsWith('s')?tok.slice(0,-1):tok;return words.some(w=>w.startsWith(tok)||w.startsWith(stem))}
 function searchScore(q,name,body){
   const qn=searchNorm(q);if(!qn)return 0;const toks=qn.split(' ');const nn=searchNorm(name);
@@ -7126,7 +7115,6 @@ function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{
     const main=$('.main');if(main)main.scrollTop=restore.mainScroll||0;
   }
 }
-function dashKpi(label,value,accent){return `<div class="dash-kpi-card"><span class="dash-kpi-label">${esc(label)}</span><strong class="dash-kpi-value"${accent?` style="color:${accent}"`:''}>${value}</strong></div>`}
 function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction(r)||{displayName:r?.factionName||r?.factionId||(en?'Unknown faction':'Faction inconnue'),budget:1000};const bar=warbandColor(r);const labelColor=bar;const bannerVisual=r.icon?`<img class="dash-wcard-cover"${imageFocusStyle(r.iconFocus)} src="${esc(r.icon)}" alt="${en?'Icon for':'Icône de'} ${esc(r.name)}" loading="lazy" decoding="async">`:`<span class="gang-icon">${imageMarkup(r.icon,'gang',`${en?'Icon for':'Icône de'} ${esc(r.name)}`,r.iconFocus)}</span>`;
   // V147 — landscape poster card ported from the Main.dc.html mockup: a wide
   // image band (~72%) with just the rank tag, accent bar and duplicate icon,
@@ -7442,16 +7430,12 @@ function recordRecentPage(){
     const list=homeRecentPages().filter(p=>p.path!==path);list.unshift({path,label,section,ts:Date.now()});localStorage.setItem(HOME_RECENT_KEY,JSON.stringify(list.slice(0,8)));
   }catch(e){}
 }
-function dashFilterWarbands(q){const term=String(q||'').trim().toLowerCase();const cards=Array.from(document.querySelectorAll('#dashWgrid .dash-wcard'));cards.forEach(c=>{const name=(c.querySelector('.dash-wcard-name')?.textContent||'').toLowerCase();c.style.display=!term||name.includes(term)?'':'none'})}
-function factionTile(f){const pack=f.packId?(window.NECROHEIM_PACKS||[]).find(p=>p.id===f.packId):null;return `<button class="faction-tile" onclick="startFaction('${f.id}')"><span class="faction-sigil">${factionSigils[f.id]||'◆'}</span><span class="faction-name">${esc(f.displayName)}</span><span class="faction-sub">${f.warriors.length} profils · ${esc(f.group||'M17')}</span>${pack?`<span class="pack-badge">PACK · ${esc(pack.name)}</span>`:''}<span class="faction-arrow">→</span></button>`}
 function customWarbandCreateTile(cw){const fid=`custom-warband-${cw.id}`;const count=(cw.fighterIds||[]).length;const sigil=cw.icon?`<span class="choice-sigil has-icon">${imageMarkup(cw.icon,'custom-warband',esc(cw.name),cw.iconFocus)}</span>`:`<span class="choice-sigil">⚔</span>`;
   // Once a custom warband has been made official (cw.officialId set), it's no
   // longer a "custom" pick — drop the CUSTOM badge here, same as everywhere
   // else this warband's name is shown.
   return `<button class="faction-choice custom-warband" data-faction="${esc(fid)}" onclick="selectFaction('${esc(fid)}',this)"><span class="choice-img-wrap">${sigil}</span><span class="fname">${esc(cw.name)}</span><span class="fcount">${count} profil${count!==1?'s':''} custom</span>${cw.officialId?'':'<span class="custom-badge">CUSTOM</span>'}</button>`}
 function customWarbandFaction(cw){return {id:`custom-warband-${cw.id}`,displayName:cw.name,group:'CUSTOM',budget:1000,warriors:customWarbandWarriors(cw),equipment:customWarbandEquipmentObjects(cw),choices:cw.choices||null,maxWarriors:Number(cw.maxWarriors)||null}}
-function allCreateWarbandEntries(){const official=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f));const customs=customWarbandList().map(customWarbandFaction);return [...official,...customs]}
-function startFaction(fid){render('create');setTimeout(()=>{const el=$(`[data-faction="${fid}"]`);if(el)selectFaction(fid,el)},0)}
 // ================= Rules: Warbands (V152) =================
 // Directory page grouping every faction (book + published community/
 // official warbands, both already merged into D.factions at boot by
@@ -7492,7 +7476,6 @@ function warbandsSidebarMarkup(){
 }
 let warbandsNavOpen=false;
 function toggleWarbandsNav(){warbandsNavOpen=!warbandsNavOpen;rerenderWarbandsNavPanel()}
-function closeWarbandsNav(){if(!warbandsNavOpen)return;warbandsNavOpen=false;rerenderWarbandsNavPanel()}
 function rerenderWarbandsNavPanel(){
   const panel=document.getElementById('warbandsNavPanel');
   const btn=document.getElementById('warbandsNavFab');
@@ -7607,20 +7590,6 @@ function rulesWarbandsRaceColumnsMarkup(){
 // then the trail (each parent a link, the current page plain).
 function siteCrumbs(back,items){const link=([label,route])=>route?`<a href="${esc(route)}" data-app-route="1" onclick="event.preventDefault();navigateApp('${esc(route)}')">${esc(label)}</a>`:`<span class="cur">${esc(label)}</span>`;return `<div class="site-crumbs"><button type="button" class="button secondary rules-back" aria-label="${siteLanguage==='en'?'Back':'Retour'}" onclick="navigateApp('${esc(back)}')">←</button><nav class="rules-crumb">${items.map(link).join('<span class="sep">›</span>')}</nav></div>`}
 function openRulesWarband(fid){navigateApp('/rules/warbands/'+encodeURIComponent(fid))}
-// Generic "not built yet" page: the nav entry exists (so people can see the
-// feature is planned and find it later) but the page itself is just a WIP
-// notice for now, rather than a broken/empty screen.
-function wipPage(titleFr,titleEn){
-  // Deliberately minimal: just the page's own background + a centered
-  // notice, no other layout — the sidebar/nav around #content stays fully
-  // usable, this only fills the content area itself.
-  const en=siteLanguage==='en';
-  $('#content').innerHTML=`<div style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;color:var(--muted-2,#8a8a86)">
-  <div style="font-size:38px;line-height:1">🚧</div>
-  <div style="font:800 13px 'IBM Plex Sans';letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim,#cfcfca)">${en?titleEn:titleFr}</div>
-  <div style="font-size:13px">Work in progress</div>
-</div>`;
-}
 // ============ V-PLAYMODE: Play mode (random multiplayer deployment) =======
 // state.playSession (persisted, see its declaration near the top of the
 // file) holds the whole in-progress game: null means no game is set up yet
@@ -7813,13 +7782,6 @@ function playBuildZoneLines(d0,d1,w,h,m,color){
   for(let i=0;i<verts.length-1;i++){const [x1,y1]=verts[i],[x2,y2]=verts[i+1];lines.push({type:'line',x1,y1,x2,y2,color,dash:false});}
   return lines;
 }
-function playZoneArrivalCircle(d0,d1,w,h,insetPx,rPx,color,label){
-  const dm=(d0+d1)/2;
-  const p=playPerimeterPoint(dm,w,h);
-  const cx=Math.max(rPx,Math.min(w-rPx,p.x+p.nx*insetPx));
-  const cy=Math.max(rPx,Math.min(h-rPx,p.y+p.ny*insetPx));
-  return {type:'circle',cx,cy,r:rPx,color,label:label||''};
-}
 function playEdgeLabel(cx,cy,w,h,en){
   if(cy<=h*0.15)return en?'North':'Nord';
   if(cy>=h*0.85)return en?'South':'Sud';
@@ -7876,46 +7838,6 @@ function playZoneWeightedRoll(options){
 }
 function playRollZone1Count(){return playZoneWeightedRoll([[1,20],[2,50],[3,30]]);}
 function playRollZone2Count(){return playZoneWeightedRoll([[2,20],[1,50],[0,30]]);}
-// A zone circle's wall-distance on a given axis is worth stating only when
-// it ISN'T already obvious from the table's own reference lines — flush to
-// a wall, dead-center, or at a quarter. "x=50%, y=12 inches from the top"
-// only needs the 12" called out; the 50% is redundant with the center line
-// already drawn on the card.
-function playZoneAxisSnapped(v,dim){
-  const fracs=[0,0.25,0.5,0.75,1],tol=DEPLOY_SCALE*0.3;
-  return fracs.some(f=>Math.abs(v-f*dim)<=tol);
-}
-// V-BUILDFIX: this used to be a top-level `const ...=6*DEPLOY_SCALE`, which
-// ran immediately at script-load time — but DEPLOY_SCALE itself is declared
-// later in the file (the map-builder section), so that line threw
-// "Cannot access 'DEPLOY_SCALE' before initialization" and broke the whole
-// script before any page could render. Computed inside the function instead
-// (called only later, once everything is initialized), same 6" value.
-function playZoneMinGapPx(){return 6*DEPLOY_SCALE;}
-function playZonePointOk(cx,cy,centers){const min=playZoneMinGapPx();return centers.every(c=>Math.hypot(cx-c.cx,cy-c.cy)>=min);}
-function playPlaceZone1(w,h,r,centers){
-  for(let i=0;i<300;i++){
-    const cx=r+Math.random()*(w-2*r),cy=r+Math.random()*(h-2*r);
-    if(playZonePointOk(cx,cy,centers))return {cx:Math.round(cx),cy:Math.round(cy)};
-  }
-  // Table too crowded to satisfy the 6" rule after 300 tries (very dense
-  // setup) — place it anyway rather than silently dropping a zone the roll
-  // said should exist.
-  return {cx:Math.round(r+Math.random()*(w-2*r)),cy:Math.round(r+Math.random()*(h-2*r))};
-}
-function playPlaceZone2(d0,d1,w,h,insetPx,r,centers){
-  const pad=r+1*DEPLOY_SCALE; // stay clear of the segment's own corners
-  for(let i=0;i<300;i++){
-    const span=Math.max(0,(d1-d0)-2*pad);
-    const dm=span>0?d0+pad+Math.random()*span:(d0+d1)/2;
-    const p=playPerimeterPoint(dm,w,h);
-    const cx=Math.max(r,Math.min(w-r,p.x+p.nx*insetPx));
-    const cy=Math.max(r,Math.min(h-r,p.y+p.ny*insetPx));
-    if(playZonePointOk(cx,cy,centers))return {cx:Math.round(cx),cy:Math.round(cy)};
-  }
-  const dm=(d0+d1)/2,p=playPerimeterPoint(dm,w,h);
-  return {cx:Math.round(Math.max(r,Math.min(w-r,p.x+p.nx*insetPx))),cy:Math.round(Math.max(r,Math.min(h-r,p.y+p.ny*insetPx)))};
-}
 // V-FIXEDZONES: a coordinate needs no distance on the map when the zone
 // touches a table edge or sits exactly on a central axis.
 function playZoneFreeCoord(v,dim,r){const t=DEPLOY_SCALE*0.3;return Math.abs(v-r)<=t||Math.abs(v-(dim-r))<=t||Math.abs(v-dim/2)<=t}
@@ -8529,10 +8451,6 @@ function scenarioCategoryTagsMarkup(s,en,static_){
   return scenarioCategoriesOf(s).map(c=>`<span class="scn-cat-tag scn-cat-${esc(c)}"${static_?' style="position:static"':''}>${scenarioCategoryLabel(c,en)}</span>`).join('');
 }
 function scenarioTableSizeLabel(ts){return ts==='48x72'?'48" × 72"':'48" × 48"'}
-// Orientation-agnostic: the "long" table is stored landscape (w:72,h:48)
-// going forward, but this still matches any leftover legacy map stored the
-// old portrait way (w:48,h:72) — see mapShapesToLandscape.
-function scenarioTableSizeKey(sh){const ti=sh?.tableInches;return (ti&&Math.max(ti.w,ti.h)===72)?'48x72':'48x48'}
 
 // ============ V-MAPBUILDER2: flat-vector deployment maps ===================
 // Deployment cards are drawn as plain shapes (circles, rectangles, corner
@@ -9754,8 +9672,6 @@ function openRoster(id){const r0=Array.isArray(state?.rosters)?state.rosters.fin
 function duplicateRoster(id){const r=state.rosters.find(x=>x.id===id),copy=JSON.parse(JSON.stringify(r));copy.id=crypto.randomUUID();copy.name=r.name+' — copie';copy.fighters.forEach(x=>x.instance=crypto.randomUUID());(copy.reserve||[]).forEach(x=>x.reserveId=crypto.randomUUID());state.rosters.push(copy);state.active=copy.id;save();navigateApp(warbandPath(copy.id))}
 function builder(){const en=siteLanguage==='en';const r=activeRoster();if(!r){render('create');return}try{notifyTransitArrivals(r)}catch(e){}if(gangTab==='recruit'){gangTab='roster';recruitPanelOpen=true}if(gangTab==='history'){gangTab='roster';historyDrawerOpen=true}const f=faction(r)||{id:'unknown-faction',displayName:r.factionName||r.factionId||(en?'Unknown faction':'Faction inconnue'),group:'RECOVERED',budget:1000,warriors:[],equipment:[]},value=total(r),isRecruit=gangTab==='recruit',isPostBattle=gangTab==='postbattle',isHistory=gangTab==='history',isCampaign=gangTab==='campaign',isRulesTab=gangTab==='rules';if(!Number.isFinite(r.reputation))r.reputation=1;const activeSupplements=Array.isArray(r.activeSupplements)?r.activeSupplements:[];const activePackNames=activeSupplements.map(id=>(window.NECROHEIM_PACKS||[]).find(p=>p.id===id)?.name||D.factions.find(fx=>fx.packId===id)?.displayName).filter(Boolean);const custom=Array.isArray(r.customValues)?r.customValues:[];$('#content').innerHTML=`<div class="warroom" style="--wb:${warbandColor(r)}"><div class="warroom-topbar"><a href="#" onclick="event.preventDefault();navigateApp('${APP_ROUTES.rosters}')">← ${en?'My warbands':'Mes bandes'}</a><div class="warroom-topbar-icons"><button type="button" class="mu-icon-btn" title="${en?'Print the warband sheet':'Imprimer la feuille de bande'}" onclick="openPrintChooser()">⎙</button></div></div><div class="warroom-head"><div class="warroom-brand-block"><button type="button" class="gang-icon gang-icon-editable" title="${en?'Import / replace the warband icon':'Importer / remplacer l’icône de la bande'}" onclick="event.stopPropagation();pickImage('gang')">${imageMarkup(r.icon,'gang',en?`Icon for ${r.name}`:`Icône de ${r.name}`,r.iconFocus)}<span class="image-edit-badge">✎</span></button><div><div class="faction-line"><span class="faction-sigil small">${factionSigils[f.id]||'◆'}</span><span>${esc(f.displayName)}</span>${activePackNames.map(n=>`<span class="supplement-active">PACK · ${esc(n)}</span>`).join('')}</div>${warbandRulesMarkup(r)}<h2>${esc(r.name)}</h2><div class="roster-meta"><span>${r.fighters.length} ${en?'fighter':'guerrier'}${r.fighters.length!==1?'s':''}</span><span>${en?'Value':'Valeur'} ${value} GC</span></div></div></div><div class="warroom-head-right"><div class="warband-overview"><div class="warband-stat rating-stat"><span class="stat-icon">◈</span><div><small>${en?'WARBAND VALUE':'VALEUR DE BANDE'}</small><strong>${value}<em>GC</em></strong></div></div><div class="warband-stat gold-stat resource-clickable" onclick="openResourceAdjust('gold')"><span class="stat-icon">◈</span><div><small>${en?'TREASURY':'TRÉSOR'}</small><strong>${r.gold}<em>GC</em></strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div><div class="warband-stat wyrdstone-stat resource-clickable" onclick="openResourceAdjust('wyrdstone')"><span class="stat-icon">◆</span><div>${campaignUsesTreasure(r)?`<small class="gold">TREASURE</small><strong class="gold">${r.wyrdstone||0}</strong><span>${en?'Treasures in stock · click to edit':'Treasures en réserve · cliquer pour modifier'}</span>`:`<small>WYRDSTONE</small><strong>${r.wyrdstone||0}</strong><span>${en?'Shards in stock · click to edit':'Shards en réserve · cliquer pour modifier'}</span>`}</div></div><div class="warband-stat reputation-stat resource-clickable" onclick="openResourceAdjust('reputation')"><span class="stat-icon">★</span><div><small>${en?'REPUTATION':'RÉPUTATION'}</small><strong>${r.reputation}</strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div>${custom.map((c,i)=>`<div class="warband-stat custom-stat resource-clickable" onclick="openCustomValue(${i})"><span class="stat-icon">◆</span><div><small>${esc(c.label||(en?'CUSTOM VALUE':'VALEUR PERSONNALISÉE'))}</small><strong>${esc(String(c.value??0))}</strong><span>${en?'Click to edit':'Cliquer pour modifier'}</span></div></div>`).join('')}${warbandLegalityBadgeMarkup(r)}<button class="warband-stat custom-stat custom-add" type="button" onclick="openCustomValue()"><span class="stat-icon">＋</span><div><small>${en?'ADD A VALUE':'AJOUTER UNE VALEUR'}</small><strong>+</strong><span>${en?'Create a new custom value':'Créer une nouvelle valeur personnalisée'}</span></div></button></div><div class="warroom-head-btns"><button class="button secondary warroom-history-btn" type="button" onclick="openHistoryDrawer()">◷ ${en?'History':'Historique'}</button><button class="button secondary warroom-versions-btn" type="button" title="${en?'Earlier versions of this warband — restore one':'Versions précédentes de cette bande — en restaurer une'}" onclick="openWarbandVersions()">⟲ ${en?'Versions':'Versions'}</button>${sharedViewToken?'':`<button class="button secondary warroom-share-btn" type="button" title="${en?'Share a read-only link to this warband':'Partager un lien en lecture seule vers cette bande'}" onclick="openWarbandShare()">🔗 ${en?'Share':'Partager'}</button>`}<button class="button primary warroom-edit-btn" onclick="openEditWarband()">✎ ${en?'Edit':'Modifier'}</button><button class="button secondary warroom-more-btn" type="button" aria-label="${en?'More actions':'Plus d’actions'}" onclick="openWarroomMore()">⋯</button></div></div></div><div class="gang-tabs"><button class="gang-tab ${gangTab==='roster'?'active':''}" onclick="setGangTab('roster')"><i class="gt-ic">⚔</i><span class="gt-lbl">${en?'Warband':'Bande'}</span> <span class="gt-count">${r.fighters.length}</span></button><button class="gang-tab ${isRulesTab?'active':''}" onclick="setGangTab('rules')"><i class="gt-ic">☰</i><span class="gt-lbl">${en?'Warband rules':'Règles de bande'}</span></button><button class="gang-tab ${gangTab==='reserve'?'active':''}" onclick="setGangTab('reserve')"><i class="gt-ic">▣</i><span class="gt-lbl">${en?'Stash':'Réserve'}</span> <span class="gt-count">${(r.reserve||[]).length}</span>${(r.reserve||[]).some(e=>reserveInTransit(r,e))?`<span class="gt-transit" title="${en?'Equipment on its way':'Équipement en route'}">🚚 ${(r.reserve||[]).filter(e=>reserveInTransit(r,e)).length}</span>`:''}</button><button class="gang-tab ${isPostBattle?'active':''}" onclick="setGangTab('postbattle')"><i class="gt-ic">◈</i><span class="gt-lbl">${en?'Post-battle':'Post-bataille'}</span></button><button class="gang-tab ${isCampaign?'active':''}" onclick="setGangTab('campaign')"><i class="gt-ic">⚑</i><span class="gt-lbl">${en?'Campaign':'Campagne'}</span></button><button class="gang-tab ${gangTab==='stats'?'active':''}" onclick="setGangTab('stats')"><i class="gt-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-7"/></svg></i><span class="gt-lbl">Stats</span></button></div><section class="warroom-main warroom-main-full">${isRecruit?recruitmentView(f):gangTab==='reserve'?reserveView(r,f):isPostBattle?postBattleView(r,f):isHistory?historyView(r):isCampaign?campaignView(r):isRulesTab?warbandRulesView(r):gangTab==='stats'?warbandStatsView(r,f):rosterView(r,f)}</section></div>`;syncHistoryDrawer(r)}
 function setGangTab(tab){const prev=gangTab;gangTab=tab;if(tab==='postbattle')postBattleSubtab='income';render('builder');try{gangTabSlide(prev,tab)}catch(e){}}
-function adjustGold(amount){const r=activeRoster();if(!r)return;const n=Number(amount);if(!Number.isFinite(n)||n===0)return;r.gold=Math.max(0,Math.round(r.gold+n));save(true);render('builder');toast(`${n>0?'+':''}${n} GC`)}
-function adjustReputation(amount){const r=activeRoster();if(!r)return;const n=Number(amount);if(!Number.isFinite(n)||n===0)return;r.reputation=Math.max(0,Math.round(Number(r.reputation||0)+n));save(true);render('builder');toast(siteLanguage==='en'?`Reputation ${r.reputation}`:`Réputation ${r.reputation}`)}
 function openResourceAdjust(type){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const cfg={gold:{label:en?'Treasury':'Trésor',unit:'GC',current:r.gold||0},wyrdstone:{label:campaignUsesTreasure(r)?'Treasure':'Wyrdstone',unit:campaignUsesTreasure(r)?'Treasures':'shards',current:r.wyrdstone||0},reputation:{label:en?'Reputation':'Réputation',unit:'points',current:r.reputation||0}}[type]||null;if(!cfg)return;openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'WARBAND MANAGEMENT':'GESTION DE BANDE'}</div><h2>${cfg.label}</h2><p>${en?'Choose the operation then enter the amount to apply. The current value is':'Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est'} <strong>${cfg.current}</strong>.</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">${cfg.unit}</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyResourceAdjust('${type}')">${en?'Apply':'Appliquer'}</button></div></div>`)}
 function selectResourceMode(btn){document.querySelectorAll('.resource-mode-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}
 function applyResourceAdjust(type){const r=activeRoster(),input=$('#resourceAmount');if(!r||!input)return;const n=Math.round(Number(input.value));if(!Number.isFinite(n)||n<=0){toast(siteLanguage==='en'?'Enter a positive value':'Entre une valeur positive');return}const sub=document.querySelector('.resource-mode-btn.active')?.dataset.mode==='sub';const delta=sub?-n:n;if(type==='gold'){r.gold=Math.max(0,Math.round(Number(r.gold||0)+delta));logHistory(r,'treasury',siteLanguage==='en'?`Warband treasury: <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta} GC</b>`:`Trésorerie de la bande : <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta} GC</b>`)}else if(type==='wyrdstone'){r.wyrdstone=Math.max(0,Math.round(Number(r.wyrdstone||0)+delta));logHistory(r,'treasury',siteLanguage==='en'?`Warband wyrdstone: <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (stock ${r.wyrdstone})`:`Wyrdstone de la bande : <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (réserve ${r.wyrdstone})`)}else{r.reputation=Math.max(0,Math.round(Number(r.reputation||0)+delta));logHistory(r,'settings',siteLanguage==='en'?`Warband reputation: <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (new value ${r.reputation})`:`Réputation de la bande : <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (nouvelle valeur ${r.reputation})`)}save(true);closeModal();render('builder');toast(`${type==='gold'?(siteLanguage==='en'?'Treasury':'Trésor'):type==='wyrdstone'?'Wyrdstone':(siteLanguage==='en'?'Reputation':'Réputation')} ${delta>0?'+':''}${delta}`)}
@@ -9810,8 +9726,6 @@ function postBattleIncomeMatrix(warriors,shards){const rows=['1-3','4-6','7-9','
 function resetPostBattle(){const r=activeRoster();if(!r)return;const old=ensurePostBattleData(r);delete r.underdogExplore;if(old.shardsCashed)r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)-Number(old.shards||0));r.postBattle={heroCount:0,extraDice:0,winner:false,dice:[],bonusDice:[],shards:0,shardsCashed:false,soldShards:0,income:0,incomeApplied:false,survivingHeroIds:[],exploration:{resolved:false,rewards:[],notes:[],rolls:[],bonuses:[],history:[]},explorationBonuses:old.explorationBonuses||[]};save(true);render('builder');toast(siteLanguage==='en'?'Post-battle sequence reset':'Séquence post-bataille réinitialisée')}
 function postBattleMarkDirty(p,resetCash=true){p.incomeApplied=false;p.income=0;/* Les shards déjà mis en réserve restent dans le Wyrdstone de la bande. Ils ne sont retirés qu'au moment de la vente à l'étape suivante. */}
 
-function rollAllPostBattleDice(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows().forEach(d=>{if(!Number.isInteger(Number(d.value)))d.value=postBattleRoll()});postBattleMarkDirty(p);save(true);render('builder');toast(siteLanguage==='en'?'All dice have been rolled':'Tous les dés ont été lancés')}
-function postBattleUpdateDice(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleMarkDirty(p);postBattleDieRows();save(true);render('builder')}
 // V-STEPPER: big − / + buttons around a number field (phone thumbs), with
 // the numeric keyboard on the field itself. `call` contains %v for the value.
 function numStepperMarkup(v,call,min=0,max=999){const n=Number(v)||0;const c=x=>call.replace('%v',x);return `<span class="num-stepper"><button type="button" aria-label="−" onclick="${c(Math.max(min,n-1))}"${n<=min?' disabled':''}>−</button><input type="number" inputmode="numeric" pattern="[0-9]*" min="${min}" max="${max}" value="${n}" onchange="${c('this.value')}"><button type="button" aria-label="+" onclick="${c(Math.min(max,n+1))}"${n>=max?' disabled':''}>+</button></span>`}
@@ -9833,11 +9747,9 @@ function setPostBattleResult(res){
   logHistory(r,'battle',next?(en?`Battle: <b>${label[next]}</b>`:`Bataille : <b>${label[next]}</b>`):(en?'Battle result cleared':'Résultat de bataille retiré'));
   postBattleMarkDirty(p);postBattleDieRows();save(true);render('builder');
 }
-function setPostBattleWinner(value){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);p.winner=!!value;postBattleMarkDirty(p);postBattleDieRows();save(true);render('builder')}
 function rollPostBattleDie(i){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();if(!p.dice[i])return;p.dice[i].value=postBattleRoll();postBattleMarkDirty(p);save(true);render('builder')}
 function editPostBattleDie(i,value){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();const n=Math.floor(Number(value));if(Number.isInteger(n)&&n>=1&&n<=6)p.dice[i].value=n;else if(value==='')p.dice[i].value=null;postBattleMarkDirty(p);save(true);render('builder')}
 function togglePostBattleDie(i){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();if(!p.dice[i])return;const selected=p.dice.filter(d=>d.selected).length;if(!p.dice[i].selected&&selected>=6){toast(siteLanguage==='en'?'Maximum of 6 dice kept':'Maximum de 6 dés retenus');return}p.dice[i].selected=!p.dice[i].selected;postBattleMarkDirty(p);save(true);render('builder')}
-function applyPostBattleIncome(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);const dice=postBattleSelectedDice(p),sum=dice.reduce((a,b)=>a+b,0),shards=dice.length?postBattleShards(sum):0,sold=Math.min(Math.max(0,Number(p.soldShards||0)),shards);if(!dice.length){toast(siteLanguage==='en'?'Select at least one die':'Renseigne au moins un dé');return}const income= sold>0?postBattleIncomeMatrix(Math.max(1,postBattleWarriorCount(r)),sold).value:0;if(p.incomeApplied){toast(siteLanguage==='en'?'Income has already been applied for this result':'Le revenu a déjà été appliqué pour ce résultat');return}r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)+(shards-sold));r.gold=Math.max(0,Number(r.gold||0)+income);p.shards=shards;p.soldShards=sold;p.income=income;p.incomeApplied=true;save(true);render('builder');toast(siteLanguage==='en'?`Income applied: +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} kept`:`Income appliqué : +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} conservé${shards-sold!==1?'s':''}`)}
 const EXPLORATION_LORE={
  doubles:{
   1:'The public wells, of which there were several in Mordheim, were covered by rooves raised up on pillars and adorned with carvings and fountains. The city was proud of its water system. Unfortunately, like all the other wells, this one is in a parlous state and undoubtedly polluted with wyrdstone.',
@@ -9959,7 +9871,6 @@ function explorationEquipmentDefinition(name){
   if(!base)return {name,category:'Récompense d’exploration',price:a.price??0,value:a.price??0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true};
   return {name,category:base.category,subcategory:base.subcategory||base.category,price:a.price??base.price??0,value:a.price??base.price??0,rarity:base.rarity||'',availability:base.availability||base.rarity||'—',profile:base.profile?{...base.profile}:null,profile2:base.profile2?{...base.profile2}:null,traits:Array.isArray(base.traits)?base.traits.slice():base.traits?[base.traits]:[],rulesText:base.rulesText||'',weaponSlotCost:weaponSlots(base),equipmentAccessGroups:['ALL'],explorationReward:true,sourceEquipment:base.name};
 }
-function explorationFactionLabel(r){return String(faction(r)?.displayName||faction(r)?.name||'')}
 function explorationBonusList(r){return Array.isArray(r?.postBattle?.explorationBonuses)?r.postBattle.explorationBonuses:[]}
 function addExplorationBonus(r,id,label,icon,description){const p=ensurePostBattleData(r);p.explorationBonuses=Array.isArray(p.explorationBonuses)?p.explorationBonuses:[];if(!p.explorationBonuses.some(b=>b.id===id))p.explorationBonuses.push({id,label,icon,description});}
 function removeExplorationBonus(id){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);p.explorationBonuses=(p.explorationBonuses||[]).filter(b=>b.id!==id);save(true);render('builder');toast(siteLanguage==='en'?'Exploration Bonus removed':'Bonus d’Exploration supprimé')}
@@ -10706,8 +10617,6 @@ function playFightersMarkup(ps){
   const inGame=playEngAllLocked(ps)&&groups.length;
   return `<div class="eng-page${inGame?' eng-ingame':''}">${inGame?`${playRoutMarkup(ps)}${cardsBox}${playNoteMarkup(ps)}<div class="eng-setup-folded">${selBlock}${ud}</div>`:`${selBlock}${ud}${cardsBox}`}${endNotes}</div>`;
 }
-// Folded blocks of the Fighters tab (per device, kept with the game).
-function playEngFolded(k){return (state.playSession?.engFold||[]).includes(k)}
 // A block's open state: what the player chose last, else the default given.
 // V-ROUTBAR: when to take the Rout test. Starting crew = engaged fighters
 // (+ temporary ones); the player counts Seriously Injured / Out of Action
@@ -12463,7 +12372,6 @@ function fighterPoolCompactRow(w,f,r){
   return `<article class="fighter-row pool-row${maxed?' maxed':''}" data-name="${esc(w.name.toLowerCase())}" data-type="${esc(w.type)}"><div class="pool-row-main"><button type="button" class="pool-row-name" onclick="this.closest('.pool-row').classList.toggle('open')" aria-label="${esc(w.name)}"><b>${esc(w.name)}</b><small>${esc(w.type)} · ${w.max!==null?(en?'max ':'max ')+w.max:(en?'no limit':'sans limite')} · ${owned} ${en?'recruited':'recruté(s)'}</small></button><div class="pool-row-stats">${stats}</div><button class="button primary recruit-btn" type="button" data-recruit-fighter="${esc(w.id)}" ${maxed?'disabled':''}>${maxed?(en?'Limit reached':'Limite atteinte'):(en?`Recruit — ${rc} GC`:`Recruter — ${rc} GC`)}</button></div>${recruitOptionsPoolMarkup(w)}<div class="pool-row-card">${profileMarkup(prof,0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">${en?'RULES / ACCESS':'RÈGLES / ACCÈS'}</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')||'—'}</p></div></div></div></article>`;
 }
 function recruitmentView(f){const en=siteLanguage==='en';const r=activeRoster();return `<div class="recruit-head"><div><div class="eyebrow">${en?'RECRUITMENT':'RECRUTEMENT'} / ${esc(f.displayName)}</div><h3>${en?'Recruit a fighter':'Recruter un combattant'}</h3><p>${en?'Recruiting adds the fighter to the warband without opening their sheet. Open their card afterward from the roster.':'Le recrutement ajoute le combattant à la bande sans ouvrir sa fiche. Ouvre ensuite sa carte depuis le roster.'}</p></div></div>${recruitmentCompositionNotice(r)}${hiredSwordRecruitTabsMarkup(r,f)}${recruitPoolTab==='hs'?hiredSwordPoolMarkup(r,f):`<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label><button type="button" class="button secondary recruit-compact-btn${recruitCompact?' active':''}" aria-pressed="${recruitCompact}" onclick="toggleRecruitCompact()">▤ ${en?'Compact':'Compacte'}</button></div><div class="fighter-pool${recruitCompact?' compact':''}" id="fighterPool">${fighterPool(f,{compact:recruitCompact})}</div>`}`}
-function chosenRow(x,i){return `<button class="chosen-v4" onclick="openFighterCard(${i})"><span class="chosen-sigil">${factionSigils[faction(activeRoster()).id]||'◆'}</span><span class="chosen-info"><b>${esc(x.name)}</b><small>${esc(fighterTypeLabel(x))} · ${fighterValue(x,faction(activeRoster()))} GC</small></span><span class="chosen-open">›</span></button>`}
 var ARMOUR_SUITS=['Light armour','Light armor','Heavy armour','Heavy armor','Full plate armour','Full plate armor','Gromril plate','Gromril plate armour','Gromril plate armor','Ithilmar','Ithilmar mail','Ithilmar armour','Ithilmar armor','Sigmarite armour','Sigmarite armor','Chaos armour','Chaos armor'];
 var FUR_CLOAKS=['Fur cloak','Wolf cloak'];
 var OFFHAND_DEFENCE=['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'];
@@ -12558,7 +12466,6 @@ function addFighterExtraRule(){if(!isAdminSession())return;const en=siteLanguage
 function removeFighterExtraRule(name){if(!isAdminSession())return;const x=activeRoster()?.fighters?.[editingIndex];if(!x)return;x.extraRuleNames=(x.extraRuleNames||[]).filter(n=>normName(n)!==normName(name));save(true);render('fighter')}
 function openStatsEditor(){const x=activeRoster()?.fighters?.[editingIndex];if(!x)return;const en=siteLanguage==='en';const original=Array.isArray(x.baseProfile)?x.baseProfile:(Array.isArray(x.profile)?x.profile:[]);const current=Array.isArray(x.profile)?x.profile:original;const max=maxProfileFor(x);
   openModal(`<div class="admin-live-editor stats-editor-modal"><div class="eyebrow">${en?'EDIT CHARACTERISTICS':'MODIFIER LES CARACTÉRISTIQUES'}</div><h2>${esc(x.name)}</h2><div class="stats-inline-list">${D.profileNames.map((name,i)=>`<div class="stats-inline-row"><span class="stats-inline-name">${esc(name)}</span><span class="stats-inline-original" title="${en?'Original value':'Valeur d\'origine'}">${esc(original[i]??'—')}</span><span class="stats-inline-arrow">→</span><input class="stat-current-inline ${Number(current[i]??original[i]??0)>Number(max?.[i]??Infinity)?'stat-input-overstat':''}" type="number" step="1" value="${esc(current[i]??original[i]??'')}" onchange="updateFighterStat(${i},this.value);this.value=activeRoster()?.fighters?.[editingIndex]?.profile?.[${i}]??this.value;this.classList.toggle('stat-input-overstat',Number(this.value)>Number(maxProfileFor(activeRoster()?.fighters?.[editingIndex])?.[${i}]??Infinity))" aria-label="${esc(name)} ${en?'current':'actuelle'}"><small>${en?'original':'origine'} ${esc(original[i]??'—')}</small></div>`).join('')}</div><p class="stats-inline-help">${en?'The value on the left is the original profile\'s. Only the current value is editable.':'La valeur de gauche est celle du profil d\'origine. Modifie uniquement la valeur actuelle.'}</p><div class="custom-actions"><button type="button" class="button primary" onclick="closeModal()">${en?'Done':'Terminé'}</button></div></div>`)}
-function statsTabMarkup(x){const en=siteLanguage==='en';const original=Array.isArray(x.baseProfile)?x.baseProfile:(Array.isArray(x.profile)?x.profile:[]);const current=Array.isArray(x.profile)?x.profile:original;return `<section class="sheet-block stats-collapse-block ${statsOpen?'is-open':'is-collapsed'}"><button type="button" class="equipment-collapse-head stats-collapse-head" onclick="toggleStatsPanel()"><span><span class="equipment-collapse-icon">${statsOpen?'−':'＋'}</span><strong>${en?'Edit characteristics':'Modifier les caractéristiques'}</strong></span><span>${statsOpen?(en?'Collapse':'Réduire'):(en?'Show':'Afficher')} · ${D.profileNames.length} ${en?'characteristics':'caractéristiques'}</span></button>${statsOpen?`<div class="stats-collapse-body"><div class="stats-inline-list">${D.profileNames.map((name,i)=>`<div class="stats-inline-row"><span class="stats-inline-name">${esc(name)}</span><span class="stats-inline-original" title="${en?'Original value':'Valeur d\'origine'}">${esc(original[i]??'—')}</span><span class="stats-inline-arrow">→</span><input class="stat-current-inline ${Number(current[i]??original[i]??0)>Number(maxProfileFor(x)?.[i]??Infinity)?'stat-input-overstat':''}" type="number" step="1" value="${esc(current[i]??original[i]??'')}" onchange="updateFighterStat(${i},this.value)" aria-label="${esc(name)} ${en?'current':'actuelle'}"><small>${en?'original':'origine'} ${esc(original[i]??'—')}</small></div>`).join('')}</div><p class="stats-inline-help">${en?'The value on the left is the original profile\'s. Only the current value is editable.':'La valeur de gauche est celle du profil d\'origine. Modifie uniquement la valeur actuelle.'}</p></div>`:''}</section>`}
 
 const ADVANCEMENT_MAIN=[
  {id:'wil-int',xp:3,value:5,label:'Volonté ou Intelligence +1',kind:'stat',stats:[10,11]},
@@ -12691,7 +12598,6 @@ function maxProfileFor(x){
   mods.forEach(m=>{const i=P.indexOf(m.stat);if(i>=0)max[i]=Number(max[i]||0)+Number(m.amount||0);});
   return max;
 }
-function statUpgradeCount(x,i,id){return (x.advancements||[]).filter(a=>a.kind==='stat'&&a.statIndex===i&&a.sourceId===id).length}
 // V-ADVESCALATE: buying the same characteristic again costs +2 XP for each
 // earlier purchase of it (a 2nd WS costs base +2, a 3rd base +4, while BS
 // keeps its own count). Skill advancements always cost their base XP. Raw Recruits and non-Veteran Henchmen
@@ -12858,10 +12764,8 @@ var ARMOUR_SUITS=['Light armour','Light armor','Heavy armour','Heavy armor','Ful
 var FUR_CLOAKS=['Fur cloak','Wolf cloak'];
 var OFFHAND_DEFENCE=['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'];
 function normName(n){return String(n||'').trim().toLowerCase();}
-function isArmourSuit(w){return !!w?.customArmor || (isCustomEquipment(w)&&['armure','armures'].includes(normName(w?.category))) || ARMOUR_SUITS.map(normName).includes(normName(w?.name));}
 function isFurCloak(w){return FUR_CLOAKS.map(normName).includes(normName(w?.name));}
 function isShield(w){return normName(w?.name)==='shield';}
-function isOffhandDefence(w){return OFFHAND_DEFENCE.map(normName).includes(normName(w?.name));}
 function fighterNormalProfile(x,f=faction(activeRoster()),fallbackProfile=[]){
   // V-BASESTAT: "normal" is the fighter's BASE stat exactly as shown in the
   // recruitment pool (fighterOriginalProfile(x), which now stores/reconstructs
@@ -13150,13 +13054,6 @@ function fighterBaseName(x,f){
   return String(source?.name||x?.sourceName||'').trim();
 }
 
-function sourceOrderedNames(list, sourceMap){
- const src=Array.isArray(sourceMap)?sourceMap:[];
- const rank=new Map(src.map((name,i)=>[name,i+1]));
- const known=list.filter(name=>rank.has(name)).sort((a,b)=>rank.get(a)-rank.get(b));
- const unknown=list.filter(name=>!rank.has(name)).sort((a,b)=>String(a).localeCompare(String(b),'fr',{sensitivity:'base'}));
- return [...known.map(name=>({name,number:rank.get(name)})),...unknown.map(name=>({name,number:null}))];
-}
 // The label shown for a skill/spell in a picker: its renamed title when an
 // admin renamed the entry (Référentiel ✎ title), numbered 1–6 by its place in
 // the tree. The stored value stays the original name.
@@ -13217,7 +13114,6 @@ function bannedCategoriesOf(w){return (Array.isArray(w?.bannedCategories)?w.bann
 function fighterBanSource(x){if(!x)return null;let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}
   if(!src||!Array.isArray(src.bannedCategories)){const c=x.customFighterId?customFighterById(x.customFighterId):null;if(c&&Array.isArray(c.bannedCategories))src=c}
   return src&&Array.isArray(src.bannedCategories)?src:x}
-function fighterBannedCategories(x){return bannedCategoriesOf(fighterBanSource(x))}
 // Exceptions: item names still allowed inside a forbidden category
 // (e.g. no Ranged Weapons except Throwing axe).
 function bannedExceptionsOf(w){return (Array.isArray(w?.bannedExceptions)?w.bannedExceptions:[]).map(normName).filter(Boolean)}
@@ -13709,10 +13605,7 @@ function skillAccessGrid(x){const f=faction(activeRoster()),mergedSets=customMer
 function openSkillModal(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;skillCategory='all';const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),cats=[...new Set([...Object.keys(mergedSets).filter(c=>allowed[c]),...Object.keys(personal).filter(c=>personal[c])])];const catRows=cats.map(c=>`<button type="button" class="skill-modal-category" data-cat="${esc(c)}" onclick="chooseSkillModalCategory('${encodeURIComponent(c)}')"><span>${esc(skillTreeDisplayName(c))}</span><small>${skillAccessLabel(personal[c])}</small></button>`).join('');const magicRows=magicAccessFor(x).map(d=>`<button type="button" class="skill-modal-category magic-category" onclick="openMagicModal('${encodeURIComponent(d)}')"><span>${esc(domainDisplayName(d))}</span><small>${en?'Primary · magic domain':'Primary · domaine de magie'}</small></button>`).join('');openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'ADD A SKILL':'AJOUT D’UNE COMPÉTENCE'}</div><h2>${en?'Choose a skill':'Choisir une compétence'}</h2><p>${en?'Normal skills are free. The magic domain available to this fighter is treated as a Primary tree; its spells remain recorded under Magic.':'Les compétences normales sont gratuites. Le domaine de magie accessible à ce combattant est traité comme un arbre Primary ; ses sorts restent enregistrés dans Magie.'}</p><div class="skill-modal-grid">${catRows}${magicRows}</div><div id="skillModalChoices" class="skill-modal-choices"><div class="empty compact">${en?'Choose a category.':'Choisis une catégorie.'}</div></div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
 function chooseSkillModalCategory(encoded){const en=siteLanguage==='en';skillCategory=decodeURIComponent(encoded);const x=activeRoster()?.fighters[editingIndex];if(!x)return;const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),owned=new Set(x.skills||[]),available=(mergedSets[skillCategory]||[]).filter(s=>!owned.has(s));const box=$('#skillModalChoices');if(!box)return;box.innerHTML=`<div class="skill-modal-choice-head"><strong>${esc(skillTreeDisplayName(skillCategory))}</strong><span>${skillAccessLabel(personal[skillCategory])}</span></div><div class="skill-modal-list">${available.length?orderedChoiceNames(available,mergedSets[skillCategory]).map(s=>`<button type="button" class="skill-modal-skill" onclick="addSkillFromModal('${encodeURIComponent(s)}')"><span>${refLink('skills',s,numberedSkillName(s,mergedSets[skillCategory]))}</span><small>${en?'Add':'Ajouter'}</small></button>`).join(''):`<div class="empty compact">${en?'All skills in this tree have already been acquired.':'Toutes les compétences de cet arbre sont déjà acquises.'}</div>`}</div>`;document.querySelectorAll('.skill-modal-category').forEach(b=>b.classList.toggle('active',b.dataset.cat===skillCategory))}
 function addSkillFromModal(encoded){const x=activeRoster()?.fighters[editingIndex],v=decodeURIComponent(encoded);if(!x||!v)return;x.skills=x.skills||[];if(!x.skills.includes(v)){x.skills.push(v);save(true);toast(siteLanguage==='en'?`${v} added`:`${v} ajoutée`)}closeModal();render('fighter')}
-function setSkillCategory(c){skillCategory=c;render('fighter')}
-function toggleStatsPanel(){statsOpen=!statsOpen;render('fighter')}
 function setFighterTab(tab){fighterTab=tab;if(tab!=='magic'){magicDomainAddOpen=false;magicDomainAddSearch='';}render('fighter')}
-function addSelectedSkill(){const x=activeRoster()?.fighters[editingIndex],v=decodeURIComponent($('#skillChoiceSelect')?.value||'');if(!x||!v)return;x.skills=x.skills||[];if(!x.skills.includes(v)){x.skills.push(v);save(true)}skillPickerOpen=true;render('fighter')}
 // V-FIGHTERMORE: on a phone the sheet's top actions sit behind a ⋯ button.
 function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
   openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${esc(x.name)}</div><div class="warroom-more-list">${(r.fighters||[]).length>1?btn('⇄ '+(en?'Other fighters':'Autres combattants'),'openFighterSwitcher()'):''}${btn('✎ '+(en?'Edit characteristics':'Modifier les caractéristiques'),'openStatsEditor()')}${fighterRecruitOptionsSource(x).length||(x.recruitPicks||[]).length?btn('⚙ Options','openFighterOptionsModal()'):''}${isHiredSword(x)?'':btn('✦ '+(en?'Duplicate':'Dupliquer'),'openDuplicateFighterConfirm()')}${btn('⎙ '+(en?'Print':'Imprimer'),'window.print()')}</div></div>`)}
@@ -13723,7 +13616,6 @@ function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();c
 })();
 function backToGang(){save(true);render('builder')}
 function updateFighterField(key,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x[key]=key==='xp'?Math.max(0,Number(val)||0):val;save(true);if(key!=='xp')render('fighter');else toast(siteLanguage==='en'?'XP updated':'XP mis à jour')}
-function adjustFighterXP(delta){const x=activeRoster()?.fighters[editingIndex];if(!x)return;const next=Math.max(0,Number(x.xp||0)+Number(delta||0));x.xp=next;save(true);render('fighter')}
 function openFighterXPAdjust(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;const current=Number(x.xp||0);openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'}</div><h2>${en?'Experience (XP)':'Expérience (XP)'}</h2><p>${en?`Choose the operation then enter the amount to apply. The current value is <strong>${current} XP</strong>.`:`Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est <strong>${current} XP</strong>.`}</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">XP</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyFighterXPAdjust()">${en?'Apply':'Appliquer'}</button></div></div>`)}
 function applyFighterXPAdjust(){const x=activeRoster()?.fighters[editingIndex],input=$('#resourceAmount');if(!x||!input)return;const n=Math.round(Number(input.value));if(!Number.isFinite(n)||n<=0){toast(siteLanguage==='en'?'Enter a positive value':'Entre une valeur positive');return}const sub=document.querySelector('.resource-mode-btn.active')?.dataset.mode==='sub';const delta=sub?-n:n;x.xp=Math.max(0,Math.round(Number(x.xp||0)+delta));save(true);closeModal();render('fighter');toast(`XP ${delta>0?'+':''}${delta}`)}
 function removeSkill(i){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x.skills.splice(i,1);save(true);render('fighter')}
@@ -13742,7 +13634,6 @@ const LASTING_INJURIES=[
   {roll:'66',name:'Memorable Death',desc:'Le combattant est tué instantanément.',mods:[]}
 ];
 function lastingInjuryByRoll(roll){const n=Number(roll);return LASTING_INJURIES.find(i=>{const m=String(i.roll).match(/^(\d+)(?:[–-](\d+))?$/);if(!m)return false;const a=Number(m[1]),b=Number(m[2]||m[1]);return n>=a&&n<=b})||null}
-function lastingInjuryIndexByName(name){return LASTING_INJURIES.findIndex(i=>refNorm(i.name)===refNorm(name))}
 function injuryObjectFromResult(result){return {roll:result.roll,name:result.name,desc:result.desc,statMods:(result.mods||[]).map(m=>({index:m.index,amount:m.amount,label:m.label}))}}
 function applyInjuryStatMods(x,injury,sign=1){(injury?.statMods||[]).forEach(m=>{if(Number.isInteger(m.index)&&Number.isFinite(m.amount))x.profile[m.index]=(Number(x.profile[m.index])||0)+Number(m.amount)*sign;})}
 function normalizeInjuries(x){if(!x)return;const arr=Array.isArray(x.injuries)?x.injuries:[];x.injuries=arr.map(v=>{if(v&&typeof v==='object')return v;const found=LASTING_INJURIES.find(i=>refNorm(i.name)===refNorm(v));if(found){const injury=injuryObjectFromResult(found);if(Array.isArray(x.profile))applyInjuryStatMods(x,injury,1);return injury}return {roll:'',name:String(v||''),desc:'',statMods:[]};});}
@@ -13754,7 +13645,6 @@ function rollLastingInjury(){const tens=Math.ceil(Math.random()*6),ones=Math.cei
 function addRolledLastingInjury(){if(!lastInjuryRoll?.result)return;addInjuryResult(lastInjuryRoll.roll);lastInjuryRoll=null}
 function addInjury(){const input=$('#injuryInput');const v=(input?.value||'').trim();if(!v)return;const found=LASTING_INJURIES.find(i=>refNorm(i.name)===refNorm(v));if(found)addInjuryResult(found.roll.split(/[–-]/)[0]);else{const x=activeRoster()?.fighters[editingIndex];if(!x)return;normalizeInjuries(x);x.injuries.push({roll:'',name:v,desc:siteLanguage==='en'?'Custom scar':'Séquelle personnalisée',statMods:[]});save(true);render('fighter');toast(siteLanguage==='en'?'Custom scar added':'Séquelle personnalisée ajoutée')}}
 function removeInjury(i){const x=activeRoster()?.fighters[editingIndex];if(!x)return;normalizeInjuries(x);const injury=x.injuries[i];if(!injury)return;applyInjuryStatMods(x,injury,-1);x.injuries.splice(i,1);save(true);render('fighter')}
-function saveFighterCard(){save(true);toast(siteLanguage==='en'?'Sheet saved automatically':'Fiche enregistrée automatiquement')}
 // V-DELETESTASH: equipment a fighter owns (for Leaders/Champions, their
 // personal stash that feeds their loadouts) — everything that can go to the
 // warband Stash when they're removed. Chaos Armour (fused) never moves;
@@ -14100,7 +13990,6 @@ function saveCustomEquipment(){
   if(returnToWarbandEditor('equipment')){toast(idx>=0?(en?'Exclusive equipment updated':'Équipement exclusif modifié'):(en?'Exclusive equipment created — checked for this warband':'Équipement exclusif créé — coché pour cette warband'));return;}
   render('custom');toast(idx>=0?(en?'Custom equipment updated':'Équipement custom modifié'):(en?'Custom equipment created':'Équipement custom créé'));
 }
-function setCustomEquipmentSearch(v){customEquipmentSearch=v;render('custom')}
 function toggleCustomEquipmentArchive(id){const en=siteLanguage==='en';const w=customEquipmentList().find(x=>x.customEquipmentId===id);if(!w)return;w.archived=!w.archived;save(true);render('custom');toast(w.archived?(en?'Equipment archived':'Équipement archivé'):(en?'Equipment unarchived':'Équipement désarchivé'))}
 function customEquipmentRow(w){
   const en=siteLanguage==='en';
@@ -14121,11 +14010,6 @@ function customSaveFromRulesText(w){
   // also the book's own wording: "grants a 4+ save", "a 3+ armour save"
   const m=text.match(/(?:sauvegarde|save|sv)\s*(?:de|:)?\s*(\d+)\s*\+/i)||text.match(/\b(\d)\s*\+\s*(?:armou?r\s+)?(?:save|sauvegarde)/i);
   return m ? `${m[1]}+` : null;
-}
-function customRuleStatIndex(name){
-  const n=normName(name);
-  const map={mouvement:0,m:0,ws:1,cc:1,'capacitédecombat':1,bs:2,'capacitédetir':2,force:3,s:3,endurance:4,t:4,blessures:5,w:5,initiative:6,i:6,attaques:7,a:7,leadership:8,ld:8,commandement:8,calme:9,cl:9,wil:10,volonté:10,intelligence:11,int:11};
-  return map[n];
 }
 function customEquipmentEffects(w,x){
   if(!isCustomEquipment(w))return {stats:[],skills:[]};
@@ -15433,18 +15317,6 @@ function fighterDetectedStatBonuses(x,f){
     return out;
   }catch(e){console.warn('fighterDetectedStatBonuses failed',e);return [];}
 }
-function fighterDetectedPermanentStatDeltas(x,f){
-  const deltas=new Array(12).fill(0);
-  try{
-    fighterDetectedStatBonuses(x,f).forEach(b=>{
-      if(b.conditional)return;
-      if(b.mode==='set')return; // an absolute set isn't a delta — see syncSkillTraitStatBonuses
-      if(!Number.isInteger(b.index)||b.index<0||b.index>=12)return;
-      deltas[b.index]+=Number(b.delta||0);
-    });
-  }catch(e){console.warn('fighterDetectedPermanentStatDeltas failed',e);}
-  return deltas;
-}
 // V-CONDEQUIP: conditional bonuses of the fighter's equipment and of its
 // weapons' traits (a Fur cloak's +1 save against shooting, Paired's +1
 // attack when charging) only ever add the dot — their permanent effects are
@@ -16303,7 +16175,6 @@ function codex(){const en=siteLanguage==='en';if(!isAdminEditUI()){render('refer
 function bookPages(ps){return ps.map(p=>`<article class="book-page"><h4>Page source ${p.page}</h4><pre>${esc(p.text)}</pre></article>`).join('')}
 function searchBook(){const en=siteLanguage==='en';const q=$('#bookSearch').value.trim().toLowerCase();if(!q){$('#codexBody').innerHTML=bookPages(D.pages.slice(0,5));return}const hits=D.pages.filter(p=>p.text.toLowerCase().includes(q));$('#codexBody').innerHTML=hits.length?bookPages(hits.slice(0,40)):`<div class="empty">${en?`No results for "${esc(q)}".`:`Aucun résultat pour « ${esc(q)} ».`}</div>`}
 function showCodex(key,btn){document.querySelectorAll('.codex-nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(key==='factions'){$('#codexBody').innerHTML=D.factions.map(f=>`<article class="book-page"><h4>${esc(f.displayName)} · source p.${f.startPage||'—'}</h4><pre>${esc(f.text)}</pre></article>`).join('');return}if(key==='all'){$('#codexBody').innerHTML=bookPages(D.pages.slice(0,5))+'<div class="notice">Utilise la recherche pour parcourir le livre complet.</div>';return}const [name,desc]=D.rulesMeta[key];const hits=D.pages.filter(p=>p.text.toLowerCase().includes(name.toLowerCase())||p.text.toLowerCase().includes(desc.split(',')[0].toLowerCase()));$('#codexBody').innerHTML=`<div class="notice"><strong>${esc(name)}</strong> — ${esc(desc)}</div>`+bookPages(hits.slice(0,40))}
-function exportRoster(){const en=siteLanguage==='en';const r=activeRoster();if(!r){toast(en?'No active warband':'Aucune bande active');return}const f=faction(r),lines=[`${PROJECT_NAME.toUpperCase()} — ${r.name}`,`Faction: ${f.displayName}`,`Pack: ${f.packId||'Core M17'}`,`${en?'Starting budget':'Budget initial'}: ${f.budget} GC`,`${en?'Reputation':'Réputation'}: ${r.reputation}`,'',en?'FIGHTERS':'GUERRIERS'];r.fighters.forEach(x=>lines.push(`${x.name} — ${x.type} — ${fighterCost(x,f)} GC — ${x.profile.join('/')}`));if(r.reserve?.length){lines.push('',en?'RESERVE':'RÉSERVE');r.reserve.forEach(e=>lines.push(`${e.name} — ${Number(e.value??e.price??0)} GC`));}lines.push('',`${en?'Total':'Total'}: ${total(r)} GC`,`${en?'Remaining':'Restant'}: ${f.budget-total(r)} GC`);const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=r.name.replace(/[^a-z0-9-_]+/gi,'_')+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('#modalClose').onclick=closeModal;$('#modal').onclick=e=>{if(e.target.id==='modal'&&!modalSticky)closeModal()};// V-TABBAR: "Reset data" lives in Account now, behind a typed confirmation.
 function openResetData(){
   const en=siteLanguage==='en';
@@ -16484,7 +16355,6 @@ function refreshAdminWarriorRuleTags(){
   const details=el.closest('details');const small=details?.querySelector('summary small');
   if(small)small.textContent=`${adminRuleDraft.length} ${siteLanguage==='en'?'linked':(adminRuleDraft.length!==1?'liées':'liée')}`;
 }
-function addCustomFighterSkill(v){v=(v||'').trim();if(!v)return;if(!customFighterSkillDraft.some(x=>normName(x)===normName(v)))customFighterSkillDraft.push(v);const select=$('#cfSkillSelect');if(select)select.value='';refreshCustomFighterTags('skill')}
 function removeCustomFighterSkill(i){customFighterSkillDraft.splice(i,1);refreshCustomFighterTags('skill');cfSkillSyncButtons()}
 // V-SKILLPICKER: default skills are ticked from a list grouped by skill tree
 // (with a search box) instead of one long drop-down.
@@ -17442,8 +17312,6 @@ function confirmRenameSkillTree(id){
 function deleteCustomMagicDomain(id){openDeleteCustomParent('spells',id)}
 function customFighterSkillNames(){return [...new Set(Object.values(customMergedSkillSets()).flat())].sort((a,b)=>a.localeCompare(b))}
 function customContentTypeLabel(k){const en=siteLanguage==='en';return (en?{traits:'Weapon trait',skills:'Skill',spells:'Spell',special:'Special rule'}:{traits:'Trait d’arme',skills:'Compétence',spells:'Sort',special:'Règle spéciale'})[k]||k}
-function removeCustomContentDraft(i){customContentDraftItems.splice(i,1);render('custom')}
-function customContentDraftItemMarkup(kind,x,i){return `<span class="custom-trait-tag">${refLink(kind,x.name,x.name)}<button type="button" onclick="removeCustomContentDraft(${i})">×</button></span>`}
 function customContentForm(kind,w){
   const en=siteLanguage==='en';
   const draft=customContentDraftItems;
@@ -17562,12 +17430,10 @@ function customContentLibraryRow(kind,w,isOfficial){const en=siteLanguage==='en'
    Kept separate from the legacy content editor so the existing V68 data model remains compatible. */
 let customTreeComposer={kind:null,parentId:null,itemId:null};
 function customBuilderParentList(kind){return kind==='skills'?customSkillTreeList():customMagicDomainList()}
-function customBuilderParentName(kind,p){return p?.name||''}
 function customBuilderItems(kind,parent){
   const field=kind==='skills'?'tree':'domain';
   return customContentList(kind).filter(x=>normName(x[field]||'')===normName(parent?.name||''));
 }
-function customBuilderParentId(kind,p){return p?.id||''}
 function customBuilderItemById(kind,id){return customContentById(kind,id)}
 function customBuilderResetComposer(){customTreeComposer={kind:null,parentId:null,itemId:null}}
 function customBuilderOpenNew(kind,parentId){customTreeComposer={kind,parentId,itemId:null};if(kind==='spells')customEquipmentTraitDraft=[];render('custom')}
@@ -18862,7 +18728,6 @@ function saveCustomWarbandInfo(id){
 }
 function filterCustomWarbandChoices(input,selector){const q=(input.value||'').trim().toLowerCase();document.querySelectorAll(selector).forEach(el=>{el.style.display=!q||(el.dataset.search||'').includes(q)?'':'none'})}
 function customWarbandCreateForm(){const en=siteLanguage==='en';return `<section class="card custom-warband-create-form"><div class="eyebrow">${en?'NEW WARBAND':'NOUVELLE WARBAND'}</div><h3>${en?'Create a custom Warband':'Créer une Warband custom'}</h3><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="cwName" placeholder="${en?'Warband name':'Nom de la Warband'}"></label><label class="custom-field"><span>${en?'Maximum fighters (optional, Hired Swords not counted)':'Combattants max (facultatif, Hired Swords non compris)'}</span><input id="cwMaxWarriors" type="number" min="1" max="200" step="1" placeholder="—"></label><label class="custom-field"><span>${en?'Description (optional)':'Description (facultatif)'}</span>${customTextToolbarMarkup('cwDescription')}<textarea id="cwDescription" class="wide-textarea" rows="4" placeholder="${en?'Band description…':'Description de la bande…'}"></textarea></label><div class="custom-actions"><button type="button" class="button secondary" onclick="customWarbandCreating=false;render('custom')">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveCustomWarbandMeta()">${en?'Save':'Sauvegarder'}</button></div></section>`}
-function customWarbandPage(){const en=siteLanguage==='en';const list=customWarbandList();if(customWarbandCreating)return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${en?'Custom warbands':'Warbands personnalisées'}</h2><p>${en?'Create the warband first, then click Edit to open its configuration.':'Crée d’abord la Warband, puis clique sur Modifier pour ouvrir sa configuration.'}</p></div></div>${customWarbandCreateForm()}</div>`;if(customWarbandEditId){const cw=customWarbandById(customWarbandEditId);if(cw)return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT / WARBAND</div><h2>${esc(cw.name)}</h2><p>${cw.description?customTextMarkup(cw.description):esc(en?'Custom warband':'Warband personnalisée')}</p></div><button type="button" class="button secondary" onclick="customWarbandEditId=null;render('custom')">${en?'← Library':'← Bibliothèque'}</button></div>${customWarbandEditor(cw)}</div>`}return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${en?'Custom warbands':'Warbands personnalisées'}</h2><p>${en?'Create and configure your own warbands without touching the official content.':'Crée et configure tes propres Warbands sans toucher au contenu officiel.'}</p></div><button type="button" class="button primary" onclick="newCustomWarband()">＋ ${en?'New warband':'Nouvelle Warband'}</button></div><div class="custom-workspace"><section class="card custom-editor"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${en?'Custom warbands':'Warbands custom'}</h3></div><span>${list.length}</span></div><div class="custom-item-list">${list.length?list.map(customWarbandSummaryRow).join(''):`<div class="empty large"><strong>${en?'No custom warbands.':'Aucune Warband custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`}</div></section></div></div>`}
 
 // Boot sequence: run only after every top-level `let`/`const`/function
 // declaration in this file has been evaluated. Calling this earlier (it used

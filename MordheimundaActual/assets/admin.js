@@ -314,7 +314,6 @@ function adminWeaponCatalogCardMarkup(){
     <div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="newAdminWeapon()">＋ ${en?'Add a new item':'Ajouter un objet'}</button></div>
   </div>`;
 }
-function toggleAdminViewMode(){setAdminViewMode(adminViewMode==='player'?'admin':'player');}
 function adminQuestsMarkup(){
   const en=siteLanguage==='en';
   if(questLibraryState!=='ok')return `<div class="card admin-card"><div class="eyebrow">QUESTS</div><p class="custom-field-help">${questLibraryState==='loading'?(en?'Loading the saved quest library…':'Chargement de la bibliothèque de quêtes…'):(en?'The saved quest library could not be loaded — editing is locked so nothing gets overwritten.':'La bibliothèque de quêtes enregistrée n’a pas pu être chargée — l’édition est bloquée pour ne rien écraser.')}</p><div class="custom-actions"><button type="button" class="button secondary" onclick="questLibraryState='loading';render('admin');loadQuestLibrary().then(()=>render('admin'))">↻ ${en?'Retry':'Réessayer'}</button></div></div>`;
@@ -486,7 +485,6 @@ function closeRuleTableEditor(){document.getElementById('ruleTableEditorOverlay'
 function ruleTableEditorAddRow(){ruleTableEditorRows.push(ruleTableEditorRows[0].map(()=>({text:'',hi:false})));renderRuleTableEditorOverlay();}
 function ruleTableEditorRemoveRow(i){if(ruleTableEditorRows.length<=1)return;ruleTableEditorRows.splice(i,1);renderRuleTableEditorOverlay();}
 function ruleTableEditorAddCol(){ruleTableEditorRows.forEach(r=>r.push({text:'',hi:false}));renderRuleTableEditorOverlay();}
-function ruleTableEditorRemoveCol(j){if(ruleTableEditorRows[0].length<=1)return;ruleTableEditorRows.forEach(r=>r.splice(j,1));renderRuleTableEditorOverlay();}
 function ruleTableEditorCellInput(i,j,value){if(ruleTableEditorRows[i]&&ruleTableEditorRows[i][j])ruleTableEditorRows[i][j].text=value;}
 function ruleTableEditorToggleHi(i,j){ruleTableEditorRows[i][j].hi=!ruleTableEditorRows[i][j].hi;renderRuleTableEditorOverlay();}
 function ruleTableEditorInsert(){
