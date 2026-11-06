@@ -870,6 +870,71 @@ await test('[desktop] shopping list, delete warning, glossary links, search filt
   expect(out.chips>=2&&out.groupsShown===1&&out.hl,'search results can be filtered by category and highlight the words: '+JSON.stringify(out));
   expect(out.rm&&out.offRm,'reading mode turns on and off: '+JSON.stringify(out));
 });
+await test('[desktop] animations on actions, advance in one tap, reminders, table mode, roster filter, error log, backups',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const mk=(w,xp)=>({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    (f.warriors||[]).slice(0,4).forEach((w,i)=>r.fighters.push(mk(w,i===0?40:0)));r.fighters[1].skills=['Sprint'];save(true);
+    navigateApp(warbandPath('smoke'));await new Promise(z=>setTimeout(z,400));
+    // 10 tab slide
+    setGangTab('stats');const slide=document.querySelector('.warroom-main')?.className||'';setGangTab('roster');
+    // 18 filter
+    rosterFilterSet('sprint');const vis=[...document.querySelectorAll('.roster-sections [data-fx-inst^="card:"]')].filter(el=>(el.closest('.fighter-card-wrap,.draggable-fighter,[data-fighter-index]')||el).style.display!=='none').length;rosterFilterSet('');
+    // 7 new card
+    const w=(f.warriors||[]).find(q=>q.type==='Henchman')||f.warriors[f.warriors.length-1];const n0=activeRoster().fighters.length;await addFighter(w.id);await new Promise(z=>setTimeout(z,300));const added=activeRoster().fighters.length-n0;
+    // 9 rout levels
+    const lv=[playRoutLevel(5,0),playRoutLevel(6,1),playRoutLevel(5,1),playRoutLevel(5,5)];
+    // 16 reminders
+    const rem=homeReminders().map(x=>x.k);
+    // 15 advance tap
+    openFighterAdvance(activeRoster().fighters[0].instance);const adv={tab:fighterTab,open:progressionOpen};
+    // 17 table mode
+    state.rosters.push({id:'smoke2',name:'Second Band',factionId:r.factionId,gold:100,fighters:[mk(f.warriors[0],0)]});save(true);
+    const ps=blankPlaySession();playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:'smoke',rosterName:'a'};ps.slots[1]={...ps.slots[1],source:'own',rosterId:'smoke2',rosterName:'b'};state.playSession=ps;
+    ['smoke','smoke2'].forEach(id=>{const rr=state.rosters.find(q=>q.id===id);const e=playEngEntry(ps,rr);e.picks=rr.fighters.map(x=>x.instance);e.validated=true});
+    playTableMode=true;const tm=playFightersMarkup(ps);playTableMode=false;state.playSession=null;
+    // 19 error log
+    localStorage.removeItem(ERRLOG_KEY);errLogAdd('Boom test','x.js:1:2');const el=errLogRead();openErrorLog();const elModal=/Boom test/.test(document.getElementById('modalContent').innerHTML);closeModal();
+    // 20 backups
+    window.siteConfirm=async()=>true;await bkSnapshot(true);const before=activeRoster().fighters.length;const nm=state.rosters.find(q=>q.id==='smoke').name;state.rosters.find(q=>q.id==='smoke').name='Changed';save(true);
+    const list=await bkList();await bkRestore(list[0].ts,'smoke');const back=state.rosters.find(q=>q.id==='smoke');
+    return {slide,vis,added,fxQueued:true,lv,rem,adv,cols:(tm.match(/play-table-col/g)||[]).length,el:el.length===1&&el[0].action!==undefined,elModal,snaps:list.length,restored:back.name===nm,cnt:back.fighters.length===before}});
+  expect(/tab-in-r/.test(out.slide),'tabs slide in: '+JSON.stringify(out));
+  expect(out.vis===1,'the roster filter keeps only the fighter with Sprint: '+JSON.stringify(out));
+  expect(out.added===1,'recruit still works with the animation hook: '+JSON.stringify(out));
+  expect(out.lv.join()==='0,1,2,3','rout levels 6+/5+/flee: '+JSON.stringify(out));
+  expect(out.rem.some(k=>k.startsWith('adv:smoke')),'home reminds that a fighter can advance: '+JSON.stringify(out));
+  expect(out.adv.tab==='progression'&&out.adv.open,'Advance opens the progression: '+JSON.stringify(out));
+  expect(out.cols===2,'table mode shows one column per warband: '+JSON.stringify(out));
+  expect(out.el&&out.elModal,'errors are kept and shown: '+JSON.stringify(out));
+  expect(out.snaps>=1&&out.restored&&out.cnt,'a warband can be restored from a backup: '+JSON.stringify(out));
+});
+await test('[desktop] stats split and timeline, stat-up flash, veteran edges, victory card',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const mk=w=>({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:20,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    (f.warriors||[]).slice(0,4).forEach(w=>r.fighters.push(mk(w)));const t0=Date.now()-5*864e5;r.valueLog=[{pb:'a',ts:t0,value:300,res:'win',scenario:'Bridge',hero:'',dead:0},{pb:'b',ts:t0+2*864e5,value:280,res:'loss',scenario:'Well',hero:'',dead:1}];
+    r.history=[{id:'h1',category:'xp',text:'<b>'+r.fighters[1].name+'</b> advancement: WS +1',ts:t0+36e5},{id:'h2',category:'fighters',text:'<b>'+r.fighters[2].name+'</b> dead',ts:t0+2*864e5+36e5}];
+    r.fighters[0].advancements=Array.from({length:8},()=>({id:crypto.randomUUID(),label:'x',xp:1}));r.fighters[1].games=Array.from({length:5},(_,i)=>({key:'k'+i,ts:t0+i,scenario:'S'}));save(true);
+    navigateApp(warbandPath(r.id));await new Promise(z=>setTimeout(z,300));setGangTab('stats');await new Promise(z=>setTimeout(z,200));
+    const split=document.querySelectorAll('.st-split-bar i').length;const tl=document.querySelectorAll('.st-tl-item').length;const evs=document.querySelectorAll('.st-tl-ev').length;
+    statsTlFilter='dead';render('builder');const deadOnly=document.querySelectorAll('.st-tl-item').length;statsTlFilter='all';
+    setGangTab('roster');await new Promise(z=>setTimeout(z,250));readToolsSync();const gold=!!document.querySelector('.owned-card.vet-gold .vet-badge'),silver=!!document.querySelector('.owned-card.vet-silver');
+    openFighterCard(1);fighterTab='progression';progressionOpen=true;render('fighter');await new Promise(z=>setTimeout(z,150));
+    const b=activeRoster().fighters[1].profile.slice();const btn=[...document.querySelectorAll('.progression-block button')].find(x=>/buyStatAdvancement/.test(x.getAttribute('onclick')||''));if(btn)btn.click();const flashed=!!document.querySelector('.fx-statup');
+    const snap={scenario:'Bridge',date:'1/1',bands:[{rid:r.id,name:r.name,faction:'',color:'#6fb3e0',total:300,own:true,fighters:[],ooa:[],down:0,result:'win'}],hero:'',note:'held the bridge'};const card=playSummaryCardMarkup(snap,true);let canvasOk=false;try{canvasOk=playSummaryCanvas(snap).width===1080}catch(e){}
+    return {split,tl,evs,deadOnly,gold,silver,clicked:!!btn,flashed,win:/gsum-win/.test(card)&&/VICTORY/.test(card)&&/held the bridge/.test(card),canvasOk}});
+  expect(out.split>=1&&out.tl===2&&out.evs>=2&&out.deadOnly===1,'stats show the value split and a filterable timeline: '+JSON.stringify(out));
+  expect(out.gold&&out.silver,'veterans get a silver or gold edge: '+JSON.stringify(out));
+  expect(!out.clicked||out.flashed,'buying a characteristic flashes the cell: '+JSON.stringify(out));
+  expect(out.win&&out.canvasOk,'a won game gets the victory card and image: '+JSON.stringify(out));
+});
+await test('[desktop] animated background: setting, mist and embers, off in Day mode',null,async page=>{
+  const out=await page.evaluate(()=>{const n=()=>({fog:document.querySelectorAll('#ambientFx .amb-fog').length,ash:document.querySelectorAll('#ambientFx .amb-ash').length});
+    setAmbientMode('both');const both=n();setAmbientMode('fog');const fog=n();setAmbientMode('ash');const ash=n();setAmbientMode('off');const off=!document.getElementById('ambientFx');
+    setAmbientMode('both');setSiteTheme('light');const light=!document.getElementById('ambientFx');setSiteTheme('dark');const back=!!document.getElementById('ambientFx');
+    navigateApp('/account');return {both,fog,ash,off,light,back,select:!!document.querySelector('.ambient-select')}});
+  expect(out.both.fog===3&&out.both.ash>=40&&out.fog.ash===0&&out.ash.fog===0&&out.off,'the setting picks mist, embers, both or none: '+JSON.stringify(out));
+  expect(out.light&&out.back,'off in Day mode, back afterwards: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
