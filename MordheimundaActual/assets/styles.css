@@ -5491,3 +5491,51 @@ html[data-theme="light"] .undo-bar{background:#eef6e8}
   .eq-row .eq-actions strong{align-self:center}
 }
 @media(max-width:700px){.eq-row .equipment-choice-main{flex:none!important}.equipment-market-list{max-height:62vh!important}}
+/* V-EMBLEM: default portrait */
+.fighter-emblem{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:inherit;background:radial-gradient(circle at 50% 35%,var(--emb),#0b0b0a);color:var(--em);box-shadow:inset 0 0 0 2px var(--em)}
+.fighter-emblem svg{width:52%;height:52%}
+.fighter-emblem-race{position:absolute;right:-3px;bottom:-3px;min-width:18px;height:18px;border-radius:50%;background:var(--bg);border:1px solid var(--line2,var(--line));color:var(--text);font:800 10px 'Cinzel',serif;display:flex;align-items:center;justify-content:center}
+html[data-theme="light"] .fighter-emblem{background:radial-gradient(circle at 50% 35%,#fff,#ecebe6)}
+/* V-XPBAR */
+.xpbar{margin-top:6px;max-width:260px}
+.xpbar-row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11.5px;color:var(--muted2)}
+.xpbar-row small{font-size:11px;color:var(--muted3)}
+.xpbar-track{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:3px}
+.xpbar-track i{display:block;height:100%;background:#e0b04a;border-radius:999px;transition:width .3s ease}
+.xpbar.ready .xpbar-track i{background:var(--accent)}
+.xpbar-go{font:800 10.5px 'IBM Plex Sans';letter-spacing:.4px;color:#132007;background:var(--accent);border-radius:999px;padding:2px 8px;white-space:nowrap}
+/* V-GAMESUMMARY */
+.gsum-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:radial-gradient(120% 80% at 50% 0%,#1d2a12 0%,#0c0c0c 60%);color:#f2f2ee;display:grid;gap:12px;margin:8px 0 14px}
+.gsum-top{display:flex;justify-content:space-between;font:700 10px 'IBM Plex Sans';letter-spacing:1.6px;color:#b8b7b3}
+.gsum-scn{text-align:center}.gsum-scn small{display:block;font:700 10.5px 'IBM Plex Sans';letter-spacing:1.5px;color:#9dfa3c}.gsum-scn b{font:800 24px 'Cinzel',serif}
+.gsum-bands{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.gsum-band{flex:1 1 140px;background:#161514;border:1px solid #33322f;border-radius:12px;padding:10px;text-align:center;display:grid;gap:4px}
+.gsum-band.win{border:2px solid #9dfa3c}.gsum-band small{font:700 10px 'IBM Plex Sans';letter-spacing:1.2px;color:#9cc6f0;text-transform:uppercase}.gsum-band b{font:800 16px 'Cinzel',serif}.gsum-band em{font-style:normal;font-size:11.5px;color:#c4c3bf}
+.gsum-res{justify-self:center;border-radius:999px;padding:2px 10px;font:800 10.5px 'IBM Plex Sans';letter-spacing:.8px}.gsum-res.win{background:#9dfa3c;color:#132007}.gsum-res.draw{background:#2a2927}.gsum-res.loss{background:#2a1515;color:#f0a39e}
+.gsum-vs{font:800 15px 'Cinzel',serif;color:#b8b7b3}
+.gsum-hero{border:1px solid #e0b04a;border-radius:12px;padding:10px;text-align:center}.gsum-hero small{display:block;font:700 10px 'IBM Plex Sans';letter-spacing:1.3px;color:#e0b04a}.gsum-hero b{font:800 18px 'Cinzel',serif}
+.gsum-form{display:grid;gap:8px;margin-bottom:12px}.gsum-pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.gsum-pick span{flex:1 1 120px;font-weight:700;font-size:13px}
+.gsum-heropick{display:grid;gap:4px;font-size:12px;color:var(--muted2)}
+/* V-CANDLE: warm evening theme (dark rules still apply; only the palette changes) */
+html[data-theme="candle"]{--bg:#120c07;--panel:#1c130b;--panel2:#22170d;--line:#3a2a1a;--line2:#4a3522;--text:#f3e6d2;--text-dim:#f0e2cb;--muted:#e2d1b6;--muted2:#d9c7aa;--muted3:#c9b79c;--accent:#e8a64a;--accent2:#8a5a1c;--chip-bg:#22170d;--chip-border:#8a5a1c;--info:#e0b46a;--info-bg:#2a1d0e;--info-border:#7a5222}
+html[data-theme="candle"] .app-bg{filter:sepia(.55) saturate(1.2) brightness(.62) hue-rotate(-8deg)}
+html[data-theme="candle"] .app-bg-scrim{background:linear-gradient(180deg,rgba(24,14,6,.35) 0%,rgba(18,12,7,.55) 32%,rgba(18,12,7,.88) 100%)}
+html[data-theme="candle"] .button.primary,html[data-theme="candle"] .xpbar-go,html[data-theme="candle"] .undo-bar button{color:#1a1006}
+html[data-theme="candle"] .profile-stat,html[data-theme="candle"] .stat-cell{border-color:var(--line)}
+/* V-MOTION: gentle transitions; none when the phone asks for less motion */
+@media (prefers-reduced-motion: no-preference){
+  details.mu-opening[open]>:not(summary){animation:muFadeIn .2s ease}
+  .gang-tab,.fighter-section-tab,.equipment-tab,.scn-filter,.custom-top-tab{transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .modal:not(.hidden) .modal-card{animation:muSlideUp .22s cubic-bezier(.2,.8,.2,1)}
+  .pool-row.open .pool-row-card{animation:muFadeIn .2s ease}
+  .undo-bar:not([hidden]),.install-banner{animation:muSlideUp .22s ease}
+  .button,.read-tool,.equipment-action{transition:transform .12s ease,filter .15s ease,background-color .15s ease}
+  .button:active,.read-tool:active{transform:scale(.97)}
+}
+@keyframes muFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes muSlideUp{from{opacity:.4;transform:translateY(18px)}to{opacity:1;transform:none}}
+html[data-theme="candle"] .rule-heading{background:linear-gradient(90deg,rgba(232,166,74,.16),transparent)!important}
+html[data-theme="candle"] .rule-name-tags>span,html[data-theme="candle"] .skill-cat.active,html[data-theme="candle"] .pack-modifiers{background:rgba(232,166,74,.10)!important;border-color:#8a5a1c!important}
+html[data-theme="candle"] .xpbar.ready .xpbar-track i{background:var(--accent)}
+html[data-theme="candle"] .fighter-emblem{filter:sepia(.25)}
+.gsum-top{flex-wrap:wrap;gap:4px 10px}.gsum-top span:last-child{white-space:nowrap}
