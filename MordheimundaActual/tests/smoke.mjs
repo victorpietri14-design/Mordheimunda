@@ -795,6 +795,16 @@ await test('[desktop] play & reading helpers: rout threshold, combat screen orde
   expect(out.hits===1,'find in page highlights the word: '+JSON.stringify(out));
   expect(out.pins===1&&out.pinsAfter===0,'a page can be pinned and unpinned: '+JSON.stringify(out));
 });
+await test('[desktop] phone helpers: number stepper, folded campaign status, play resume tab, offline cache list',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const st=numStepperMarkup(2,`setPostBattleNumber('extraDice',%v)`,0,20);
+    const r=activeRoster();const f=faction(r);const w=f.warriors[0];r.fighters.push({...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    const status=fighterStatusControlsMarkup(r.fighters[0]);
+    return {minus:/extraDice',1\)/.test(st),plus:/extraDice',3\)/.test(st),numpad:/inputmode="numeric"/.test(st),fold:/<details class="fighter-status-panel fighter-status-fold/.test(status)&&/<\/details>$/.test(status.trim()),wake:typeof wakeWanted==='function'}});
+  expect(out.minus&&out.plus&&out.numpad,'stepper buttons and numeric keypad: '+JSON.stringify(out));
+  expect(out.fold,'campaign status is a foldable block: '+JSON.stringify(out));
+  expect(out.wake,'wake lock helper present: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
