@@ -935,6 +935,16 @@ await test('[desktop] animated background: setting, mist and embers, off in Day 
   expect(out.both.fog===3&&out.both.ash>=40&&out.fog.ash===0&&out.ash.fog===0&&out.off,'the setting picks mist, embers, both or none: '+JSON.stringify(out));
   expect(out.light&&out.back,'off in Day mode, back afterwards: '+JSON.stringify(out));
 });
+await test('[desktop] My Campaigns never stays on Loading: last known campaign shown, bounded retries',null,async page=>{
+  let fail=true,n=0;await page.route(/\/api\/account\/campaigns/,r=>{n++;fail?r.fulfill({status:429,contentType:'application/json',body:'{"error":"RATE_LIMITED"}'}):r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({entries:[{campaignId:'lus',campaignName:'Lustrie',campaignColor:'#3fae6a',rosterId:'A',rosterName:'Band',leftAt:null}]})})});
+  await page.route(/\/api\/campaigns(\?|$)/,r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({campaigns:[{id:'lus',name:'Lustrie',color:'#3fae6a',status:'published',memberCount:7}]})}));
+  await page.evaluate(()=>{siteLanguage='en';localStorage.removeItem(CAMP_LS_MINE);const f=D.factions[0];state.rosters=[{id:'A',name:'Band',factionId:f.id,gold:100,fighters:[],campaignId:'lus',campaignName:'Lustrie',campaignColor:'#3fae6a'}];state.active='A';save(true);navigateApp('/campaigns')});
+  await page.waitForTimeout(2500);const t1=await page.textContent('#content');const n1=n;
+  fail=false;await page.evaluate(()=>myCampaignEntriesRetry());await page.waitForTimeout(1200);const t2=await page.textContent('#content');
+  expect(!/Loading…/.test(t1)&&/Lustrie/.test(t1)&&/Retry/.test(t1),'a failed answer still shows the warband\'s campaign with a Retry button: '+t1.slice(0,200));
+  expect(n1<=2,'no request storm after a failure: '+n1);
+  expect(/UP TO DATE|Up to date/i.test(t2)&&!/Retry/.test(t2),'Retry loads the real list: '+t2.slice(0,200));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

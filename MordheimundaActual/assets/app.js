@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0771.0';
+const APP_BUILD='110.0772.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13587,9 +13587,9 @@ function loadMyCampaignEntries(view){campaignLoad('mine',async()=>{
   // V-CAMPKEEP: only a real answer from the server may change which campaign a
   // warband is in. A failed request (site paused, offline, rate limit…) used
   // to count as "in no campaign" and detached every warband from its campaign.
-  let r;try{r=await window.MordheimundaAPI.myCampaignEntries()}catch(e){campaignRerender(view);return}
-  if(!Array.isArray(r?.entries)){campaignRerender(view);return}
-  myCampaignEntriesCache=r.entries;
+  let r;try{r=await window.MordheimundaAPI.myCampaignEntries()}catch(e){myCampaignEntriesFailed(view,e);return}
+  if(!Array.isArray(r?.entries)){myCampaignEntriesFailed(view,null);return}
+  myCampaignEntriesCache=r.entries;myCampaignEntriesError=null;myCampaignEntriesTries=0;try{localStorage.setItem(CAMP_LS_MINE,JSON.stringify({entries:r.entries,at:Date.now()}))}catch(e){}
   // Keep each local warband's campaign link in step with the server (joins
   // made on another device, a campaign deleted meanwhile…).
   let changed=false;(state.rosters||[]).forEach(r=>{const e=myCampaignEntriesCache.find(x=>x.rosterId===r.id&&!x.leftAt);const want=e?e.campaignId:null;if((r.campaignId||null)!==want){r.campaignId=want;r.campaignName=e?.campaignName||null;r.campaignColor=e?.campaignColor||null;changed=true}});
@@ -14151,14 +14151,14 @@ function myCampaignInfo(c){
 }
 function myCampaignStatLine(c,i){const en=siteLanguage==='en';const bits=[];bits.push(`${en?'Playing as':'Joue avec'} <b class="mc-wb">${esc(i.wb)}</b>`);if(i.rank)bits.push(`${en?'rank':'rang'} <b>${i.rank}</b>${i.count?`/${i.count}`:''}`);if(i.val!=null)bits.push(`${esc(campaignStandingLabel(i.sk))} <b class="mc-gold">${i.val}${campaignStandingUnit(i.sk)?' '+esc(campaignStandingUnit(i.sk)):''}</b>`);if(i.res)bits.push(`${en?'lives in':'réside à'} ${esc(i.res.name||'')}`);return bits.join(' · ')}
 function myCampaigns(){
-  const en=siteLanguage==='en';if(myCampaignEntriesCache===null)loadMyCampaignEntries('myCampaigns');if(campaignsCache===null||campaignListStale)loadCampaignList('myCampaigns');
-  const entries=(myCampaignEntriesCache||[]).filter(e=>!e.leftAt);const byCamp=new Map();entries.forEach(e=>{if(!byCamp.has(e.campaignId))byCamp.set(e.campaignId,{id:e.campaignId,name:e.campaignName,color:e.campaignColor,entries:[]});byCamp.get(e.campaignId).entries.push(e)});
+  const en=siteLanguage==='en';if(myCampaignEntriesCache===null&&!myCampaignEntriesError)loadMyCampaignEntries('myCampaigns');if(campaignsCache===null||campaignListStale)loadCampaignList('myCampaigns');
+  const known=myCampaignEntriesCache||myCampaignEntriesKnown();const entries=(known||[]).filter(e=>!e.leftAt);const byCamp=new Map();entries.forEach(e=>{if(!byCamp.has(e.campaignId))byCamp.set(e.campaignId,{id:e.campaignId,name:e.campaignName,color:e.campaignColor,entries:[]});byCamp.get(e.campaignId).entries.push(e)});
   const others=(campaignsCache||[]).filter(c=>!byCamp.has(c.id));
   const list=[...byCamp.values()];const last=restoreUiState('lastHub','');list.sort((a,b)=>(b.id===last)-(a.id===last));
   const enter=c=>`navigateApp('/campaigns/${encodeURIComponent(c.id)}')`;const rules=c=>`navigateApp('/rules/campaign/${encodeURIComponent(c.id)}')`;
   const todoMarkup=t=>`<button type="button" class="mc-todo ${t.cls}" onclick="${t.go}"><i></i><span>${esc(t.text)}</span><b>${esc(t.cta)}</b></button>`;
   let hero='',rows='';
-  if(myCampaignEntriesCache===null)hero=`<div class="empty">${en?'Loading…':'Chargement…'}</div>`;
+  if(known===null)hero=myCampaignEntriesError?myCampaignEntriesErrorMarkup(en):`<div class="empty">${en?'Loading…':'Chargement…'}</div>`;
   else if(!list.length)hero=`<div class="mc-none"><strong>${en?'None of your warbands is in a campaign yet.':'Aucune de tes bandes n’est encore en campagne.'}</strong><p>${en?'Join one with the code the admin gave you, or read an open campaign’s rules.':'Rejoins-en une avec le code donné par l’admin, ou lis les règles d’une campagne ouverte.'}</p></div>`;
   else{
     const c=list[0];const i=myCampaignInfo(c);const full=i.det||c;const col=campaignColor(full);
@@ -14166,6 +14166,7 @@ function myCampaigns(){
       <div class="mc-wait"><span class="mc-wait-head${i.waiting?'':' ok'}">${i.loading?(en?'LOADING…':'CHARGEMENT…'):i.waiting?`${en?'WAITING FOR YOU':'EN ATTENTE'} · ${i.waiting}`:(en?'✓ UP TO DATE':'✓ À JOUR')}</span>${i.todo.map(todoMarkup).join('')||`<small class="muted">${en?'Nothing to do — go play a game!':'Rien à faire — va jouer une partie !'}</small>`}</div></div></section>`;
     rows=list.slice(1).map(c=>{const i=myCampaignInfo(c);const full=i.det||c;return `<div class="mc-row" style="--cc:${campaignColor(full)}" onclick="if(!event.target.closest('button,a'))${enter(c)}">${campaignCoverMarkup(full,'mc-row-img')}<div class="mc-row-body"><b>${esc(full.name||c.name||'')}</b><small>${myCampaignStatLine(c,i)}</small><span class="mc-row-note${i.waiting?' wip':''}">${i.waiting?`● ${i.waiting} ${en?'waiting for you':'en attente'}`:(en?'✓ Up to date':'✓ À jour')}</span></div><button type="button" class="button secondary mc-row-btn" onclick="${enter(c)}">${en?'Enter':'Entrer'} ▸</button></div>`}).join('');
   }
+  if(known!==null&&myCampaignEntriesCache===null&&myCampaignEntriesError)hero=myCampaignEntriesErrorMarkup(en,true)+hero;
   $('#content').innerHTML=`<div class="ref-page mc-page"><div class="rules-head"><div class="eyebrow">${en?'PLAY':'JOUER'}</div><h1 class="rules-page-title">${en?'My Campaigns':'Mes campagnes'}</h1>${isAdminEditUI()?`<div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button></div>`:''}</div>
    ${hero}
    <div class="mc-lower${rows?'':' solo'}">${rows?`<section class="mc-others"><h3 class="mc-h">${en?'My other campaigns':'Mes autres campagnes'}</h3>${rows}</section>`:''}
@@ -21617,3 +21618,22 @@ try{window.matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('
 {const o=window.setSiteTheme;if(typeof o==='function')window.setSiteTheme=function(...a){const out=o.apply(this,a);try{ambientSync(true)}catch(e){}return out}}
 {const o=window.readToolsSync;if(typeof o==='function')window.readToolsSync=function(...a){try{ambientSync(false)}catch(e){}return o.apply(this,a)}}
 setTimeout(()=>ambientSync(false),300);
+// ============ V-CAMPSTUCK: "My Campaigns" never stays on "Loading…" ============
+// A single failed answer for the player's campaign entries used to leave the
+// page on "Loading…" for good (the re-render happened while that request was
+// still marked in progress, so nothing asked again). Now: the last answer is
+// kept on the device and shown at once, else each warband's own campaign
+// link; a failure is retried after a pause (3 times), then a Retry button.
+const CAMP_LS_MINE='mordheimunda_campaign_entries_v1';let myCampaignEntriesError=null,myCampaignEntriesTries=0,myCampaignEntriesTimer=null;
+function myCampaignEntriesKnown(){try{const o=JSON.parse(localStorage.getItem(CAMP_LS_MINE)||'null');if(o&&Array.isArray(o.entries)){const ids=new Set((state.rosters||[]).map(r=>String(r.id)));const own=o.entries.filter(e=>ids.has(String(e.rosterId)));if(own.length||!o.entries.length)return o.entries}}catch(e){}
+  const linked=(state.rosters||[]).filter(r=>r&&r.campaignId);if(!linked.length)return null;return linked.map(r=>({campaignId:r.campaignId,campaignName:r.campaignName||'',campaignColor:r.campaignColor||null,rosterId:r.id,rosterName:r.name,leftAt:null,fromLocal:true}))}
+function myCampaignEntriesFailed(view,e){myCampaignEntriesError=e?.message||e?.status||'ERROR';myCampaignEntriesTries++;
+  // released before re-rendering, so the next render may ask again
+  campaignLoadsInFlight.delete('mine');clearTimeout(myCampaignEntriesTimer);
+  if(myCampaignEntriesTries<=3){const wait=[0,4000,10000,25000][myCampaignEntriesTries]||25000;myCampaignEntriesTimer=setTimeout(()=>{if(myCampaignEntriesCache===null)loadMyCampaignEntries(view)},String(myCampaignEntriesError).includes('RATE_LIMITED')?Math.max(wait,30000):wait)}
+  campaignRerender(view)}
+function myCampaignEntriesRetry(){myCampaignEntriesTries=0;myCampaignEntriesError=null;campaignLoadsInFlight.delete('mine');loadMyCampaignEntries(parseAppRoute().view);renderCurrentRoute()}
+function myCampaignEntriesErrorMarkup(en,soft){const auth=/NOT_AUTHENTICATED|401/.test(String(myCampaignEntriesError));const busy=/RATE_LIMITED|429/.test(String(myCampaignEntriesError));
+  const msg=auth?(en?'You are signed out: sign in again to see your campaigns.':'Tu es déconnecté : reconnecte-toi pour voir tes campagnes.'):busy?(en?'The server is busy for a moment.':'Le serveur est occupé pour un moment.'):(en?'Could not reach the server.':'Impossible de joindre le serveur.');
+  return `<div class="mc-net${soft?' soft':''}"><span>${soft?(en?'Showing what this phone knows. ':'Affichage de ce que le téléphone connaît. '):''}${msg}</span><button type="button" class="button secondary small" onclick="${auth?"navigateApp(APP_ROUTES.account)":'myCampaignEntriesRetry()'}">${auth?(en?'Sign in':'Se connecter'):(en?'Retry':'Réessayer')}</button></div>`}
+try{const o=JSON.parse(localStorage.getItem(CAMP_LS_MINE)||'null');if(o&&Array.isArray(o.entries)&&myCampaignEntriesCache===null){/* shown at once, refreshed in the background */}}catch(e){}
