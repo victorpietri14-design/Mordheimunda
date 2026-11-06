@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0775.0';
+const APP_BUILD='110.0776.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4656,6 +4656,7 @@ function account(){
   <div class="eyebrow">${en?'PREFERENCES':'PRÉFÉRENCES'}</div><h3>${en?'Display':'Affichage'}</h3>
   <div class="acct-pref-row"><span>${en?'Language':'Langue'}<span class="acct-pref-sub">${en?'':''}</span></span><select id="acctLanguageSelect" aria-label="Site language" onchange="setSiteLanguage(this.value)"><option value="en" ${siteLanguage==='en'?'selected':''}>English</option><option value="fr" ${siteLanguage==='fr'?'selected':''}>Français</option></select></div>
   <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Day mode':'Mode jour'}<span class="acct-pref-sub">${en?'White background, easier to read in bright light':'Fond blanc, plus lisible en plein soleil'}</span></span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label></div><div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Candle mode':'Mode bougie'}<span class="acct-pref-sub">${en?'Warm and dim, for evening games':'Chaud et tamisé, pour jouer le soir'}</span></span><span class="theme-switch"><input type="checkbox" class="candle-toggle-input" ${siteTheme==='candle'?'checked':''} onchange="toggleCandleTheme()"><i>✦</i></span></label></div>
+  <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Candle mode in the evening':'Mode bougie le soir'}<span class="acct-pref-sub">${en?'Switches to Candle mode by itself from 8 pm to 7 am, and back in the morning. Only on this device.':'Passe tout seul en mode bougie de 20 h à 7 h, et revient le matin. Seulement sur cet appareil.'}</span></span><span class="theme-switch"><input type="checkbox" ${themeAutoOn()?'checked':''} onchange="setThemeAuto(this.checked)"><i>☾</i></span></label></div>
   <div class="acct-pref-row"><span>${en?'Animated background':'Fond animé'}<span class="acct-pref-sub">${en?'Drifting mist and rising embers over the city. Off in Day mode and when your phone asks for less motion. Only on this device.':'Brume qui dérive et cendres qui montent devant la ville. Coupé en mode Jour et si le téléphone demande moins d’animations. Seulement sur cet appareil.'}</span></span>${ambientSelectMarkup(en)}</div>
   <div class="acct-pref-row"><span>${en?'Interface size':'Taille de l’interface'}<span class="acct-pref-sub">${en?'Bigger text and buttons, for a phone that is hard to read. Only on this device.':'Textes et boutons plus grands, pour un téléphone difficile à lire. Seulement sur cet appareil.'}</span></span>${comfortSelectMarkup(en)}</div>
   <div class="acct-pref-row"><label style="display:flex;align-items:center;justify-content:space-between;width:100%;cursor:pointer"><span>${en?'Automatic translation':'Traduction automatique'}<span class="acct-pref-sub">${en?'In French, texts only written in English (rules, quests, scenarios…) are translated automatically':'En français, les textes écrits seulement en anglais (règles, quêtes, scénarios…) sont traduits automatiquement'}</span></span><span class="theme-switch"><input type="checkbox" aria-label="${en?'Automatic translation':'Traduction automatique'}" ${mtEnabled?'checked':''} onchange="setAutoTranslate(this.checked)"><i>文</i></span></label></div>
@@ -8079,7 +8080,7 @@ function openSiteSearch(){
 function closeSiteSearch(){const el=document.getElementById('siteSearch');if(el)el.hidden=true;document.body.classList.remove('search-open')}
 function drawSiteSearch(){
   const box=document.getElementById('siteSearchResults');if(!box)return;const en=siteLanguage==='en';const q=siteSearchQuery.trim();siteSearchFlat=[];
-  if(searchNorm(q).length<2){box.innerHTML=`<p class="site-search-hint">${en?'Type at least 2 letters. Every word must start a word of the result: “hired sw” finds Hired Swords.':'Tape au moins 2 lettres. Chaque mot doit commencer un mot du résultat : « hired sw » trouve Hired Swords.'}</p>`;return}
+  if(searchNorm(q).length<2){box.innerHTML=searchStartMarkup(en)+`<p class="site-search-hint">${en?'Type at least 2 letters. Every word must start a word of the result: “hired sw” finds Hired Swords.':'Tape au moins 2 lettres. Chaque mot doit commencer un mot du résultat : « hired sw » trouve Hired Swords.'}</p>`;return}
   const all=searchRun(q);if(siteSearchFilter&&!all.some(g=>g.key===siteSearchFilter))siteSearchFilter='';const groups=siteSearchFilter?all.filter(g=>g.key===siteSearchFilter):all;
   if(!groups.length){box.innerHTML=`<p class="site-search-hint">${en?`No result for “${esc(q)}”.`:`Aucun résultat pour « ${esc(q)} ».`}</p>`;return}
   box.innerHTML=siteSearchChips(all,en)+groups.map(g=>{const lim=siteSearchFilter||siteSearchOpenGroups.has(g.key)?40:5;const items=g.items.slice(0,lim);return `<section class="site-search-group"><div class="site-search-label">${esc(g.label)} <small>${g.items.length}</small></div>${items.map(it=>{const n=siteSearchFlat.push(it)-1;return `<button type="button" class="site-search-item${n===siteSearchSel?' sel':''}" data-n="${n}" onclick="siteSearchGo(${n})"><b>${searchHl(it.title,q)}</b>${it.sub?`<small>${searchHl(it.sub,q)}</small>`:''}</button>`}).join('')}${g.items.length>lim?`<button type="button" class="site-search-more" onclick="siteSearchOpenGroups.add('${g.key}');drawSiteSearch()">${en?`Show ${Math.min(g.items.length,40)-lim} more`:`Voir ${Math.min(g.items.length,40)-lim} de plus`}</button>`:''}</section>`}).join('');
@@ -8089,7 +8090,7 @@ function siteSearchKey(e){
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!siteSearchFlat.length)return;siteSearchSel=(siteSearchSel+(e.key==='ArrowDown'?1:-1)+siteSearchFlat.length)%siteSearchFlat.length;document.querySelectorAll('.site-search-item').forEach(b=>b.classList.toggle('sel',Number(b.dataset.n)===siteSearchSel));document.querySelector('.site-search-item.sel')?.scrollIntoView({block:'nearest'});return}
   if(e.key==='Enter'){e.preventDefault();if(siteSearchFlat[siteSearchSel])siteSearchGo(siteSearchSel)}
 }
-function siteSearchGo(n){const it=siteSearchFlat[n];if(!it)return;closeSiteSearch();try{it.go()}catch(e){console.warn(e)}}
+function siteSearchGo(n){const it=siteSearchFlat[n];if(!it)return;try{searchRecentAdd(siteSearchQuery)}catch(e){}closeSiteSearch();try{it.go()}catch(e){console.warn(e)}}
 function searchOpenRef(cat,id){navigateApp(APP_ROUTES.references);openReference(cat,id)}
 function searchOpenRule(i){
   const h=searchRulesIndex()[i];if(!h)return;navigateApp(APP_ROUTES.rules);openRuleSection(h.sec);
@@ -8139,7 +8140,7 @@ function openTabSheet(kind){
     const admin=isAdminSession();
     html=`<div class="tab-sheet-label">${en?'MORE':'PLUS'}</div>`+tabSheetLink(APP_ROUTES.custom,'✦',en?'Personal content':'Contenu perso')+tabSheetLink(APP_ROUTES.account,'👤',en?'Account':'Compte')+(admin?tabSheetLink(APP_ROUTES.admin,'⛉',en?'Admin panel':'Panneau admin'):'')
      +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
-     +`<div class="tab-sheet-sep"></div><label class="tab-sheet-row"><span>${en?'Day mode':'Mode jour'}</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Candle mode':'Mode bougie'}</span><span class="theme-switch"><input type="checkbox" class="candle-toggle-input" ${siteTheme==='candle'?'checked':''} onchange="toggleCandleTheme()"><i>✦</i></span></label><label class="tab-sheet-row"><span>${en?'Animated background':'Fond animé'}</span>${ambientSelectMarkup(en)}</label>`
+     +`<div class="tab-sheet-sep"></div><label class="tab-sheet-row"><span>${en?'Day mode':'Mode jour'}</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Candle mode':'Mode bougie'}</span><span class="theme-switch"><input type="checkbox" class="candle-toggle-input" ${siteTheme==='candle'?'checked':''} onchange="toggleCandleTheme()"><i>✦</i></span></label><label class="tab-sheet-row"><span>${en?'Candle in the evening':'Bougie le soir'}</span><span class="theme-switch"><input type="checkbox" ${themeAutoOn()?'checked':''} onchange="setThemeAuto(this.checked)"><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Animated background':'Fond animé'}</span>${ambientSelectMarkup(en)}</label>`
      +(admin?`<label class="tab-sheet-row"><span>${en?'Player view':'Vue Joueur'}</span><span class="theme-switch"><input type="checkbox" class="admin-view-toggle-input" ${adminViewMode==='player'?'checked':''}><i>🎭</i></span></label>`:'')
      +`<label class="tab-sheet-row"><span>${en?'Interface size':'Taille de l’interface'}</span>${comfortSelectMarkup(en)}</label>`
      +`<label class="tab-sheet-row"><span>${en?'Language':'Langue'}</span><select onchange="closeTabSheet();setSiteLanguage(this.value)"><option value="en" ${en?'selected':''}>English</option><option value="fr" ${en?'':'selected'}>Français</option></select></label>`;
@@ -17371,10 +17372,25 @@ function weaponCategoryScope(sentence){
   if(/\ball\s+(?:of\s+)?(?:his|her|their|its|the(?:\s+fighter['’]s|\s+warrior['’]s)?)\s+weapons\b|\b(?:his|her|their|its)\s+weapons\b|\btoutes?\s+(?:ses|les)\s+armes\b|\bses\s+armes\b|\bles\s+armes\s+de\s+ce\b/i.test(t))return 'all';
   return null;
 }
+// V-STATRECACHE: the patterns are built once and reused (they used to be
+// rebuilt for every text of every fighter at each render).
+const STAT_RE_CACHE=new Map();function statBonusRe(src,fl){const k=fl+'\u0000'+src;let r=STAT_RE_CACHE.get(k);if(!r){r=new RegExp(src,fl);STAT_RE_CACHE.set(k,r)}r.lastIndex=0;return r}
+// V-STATMEMO: the result only depends on the text, the fighter's name (its
+// subtype), its characteristics and the weapons it carries; it is kept and handed out as a copy.
+const STAT_MEMO=new Map();
 function detectStatBonusesInText(rawText,ctx,opts){
+  const text0=String(rawText||'');if(!text0.trim()||!/\d/.test(text0))return [];
+  let key=null;try{key=(opts?.weapons?'W':'-')+'\u0001'+String(ctx?.name||ctx?.sourceName||'')+'\u0001'+(ctx?fighterCarriedWeaponNames(ctx).join('|'):'')+'\u0001'+(Array.isArray(ctx?.profile)?ctx.profile.join(','):'')+'\u0001'+text0}catch(e){}
+  if(key!=null&&STAT_MEMO.has(key))return STAT_MEMO.get(key).map(o=>({...o}));
+  const res=detectStatBonusesInTextRaw(rawText,ctx,opts);
+  if(key!=null){if(STAT_MEMO.size>3000)STAT_MEMO.clear();STAT_MEMO.set(key,res.map(o=>({...o})))}
+  return res}
+function detectStatBonusesInTextRaw(rawText,ctx,opts){
   try{
     const text=String(rawText||'');
     if(!text.trim())return [];
+    // every pattern below needs a number: a text without any digit can't match
+    if(!/\d/.test(text))return [];
     const out=[];
     const subtypeGate=fighterSubtypeGateFor(ctx);
     const weaponNames=ctx?fighterCarriedWeaponNames(ctx):[];
@@ -17395,21 +17411,21 @@ function detectStatBonusesInText(rawText,ctx,opts){
     };
     STAT_BONUS_DEFS.forEach(def=>{
       const alt=def.names.map(escapeRegexLiteral).join('|');
-      const fwd=new RegExp(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*([+-]\\d+)','gi');
+      const fwd=statBonusRe(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*([+-]\\d+)','gi');
       let m;while((m=fwd.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
-      const rev=new RegExp('([+-]\\d+)\\s*(?:en|de|d\'|d’|)\\s*'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
+      const rev=statBonusRe('([+-]\\d+)\\s*(?:en|de|d\'|d’|)\\s*'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
       while((m=rev.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
       // V-KEYWORDS2: more natural phrasings, English and French —
       // "+1 to his Strength" / "+1 à sa Force", "increases his Toughness by 1"
       // / "augmente sa Force de 1", "reduces/réduit son Endurance de 1",
       // "Strength is increased by 1" / "sa Force est augmentée de 1".
       const own='(?:(?:his|her|their|its|the|this\\s+(?:model|warrior|fighter)\'s|son|sa|ses|le|la|les|l\'|l’)\\s*)?';
-      const toRe=new RegExp('([+-]\\d+)\\s*(?:to|à|a)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'(?!\\s*(?:tests?|checks?|rolls?|jets?))','gi');
+      const toRe=statBonusRe('([+-]\\d+)\\s*(?:to|à|a)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'(?!\\s*(?:tests?|checks?|rolls?|jets?))','gi');
       while((m=toRe.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0]);}
       const neg=v=>/^(?:reduc|reduit|réduit|lower|decreas|diminu|baiss|perd|lose)/i.test(v);
-      const verbRe=new RegExp('(increases?|raises?|improves?|boosts?|augmente(?:nt)?|améliore(?:nt)?|ameliore(?:nt)?|reduces?|lowers?|decreases?|réduit|reduit|réduisent|diminue(?:nt)?|baisse(?:nt)?)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*(?:by|de|d\'|d’)\\s*(\\d+)','gi');
+      const verbRe=statBonusRe('(increases?|raises?|improves?|boosts?|augmente(?:nt)?|améliore(?:nt)?|ameliore(?:nt)?|reduces?|lowers?|decreases?|réduit|reduit|réduisent|diminue(?:nt)?|baisse(?:nt)?)\\s+'+own+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*(?:by|de|d\'|d’)\\s*(\\d+)','gi');
       while((m=verbRe.exec(text))){const n=parseInt(m[2],10);add(def.stat,def.index,neg(m[1])?-n:n,m.index,m[0].length,m[0]);}
-      const passRe=new RegExp(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:is|are|est|sont)\\s+(increased|raised|improved|reduced|lowered|decreased|augmentée?s?|améliorée?s?|réduite?s?|reduite?s?|diminuée?s?|baissée?s?)\\s+(?:by|de|d\'|d’)\\s*(\\d+)','gi');
+      const passRe=statBonusRe(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:is|are|est|sont)\\s+(increased|raised|improved|reduced|lowered|decreased|augmentée?s?|améliorée?s?|réduite?s?|reduite?s?|diminuée?s?|baissée?s?)\\s+(?:by|de|d\'|d’)\\s*(\\d+)','gi');
       while((m=passRe.exec(text))){const n=parseInt(m[2],10);add(def.stat,def.index,neg(m[1])?-n:n,m.index,m[0].length,m[0]);}
       // V-STATSET: some skills/special rules FIX a stat to an absolute value
       // instead of modifying it by a delta — "Mouvement fixé à 8"", "Son
@@ -17439,9 +17455,9 @@ function detectStatBonusesInText(rawText,ctx,opts){
       // this fix — only the OTHER explicit verbs (devient/passe à/fixé à/is
       // now/becomes/is fixed at/is set to) may appear with OR without an
       // "est " in front, which is the only combination this was meant to add.
-      const setRe=new RegExp(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*(?:est\\s+(?:d[ée]sormais\\s+|maintenant\\s+)?de\\s+|(?:est\\s+(?:d[ée]sormais\\s+|maintenant\\s+)?)?(?:devient\\s*|passe\\s*[aà]\\s*|fix[ée]e?\\s*[aà]\\s*|is\\s+now\\s*|becomes\\s*|is\\s+fixed\\s+at\\s*|is\\s+set\\s+to\\s*))(\\d+)','gi');
+      const setRe=statBonusRe(STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER+'\\s*(?:est\\s+(?:d[ée]sormais\\s+|maintenant\\s+)?de\\s+|(?:est\\s+(?:d[ée]sormais\\s+|maintenant\\s+)?)?(?:devient\\s*|passe\\s*[aà]\\s*|fix[ée]e?\\s*[aà]\\s*|is\\s+now\\s*|becomes\\s*|is\\s+fixed\\s+at\\s*|is\\s+set\\s+to\\s*))(\\d+)','gi');
       while((m=setRe.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0],'set');}
-      const setRevRe=new RegExp('(?:is now|becomes|is fixed at|is set to|set to)\\s*(\\d+)\\s*'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
+      const setRevRe=statBonusRe('(?:is now|becomes|is fixed at|is set to|set to)\\s*(\\d+)\\s*'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
       while((m=setRevRe.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0],'set');}
       // V-STATSETGAP: a real M17 movement-type rule reads "Set to 8" this
       // model movement..." — the number comes right after the verb (no "is"
@@ -17462,7 +17478,7 @@ function detectStatBonusesInText(rawText,ctx,opts){
       // matched nothing at all: the exact case this whole pattern exists
       // for, and the exact text an admin gets from editing/retyping such a
       // rule (e.g. "Fliying Horror": "Set to 8” this model movement…").
-      const setRevGapRe=new RegExp('(?:is now|becomes|is fixed at|is set to|set to)\\s*(\\d+)[\\u0022\\u201c\\u201d]?\\s*(?:(?:this|that|the|his|her|their|its)\\s+(?:model|warrior|creature|character|fighter)(?:\'s)?\\s+)'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
+      const setRevGapRe=statBonusRe('(?:is now|becomes|is fixed at|is set to|set to)\\s*(\\d+)[\\u0022\\u201c\\u201d]?\\s*(?:(?:this|that|the|his|her|their|its)\\s+(?:model|warrior|creature|character|fighter)(?:\'s)?\\s+)'+STAT_BONUS_WORD_BEFORE+'(?:'+alt+')'+STAT_BONUS_WORD_AFTER,'gi');
       while((m=setRevGapRe.exec(text))){add(def.stat,def.index,parseInt(m[1],10),m.index,m[0].length,m[0],'set');}
     });
     // Armour save ("case sauvegarde") — a delta on the die-roll number, e.g.
@@ -17525,13 +17541,13 @@ function detectStatBonusesInText(rawText,ctx,opts){
         for(let i=out.length-1;i>=0;i--){const o=out[i];if(o.stat===def.stat&&(o.mode||'delta')==='delta'&&o._at>=start&&o._at<start+len)out.splice(i,1)}
         out.push({stat:def.stat,index:def.index,delta,mode:'delta',conditional:cond.conditional,conditionText:cond.conditionText,matchedPhrase:String(phrase).trim(),_at:start});
       };
-      const listRe=new RegExp(B+'('+STAT+')((?:\\s*,\\s*'+STAT+')*)\\s+(?:and|et)\\s+('+STAT+')'+A+'\\s+(?:is|are|est|sont)\\s+'+VERB+'\\s+(?:by|de)\\s+(\\d+)','gi');
+      const listRe=statBonusRe(B+'('+STAT+')((?:\\s*,\\s*'+STAT+')*)\\s+(?:and|et)\\s+('+STAT+')'+A+'\\s+(?:is|are|est|sont)\\s+'+VERB+'\\s+(?:by|de)\\s+(\\d+)','gi');
       let m;
       while((m=listRe.exec(text))){
         const n=parseInt(m[5],10)*(neg(m[4])?-1:1);const cond=clauseCond(m.index,m.index+m[0].length,false);
         [m[1],...String(m[2]||'').split(',').map(s=>s.trim()).filter(Boolean),m[3]].forEach(name=>put(defOf(name),n,m.index,m[0].length,m[0],cond));
       }
-      const tailRe=new RegExp(VERB+'\\s+(?:by|de)\\s+\\d+[^.;\\n]*?,?\\s+((?:and|et)\\s+(?:their|his|her|its|leur|sa|son|ses)\\s+('+STAT+')'+A+'\\s+(?:by|de)\\s+(\\d+))','gi');
+      const tailRe=statBonusRe(VERB+'\\s+(?:by|de)\\s+\\d+[^.;\\n]*?,?\\s+((?:and|et)\\s+(?:their|his|her|its|leur|sa|son|ses)\\s+('+STAT+')'+A+'\\s+(?:by|de)\\s+(\\d+))','gi');
       while((m=tailRe.exec(text))){
         const at=m.index+m[0].length-m[2].length;const n=parseInt(m[4],10)*(neg(m[1])?-1:1);
         put(defOf(m[3]),n,at,m[2].length,m[2],clauseCond(at,at+m[2].length,true));
@@ -17543,7 +17559,7 @@ function detectStatBonusesInText(rawText,ctx,opts){
     if(ctx&&Array.isArray(ctx.profile)){
       const ALL=STAT_BONUS_DEFS.flatMap(d=>d.names.map(n=>({n,d}))).sort((a,b)=>b.n.length-a.n.length);
       const STAT='(?:'+ALL.map(o=>escapeRegexLiteral(o.n)).join('|')+')';
-      const exRe=new RegExp('(?:with|avec|ayant)\\s+(?:a\\s+|une?\\s+)?('+STAT+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:of\\s+|de\\s+)?(\\d+)\\s*(?:\\+|or\\s+(?:higher|more|greater|above|better)|ou\\s+plus)[^.]{0,40}?(?:ignores?|ignorent|ne subissent pas|are not affected by|is not affected by)\\s+(?:these|this|the|all|ces|ce|les|cette)?\\s*(?:penalt(?:y|ies)|malus|modifiers?|effects?)','i');
+      const exRe=statBonusRe('(?:with|avec|ayant)\\s+(?:a\\s+|une?\\s+)?('+STAT+')'+STAT_BONUS_WORD_AFTER+'\\s+(?:of\\s+|de\\s+)?(\\d+)\\s*(?:\\+|or\\s+(?:higher|more|greater|above|better)|ou\\s+plus)[^.]{0,40}?(?:ignores?|ignorent|ne subissent pas|are not affected by|is not affected by)\\s+(?:these|this|the|all|ces|ce|les|cette)?\\s*(?:penalt(?:y|ies)|malus|modifiers?|effects?)','i');
       const m=exRe.exec(text);
       if(m){const def=ALL.find(o=>o.n.toLowerCase()===m[1].toLowerCase())?.d;const need=parseInt(m[2],10);const have=def?Number(ctx.profile[def.index]):NaN;
         if(Number.isFinite(have)&&have>=need){for(let i=out.length-1;i>=0;i--){const o=out[i];if((o.mode||'delta')==='delta'&&Number(o.delta)<0&&o.stat!=='SAVE')out.splice(i,1)}}}
@@ -21370,13 +21386,13 @@ function fxPass(){const motion=!window.matchMedia?.('(prefers-reduced-motion: re
       const plus=document.createElement('span');plus.className='fx-plus';plus.textContent='+'+(xp-prev.xp)+' XP';el.appendChild(plus);setTimeout(()=>plus.remove(),1000);
       if(prev.xp<need&&xp>=need){el.querySelector('.xpbar-go')?.classList.add('fx-pulse')}}
     fxSeen[k]={xp}});
-  try{const r=activeRoster();if(r){const g=Math.round(Number(r.gold||0));const prev=fxGoldSeen[r.id];if(prev!=null&&prev!==g&&motion)fxGoldChip(prev,g);fxGoldSeen[r.id]=g}}catch(e){}try{vetPass()}catch(e){}try{fxSkillPass()}catch(e){}}
+  try{const r=rawActiveRoster();if(r){const g=Math.round(Number(r.gold||0));const prev=fxGoldSeen[r.id];if(prev!=null&&prev!==g&&motion)fxGoldChip(prev,g);fxGoldSeen[r.id]=g}}catch(e){}try{vetPass()}catch(e){}try{fxSkillPass()}catch(e){}}
 function fxGoldChip(from,to){const en=siteLanguage==='en';let c=document.getElementById('fxGold');if(!c){c=document.createElement('div');c.id='fxGold';c.className='fx-gold';document.body.appendChild(c)}const d=to-from;
   c.innerHTML=`<small>${en?'TREASURY':'TRÉSOR'}</small><b>${from}</b><em>GC</em><span class="fx-gold-d ${d>0?'up':'down'}">${d>0?'+':'−'}${Math.abs(d)}</span>`;c.classList.remove('out');c.classList.add('in');
   const b=c.querySelector('b');const t0=performance.now(),dur=600;const step=t=>{const k=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-k,3);b.textContent=Math.round(from+(to-from)*e);if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step);
   clearTimeout(c.__t);c.__t=setTimeout(()=>{c.classList.remove('in');c.classList.add('out')},1800)}
 // ============ V-WBTINT: background tinted by the open warband ===========
-function wbTintSync(){try{const v=parseAppRoute().view;const r=(v==='builder'||v==='fighter')?activeRoster():null;if(r&&siteTheme!=='light'){document.body.style.setProperty('--wbt',warbandColor(r));document.body.classList.add('wb-tinted')}else document.body.classList.remove('wb-tinted')}catch(e){}}
+function wbTintSync(){try{const v=parseAppRoute().view;const r=(v==='builder'||v==='fighter')?rawActiveRoster():null;if(r&&siteTheme!=='light'){document.body.style.setProperty('--wbt',warbandColor(r));document.body.classList.add('wb-tinted')}else document.body.classList.remove('wb-tinted')}catch(e){}}
 // ============ V-OOA: Out of Action marked on the game cards ============
 // One tap on a card's badge sets a fighter Out of Action: the card drops to
 // a greyed group at the end and the Rout counter goes up by one (tap again
@@ -21524,7 +21540,7 @@ function playCardsLayout(ps,groups,en){const sec=g=>`<div class="roster-section"
 let rosterFilterQ='',rosterFilterRid=null;
 function rosterFighterHay(x,f){const parts=[x.name,x.type,x.profileName,x.sourceName,...(x.equipmentSelected||[]).map(e=>e.name),...(x.equipmentStash||[]).map(e=>e.name),...(x.skills||[]),...(x.spells||[]),...(x.injuries||[]).map(i=>typeof i==='object'?i.name:i)];try{parts.push(...fighterRuleNames(x,f))}catch(e){}try{parts.push(fighterRace(x,f))}catch(e){}try{const st=fighterStatus(x);if(st.dead)parts.push('dead mort');if(st.recovery)parts.push('recovery convalescence blessé');if(st.captured)parts.push('captured capturé')}catch(e){}return searchNorm(parts.filter(Boolean).join(' '))}
 function rosterFilterSet(v){rosterFilterQ=String(v||'');rosterFilterApply()}
-function rosterFilterApply(){const box=document.querySelector('.roster-sections:not(.play-cards)');if(!box)return;const r=activeRoster();if(!r)return;let f=null;try{f=faction(r)}catch(e){}const toks=searchNorm(rosterFilterQ).split(' ').filter(Boolean);let shown=0;
+function rosterFilterApply(){const box=document.querySelector('.roster-sections:not(.play-cards)');if(!box)return;const r=rawActiveRoster();if(!r)return;let f=null;try{f=faction(r)}catch(e){}const toks=searchNorm(rosterFilterQ).split(' ').filter(Boolean);let shown=0;
   box.querySelectorAll('[data-fx-inst^="card:"]').forEach(el=>{const inst=el.dataset.fxInst.slice(5);const x=(r.fighters||[]).find(q=>q.instance===inst);const host=el.closest('.fighter-card-wrap,.draggable-fighter,[data-fighter-index]')||el;if(!x){return}const hay=rosterFighterHay(x,f);const ok=!toks.length||toks.every(t=>hay.includes(t));host.style.display=ok?'':'none';if(ok)shown++});
   box.querySelectorAll('.roster-section').forEach(sec=>{const any=[...sec.querySelectorAll('[data-fx-inst^="card:"]')].some(el=>(el.closest('.fighter-card-wrap,.draggable-fighter,[data-fighter-index]')||el).style.display!=='none');sec.style.display=any||!toks.length?'':'none'});
   let note=document.getElementById('rosterFilterNote');if(toks.length&&!shown){if(!note){note=document.createElement('div');note.id='rosterFilterNote';note.className='empty compact';box.prepend(note)}note.textContent=siteLanguage==='en'?'No fighter matches.':'Aucun combattant ne correspond.'}else if(note)note.remove()}
@@ -21668,7 +21684,7 @@ function undoContext(){try{const v=parseAppRoute().view;const r=activeRoster();i
 function undoTrack(){if(undoSkip||adminViewingUserId||sharedViewToken)return;const r=Array.isArray(state?.rosters)?state.rosters.find(x=>x?.id===state.active):null;if(!r)return;const rid=String(r.id);const now=undoStr(r);const prev=undoLast.get(rid);undoLast.set(rid,now);if(prev==null||prev===now)return;
   const list=undoHist.get(rid)||[];const top=list[list.length-1];if(top&&Date.now()-top.ts<2000)return;
   list.push({snap:prev,ts:Date.now(),label:(undoPending&&String(undoPending.rid)===rid?undoPending.label:'')||'',where:undoContext()});while(list.length>10)list.shift();undoHist.set(rid,list)}
-function undoSeed(){try{const r=activeRoster();if(r&&!undoLast.has(String(r.id)))undoLast.set(String(r.id),undoStr(r))}catch(e){}}
+function undoSeed(){try{const r=rawActiveRoster();if(r&&!undoLast.has(String(r.id)))undoLast.set(String(r.id),undoStr(r))}catch(e){}}
 function undoList(rid){try{return undoHist.get(String(rid||activeRoster()?.id))||[]}catch(e){return []}}
 function undoRestore(rid,idx){const list=undoHist.get(String(rid))||[];const e=list[idx];if(!e)return false;const i=(state.rosters||[]).findIndex(r=>String(r.id)===String(rid));if(i<0)return false;
   const cur=state.rosters[i];const old=JSON.parse(e.snap);if(old.icon==='@img')old.icon=cur.icon;(old.fighters||[]).forEach(x=>{if(x.image==='@img')x.image=(cur.fighters||[]).find(y=>y.instance===x.instance)?.image||''});
@@ -21723,3 +21739,31 @@ function scenarioRulesUsed(s){const g=glossaryMatcher();if(!g?.re)return [];cons
 // ============ V-A11Y: icon-only buttons get a name a screen reader can say ============
 const A11Y_ICONS={'⋯':['More actions','Plus d’actions'],'⇄':['Other fighters','Autres combattants'],'×':['Close','Fermer'],'✕':['Close','Fermer'],'↑':['Back to top','Haut de page'],'☆':['Pin','Épingler'],'★':['Unpin','Retirer l’épingle'],'🔍':['Search','Rechercher'],'⎙':['Print','Imprimer'],'✎':['Edit','Modifier'],'🗑':['Delete','Supprimer'],'⧉':['Duplicate','Dupliquer'],'▲':['Move up','Monter'],'▼':['Move down','Descendre'],'＋':['Add','Ajouter'],'+':['Add','Ajouter'],'−':['Remove one','Retirer un'],'-':['Remove one','Retirer un'],'🛒':['Add to the shopping list','Ajouter à la liste d’achats'],'☠':['Out of action','Hors de combat'],'↻':['Reroll','Relancer'],'⚙':['Options','Options'],'▶':['Open','Ouvrir'],'←':['Back','Retour'],'‹':['Back','Retour']};
 function a11ySweep(root){const en=siteLanguage==='en';(root||document).querySelectorAll('button:not([aria-label]),[role="button"]:not([aria-label])').forEach(b=>{const t=(b.textContent||'').trim();if(t&&/[A-Za-zÀ-ÿ0-9]{2,}/.test(t))return;const title=b.getAttribute('title');if(title){b.setAttribute('aria-label',title);return}const m=A11Y_ICONS[t];if(m)b.setAttribute('aria-label',en?m[0]:m[1])})}
+// ============ V-THEMEAUTO: candle mode in the evening ============
+const THEME_AUTO_KEY='mu_ui_theme_auto';
+function themeAutoOn(){try{return localStorage.getItem(THEME_AUTO_KEY)==='1'}catch(e){return false}}
+function themeIsEvening(d=new Date()){const h=d.getHours();return h>=20||h<7}
+function themeAutoApply(){if(!themeAutoOn()||siteTheme==='light')return;const want=themeIsEvening()?'candle':'dark';if(siteTheme!==want){siteTheme=want;applySiteTheme();try{ambientSync(true)}catch(e){}}}
+function setThemeAuto(on){try{if(on)localStorage.setItem(THEME_AUTO_KEY,'1');else localStorage.removeItem(THEME_AUTO_KEY)}catch(e){}if(on)themeAutoApply();else if(siteTheme==='candle'&&localStorage.getItem('mu_ui_candle')!=='1'){siteTheme='dark';applySiteTheme()}try{renderCurrentRoute()}catch(e){}}
+setTimeout(themeAutoApply,0);setInterval(themeAutoApply,5*60*1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)themeAutoApply()});
+// ============ V-SEARCHRECENT: recent searches and quick ideas ============
+const SEARCH_RECENT_KEY='mu_search_recent';
+function searchRecentList(){try{const v=JSON.parse(localStorage.getItem(SEARCH_RECENT_KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return []}}
+function searchRecentAdd(q){q=String(q||'').trim();if(searchNorm(q).length<2)return;const l=searchRecentList().filter(x=>searchNorm(x)!==searchNorm(q));l.unshift(q);try{localStorage.setItem(SEARCH_RECENT_KEY,JSON.stringify(l.slice(0,8)))}catch(e){}}
+function searchRecentClear(){try{localStorage.removeItem(SEARCH_RECENT_KEY)}catch(e){}drawSiteSearch()}
+function searchUse(q){siteSearchQuery=q;siteSearchSel=0;siteSearchFilter='';const i=document.getElementById('siteSearchInput');if(i){i.value=q;i.focus()}drawSiteSearch()}
+function searchStartMarkup(en){const rec=searchRecentList();const ideas=en?['Hired Swords','Underdog','Fear','Parry','Wyrdstone','Exploration']:['Hired Swords','Underdog','Fear','Parry','Wyrdstone','Exploration'];const chip=q=>`<button type="button" class="search-start-chip" onclick="searchUse(${esc(JSON.stringify(q))})">${esc(q)}</button>`;
+  return `${rec.length?`<div class="search-start"><div class="site-search-label">${en?'Recent searches':'Recherches récentes'} <button type="button" class="search-start-clear" onclick="searchRecentClear()">${en?'Clear':'Effacer'}</button></div><div class="search-start-row">${rec.map(chip).join('')}</div></div>`:''}<div class="search-start"><div class="site-search-label">${en?'Ideas':'Idées'}</div><div class="search-start-row">${ideas.map(chip).join('')}</div></div>`}
+// ============ V-PULLREFRESH: pull down at the top to sync ============
+{let y0=null,pulled=0,el=null;const max=110,need=70;
+ const ok=e=>window.scrollY<=0&&!document.querySelector('.modal:not(.hidden),#siteSearch:not([hidden]),.tab-sheet-wrap.open')&&!(e.target.closest&&e.target.closest('input,textarea,select,.play-table,.st-tl-chips,.site-search-chips'));
+ const bar=()=>{if(!el){el=document.createElement('div');el.id='pullRefresh';el.className='pull-refresh';el.innerHTML='<i>↓</i><span></span>';document.body.appendChild(el)}return el};
+ document.addEventListener('touchstart',e=>{y0=ok(e)&&e.touches.length===1?e.touches[0].clientY:null;pulled=0},{passive:true});
+ document.addEventListener('touchmove',e=>{if(y0==null)return;const d=e.touches[0].clientY-y0;if(d<=0||window.scrollY>0){pulled=0;if(el)el.style.transform='translate(-50%,-80px)';return}pulled=Math.min(max,d*0.5);const b=bar();const en=siteLanguage==='en';b.style.transform=`translate(-50%,${pulled-60}px)`;b.classList.toggle('ready',pulled>=need);b.querySelector('span').textContent=pulled>=need?(en?'Release to sync':'Relâche pour synchroniser'):(en?'Pull to sync':'Tire pour synchroniser')},{passive:true});
+ document.addEventListener('touchend',()=>{if(y0==null)return;y0=null;const b=el;if(!b)return;if(pulled>=need){const en=siteLanguage==='en';b.classList.add('busy');b.querySelector('span').textContent=en?'Syncing…':'Synchronisation…';pullRefreshRun().finally(()=>{b.classList.remove('busy','ready');b.style.transform='translate(-50%,-80px)'})}else b.style.transform='translate(-50%,-80px)';pulled=0},{passive:true})}
+async function pullRefreshRun(){const en=siteLanguage==='en';try{if(cloudIsSignedIn()){try{if(hasUnsavedLocalEdits())await flushCloudSave()}catch(e){}try{cloudPollSoon(true)}catch(e){}}
+  try{campaignListStale=true;myCampaignEntriesCache=null;myCampaignEntriesError=null;myCampaignEntriesTries=0}catch(e){}await new Promise(z=>setTimeout(z,700));renderCurrentRoute();toast(en?'Up to date':'À jour')}catch(e){toast(en?'Could not sync':'Synchronisation impossible')}}
+
+// V-RAWACTIVE: post-render passes only read the open warband, so they use the
+// stored one instead of activeRoster(), which re-normalizes it on each call.
+function rawActiveRoster(){return Array.isArray(state?.rosters)?state.rosters.find(r=>r&&r.id===state.active)||null:null}
