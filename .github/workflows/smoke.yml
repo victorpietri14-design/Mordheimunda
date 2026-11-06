@@ -22,4 +22,4 @@ jobs:
           python3 -m http.server 8765 >/tmp/http.log 2>&1 &
           sleep 2
       - name: Run smoke tests
-        run: node tests/smoke.mjs http://localhost:8765
+        run: node tests/run-parallel.mjs http://localhost:8765 3
