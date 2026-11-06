@@ -2492,6 +2492,9 @@ app.use('/data',express.static(path.join(publicDir,'data'),staticOpts));
 const sendIndex=(_req,res)=>res.sendFile(path.join(publicDir,'index.html'),{headers:{'Cache-Control':'no-cache'}});
 app.get('/',sendIndex);
 app.get(/.*/,sendIndex);
+// V-GZIPPUT: a body the server cannot read (unknown compression, broken
+// gzip, bad JSON, too big) gets a clear answer instead of a 500.
+app.use((err,_req,res,next)=>{const t=err?.type;if(t==='encoding.unsupported'||t==='stream.encoding.set')return res.status(415).json({error:'BAD_BODY_ENCODING'});if(t==='entity.too.large')return res.status(413).json({error:'DATA_TOO_LARGE'});if(t==='entity.parse.failed'||(err?.status===400&&(err?.errno!=null||/compress|gzip|deflate|incorrect header|unexpected end/i.test(String(err?.message||'')))))return res.status(400).json({error:'BAD_BODY_ENCODING'});next(err)});
 app.use((err,_req,res,_next)=>{console.error(err);res.status(500).json({error:'INTERNAL_SERVER_ERROR'})});
 
 if(pool)pool.on('error',e=>console.error('PostgreSQL pool error',e));
