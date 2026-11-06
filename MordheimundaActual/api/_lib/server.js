@@ -1699,6 +1699,27 @@ app.post('/api/media',requireDb,requireSameOrigin,auth,mediaLimiter,trafficGuard
 // Backup). Works in small steps (each call stops after ~15 s and says
 // whether more is left) so it never hits the function time limit. A
 // player's account gets a history snapshot first, so it can be restored.
+// V-ERRREPORT: players who turned it on send the errors their device
+// recorded. Anonymous: no account, no IP stored; the same error from the
+// same version just adds to its counter. Kept 30 days, at most 2000 rows.
+const errReportLimiter=rateLimit({windowMs:10*60*1000,max:10,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+const errClip=(v,n)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').replace(/[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/gi,'…@…').slice(0,n);
+app.post('/api/errors',requireDb,errReportLimiter,async(req,res,next)=>{
+  try{
+    const list=Array.isArray(req.body?.errors)?req.body.errors.slice(0,15):[];
+    const device=errClip(req.body?.device,90);let n=0;
+    for(const e of list){const msg=errClip(e?.msg,300);if(!msg)continue;const hits=Math.max(1,Math.min(1000,Math.floor(Number(e?.n)||1)));
+      await pool.query('INSERT INTO client_errors(build,msg,src,route,action,device,hits) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(build,msg,src) DO UPDATE SET hits=client_errors.hits+EXCLUDED.hits,last_at=NOW(),route=EXCLUDED.route,action=EXCLUDED.action,device=EXCLUDED.device',[errClip(e?.build,40),msg,errClip(e?.src,160),errClip(e?.route,120),errClip(e?.action,80),device,hits]);n++}
+    if(Math.random()<0.05)await pool.query("DELETE FROM client_errors WHERE last_at<NOW()-INTERVAL '30 days' OR id NOT IN (SELECT id FROM client_errors ORDER BY last_at DESC LIMIT 2000)").catch(()=>{});
+    res.json({ok:true,stored:n});
+  }catch(e){next(e)}
+});
+app.get('/api/admin/errors',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT id,build,msg,src,route,action,device,hits,first_at,last_at FROM client_errors ORDER BY last_at DESC LIMIT 200');res.json({errors:q.rows})}catch(e){next(e)}
+});
+app.delete('/api/admin/errors/:id',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{if(req.params.id==='all')await pool.query('DELETE FROM client_errors');else await pool.query('DELETE FROM client_errors WHERE id=$1',[Math.floor(Number(req.params.id))||0]);res.json({ok:true})}catch(e){next(e)}
+});
 app.get('/api/admin/traffic',requireDb,auth,requireAdmin,async(req,res,next)=>{
   try{
     await flushTraffic();const t=await trafficTotals();
@@ -2492,6 +2513,9 @@ app.use('/data',express.static(path.join(publicDir,'data'),staticOpts));
 const sendIndex=(_req,res)=>res.sendFile(path.join(publicDir,'index.html'),{headers:{'Cache-Control':'no-cache'}});
 app.get('/',sendIndex);
 app.get(/.*/,sendIndex);
+// V-GZIPPUT: a body the server cannot read (unknown compression, broken
+// gzip, bad JSON, too big) gets a clear answer instead of a 500.
+app.use((err,_req,res,next)=>{const t=err?.type;if(t==='encoding.unsupported'||t==='stream.encoding.set')return res.status(415).json({error:'BAD_BODY_ENCODING'});if(t==='entity.too.large')return res.status(413).json({error:'DATA_TOO_LARGE'});if(t==='entity.parse.failed'||(err?.status===400&&(err?.errno!=null||/compress|gzip|deflate|incorrect header|unexpected end/i.test(String(err?.message||'')))))return res.status(400).json({error:'BAD_BODY_ENCODING'});next(err)});
 app.use((err,_req,res,_next)=>{console.error(err);res.status(500).json({error:'INTERNAL_SERVER_ERROR'})});
 
 if(pool)pool.on('error',e=>console.error('PostgreSQL pool error',e));

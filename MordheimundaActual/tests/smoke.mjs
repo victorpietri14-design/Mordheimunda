@@ -535,6 +535,7 @@ await test('[desktop] scenario editor puts the formatting bar right above the fo
   expect(rwOn,'Rewards should accept formatting');
 });
 await test('[desktop] light game-content export skips accounts and pictures',null,async page=>{
+  await page.evaluate(()=>ensureAdminCode());
   const out=await page.evaluate(async()=>{const big='data:image/png;base64,'+'A'.repeat(3000);
     const T={users:[{id:'u1',email:'x@y.z',payload:{}}],official_warbands:[{id:'w1',created_by:'u1',definition:{name:'Orcs',icon:big,warriors:[{name:'Boss',cost:140}]}}],rule_images:[{id:'i1',data:{base64:'AAAA'}}],scenarios:[{id:'s1',user_id:'u1',definition:{name:'Skirmish'}}]};
     window.MordheimundaAPI.adminExport=async(t,off)=>t?{rows:off?[]:(T[t]||[]),done:true}:{tables:Object.keys(T).map(t=>({table:t,pageSize:20}))};
@@ -547,6 +548,7 @@ await test('[desktop] light game-content export skips accounts and pictures',nul
   expect(t.official_warbands?.[0]?.definition?.icon==='[image]'&&t.official_warbands[0].definition.warriors[0].cost===140,'content altered wrongly');
 });
 await test('[desktop] warband-wide equipment discount (%) on price and value, item rule wins',null,async page=>{
+  await page.evaluate(()=>ensureAdminCode());
   const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&(x.warriors||[]).length);const w=D.weapons.find(a=>a.name==='Sword')||D.weapons.find(a=>Number(a.price)>=20);const x={wid:f.warriors[0].id};
     const old=priceRules;const base=equipmentPrice(w,f,'band',x);const it={name:w.name,value:Number(w.price),paid:Number(w.price)};const baseV=equipmentBandValue(it,f,x);
     priceRules=[{factionId:String(f.id),warriorId:null,item:'*',price:null,value:null,pricePct:20,valuePct:50}];
@@ -983,6 +985,29 @@ await test('[desktop] undo 10 changes, warband check, two-device conflict, compa
   expect(out.winner==='PC edit'&&out.conflicts.includes('Phone edit')&&out.noFalse===0&&out.banner,'a two-device edit keeps the newest and puts the other aside, without false alarms: '+JSON.stringify(out));
   expect(out.first==='Rules used'&&out.hasTerm,'a scenario starts with the rules it uses: '+JSON.stringify(out));
   expect(out.lbl&&out.listFn,'icon-only buttons get a name: '+JSON.stringify(out));
+});
+await test('[desktop] error reports sent only when turned on, big uploads compressed',null,async page=>{
+  const sent=[];await page.route(/\/api\/errors$/,r=>{sent.push(JSON.parse(r.request().postData()||'{}'));r.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'})});
+  let put=null;await page.route(/\/api\/account\/data$/,r=>{if(r.request().method()==='PUT'){put={enc:r.request().headers()['content-encoding'],len:(r.request().postDataBuffer()||[]).length};r.fulfill({status:200,contentType:'application/json',body:'{"revision":2}'})}else r.continue()});
+  await page.evaluate(()=>{siteLanguage='en';localStorage.removeItem('mu_errlog_send');localStorage.removeItem('mu_errlog');errLogAdd('Smoke failure A','/x.js:1:1');errLogAdd('Smoke failure A','/x.js:1:1');openErrorLog()});
+  await page.waitForTimeout(300);expect(sent.length===0,'nothing is sent while the option is off');
+  expect(await page.isVisible('.errlog-send input'),'the error report offers the automatic sending option');
+  await page.click('.errlog-send input');await page.waitForTimeout(800);
+  expect(sent.length===1&&sent[0].errors?.[0]?.n===2&&/Smoke failure A/.test(sent[0].errors[0].msg),'turning it on sends the recorded errors once with their count: '+JSON.stringify(sent));
+  expect(!JSON.stringify(sent).includes('u-smoke')&&!('user' in sent[0]),'the report carries no account');
+  await page.evaluate(()=>errSendNow(false));await page.waitForTimeout(500);expect(sent.length===1,'an error already sent is not sent again');
+  await page.evaluate(()=>{localStorage.removeItem('mu_errlog_send');localStorage.removeItem('mu_errlog');closeModal()});
+  const big={rosters:[{id:'z',name:'Big',fighters:Array.from({length:60},(_,i)=>({name:'F'+i,notes:'lorem ipsum '.repeat(30)}))}]};
+  await page.evaluate(d=>window.MordheimundaAPI.saveData(d,1),big);
+  expect(put&&put.enc==='gzip'&&put.len<JSON.stringify(big).length/4,'a big account upload is sent gzip-compressed: '+JSON.stringify(put));
+});
+await test('[desktop] admin panel code is loaded only when the panel opens',null,async page=>{
+  const before=await page.evaluate(()=>({real:typeof adminReal,tag:!!document.querySelector('script[src*="admin.min.js"]')}));
+  expect(before.real==='undefined'&&!before.tag,'a player never downloads the admin code: '+JSON.stringify(before));
+  await page.evaluate(()=>navigateApp('/admin')); // localhost counts as an admin session
+  await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});await page.waitForTimeout(400);
+  const t=await page.textContent('#content');
+  expect(!/Loading the admin panel|Chargement du panneau admin/.test(t)&&/admin-section-tabs|Gestion|Content|Site/.test(await page.innerHTML('#content')),'opening the panel loads its code and shows it: '+t.slice(0,160));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

@@ -16,7 +16,9 @@ jobs:
         with:
           node-version: 22
       - name: Install Playwright (test only, not saved to package.json)
-        run: npm install --no-save --no-audit --no-fund playwright@1.49.1 && npx playwright install --with-deps chromium
+        run: npm install --no-save --no-audit --no-fund playwright@1.49.1 terser@5.36.0 lightningcss@1.28.2 && npx playwright install --with-deps chromium
+      - name: Minified files are up to date
+        run: node tools/build-min.mjs --check
       - name: Serve the site
         run: |
           python3 -m http.server 8765 >/tmp/http.log 2>&1 &

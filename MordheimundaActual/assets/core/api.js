@@ -1,6 +1,7 @@
 /* Single network boundary for authentication and cloud persistence. */
 (function(){
   const cfg=()=>window.MORDHEIMUNDA_CONFIG||{};
+  const gzipOff=()=>{try{return localStorage.getItem('mu_gzip_off')==='1'}catch{return false}};
   async function request(path,options={}){
     const configured=String(cfg().apiBaseUrl||'').replace(/\/$/,'');
     const base=configured || ((/^https?:$/.test(location.protocol))?location.origin:'');
@@ -10,7 +11,24 @@
     // V-PUBLICCACHE: shared content is cached a minute by the CDN for players;
     // an admin always asks for the live version (unique query = never cached).
     if((!init.method||init.method==='GET')&&typeof isAdminSession==='function'&&isAdminSession())path+=(path.includes('?')?'&':'?')+'_t='+Date.now();
-    const res=await fetch(base+path,init);let body=null;try{body=await res.json()}catch{}
+    // V-GZIPPUT: big uploads (the whole account, a live game) are sent
+    // gzip-compressed, often 5 to 10 times smaller. If the server ever
+    // refuses the compressed form, the same request goes again uncompressed
+    // and this device stops compressing.
+    let zipped=false;
+    if(options.compress&&typeof init.body==='string'&&init.body.length>4096&&typeof CompressionStream==='function'&&!gzipOff()){
+      try{init.body=await new Response(new Blob([init.body]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();init.headers['Content-Encoding']='gzip';zipped=true}catch(e){init.body=options.body}
+    }
+    delete init.compress;
+    let res=await fetch(base+path,init);
+    if(zipped&&[400,415,500].includes(res.status)){
+      let b=null;try{b=await res.clone().json()}catch{}
+      if(res.status===415||!b?.error||b.error==='BAD_BODY_ENCODING'||b.error==='INTERNAL_SERVER_ERROR'){
+        delete init.headers['Content-Encoding'];init.body=options.body;res=await fetch(base+path,init);
+        if(res.ok){try{localStorage.setItem('mu_gzip_off','1')}catch{}}
+      }
+    }
+    let body=null;try{body=await res.json()}catch{}
     if(!res.ok){const e=new Error(body?.error||`HTTP_${res.status}`);e.status=res.status;throw e}return body;
   }
   /* French-mode rule corrections live beside the English ones under a "fr:" prefix. */
@@ -20,11 +38,11 @@
   devAdminLogin:()=>request('/api/auth/dev-admin',{method:'POST'}),recoverPassword:p=>request('/api/auth/forgot-password',{method:'POST',body:JSON.stringify(p)}),resetPassword:p=>request('/api/auth/reset-password',{method:'POST',body:JSON.stringify(p)}),verifyEmail:p=>request('/api/auth/verify-email',{method:'POST',body:JSON.stringify(p)}),resendVerification:()=>request('/api/auth/resend-verification',{method:'POST'}),recoverUsername:p=>request('/api/auth/forgot-username',{method:'POST',body:JSON.stringify(p)}),changePassword:p=>request('/api/account/change-password',{method:'POST',body:JSON.stringify(p)}),
   /* V154: change email (re-verification). */
   changeEmail:p=>request('/api/account/change-email',{method:'POST',body:JSON.stringify(p)}),
-  loadData:()=>request('/api/account/data'),dataRevision:()=>request('/api/account/data/revision'),saveData:(data,expectedRevision=null)=>request('/api/account/data',{method:'PUT',body:JSON.stringify({data,...(Number.isInteger(expectedRevision)?{expectedRevision}:{})})}),officialWarbands:()=>request('/api/warbands/official'),adminListWarbands:()=>request('/api/admin/warbands'),adminGetWarband:id=>request('/api/admin/warbands/'+encodeURIComponent(id)),adminOfficializeWarband:p=>request('/api/admin/warbands',{method:'POST',body:JSON.stringify(p)}),adminUpdateOfficialWarband:(id,p)=>request('/api/admin/warbands/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(p)}),adminSetOfficialWarbandStatus:(id,status)=>request('/api/admin/warbands/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status})}),adminSetWarbandSupplement:(id,baseFactionId)=>request('/api/admin/warbands/'+encodeURIComponent(id)+'/supplement',{method:'PATCH',body:JSON.stringify({baseFactionId:baseFactionId||null})}),adminDeleteOfficialWarband:id=>request('/api/admin/warbands/'+encodeURIComponent(id),{method:'DELETE'}),adminListAdmins:()=>request('/api/admin/admins'),adminPromote:identifier=>request('/api/admin/promote',{method:'POST',body:JSON.stringify({identifier})}),adminDemote:identifier=>request('/api/admin/demote',{method:'POST',body:JSON.stringify({identifier})}),
+  loadData:()=>request('/api/account/data'),dataRevision:()=>request('/api/account/data/revision'),saveData:(data,expectedRevision=null)=>request('/api/account/data',{method:'PUT',compress:true,body:JSON.stringify({data,...(Number.isInteger(expectedRevision)?{expectedRevision}:{})})}),officialWarbands:()=>request('/api/warbands/official'),adminListWarbands:()=>request('/api/admin/warbands'),adminGetWarband:id=>request('/api/admin/warbands/'+encodeURIComponent(id)),adminOfficializeWarband:p=>request('/api/admin/warbands',{method:'POST',body:JSON.stringify(p)}),adminUpdateOfficialWarband:(id,p)=>request('/api/admin/warbands/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(p)}),adminSetOfficialWarbandStatus:(id,status)=>request('/api/admin/warbands/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status})}),adminSetWarbandSupplement:(id,baseFactionId)=>request('/api/admin/warbands/'+encodeURIComponent(id)+'/supplement',{method:'PATCH',body:JSON.stringify({baseFactionId:baseFactionId||null})}),adminDeleteOfficialWarband:id=>request('/api/admin/warbands/'+encodeURIComponent(id),{method:'DELETE'}),adminListAdmins:()=>request('/api/admin/admins'),adminPromote:identifier=>request('/api/admin/promote',{method:'POST',body:JSON.stringify({identifier})}),adminDemote:identifier=>request('/api/admin/demote',{method:'POST',body:JSON.stringify({identifier})}),
   /* Friends (V89) — contact list only, never grants warband/custom-content access. */
   friends:()=>request('/api/friends'),
   playCreate:(data,campaignId)=>request('/api/play-games',{method:'POST',body:JSON.stringify({data,campaignId})}),
-  playPush:(id,data)=>request('/api/play-games/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify({data})}),
+  playPush:(id,data)=>request('/api/play-games/'+encodeURIComponent(id),{method:'PUT',compress:true,body:JSON.stringify({data})}),
   playState:id=>request('/api/play-games/'+encodeURIComponent(id)+'/state'),
   playGet:id=>request('/api/play-games/'+encodeURIComponent(id)),
   playAction:(id,action)=>request('/api/play-games/'+encodeURIComponent(id)+'/'+action,{method:'POST'}),
@@ -47,7 +65,7 @@
   /* All registered accounts, browseable like a friends list (V-ADMINALLUSERS) — not just the 30 most recent. */
   adminListAllUsers:()=>request('/api/admin/support/all'),
   adminSupportView:userId=>request('/api/admin/support/'+encodeURIComponent(userId)),
-  adminSupportSaveData:(userId,data,expectedRevision=null)=>request('/api/admin/support/'+encodeURIComponent(userId)+'/data',{method:'PUT',body:JSON.stringify({data,...(Number.isInteger(expectedRevision)?{expectedRevision}:{})})}),
+  adminSupportSaveData:(userId,data,expectedRevision=null)=>request('/api/admin/support/'+encodeURIComponent(userId)+'/data',{method:'PUT',compress:true,body:JSON.stringify({data,...(Number.isInteger(expectedRevision)?{expectedRevision}:{})})}),
   accountAccessLog:()=>request('/api/account/access-log'),
   /* Rulebook text overrides (V145) — public read, admin-only write. Lets an
      admin correct a page of the built-in rulebook (baked into RULES_BOOK in
@@ -167,6 +185,7 @@
   adminSaveTranslation:(source,translated,html=true)=>request('/api/admin/translations',{method:'PUT',body:JSON.stringify({source,translated,html,target:'FR'})}),
   adminTranslateSettings:()=>request('/api/admin/translate-settings'),
   adminTraffic:()=>request('/api/admin/traffic'),
+  sendErrors:(errors,device)=>request('/api/errors',{method:'POST',body:JSON.stringify({errors,device})}),adminErrors:()=>request('/api/admin/errors'),adminDeleteError:id=>request('/api/admin/errors/'+encodeURIComponent(id),{method:'DELETE'}),
   adminTrafficAccounts:days=>request('/api/admin/traffic/accounts?days='+encodeURIComponent(days||1)),
   adminTrafficAccount:(who,days)=>request('/api/admin/traffic/account?who='+encodeURIComponent(who)+'&days='+encodeURIComponent(days||7)),
   adminSetSyncPause:on=>request('/api/admin/sync-pause',{method:'PUT',body:JSON.stringify({on})}),

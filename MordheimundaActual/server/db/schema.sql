@@ -641,3 +641,19 @@ CREATE INDEX IF NOT EXISTS play_game_players_user_idx ON play_game_players(user_
 -- V-ENGAGED: each player's engaged fighters + underdog purchases, keyed by
 -- roster id; written by that warband's owner, never by the host's PUT.
 ALTER TABLE play_games ADD COLUMN IF NOT EXISTS engaged JSONB NOT NULL DEFAULT '{}'::jsonb;
+-- V-ERRREPORT: errors sent by players who opted in, anonymous (no account,
+-- no IP), grouped by message + place + version so one bug is one row.
+CREATE TABLE IF NOT EXISTS client_errors (
+  id BIGSERIAL PRIMARY KEY,
+  build TEXT NOT NULL DEFAULT '',
+  msg TEXT NOT NULL,
+  src TEXT NOT NULL DEFAULT '',
+  route TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL DEFAULT '',
+  device TEXT NOT NULL DEFAULT '',
+  hits INTEGER NOT NULL DEFAULT 1,
+  first_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (build, msg, src)
+);
+CREATE INDEX IF NOT EXISTS client_errors_last_idx ON client_errors(last_at DESC);
