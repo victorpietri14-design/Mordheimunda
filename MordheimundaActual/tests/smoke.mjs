@@ -809,6 +809,16 @@ await test('[desktop] scenario text: the line above a table is plain text, not a
   const out=await page.evaluate(()=>scenarioText('Lance un D6 pour chaque pion :\n[TABLE]\nD6|Résultat\n1|Rien\n[/TABLE]'));
   expect(!/rule-heading/.test(out)&&/rule-table|<table/.test(out),'no page title in scenario text: '+out.slice(0,300));
 });
+await test('[desktop] warband colour, Stats tab, emblem and XP bar',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const w=f.warriors[0];r.fighters.push({...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:40,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    const auto=warbandColor(r);r.color='#e06fa0';const picked=warbandColor(r);delete r.color;r.battleRecord={w:2,d:0,l:1};
+    navigateApp(warbandPath(r.id));setGangTab('stats');const stats=document.querySelector('.st-page')?.textContent||'';gangTab='roster';render('builder');
+    const card=document.querySelector('.fighter-card-v5')?.innerHTML||'';return {auto:/^#[0-9a-f]{6}$/i.test(auto),picked,stats:/67%/.test(stats),emblem:/fighter-emblem/.test(card),xp:/xpbar/.test(card)}});
+  expect(out.auto&&out.picked==='#e06fa0','warband colour: race default and player choice: '+JSON.stringify(out));
+  expect(out.stats,'Stats tab shows the record: '+JSON.stringify(out));
+  expect(out.emblem&&out.xp,'fighter card shows the emblem and the XP bar: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
