@@ -5451,3 +5451,43 @@ mark.pf-hit.cur{background:#e0b04a;color:#111}
 .install-banner{position:fixed;left:10px;right:10px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:45;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--chip-border);border-radius:12px;padding:9px 10px 9px 12px;box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:12.5px;color:var(--text)}
 .install-banner span{flex:1;line-height:1.4}
 .install-x{border:0;background:none;color:var(--muted2);font-size:20px;width:30px;height:30px;cursor:pointer}
+/* V-QUICKBUY rows */
+.eq-row{display:flex!important;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;text-align:left}
+.eq-row .equipment-choice-main{flex:1 1 180px;min-width:0}
+.eq-prof{display:block;font-size:11.5px;color:var(--muted2);margin-top:3px;line-height:1.4}
+.eq-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.eq-actions .button{min-height:36px;white-space:nowrap}
+.eq-actions .eq-buy:disabled{opacity:.4;filter:grayscale(.7);cursor:not-allowed}
+/* V-UNDO bar */
+.undo-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:96;display:flex;align-items:center;gap:12px;background:#1d2a12;border:1px solid var(--chip-border);color:var(--text);border-radius:12px;padding:8px 8px 8px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:13px;max-width:calc(100vw - 24px)}
+.undo-bar[hidden]{display:none}
+.undo-bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.undo-bar button{border:0;background:var(--accent);color:#132007;font:800 12px 'IBM Plex Sans';border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+@media(max-width:700px){.undo-bar{bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
+html[data-theme="light"] .undo-bar{background:#eef6e8}
+/* V-RECRUITSTICKY: the treasury line stays visible while scrolling the pool */
+@media(max-width:700px){
+  .recruit-panel.open>.recruit-panel-head{position:sticky;top:calc(62px + env(safe-area-inset-top,0px));z-index:25;background:var(--panel);box-shadow:0 6px 16px rgba(0,0,0,.35)}
+  .pool-compact .pool-row-main{gap:8px}
+  .pool-compact .recruit-btn{min-height:40px}
+}
+/* V-MAXLABEL / V-LOADOUTLABELS */
+.profile-max-label{font-size:10.5px;color:var(--muted2);margin:6px 2px 2px;letter-spacing:.3px;text-transform:uppercase;font-weight:700}
+.profile-max-label small{text-transform:none;font-weight:400;letter-spacing:0;color:var(--muted3)}
+.profile-max-row{opacity:.75}
+.loadout-box{white-space:nowrap;padding-left:10px!important;padding-right:10px!important;width:auto!important;min-width:40px}
+.loadout-empty-line{font-size:12.5px;color:var(--muted2);padding:8px 2px}.loadout-empty-line a{color:var(--accent)}
+/* V-STASHCOMPACT / V-CAPTIVEFOLD / V-LEGALACTIONS */
+.stash-empty-line{border:1px dashed var(--line);border-radius:9px;padding:10px 12px;font-size:12.5px;color:var(--muted2);margin:8px 0 14px}
+.captive-add-fold{margin-top:10px}.captive-add-fold>summary{list-style:none;display:inline-flex;cursor:pointer}.captive-add-fold>summary::-webkit-details-marker{display:none}
+.captive-add-fold[open]>summary{margin-bottom:8px}
+.legal-issues{text-align:left;margin:0 0 16px;padding:0;list-style:none;display:grid;gap:8px}
+.legal-issues li{border:1px solid var(--danger-border);background:var(--danger-bg);border-radius:9px;padding:9px 11px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;line-height:1.45;font-size:13px}
+.legal-issues li span{flex:1 1 200px}
+@media(max-width:700px){
+  .eq-row{flex-direction:column;align-items:stretch!important}
+  .eq-row .eq-actions{margin-left:0;width:100%;display:grid;grid-template-columns:1fr auto;gap:6px}
+  .eq-row .eq-actions .button{width:100%}
+  .eq-row .eq-actions strong{align-self:center}
+}
+@media(max-width:700px){.eq-row .equipment-choice-main{flex:none!important}.equipment-market-list{max-height:62vh!important}}
