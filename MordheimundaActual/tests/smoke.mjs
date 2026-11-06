@@ -831,6 +831,45 @@ await test('[desktop] printable sheets, journal, pre-game reminder, rarity gems,
   expect(out.remind,'pre-game reminder mentions fighters in recovery: '+JSON.stringify(out));
   expect(out.gem&&out.tinted,'rarity tiers and warband background tint: '+JSON.stringify(out));
 });
+await test('[desktop] game end: out of action on cards, game note, summary to guided post-battle, fighter history',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);(f.warriors||[]).slice(0,5).forEach(w=>r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]}));save(true);
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'ps2',name:'Bridge Fight',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const ps=blankPlaySession();ps.scenarioId='ps2';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};state.playSession=ps;
+    const e=playEngEntry(ps,r);e.picks=activeRoster().fighters.map(x=>x.instance);e.validated=true;save(true);
+    const heroes=activeRoster().fighters.filter(x=>['Leader','Champion','Raw Recruit'].includes(x.type));const down=heroes[heroes.length-1]||activeRoster().fighters[0];const id=down.instance;
+    playOoaToggle(r.id,id);const m1=playFightersMarkup(state.playSession);const rout1=state.playSession.rout[r.id];
+    playOoaToggle(r.id,id);const rout0=state.playSession.rout[r.id];playOoaToggle(r.id,id);
+    playNoteSet('ambush at the bridge');const note=playNoteMarkup(state.playSession);
+    const snap=playSummaryBuild(state.playSession);confirmPlayEndSession();await new Promise(z=>setTimeout(z,600));
+    const rr=state.rosters.find(q=>q.id===r.id);const lg=rr.lastGame;const games=rr.fighters.filter(x=>(x.games||[]).length===1).length;
+    openPlaySummary(snap);const modal=document.getElementById('modalContent').innerHTML;snap.bands[0].result='win';playSummaryToPostBattle(r.id);await new Promise(z=>setTimeout(z,400));
+    const r2=activeRoster();const p=r2.postBattle;const inj=pbgInjuriesMarkup(r2,true);const hist=fighterHistoryMarkup(r2.fighters.find(x=>x.instance===id),r2);
+    return {group:/Out of Action/.test(m1)&&/is-ooa/.test(m1),rout1,rout0,note:/ambush/.test(note),ooaKept:(lg?.ooa||[]).includes(id),games,total:rr.fighters.length,pbBtn:/Post-battle of/.test(modal),result:p.result,heroesOk:!(p.survivingHeroIds||[]).includes(id)&&(p.survivingHeroIds||[]).length===heroes.length-1,mode:localStorage.getItem(PB_MODE_KEY),injFlag:/was-ooa/.test(inj),jNote:(r2.valueLog||[]).slice(-1)[0]?.note,hist:/went out of action/.test(hist)&&/Bridge Fight/.test(hist)}});
+  expect(out.group&&out.rout1===1&&out.rout0===0,'a fighter marked Out of Action drops to its group and moves the rout counter: '+JSON.stringify(out));
+  expect(out.note&&out.ooaKept&&out.games===out.total,'note, who went down and each fighter\'s game are kept at the end: '+JSON.stringify(out));
+  expect(out.pbBtn&&out.result==='win'&&out.heroesOk&&out.mode==='guided','the summary leads to the guided post-battle with result and surviving heroes filled in: '+JSON.stringify(out));
+  expect(out.injFlag&&out.jNote==='ambush at the bridge'&&out.hist,'injury step flags the fallen, journal gets the note, fighter history shows the game: '+JSON.stringify(out));
+});
+await test('[desktop] shopping list, delete warning, glossary links, search filter, reading mode',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const w=(f.warriors||[]).find(q=>q.type==='Leader')||f.warriors[0];r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:5,equipmentSelected:[],skills:[],spells:[],advancements:[{}],injuries:[]});save(true);
+    openFighterCard(0);equipmentTab='band';equipmentOpen=true;const x=activeRoster().fighters[0];
+    const items=equipmentPool('band',x).filter(q=>{const p=equipmentPrice(q,f,'band',x);return p>0&&p<=60&&canEquip(x,q).ok&&!q.bandOnlyIntrinsic}).slice(0,2);
+    items.forEach(q=>buyDraftAdd(encodeURIComponent(q.name)));render('fighter');const bar=!!document.querySelector('.buy-draft');
+    const g0=Number(activeRoster().gold);const sum=buyDraft.items.reduce((n,i)=>n+i.price,0);const cntEq=y=>(fighterUsesLoadouts(y)?(y.equipmentStash||[]):(y.equipmentSelected||[])).length;const n0=cntEq(activeRoster().fighters[0]);
+    buyDraftCommit();const x2=activeRoster().fighters[0];const n1=cntEq(x2);
+    const warn=fighterLossWarning(x2);
+    navigateApp('/rules');await new Promise(z=>setTimeout(z,300));const term=referenceEntries('traits').find(t=>t.name&&t.name.length>4&&!/\(/.test(t.name));const probe=document.createElement('div');probe.className='rule-page-text';probe.innerHTML=`<p>A model with ${term.name} is tough. ${term.name} again.</p><h4>${term.name}</h4>`;document.getElementById('content').appendChild(probe);glossarySweep();const links=probe.querySelectorAll('.gl-auto').length;probe.remove();
+    siteSearchQuery='sword';siteSearchFilter='';openSiteSearch();const chips=document.querySelectorAll('.site-search-chips button').length;const key=searchRun('sword')[0]?.key;siteSearchFilter=key;drawSiteSearch();const groupsShown=document.querySelectorAll('#siteSearchResults .site-search-group').length;closeSiteSearch();siteSearchFilter='';
+    readModeToggle(true);const rm=document.body.classList.contains('read-mode')&&!!document.getElementById('readModeBar');readModeScale(0.1);readModeToggle(false);
+    return {bar,cnt:items.length,sum,spent:g0-Number(activeRoster().gold),added:n1-n0,warn:/5 XP/.test(warn)&&/advancement/.test(warn),links,chips,groupsShown,rm,hl:/<mark>/.test(searchHl('Hired Swords','hired sw')),offRm:!document.body.classList.contains('read-mode')}});
+  expect(out.cnt===2&&out.bar&&out.added===2&&out.spent===out.sum,'the shopping list buys everything at once: '+JSON.stringify(out));
+  expect(out.warn,'deleting warns about XP and advancements: '+JSON.stringify(out));
+  expect(out.links===1,'the first mention of a trait in rule text becomes a link (not the heading, not twice): '+JSON.stringify(out));
+  expect(out.chips>=2&&out.groupsShown===1&&out.hl,'search results can be filtered by category and highlight the words: '+JSON.stringify(out));
+  expect(out.rm&&out.offRm,'reading mode turns on and off: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

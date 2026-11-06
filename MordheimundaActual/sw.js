@@ -1,4 +1,4 @@
-const CACHE='mordheimunda-v110-410';
+const CACHE='mordheimunda-v110-411';
 const PRECACHE=['/','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRECACHE)).then(()=>self.skipWaiting()))});
 // V-OFFLINE: public read-only content (rules, catalog, scenarios, maps…) is
@@ -14,6 +14,13 @@ self.addEventListener('fetch',event=>{
   if(u.pathname.startsWith('/api/')){
     if(!API_PUBLIC.test(u.pathname))return;
     event.respondWith(fetch(r).then(res=>{if(res.ok){const copy=res.clone();caches.open(API_CACHE).then(c=>c.put(r,copy))}return res}).catch(()=>caches.open(API_CACHE).then(c=>c.match(r)).then(hit=>hit||Response.error())));
+    return;
+  }
+  // V-FASTLOAD: a file asked for with its build version (?v=…) never
+  // changes under that URL (every deploy bumps it), so it is served from the
+  // cache at once — no waiting on a weak signal — and fetched only once.
+  if(u.searchParams.has('v')&&/^\/(assets|data)\//.test(u.pathname)){
+    event.respondWith(caches.open(CACHE).then(c=>c.match(r).then(hit=>hit||fetch(r).then(res=>{if(res.ok)c.put(r,res.clone());return res}))));
     return;
   }
   // Network-first for everything same-origin: always try to get the latest
