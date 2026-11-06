@@ -984,6 +984,21 @@ await test('[desktop] undo 10 changes, warband check, two-device conflict, compa
   expect(out.first==='Rules used'&&out.hasTerm,'a scenario starts with the rules it uses: '+JSON.stringify(out));
   expect(out.lbl&&out.listFn,'icon-only buttons get a name: '+JSON.stringify(out));
 });
+await test('[desktop] error reports sent only when turned on, big uploads compressed',null,async page=>{
+  const sent=[];await page.route(/\/api\/errors$/,r=>{sent.push(JSON.parse(r.request().postData()||'{}'));r.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'})});
+  let put=null;await page.route(/\/api\/account\/data$/,r=>{if(r.request().method()==='PUT'){put={enc:r.request().headers()['content-encoding'],len:(r.request().postDataBuffer()||[]).length};r.fulfill({status:200,contentType:'application/json',body:'{"revision":2}'})}else r.continue()});
+  await page.evaluate(()=>{siteLanguage='en';localStorage.removeItem('mu_errlog_send');localStorage.removeItem('mu_errlog');errLogAdd('Smoke failure A','/x.js:1:1');errLogAdd('Smoke failure A','/x.js:1:1');openErrorLog()});
+  await page.waitForTimeout(300);expect(sent.length===0,'nothing is sent while the option is off');
+  expect(await page.isVisible('.errlog-send input'),'the error report offers the automatic sending option');
+  await page.click('.errlog-send input');await page.waitForTimeout(800);
+  expect(sent.length===1&&sent[0].errors?.[0]?.n===2&&/Smoke failure A/.test(sent[0].errors[0].msg),'turning it on sends the recorded errors once with their count: '+JSON.stringify(sent));
+  expect(!JSON.stringify(sent).includes('u-smoke')&&!('user' in sent[0]),'the report carries no account');
+  await page.evaluate(()=>errSendNow(false));await page.waitForTimeout(500);expect(sent.length===1,'an error already sent is not sent again');
+  await page.evaluate(()=>{localStorage.removeItem('mu_errlog_send');localStorage.removeItem('mu_errlog');closeModal()});
+  const big={rosters:[{id:'z',name:'Big',fighters:Array.from({length:60},(_,i)=>({name:'F'+i,notes:'lorem ipsum '.repeat(30)}))}]};
+  await page.evaluate(d=>window.MordheimundaAPI.saveData(d,1),big);
+  expect(put&&put.enc==='gzip'&&put.len<JSON.stringify(big).length/4,'a big account upload is sent gzip-compressed: '+JSON.stringify(put));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

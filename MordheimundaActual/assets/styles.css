@@ -5538,6 +5538,8 @@ body.read-mode .rule-page-text h4,body.read-mode .rule-page-text .rule-subhead{f
 .errlog-row{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--bg)}
 .errlog-row b{display:block;font:600 13px/1.4 'IBM Plex Mono',monospace;word-break:break-word}.errlog-row i{color:#f0a39e;font-style:normal}
 .errlog-row small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.errlog-send{display:flex;gap:10px;align-items:flex-start;margin:10px 0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}.errlog-send input{margin-top:3px;width:18px;height:18px;flex:none}.errlog-send b{display:block;font-size:13.5px}.errlog-send small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.admin-errors .errlog-list{max-height:none}.admin-errors .errlog-row .button{margin-top:6px;padding:4px 10px;font-size:12px;min-height:0}
 .bk-snap{border:1px solid var(--line);border-radius:10px;background:var(--bg);margin:6px 0}
 .bk-snap summary{cursor:pointer;padding:10px 12px;display:flex;gap:10px;align-items:baseline}.bk-snap summary small{color:var(--muted)}
 .bk-band{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:8px 12px}

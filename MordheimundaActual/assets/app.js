@@ -5191,7 +5191,7 @@ let adminOpenCategory=null;
 // itself (admins, traffic, translation, backup), the game content
 // (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
 // players (support). Opening a section from elsewhere switches to its page.
-const ADMIN_GROUPS={site:['accounts','traffic','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+const ADMIN_GROUPS={site:['accounts','traffic','errors','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
 let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
 const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
 function adminCurrentSection(){return (adminOpenCategory&&adminGroupOf(adminOpenCategory))||adminSection}
@@ -5284,6 +5284,8 @@ function admin(){
       ${adminOpenCategory==='quests'?`<div class="admin-category-body">${adminQuestsMarkup()}</div>`:''}
       ${adminCategoryBar('traffic',en?'Server traffic':'Trafic serveur',en?'What uses the transfer allowance, daily ceilings, emergency sync switch':'Ce qui consomme le transfert, plafonds quotidiens, interrupteur d’urgence de la synchro',adminOpenCategory==='traffic')}
       ${adminOpenCategory==='traffic'?`<div class="admin-category-body">${adminTrafficMarkup()}</div>`:''}
+      ${adminCategoryBar('errors',en?'Errors received':'Erreurs reçues',en?'Bugs sent by players who turned on automatic reports':'Bugs envoyés par les joueurs qui ont activé l’envoi automatique',adminOpenCategory==='errors')}
+      ${adminOpenCategory==='errors'?`<div class="admin-category-body">${adminErrorsMarkup()}</div>`:''}
       ${adminCategoryBar('translate',en?'Automatic translation':'Traduction automatique',en?'Words never translated, usage of the free allowance':'Mots jamais traduits, consommation de la partie gratuite',adminOpenCategory==='translate')}
       ${adminOpenCategory==='translate'?`<div class="admin-category-body">${adminTranslateMarkup()}</div>`:''}
       ${adminCategoryBar('backup',en?'Backup · Export everything':'Sauvegarde · Tout exporter',en?'One file with everything created on the site':'Un fichier avec tout ce qui a été créé sur le site',adminOpenCategory==='backup')}
@@ -16780,6 +16782,16 @@ let exportBusy=false;
 // V-TRAFFICCAP admin: today's/month's traffic, top routes and accounts, the
 // daily ceilings and the emergency switch that puts every device in local
 // mode (they keep working and send their changes once sync is back on).
+// V-ERRREPORT: admin list of the errors players sent.
+let adminErrorsData=null,adminErrorsLoading=false;
+async function loadAdminErrors(){if(adminErrorsLoading)return;adminErrorsLoading=true;try{adminErrorsData=await window.MordheimundaAPI.adminErrors()}catch(e){adminErrorsData={error:authError(e,siteLanguage==='en')}}finally{adminErrorsLoading=false;if(currentViewName()==='admin')render('admin')}}
+function adminErrorsMarkup(){const en=siteLanguage==='en';const d=adminErrorsData;if(!d){setTimeout(loadAdminErrors,0);return `<div class="card admin-card"><p class="muted">${en?'Loading…':'Chargement…'}</p></div>`}
+  if(d.error)return `<div class="card admin-card"><p class="muted">${esc(d.error)}</p><button class="button secondary" onclick="adminErrorsData=null;render('admin')">${en?'Retry':'Réessayer'}</button></div>`;
+  const rows=d.errors||[];const dt=v=>new Date(v).toLocaleString(en?'en-GB':'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  return `<div class="card admin-card admin-errors"><div class="eyebrow">${en?'ERRORS RECEIVED':'ERREURS REÇUES'}</div><p class="muted">${en?'Anonymous. Same error, same version = one line with a counter. Kept 30 days.':'Anonyme. Même erreur, même version = une ligne avec un compteur. Gardé 30 jours.'}</p>
+  ${rows.length?`<div class="errlog-list">${rows.map(r=>`<div class="errlog-row"><b>${esc(r.msg)} <i>×${r.hits}</i></b><small>${esc(r.build)} · ${esc(r.route||'—')} · ${en?'after':'après'} ${esc(r.action||'—')} · ${dt(r.last_at)}</small><small>${esc(r.src||'')} · ${esc(r.device||'')}</small><button type="button" class="button secondary small" onclick="adminDeleteError(${Number(r.id)})">${en?'Fixed — remove':'Corrigé — retirer'}</button></div>`).join('')}</div>`:`<p class="muted">${en?'Nothing received.':'Rien de reçu.'}</p>`}
+  <div class="custom-actions"><button type="button" class="button secondary" onclick="adminErrorsData=null;render('admin')">↻ ${en?'Refresh':'Actualiser'}</button>${rows.length?`<button type="button" class="button secondary" onclick="adminDeleteError('all')">${en?'Clear all':'Tout effacer'}</button>`:''}</div></div>`}
+async function adminDeleteError(id){const en=siteLanguage==='en';if(id==='all'&&!confirm(en?'Remove every error received?':'Retirer toutes les erreurs reçues ?'))return;try{await window.MordheimundaAPI.adminDeleteError(id);adminErrorsData=null;render('admin')}catch(e){toast(authError(e,en))}}
 let trafficAdminData=null,trafficAdminLoading=false;
 async function loadTrafficAdmin(){if(trafficAdminLoading)return;trafficAdminLoading=true;try{trafficAdminData=await window.MordheimundaAPI.adminTraffic();trafficAdminData.at=Date.now()}catch(e){trafficAdminData={error:authError(e,siteLanguage==='en'),at:Date.now()}}finally{trafficAdminLoading=false;if(currentViewName()==='admin')render('admin')}}
 const fmtBytes=n=>{n=Number(n)||0;return n>=1024**3?(n/1024**3).toFixed(2)+' Go':n>=1024**2?(n/1024**2).toFixed(1)+' Mo':Math.round(n/1024)+' Ko'};
@@ -21547,13 +21559,35 @@ function rosterFilterApply(){const box=document.querySelector('.roster-sections:
 // ============ V-ERRLOG: keep what broke, to fix it faster ============
 const ERRLOG_KEY='mu_errlog';let errLastAction='';
 function errLogRead(){try{const v=JSON.parse(localStorage.getItem(ERRLOG_KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return []}}
-function errLogAdd(msg,src){const m=String(msg||'').slice(0,300);if(!m||/ResizeObserver loop|^Script error\.?$/i.test(m))return;const list=errLogRead();const last=list[list.length-1];if(last&&last.msg===m&&Date.now()-last.ts<5000){last.n=(last.n||1)+1}else list.push({ts:Date.now(),msg:m,src:String(src||'').replace(/^https?:\/\/[^/]+/,'').slice(0,160),route:location.pathname.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,'…'),action:errLastAction,build:typeof APP_BUILD!=='undefined'?APP_BUILD:''});while(list.length>25)list.shift();try{localStorage.setItem(ERRLOG_KEY,JSON.stringify(list))}catch(e){}}
+function errLogAdd(msg,src){const m=String(msg||'').slice(0,300);if(!m||/ResizeObserver loop|^Script error\.?$/i.test(m))return;const list=errLogRead();const last=list[list.length-1];if(last&&last.msg===m&&Date.now()-last.ts<5000){last.n=(last.n||1)+1}else list.push({ts:Date.now(),msg:m,src:String(src||'').replace(/^https?:\/\/[^/]+/,'').slice(0,160),route:location.pathname.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,'…'),action:errLastAction,build:typeof APP_BUILD!=='undefined'?APP_BUILD:''});while(list.length>25)list.shift();try{localStorage.setItem(ERRLOG_KEY,JSON.stringify(list))}catch(e){}if(errSendOn())errSendSoon()}
 window.addEventListener('error',e=>{try{errLogAdd(e.message,(e.filename||'')+':'+(e.lineno||'')+':'+(e.colno||''))}catch(x){}});
 window.addEventListener('unhandledrejection',e=>{try{const r=e.reason;errLogAdd('Promise: '+(r?.message||String(r)),(r?.stack||'').split('\n')[1]||'')}catch(x){}});
 // the last button tapped (its action name only, never what was typed)
 document.addEventListener('click',e=>{try{const b=e.target.closest('button,a,[onclick]');if(!b)return;const oc=String(b.getAttribute('onclick')||'').match(/[A-Za-z_]\w*(?=\()/);errLastAction=(oc?oc[0]+'()':(b.getAttribute('href')||b.className||b.tagName)).toString().slice(0,60)}catch(x){}},true);
 function errLogText(){const list=errLogRead();return `Mordheimunda ${typeof APP_BUILD!=='undefined'?APP_BUILD:''} · ${navigator.userAgent.replace(/\s*\([^)]*\)/g,' ').replace(/\s+/g,' ').slice(0,90)}\n`+list.map(x=>`[${new Date(x.ts).toISOString()}]${x.n>1?` ×${x.n}`:''} ${x.msg}\n  at ${x.src||'?'} · page ${x.route} · after ${x.action||'?'} · ${x.build}`).join('\n')}
-function openErrorLog(){const en=siteLanguage==='en';const list=errLogRead().slice().reverse();openModal(`<div class="wc-dialog errlog"><div class="eyebrow">${en?'ERROR REPORT':'RAPPORT D’ERREURS'}</div><h2>${list.length?(en?`${list.length} recent error${list.length>1?'s':''}`:`${list.length} erreur${list.length>1?'s':''} récente${list.length>1?'s':''}`):(en?'No error recorded':'Aucune erreur enregistrée')}</h2><p class="sheet-help">${en?'Kept on this device only: the message, the page and the last button tapped. No account data, nothing you typed. Copy it and send it to fix the problem.':'Gardé sur ce téléphone uniquement : le message, la page et le dernier bouton touché. Aucune donnée de compte, rien de ce que tu as tapé. Copie-le et envoie-le pour faire corriger le problème.'}</p>${list.length?`<div class="errlog-list">${list.slice(0,12).map(x=>`<div class="errlog-row"><b>${esc(x.msg)}${x.n>1?` <i>×${x.n}</i>`:''}</b><small>${new Date(x.ts).toLocaleString(en?'en-GB':'fr-FR')} · ${esc(x.route)} · ${esc(x.action||'—')}</small></div>`).join('')}</div>`:''}<div class="account-actions">${list.length?`<button type="button" class="button primary" onclick="errLogCopy()">${en?'Copy the report':'Copier le rapport'}</button><button type="button" class="button secondary" onclick="errLogClear()">${en?'Clear':'Vider'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
+// V-ERRREPORT: opt-in — the same report goes to the site's admins by itself
+// (anonymous: no account, nothing typed), so a bug can be fixed without
+// anyone having to copy and send it.
+const ERRSEND_KEY='mu_errlog_send';let errSendTimer=null,errSending=false;
+function errSendOn(){try{return localStorage.getItem(ERRSEND_KEY)==='1'}catch(e){return false}}
+function errSendSoon(ms=8000){clearTimeout(errSendTimer);errSendTimer=setTimeout(()=>errSendNow(false),ms)}
+function errDevice(){return navigator.userAgent.replace(/\s*\([^)]*\)/g,' ').replace(/\s+/g,' ').trim().slice(0,90)+(matchMedia('(max-width:760px)').matches?' · phone':'')}
+async function errSendNow(manual){
+  const en=siteLanguage==='en';if(errSending)return;const api=window.MordheimundaAPI;
+  const list=errLogRead();const todo=list.filter(x=>(x.n||1)>(x.sentN||0));
+  if(!todo.length){if(manual)toast(en?'Nothing new to send':'Rien de nouveau à envoyer');return}
+  if(!api?.sendErrors||(!manual&&navigator.onLine===false))return;
+  errSending=true;
+  try{await api.sendErrors(todo.map(x=>({msg:x.msg,src:x.src,route:x.route,action:x.action,build:x.build,n:(x.n||1)-(x.sentN||0)})),errDevice());
+    const now=errLogRead();for(const x of now){const t=todo.find(y=>y.ts===x.ts&&y.msg===x.msg);if(t)x.sentN=t.n||1}
+    try{localStorage.setItem(ERRLOG_KEY,JSON.stringify(now))}catch(e){}
+    if(manual){toast(en?'Report sent, thank you':'Rapport envoyé, merci');if(document.querySelector('.errlog'))openErrorLog()}
+  }catch(e){if(manual)toast(en?'Could not send the report':'Envoi impossible')}
+  finally{errSending=false}
+}
+function errSendToggle(on){try{on?localStorage.setItem(ERRSEND_KEY,'1'):localStorage.removeItem(ERRSEND_KEY)}catch(e){}if(on)errSendNow(false);openErrorLog()}
+setTimeout(()=>{try{if(errSendOn())errSendNow(false)}catch(e){}},15000);
+function openErrorLog(){const en=siteLanguage==='en';const list=errLogRead().slice().reverse();openModal(`<div class="wc-dialog errlog"><div class="eyebrow">${en?'ERROR REPORT':'RAPPORT D’ERREURS'}</div><h2>${list.length?(en?`${list.length} recent error${list.length>1?'s':''}`:`${list.length} erreur${list.length>1?'s':''} récente${list.length>1?'s':''}`):(en?'No error recorded':'Aucune erreur enregistrée')}</h2><p class="sheet-help">${en?'Kept on this device: the message, the page and the last button tapped. No account data, nothing you typed. Nothing leaves the device unless you send it.':'Gardé sur ce téléphone : le message, la page et le dernier bouton touché. Aucune donnée de compte, rien de ce que tu as tapé. Rien ne part sans que tu l’envoies.'}</p><label class="errlog-send"><input type="checkbox" ${errSendOn()?'checked':''} onchange="errSendToggle(this.checked)"><span><b>${en?'Send errors to the admins automatically':'Envoyer les erreurs aux admins automatiquement'}</b><small>${en?'Anonymous: only what is listed here, never your account.':'Anonyme : seulement ce qui est listé ici, jamais ton compte.'}</small></span></label>${list.length?`<div class="errlog-list">${list.slice(0,12).map(x=>`<div class="errlog-row"><b>${esc(x.msg)}${x.n>1?` <i>×${x.n}</i>`:''}</b><small>${new Date(x.ts).toLocaleString(en?'en-GB':'fr-FR')} · ${esc(x.route)} · ${esc(x.action||'—')}${(x.sentN||0)>=(x.n||1)?` · ${en?'sent':'envoyé'} ✓`:''}</small></div>`).join('')}</div>`:''}<div class="account-actions">${list.length?`${list.some(x=>(x.n||1)>(x.sentN||0))?`<button type="button" class="button primary" onclick="errSendNow(true)">${en?'Send to the admins':'Envoyer aux admins'}</button>`:''}<button type="button" class="button secondary" onclick="errLogCopy()">${en?'Copy the report':'Copier le rapport'}</button><button type="button" class="button secondary" onclick="errLogClear()">${en?'Clear':'Vider'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
 async function errLogCopy(){const en=siteLanguage==='en';try{await navigator.clipboard.writeText(errLogText());toast(en?'Report copied':'Rapport copié')}catch(e){toast(en?'Copy failed':'Copie impossible')}}
 function errLogClear(){try{localStorage.removeItem(ERRLOG_KEY)}catch(e){}openErrorLog()}
 // ============ V-BACKUPS: the last 5 versions of the warbands, on this device ============
