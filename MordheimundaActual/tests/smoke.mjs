@@ -1009,6 +1009,23 @@ await test('[desktop] admin panel code is loaded only when the panel opens',null
   const t=await page.textContent('#content');
   expect(!/Loading the admin panel|Chargement du panneau admin/.test(t)&&/admin-section-tabs|Gestion|Content|Site/.test(await page.innerHTML('#content')),'opening the panel loads its code and shows it: '+t.slice(0,160));
 });
+await test('[desktop] campaign map: admin places settlements and paths, players see residents',null,async page=>{
+  await page.evaluate(()=>{siteLanguage='fr';const f=D.factions[0];state.rosters=[{id:'A',name:'Corbeaux',color:'#c0392b',factionId:f.id,gold:100,fighters:[],campaignId:'mapc',campaignResidence:'s1'}];state.active='A';save(true);
+    campaignDetailCache.set('mapc',{id:'mapc',name:'Lustrie',color:'#3fae6a',status:'published',definition:{settlements:[{id:'s1',name:'Port A',excluded:[]},{id:'s2',name:'Port B',excluded:[]}]},members:[{rosterId:'A',rosterName:'Corbeaux'},{rosterId:'B',rosterName:'Lézards',stats:{residence:'s1',color:'#2e86de'}}]});
+    window.MordheimundaAPI.adminUpdateCampaign=async(id,p)=>({campaign:{...campaignDetailCache.get(id),definition:p.definition}});window.MordheimundaAPI.adminCampaign=async()=>({campaign:campaignDetailCache.get('mapc')});
+    navigateApp('/campaigns/mapc/locations')});
+  await page.waitForTimeout(600);
+  await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=800;c.height=500;const g=c.getContext('2d');g.fillStyle='#2a6';g.fillRect(0,0,800,500);openCampMapEditor('mapc');campMapEd.map.image=c.toDataURL('image/png');campMapEd.map.w=800;campMapEd.map.h=500;campMapEdRender()});
+  const bb=await (await page.$('#cmapStage')).boundingBox();
+  await page.click('.cmap-row:has-text("Port A")');await page.mouse.click(bb.x+bb.width*.25,bb.y+bb.height*.5);
+  await page.click('.cmap-row:has-text("Port B")');await page.mouse.click(bb.x+bb.width*.75,bb.y+bb.height*.3);
+  await page.evaluate(()=>campMapEdMode('paths'));
+  for(const id of ['ss1','ss2']){const pb=await (await page.$(`[data-pin="${id}"] i`)).boundingBox();await page.mouse.click(pb.x+pb.width/2,pb.y+pb.height/2);await page.waitForTimeout(80)}
+  await page.evaluate(()=>campMapEdSave());await page.waitForTimeout(500);
+  const r=await page.evaluate(()=>{const m=campaignDetailCache.get('mapc').definition.map;return {pins:m?.pins?.length,paths:m?.paths?.length,x:m?.pins?.[0]?.x,shown:!!document.querySelector('.cmap-panel .cmap'),bands:document.querySelectorAll('.cmap-pin.mine .cmap-bands b').length}});
+  expect(r.pins===2&&r.paths===1&&Math.abs(r.x-25)<2,'pins and the path are saved in % of the picture: '+JSON.stringify(r));
+  expect(r.shown&&r.bands===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
