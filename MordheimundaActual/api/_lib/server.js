@@ -1704,6 +1704,23 @@ app.post('/api/media',requireDb,requireSameOrigin,auth,mediaLimiter,trafficGuard
 // same version just adds to its counter. Kept 30 days, at most 2000 rows.
 const errReportLimiter=rateLimit({windowMs:10*60*1000,max:10,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
 const errClip=(v,n)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').replace(/[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/gi,'…@…').slice(0,n);
+// V-PERFSAMPLE: one sample per visit for a share of visits; anonymous.
+const perfLimiter=rateLimit({windowMs:10*60*1000,max:6,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+app.post('/api/perf',requireDb,perfLimiter,async(req,res,next)=>{
+  try{const b=req.body||{};const ms=v=>{const n=Math.round(Number(v));return Number.isFinite(n)&&n>=0&&n<120000?n:null};
+    const device=['phone','tablet','desktop'].includes(b.device)?b.device:'desktop';
+    await pool.query('INSERT INTO perf_samples(build,device,first_ms,load_ms,view_ms) VALUES($1,$2,$3,$4,$5)',[String(b.build||'').slice(0,40),device,ms(b.first),ms(b.load),ms(b.view)]);
+    if(Math.random()<0.05)await pool.query("DELETE FROM perf_samples WHERE at<NOW()-INTERVAL '30 days'").catch(()=>{});
+    res.json({ok:true})}catch(e){next(e)}
+});
+app.get('/api/admin/perf',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query(`SELECT at::date::text AS day,device,COUNT(*)::int AS n,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY first_ms) AS first_p50,percentile_cont(0.75) WITHIN GROUP (ORDER BY first_ms) AS first_p75,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY load_ms) AS load_p50,percentile_cont(0.5) WITHIN GROUP (ORDER BY view_ms) AS view_p50
+      FROM perf_samples WHERE at>NOW()-INTERVAL '14 days' GROUP BY 1,2 ORDER BY 1 DESC,2`);
+    const b=await pool.query(`SELECT build,COUNT(*)::int AS n,percentile_cont(0.5) WITHIN GROUP (ORDER BY first_ms) AS first_p50,percentile_cont(0.75) WITHIN GROUP (ORDER BY first_ms) AS first_p75 FROM perf_samples WHERE at>NOW()-INTERVAL '30 days' GROUP BY build ORDER BY MAX(at) DESC LIMIT 8`);
+    res.json({days:q.rows,builds:b.rows})}catch(e){next(e)}
+});
 app.post('/api/errors',requireDb,errReportLimiter,async(req,res,next)=>{
   try{
     const list=Array.isArray(req.body?.errors)?req.body.errors.slice(0,15):[];

@@ -657,3 +657,15 @@ CREATE TABLE IF NOT EXISTS client_errors (
   UNIQUE (build, msg, src)
 );
 CREATE INDEX IF NOT EXISTS client_errors_last_idx ON client_errors(last_at DESC);
+-- V-PERFSAMPLE: anonymous load times sent by a share of visits (no account,
+-- no IP), for the admin "Speed for players" panel. Kept 30 days.
+CREATE TABLE IF NOT EXISTS perf_samples (
+  id BIGSERIAL PRIMARY KEY,
+  at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  build TEXT NOT NULL DEFAULT '',
+  device TEXT NOT NULL DEFAULT '',
+  first_ms INTEGER,
+  load_ms INTEGER,
+  view_ms INTEGER
+);
+CREATE INDEX IF NOT EXISTS perf_samples_at_idx ON perf_samples(at DESC);

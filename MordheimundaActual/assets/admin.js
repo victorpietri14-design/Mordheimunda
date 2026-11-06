@@ -90,6 +90,8 @@ function adminReal(){
       ${adminOpenCategory==='quests'?`<div class="admin-category-body">${adminQuestsMarkup()}</div>`:''}
       ${adminCategoryBar('traffic',en?'Server traffic':'Trafic serveur',en?'What uses the transfer allowance, daily ceilings, emergency sync switch':'Ce qui consomme le transfert, plafonds quotidiens, interrupteur d’urgence de la synchro',adminOpenCategory==='traffic')}
       ${adminOpenCategory==='traffic'?`<div class="admin-category-body">${adminTrafficMarkup()}</div>`:''}
+      ${adminCategoryBar('perf',en?'Speed for players':'Vitesse chez les joueurs',en?'Load times measured on players\' devices (anonymous)':'Temps de chargement mesurés chez les joueurs (anonyme)',adminOpenCategory==='perf')}
+      ${adminOpenCategory==='perf'?`<div class="admin-category-body">${adminPerfMarkup()}</div>`:''}
       ${adminCategoryBar('errors',en?'Errors received':'Erreurs reçues',en?'Bugs sent by players who turned on automatic reports':'Bugs envoyés par les joueurs qui ont activé l’envoi automatique',adminOpenCategory==='errors')}
       ${adminOpenCategory==='errors'?`<div class="admin-category-body">${adminErrorsMarkup()}</div>`:''}
       ${adminCategoryBar('translate',en?'Automatic translation':'Traduction automatique',en?'Words never translated, usage of the free allowance':'Mots jamais traduits, consommation de la partie gratuite',adminOpenCategory==='translate')}
@@ -2410,3 +2412,16 @@ function addAdminWarriorRule(){
 }
 function handleAdminWarriorRuleKey(e){if(e.key==='Enter'){e.preventDefault();addAdminWarriorRule()}}
 function removeAdminWarriorRule(i){adminRuleDraft.splice(i,1);refreshAdminWarriorRuleTags()}
+
+// V-PERFSAMPLE: admin view of the timings players' devices sent.
+let adminPerfData=null,adminPerfLoading=false;
+async function loadAdminPerf(){if(adminPerfLoading)return;adminPerfLoading=true;try{adminPerfData=await window.MordheimundaAPI.adminPerf()}catch(e){adminPerfData={error:authError(e,siteLanguage==='en')}}finally{adminPerfLoading=false;if(currentViewName()==='admin')render('admin')}}
+function adminPerfMarkup(){const en=siteLanguage==='en';const d=adminPerfData;if(!d){setTimeout(loadAdminPerf,0);return `<div class="card admin-card"><p class="muted">${en?'Loading…':'Chargement…'}</p></div>`}
+  if(d.error)return `<div class="card admin-card"><p class="muted">${esc(d.error)}</p><button class="button secondary" onclick="adminPerfData=null;render('admin')">${en?'Retry':'Réessayer'}</button></div>`;
+  const s=v=>v==null?'—':Number(v)<1000?Math.round(Number(v))+' ms':(Number(v)/1000).toFixed(1)+' s';const dev={phone:en?'Phone':'Téléphone',tablet:en?'Tablet':'Tablette',desktop:en?'Computer':'Ordinateur'};
+  const rows=(d.days||[]).map(r=>`<tr><td>${esc(r.day)}</td><td>${dev[r.device]||esc(r.device)}</td><td>${r.n}</td><td><b>${s(r.first_p50)}</b></td><td>${s(r.first_p75)}</td><td>${s(r.load_p50)}</td><td>${s(r.view_p50)}</td></tr>`).join('');
+  const builds=(d.builds||[]).map(r=>`<tr><td>${esc(r.build)}</td><td>${r.n}</td><td><b>${s(r.first_p50)}</b></td><td>${s(r.first_p75)}</td></tr>`).join('');
+  return `<div class="card admin-card admin-perf"><div class="eyebrow">${en?'SPEED FOR PLAYERS':'VITESSE CHEZ LES JOUEURS'}</div><p class="muted">${en?'One visit in four sends its timings, anonymously. "First screen": time until the page shows something usable. "Half" = median, "3 in 4" = 75% of visits are faster. "Slowest change": slowest screen change in the first 30 s.':'Une visite sur quatre envoie ses temps, anonymement. « Premier écran » : temps avant que la page soit utilisable. « Moitié » = médiane, « 3 sur 4 » = 75 % des visites sont plus rapides. « Changement le plus lent » : le changement d’écran le plus lent des 30 premières secondes.'}</p>
+  ${rows?`<div class="armory-wrap"><table class="armory-table"><thead><tr><th>${en?'Day':'Jour'}</th><th>${en?'Device':'Appareil'}</th><th>${en?'Visits':'Visites'}</th><th>${en?'First screen · half':'Premier écran · moitié'}</th><th>${en?'· 3 in 4':'· 3 sur 4'}</th><th>${en?'Full load':'Chargement complet'}</th><th>${en?'Slowest change':'Changement le plus lent'}</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="muted">${en?'Nothing received yet.':'Rien de reçu pour l’instant.'}</p>`}
+  ${builds?`<div class="micro-label" style="margin-top:12px">${en?'BY VERSION':'PAR VERSION'}</div><div class="armory-wrap"><table class="armory-table"><thead><tr><th>Version</th><th>${en?'Visits':'Visites'}</th><th>${en?'First screen · half':'Premier écran · moitié'}</th><th>${en?'· 3 in 4':'· 3 sur 4'}</th></tr></thead><tbody>${builds}</tbody></table></div>`:''}
+  <div class="custom-actions"><button type="button" class="button secondary" onclick="adminPerfData=null;render('admin')">↻ ${en?'Refresh':'Actualiser'}</button></div></div>`}

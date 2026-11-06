@@ -2615,7 +2615,7 @@ function imageFocusStyle(focus){
 }
 function imageMarkup(src,kind='fighter',label='Importer une image',focus=null){
  const cls=(kind==='gang'||kind==='custom-warband')?'gang-icon-image':'fighter-avatar-image';
- return src?`<img class="${cls}"${imageFocusStyle(focus)} src="${esc(src)}" alt="${esc(label)}">`:`<span class="${(kind==='gang'||kind==='custom-warband')?'gang-icon-placeholder':'fighter-avatar-placeholder'}">＋</span>`;
+ return src?`<img class="${cls}"${imageFocusStyle(focus)} src="${esc(src)}" alt="${esc(label)}" loading="lazy" decoding="async">`:`<span class="${(kind==='gang'||kind==='custom-warband')?'gang-icon-placeholder':'fighter-avatar-placeholder'}">＋</span>`;
 }
 // V-EMBLEM: a fighter without a portrait gets an emblem instead of "+":
 // the shape and ring colour tell the role, the small badge the race initial.
@@ -4515,7 +4515,7 @@ function printList(){
    ${list.length?`<div class="print-list-items">${list.map((it,i)=>`${it.section&&it.section!==list[i-1]?.section?`<div class="print-list-section">${esc(it.section)}</div>`:''}<section class="print-list-item${it.card?' is-card':''}"><div class="print-list-item-head"><div><b>${esc(it.label||'—')}</b><small>${esc([it.group,it.source?.title].filter(Boolean).join(' · '))}</small></div><div class="print-list-item-actions"><button type="button" class="equipment-action" title="${en?'Up':'Monter'}" onclick="printListMove(${i},-1)" ${i?'':'disabled'}>↑</button><button type="button" class="equipment-action" title="${en?'Down':'Descendre'}" onclick="printListMove(${i},1)" ${i<list.length-1?'':'disabled'}>↓</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Retirer'}" onclick="printListRemove(${i})">✕</button></div></div>${/table/i.test(it.group||'')&&!it.section?`<div class="print-list-item-title">${esc(String(it.label||'').split(' — ')[0])}</div>`:''}<div class="print-snap">${it.html||''}</div></section>`).join('')}</div>`:`<div class="empty large"><strong>${en?'The print list is empty.':'La liste d’impression est vide.'}</strong><span>${en?'On any page, open 🖨 Print… (or Ctrl+P), tick what you want and click “Add to print list”.':'Sur n’importe quelle page, ouvre 🖨 Imprimer… (ou Ctrl+P), coche ce que tu veux et clique sur « Ajouter à la liste d’impression ».'}</span></div>`}
   </div>`;
 }
-function printPrepare(picks){
+function printPrepare(picks){try{document.querySelectorAll('img[loading="lazy"]').forEach(im=>{im.loading='eager'})}catch(e){}
   if(printPrep)return;const root=$('#content');if(!root)return;
   const prep={theme:document.documentElement.getAttribute('data-theme'),details:[],hidden:[],rules:new Map(rulesSectionState)};
   document.documentElement.setAttribute('data-theme','light');document.body.classList.add('printing');
@@ -5090,7 +5090,7 @@ let adminOpenCategory=null;
 // itself (admins, traffic, translation, backup), the game content
 // (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
 // players (support). Opening a section from elsewhere switches to its page.
-const ADMIN_GROUPS={site:['accounts','traffic','errors','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+const ADMIN_GROUPS={site:['accounts','traffic','perf','errors','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
 let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
 const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
 // V-ADMINLAZY: the admin panel's own code lives in assets/admin.js and is
@@ -7127,7 +7127,7 @@ function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{
   }
 }
 function dashKpi(label,value,accent){return `<div class="dash-kpi-card"><span class="dash-kpi-label">${esc(label)}</span><strong class="dash-kpi-value"${accent?` style="color:${accent}"`:''}>${value}</strong></div>`}
-function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction(r)||{displayName:r?.factionName||r?.factionId||(en?'Unknown faction':'Faction inconnue'),budget:1000};const bar=warbandColor(r);const labelColor=bar;const bannerVisual=r.icon?`<img class="dash-wcard-cover"${imageFocusStyle(r.iconFocus)} src="${esc(r.icon)}" alt="${en?'Icon for':'Icône de'} ${esc(r.name)}">`:`<span class="gang-icon">${imageMarkup(r.icon,'gang',`${en?'Icon for':'Icône de'} ${esc(r.name)}`,r.iconFocus)}</span>`;
+function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction(r)||{displayName:r?.factionName||r?.factionId||(en?'Unknown faction':'Faction inconnue'),budget:1000};const bar=warbandColor(r);const labelColor=bar;const bannerVisual=r.icon?`<img class="dash-wcard-cover"${imageFocusStyle(r.iconFocus)} src="${esc(r.icon)}" alt="${en?'Icon for':'Icône de'} ${esc(r.name)}" loading="lazy" decoding="async">`:`<span class="gang-icon">${imageMarkup(r.icon,'gang',`${en?'Icon for':'Icône de'} ${esc(r.name)}`,r.iconFocus)}</span>`;
   // V147 — landscape poster card ported from the Main.dc.html mockup: a wide
   // image band (~72%) with just the rank tag, accent bar and duplicate icon,
   // and a slim bottom strip (~28%) holding only faction + name on the left
@@ -7367,7 +7367,7 @@ function homeCover(r,cls){return r.icon?`<img class="${cls}"${imageFocusStyle(r.
 function homeSpotlightMarkup(r){
   const en=siteLanguage==='en';const f=faction(r)||{displayName:r.factionName||''};const rec=homeRecord(r);const living=homeLiving(r);
   const sub=[r.campaignName?esc(r.campaignName):'',homeLastBattle(r)].filter(Boolean).join(' · ');
-  const crew=living.slice(0,14).map(x=>{const ring=fighterStatus(x).recovery?'#d65c55':homeCanAdvance(x)?'#e8c547':'var(--line2)';const pic=x.image?`<img src="${esc(x.image)}" alt="">`:esc(String(x.name||'?').replace(/[^\p{L}]/gu,'').slice(0,1)||'?');return `<a class="home-crew" href="${fighterPath(r.id,x.instance)}" data-app-route="1" title="${esc(x.name)}"><span class="home-crew-pic" style="border-color:${ring}">${pic}</span><span class="home-crew-name">${esc(x.name)}</span></a>`}).join('')+(living.length>14?`<a class="home-crew" href="${warbandPath(r.id)}" data-app-route="1"><span class="home-crew-pic">+${living.length-14}</span><span class="home-crew-name">${en?'more':'autres'}</span></a>`:'');
+  const crew=living.slice(0,14).map(x=>{const ring=fighterStatus(x).recovery?'#d65c55':homeCanAdvance(x)?'#e8c547':'var(--line2)';const pic=x.image?`<img src="${esc(x.image)}" alt="" loading="lazy" decoding="async">`:esc(String(x.name||'?').replace(/[^\p{L}]/gu,'').slice(0,1)||'?');return `<a class="home-crew" href="${fighterPath(r.id,x.instance)}" data-app-route="1" title="${esc(x.name)}"><span class="home-crew-pic" style="border-color:${ring}">${pic}</span><span class="home-crew-name">${esc(x.name)}</span></a>`}).join('')+(living.length>14?`<a class="home-crew" href="${warbandPath(r.id)}" data-app-route="1"><span class="home-crew-pic">+${living.length-14}</span><span class="home-crew-name">${en?'more':'autres'}</span></a>`:'');
   const todos=homeTodos(r);const advTodo=todos.find(t=>t.dot==='#e8c547');const pbTodo=todos.find(t=>t.dot==='#ff8a3d');
   return `<article class="home-spot" style="--wb:${warbandColor(r)}"><a class="home-spot-cover${r.icon?'':' no-img'}" href="${warbandPath(r.id)}" onclick="event.preventDefault();homeOpen('${esc(r.id)}')" aria-label="${en?'Open':'Ouvrir'} ${esc(r.name)}">${homeCover(r,'home-cover-img')}<div class="home-spot-title"><span class="home-kicker" style="color:${warbandColor(r)}">${en?'PRIORITY':'PRIORITÉ'} 1 · ${esc(f.displayName||'')}</span><h2>${esc(r.name)}</h2>${sub?`<span class="home-spot-sub">${sub}</span>`:''}</div></a>
    <div class="home-spot-body"><div class="home-block"><span class="home-label">${en?'THE BAND':'LA BANDE'}</span><div class="home-crew-row">${crew||`<span class="muted">${en?'No fighter yet.':'Aucun combattant.'}</span>`}</div><div class="home-legend"><span><i style="background:#e8c547"></i>${en?'can advance':'peut progresser'}</span><span><i style="background:#d65c55"></i>${en?'in recovery':'en convalescence'}</span><span><i style="background:var(--line2)"></i>${en?'ready':'prêt'}</span></div></div>
@@ -8850,7 +8850,7 @@ function deploymentMapHandlesMarkupSafe(sh,opts){try{return mapBuilderHandlesMar
 // library tile, scenario editor's map-picker checkbox grid.
 function deploymentMapPreviewMarkup(m,opts){
   if(deploymentMapHasShapes(m))return deploymentMapCardSVG(m.shapes,opts&&opts.forceDims?{forceDims:true}:null);
-  return `<img src="${esc(m.image||'')}" alt="">`;
+  return `<img src="${esc(m.image||'')}" alt="" loading="lazy" decoding="async">`;
 }
 
 // ---- Map builder: toolbar + draggable/resizable canvas + side panel -------
@@ -8953,7 +8953,7 @@ const MAP_BUILDER_ARRIVAL_RADIUS_IN=3;
 function scenarioCardMarkup(s,en){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   return `<a href="/rules/scenarios/${encodeURIComponent(s.id)}" data-app-route="1" class="scn-card">
-    <div class="scn-card-banner">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="">`:'🗺'}<div style="display:flex;gap:4px;flex-wrap:wrap;position:absolute;top:8px;right:8px">${scenarioCategoryTagsMarkup(s,en,true)}</div></div>
+    <div class="scn-card-banner">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async">`:'🗺'}<div style="display:flex;gap:4px;flex-wrap:wrap;position:absolute;top:8px;right:8px">${scenarioCategoryTagsMarkup(s,en,true)}</div></div>
     <div class="scn-card-body"><h4>${esc(s.name)}</h4><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">👥 ${bandsCount}</span>${s.campaignSeries?.seriesName?`<span class="chip">${esc(s.campaignSeries.seriesName)} ${esc(s.campaignSeries.position||'')}</span>`:''}</div></div>
   </a>`;
 }
@@ -19571,3 +19571,14 @@ async function pullRefreshRun(){const en=siteLanguage==='en';try{if(cloudIsSigne
 // V-RAWACTIVE: post-render passes only read the open warband, so they use the
 // stored one instead of activeRoster(), which re-normalizes it on each call.
 function rawActiveRoster(){return Array.isArray(state?.rosters)?state.rosters.find(r=>r&&r.id===state.active)||null:null}
+// ============ V-PERFSAMPLE: how fast the site is for real players ============
+// One visit in four sends three timings (no account, no IP, nothing typed):
+// time to the first screen, full page load, and the slowest screen change in
+// the first 30 seconds. Admins read them in Admin › Speed for players.
+let perfFirstMs=null,perfSlowestView=0;const perfStart=performance.now();
+(function(){const o=window.render;if(typeof o!=='function')return;window.render=function(...a){const t=performance.now();try{return o.apply(this,a)}finally{const d=performance.now()-t;if(perfFirstMs==null)requestAnimationFrame(()=>{if(perfFirstMs==null)perfFirstMs=Math.round(performance.now())});else if(performance.now()-perfStart<30000&&d>perfSlowestView)perfSlowestView=d}};if(document.getElementById('content')?.children.length)perfFirstMs=Math.round(performance.now())})();
+function perfDevice(){const w=window.innerWidth||1200;return w<760?'phone':w<1100?'tablet':'desktop'}
+function perfSend(){try{if(sessionStorage.getItem('mu_perf_done'))return;sessionStorage.setItem('mu_perf_done','1');if(Math.random()>0.25||!/^https?:$/.test(location.protocol)||navigator.onLine===false)return;
+  const nav=performance.getEntriesByType('navigation')[0];const load=nav&&nav.loadEventEnd>0?Math.round(nav.loadEventEnd):null;
+  window.MordheimundaAPI?.sendPerf?.({build:APP_BUILD,device:perfDevice(),first:perfFirstMs,load,view:Math.round(perfSlowestView)||null}).catch(()=>{})}catch(e){}}
+setTimeout(perfSend,30000);
