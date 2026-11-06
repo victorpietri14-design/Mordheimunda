@@ -819,6 +819,18 @@ await test('[desktop] warband colour, Stats tab, emblem and XP bar',null,async p
   expect(out.stats,'Stats tab shows the record: '+JSON.stringify(out));
   expect(out.emblem&&out.xp,'fighter card shows the emblem and the XP bar: '+JSON.stringify(out));
 });
+await test('[desktop] printable sheets, journal, pre-game reminder, rarity gems, warband tint',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const w=f.warriors[0];r.fighters.push({...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:40,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[],status:{recovery:true}});
+    const sheet=sheetDocument(r,false),blank=sheetDocument(null,true);activeRoster().valueLog=[{ts:Date.now(),value:300,res:'win',scenario:'Street Fight',hero:'Bob'}];save(true);
+    navigateApp(warbandPath(r.id));setGangTab('stats');const journal=/Street Fight/.test(document.querySelector('.st-journal')?.textContent||'');
+    const remind=playPreGameReminder(r);readToolsSync();const tinted=document.body.classList.contains('wb-tinted');
+    return {sheet:sheet.includes(r.name)&&sheet.includes('ws-stats'),blank:(blank.match(/ws-fighter blank/g)||[]).length,journal,remind:/convalescence|recovery/i.test(remind),gem:rarityTier({rarity:'Rare 10'})==='epic'&&rarityTier({rarity:'Common'})==='common',tinted}});
+  expect(out.sheet&&out.blank===10,'warband sheet and 10 blank fighter blocks: '+JSON.stringify(out));
+  expect(out.journal,'game journal lists recorded battles: '+JSON.stringify(out));
+  expect(out.remind,'pre-game reminder mentions fighters in recovery: '+JSON.stringify(out));
+  expect(out.gem&&out.tinted,'rarity tiers and warband background tint: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

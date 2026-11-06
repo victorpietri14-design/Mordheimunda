@@ -5563,3 +5563,44 @@ html[data-theme="candle"] .fighter-emblem{filter:sepia(.25)}
 .st-bar small{font-size:10px;color:var(--muted3)}
 .st-row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;border-bottom:1px dashed var(--line);padding:4px 0}.st-row:last-child{border-bottom:0}.st-row small{color:var(--muted2)}
 .st-note{margin:0;font-size:12.5px;color:var(--muted2)}
+/* V-SPLASH */
+.splash{position:fixed;inset:0;z-index:200;background:radial-gradient(80% 60% at 50% 40%,#1d2a12,#0c0c0c 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .4s ease}
+.splash img{width:96px;height:96px;filter:drop-shadow(0 6px 18px rgba(0,0,0,.6))}
+.splash b{font:800 24px 'Cinzel',serif;letter-spacing:3px;color:#f2f2ee}.splash small{font:600 11px 'IBM Plex Sans',sans-serif;letter-spacing:2px;color:#b8b7b3;text-transform:uppercase}
+.splash i{width:120px;height:3px;border-radius:3px;background:#262522;overflow:hidden;position:relative;margin-top:10px}
+.splash i::after{content:'';position:absolute;inset:0;width:40%;background:#9dfa3c;animation:splashBar 1s ease-in-out infinite}
+@keyframes splashBar{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+.splash.out{opacity:0;pointer-events:none}
+@media print{.splash{display:none!important}}
+/* V-JOURNAL / V-PREGAME */
+.st-journal{grid-column:1/-1}
+.st-jrow{display:flex;gap:10px;align-items:center;border-bottom:1px dashed var(--line);padding:6px 0}.st-jrow:last-child{border-bottom:0}
+.st-jrow b{font-size:13.5px}.st-jrow small{display:block;font-size:11.5px;color:var(--muted2)}
+.st-jres{width:28px;height:28px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font:800 12px 'IBM Plex Sans';background:var(--line);color:var(--text)}
+.st-jres.win{background:var(--wb,var(--accent));color:#132007}.st-jres.loss{background:#2a1515;color:#f0a39e}
+.pregame{border:1px solid #6a5420;background:#1c170b;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;display:grid;gap:6px}
+.pregame b{color:#f4cf7a;font-size:12px;letter-spacing:1px;text-transform:uppercase}.pregame ul{margin:0;padding-left:18px;line-height:1.5}.pregame .button{justify-self:start}
+html[data-theme="light"] .pregame{background:#fdf6e3;border-color:#e0c27a}html[data-theme="light"] .pregame b{color:#8a6410}
+/* V-RARITY */
+.rar-gem{vertical-align:-1px;margin-right:4px}
+.eq-row.rar-rare{border-color:#2b4a66}.eq-row.rar-epic{border-color:#4a2d5a}.eq-row.rar-legend{border-color:#5c4818}
+/* V-WBTINT */
+body.wb-tinted .app-bg-scrim{background:linear-gradient(180deg,color-mix(in srgb,var(--wbt) 10%,rgba(10,9,8,.18)) 0%,color-mix(in srgb,var(--wbt) 4%,rgba(10,9,8,.45)) 35%,rgba(10,9,8,.8) 85%);transition:background .4s ease}
+html[data-theme="light"] body.wb-tinted .app-bg-scrim{background:none}
+/* V-FX */
+.xpbar{position:relative}
+.fx-plus{position:absolute;right:0;top:-14px;font:800 12px 'IBM Plex Sans';color:var(--accent);animation:fxUp 1s ease forwards;pointer-events:none}
+.xpbar-go.fx-pulse{animation:fxPulse .7s ease 1}
+.fx-died .fighter-avatar-square,.fx-died .fighter-reduced-avatar,.fx-died .fighter-avatar-hero{position:relative;animation:fxGrey .8s ease forwards}
+.fx-died .fighter-avatar-square::after,.fx-died .fighter-reduced-avatar::after,.fx-died .fighter-avatar-hero::after{content:'';position:absolute;inset:8%;background:linear-gradient(45deg,transparent 46%,#d65c55 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,#d65c55 46% 54%,transparent 54%);clip-path:inset(0 100% 0 0);animation:fxDraw .6s .3s ease forwards;pointer-events:none}
+.fx-revived .fighter-avatar-square,.fx-revived .fighter-avatar-hero{animation:fxRevive 1.2s ease}
+.fx-gold{position:fixed;top:calc(70px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-16px);opacity:0;z-index:97;display:flex;align-items:baseline;gap:6px;padding:7px 14px;border-radius:999px;border:1px solid #6a5420;background:#1c170b;box-shadow:0 8px 24px rgba(0,0,0,.45);pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+.fx-gold.in{opacity:1;transform:translate(-50%,0)}.fx-gold.out{opacity:0;transform:translate(-50%,-16px)}
+.fx-gold small{font:700 10px 'IBM Plex Sans';letter-spacing:1.4px;color:#e0b04a}.fx-gold b{font:800 18px 'IBM Plex Mono',monospace;color:#f4cf7a}.fx-gold em{font-style:normal;font-size:11px;color:#e0b04a}
+.fx-gold-d{font:800 13px 'IBM Plex Sans';margin-left:4px}.fx-gold-d.up{color:#9dfa3c}.fx-gold-d.down{color:#f0a39e}
+@keyframes fxUp{0%{opacity:0;transform:translateY(4px)}20%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+@keyframes fxPulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(157,250,60,.6)}40%{transform:scale(1.12);box-shadow:0 0 0 10px rgba(157,250,60,0)}100%{transform:scale(1)}}
+@keyframes fxGrey{from{filter:none}to{filter:grayscale(1) brightness(.6)}}
+@keyframes fxDraw{to{clip-path:inset(0 0 0 0)}}
+@keyframes fxRevive{0%{filter:grayscale(1) brightness(.6);box-shadow:0 0 0 0 rgba(157,250,60,0)}50%{filter:none;box-shadow:0 0 0 8px rgba(157,250,60,.35)}100%{filter:none;box-shadow:0 0 0 0 rgba(157,250,60,0)}}
+@media (prefers-reduced-motion: reduce){.fx-gold{transition:none}}
