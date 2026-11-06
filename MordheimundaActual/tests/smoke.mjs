@@ -805,6 +805,10 @@ await test('[desktop] phone helpers: number stepper, folded campaign status, pla
   expect(out.fold,'campaign status is a foldable block: '+JSON.stringify(out));
   expect(out.wake,'wake lock helper present: '+JSON.stringify(out));
 });
+await test('[desktop] scenario text: the line above a table is plain text, not a big title',null,async page=>{
+  const out=await page.evaluate(()=>scenarioText('Lance un D6 pour chaque pion :\n[TABLE]\nD6|Résultat\n1|Rien\n[/TABLE]'));
+  expect(!/rule-heading/.test(out)&&/rule-table|<table/.test(out),'no page title in scenario text: '+out.slice(0,300));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

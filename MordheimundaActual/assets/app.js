@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0763.0';
+const APP_BUILD='110.0764.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10870,7 +10870,9 @@ function initScenarioEditorAutoGrow(){document.querySelectorAll('.scn-autogrow')
 // plain text keeps showing exactly as before.
 const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en place'],seAttacker:['Attacker rule','Règle — Attaquant'],seDefender:['Defender rule','Règle — Défenseur'],sePrepText:['Preparation text','Texte de préparation'],seSpecialRules:['Special rules text','Texte des règles spéciales'],seUnderdog:['Underdog bonus','Underdogs Bonus'],seTableEdge:['Table edge rule','Règle des bords de table'],seObjPrimary:['Primary objective','Objectif principal'],seObjSecondary:['Secondary objective','Objectif secondaire'],seEndCondition:['End of game','Fin de partie'],seVictoryMajor:['Major victory','Victoire majeure'],seVictoryMinor:['Minor victory','Victoire mineure'],seVictoryDraw:['Draw','Match nul'],seRewards:['Rewards','Récompenses']};
 function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
-function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{})}</div>`:esc(v)}
+// V-SCNNOTITLE: scenario text is not a rules page — its first line (often
+// the sentence right above a table) is plain text, never the page title.
+function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{noTitle:true})}</div>`:esc(v)}
 function scenarioFormatFocus(ev){
   const t=ev.target;if(!t||t.tagName!=='TEXTAREA')return;
   const en=siteLanguage==='en';const lab=document.getElementById('scnFormatTarget');
