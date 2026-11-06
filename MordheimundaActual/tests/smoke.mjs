@@ -960,6 +960,30 @@ await test('[desktop] light catalog: book text loads on demand; heavy pictures a
   expect(out.after.pages>100&&out.after.text>=10,'the book loads when asked: '+JSON.stringify(out));
   expect(out.done&&out.smaller&&out.webp&&out.dim<=640,'a heavy portrait is re-encoded to a 640px WebP: '+JSON.stringify(out));
 });
+await test('[desktop] undo 10 changes, warband check, two-device conflict, compact list, scenario rules, button names',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const w=f.warriors[0];r.fighters.push({...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:'i1',name:'Hero',xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});save(true);
+    navigateApp(warbandPath('smoke'));await new Promise(z=>setTimeout(z,300));readToolsSync();
+    // 9 undo: three separate changes, then go back two steps
+    const g0=activeRoster().gold;for(const d of [10,20,30]){const rr=state.rosters.find(q=>q.id==='smoke');rr.gold=Number(rr.gold)+d;undoHist.get('smoke')&&undoHist.get('smoke').forEach(e=>e.ts-=5000);save(true)}
+    const n=undoList('smoke').length;undoRestore('smoke',n-2);const gAfter=state.rosters.find(q=>q.id==='smoke').gold;
+    // 8 check: break things, list them, fix one
+    const rr=state.rosters.find(q=>q.id==='smoke');rr.gold=-5;rr.fighters[0].xp=-3;rr.fighters.push({...rr.fighters[0]});save(true);const issues=rosterIssues(activeRoster()).map(x=>x.k);openRosterCheck();const modal=document.getElementById('modalContent').innerHTML;rosterFixOne('gold-neg');const goldFixed=state.rosters.find(q=>q.id==='smoke').gold;closeModal();
+    // 10 conflict: two copies edited on the same synced revision
+    localStorage.removeItem(SYNC_CONFLICT_KEY);const base=JSON.parse(JSON.stringify(state.rosters.find(q=>q.id==='smoke')));const A={...base,name:'Phone edit',updatedSeq:7e13+1000,updatedAt:1000};const B={...base,name:'PC edit',updatedSeq:7e13+2000,updatedAt:2000};
+    const merged=mergeAccountData({rosters:[A]},{rosters:[B]});const conflicts=syncConflicts().map(c=>c.name);const C={...base,name:'Old',updatedSeq:6e13+1,updatedAt:1};localStorage.removeItem(SYNC_CONFLICT_KEY);mergeAccountData({rosters:[C]},{rosters:[B]});const noFalse=syncConflicts().length;
+    localStorage.removeItem(SYNC_CONFLICT_KEY);mergeAccountData({rosters:[A]},{rosters:[B]});readToolsSync();const banner=!!document.querySelector('.sync-conflict');localStorage.removeItem(SYNC_CONFLICT_KEY);
+    // 14 scenario rules
+    const term=referenceEntries('traits').find(t=>t.name&&t.name.length>4&&!/\(/.test(t.name));const sc={id:'sx',name:'X',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins',setupInstructions:'Warriors with '+term.name+' may move.'},victory:{major:'Win'}};const secs=scenarioSections(sc,true,'');
+    // 17 names
+    document.getElementById('content').insertAdjacentHTML('beforeend','<button id="a11yProbe" type="button">⋯</button>');a11ySweep();const lbl=document.getElementById('a11yProbe').getAttribute('aria-label');
+    return {n,g0,gAfter,issues,modal:/Fix/.test(modal),goldFixed,winner:merged.rosters[0].name,conflicts,noFalse,banner,first:secs[0]?.title,hasTerm:secs[0]?.body.includes(term.name),lbl,listFn:typeof printWarbandList==='function'}});
+  expect(out.n>=3&&out.gAfter===out.g0+10,'undo goes back to an earlier change: '+JSON.stringify(out));
+  expect(out.issues.includes('gold-neg')&&out.issues.some(k=>k.startsWith('xp-'))&&out.issues.some(k=>k.startsWith('dup-'))&&out.modal&&out.goldFixed===0,'the warband check lists problems and fixes one when asked: '+JSON.stringify(out));
+  expect(out.winner==='PC edit'&&out.conflicts.includes('Phone edit')&&out.noFalse===0&&out.banner,'a two-device edit keeps the newest and puts the other aside, without false alarms: '+JSON.stringify(out));
+  expect(out.first==='Rules used'&&out.hasTerm,'a scenario starts with the rules it uses: '+JSON.stringify(out));
+  expect(out.lbl&&out.listFn,'icon-only buttons get a name: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
