@@ -190,6 +190,7 @@ await test('[desktop] weapon-scoped bonus: Oversized Jaws improves the Bite Atta
   expect(out.s2===5,'a plain "+1 Strength" item should still raise the profile: '+out.s2);
 });
 await test('[desktop] scenario editor: rule toolbar writes into the focused field, tables render',null,async page=>{
+  await page.evaluate(()=>ensureAdminCode());
   const out=await page.evaluate(()=>{
     adminScenarioEditId=null;adminScenarioEditData=blankScenarioDraft();
     document.querySelector('#content').innerHTML=scenarioEditorPanel();
@@ -1015,6 +1016,7 @@ await test('[desktop] campaign map: admin places settlements and paths, players 
     window.MordheimundaAPI.adminUpdateCampaign=async(id,p)=>({campaign:{...campaignDetailCache.get(id),definition:p.definition}});window.MordheimundaAPI.adminCampaign=async()=>({campaign:campaignDetailCache.get('mapc')});
     navigateApp('/campaigns/mapc/locations')});
   await page.waitForTimeout(600);
+  await page.evaluate(()=>ensureAdminCode());
   await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=800;c.height=500;const g=c.getContext('2d');g.fillStyle='#2a6';g.fillRect(0,0,800,500);openCampMapEditor('mapc');campMapEd.map.image=c.toDataURL('image/png');campMapEd.map.w=800;campMapEd.map.h=500;campMapEdRender()});
   const bb=await (await page.$('#cmapStage')).boundingBox();
   await page.click('.cmap-row:has-text("Port A")');await page.mouse.click(bb.x+bb.width*.25,bb.y+bb.height*.5);
