@@ -929,16 +929,17 @@ await test('[desktop] stats split and timeline, stat-up flash, veteran edges, vi
 });
 await test('[desktop] animated background: setting, mist and embers, off in Day mode',null,async page=>{
   const out=await page.evaluate(()=>{const n=()=>({fog:document.querySelectorAll('#ambientFx .amb-fog').length,ash:document.querySelectorAll('#ambientFx .amb-ash').length});
-    setAmbientMode('both');const both=n();setAmbientMode('fog');const fog=n();setAmbientMode('ash');const ash=n();setAmbientMode('off');const off=!document.getElementById('ambientFx');
+    setAmbientMode('both');const both=n();const tex=getComputedStyle(document.querySelector('#ambientFx .amb-fog.f1')).backgroundImage.includes('data:image/svg');const cont=!document.getElementById('ambientFx').classList.contains('amb-fog');setAmbientMode('fog');const fog=n();setAmbientMode('ash');const ash=n();setAmbientMode('off');const off=!document.getElementById('ambientFx');
     setAmbientMode('both');setSiteTheme('light');const light=!document.getElementById('ambientFx');setSiteTheme('dark');const back=!!document.getElementById('ambientFx');
-    navigateApp('/account');return {both,fog,ash,off,light,back,select:!!document.querySelector('.ambient-select')}});
+    navigateApp('/account');return {tex,cont,both,fog,ash,off,light,back,select:!!document.querySelector('.ambient-select')}});
   expect(out.both.fog===3&&out.both.ash>=40&&out.fog.ash===0&&out.ash.fog===0&&out.off,'the setting picks mist, embers, both or none: '+JSON.stringify(out));
   expect(out.light&&out.back,'off in Day mode, back afterwards: '+JSON.stringify(out));
+  expect(out.tex&&out.cont,'the mist texture is really applied and the container is not styled as a layer: '+JSON.stringify(out));
 });
 await test('[desktop] My Campaigns never stays on Loading: last known campaign shown, bounded retries',null,async page=>{
   let fail=true,n=0;await page.route(/\/api\/account\/campaigns/,r=>{n++;fail?r.fulfill({status:429,contentType:'application/json',body:'{"error":"RATE_LIMITED"}'}):r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({entries:[{campaignId:'lus',campaignName:'Lustrie',campaignColor:'#3fae6a',rosterId:'A',rosterName:'Band',leftAt:null}]})})});
   await page.route(/\/api\/campaigns(\?|$)/,r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({campaigns:[{id:'lus',name:'Lustrie',color:'#3fae6a',status:'published',memberCount:7}]})}));
-  await page.evaluate(()=>{siteLanguage='en';localStorage.removeItem(CAMP_LS_MINE);const f=D.factions[0];state.rosters=[{id:'A',name:'Band',factionId:f.id,gold:100,fighters:[],campaignId:'lus',campaignName:'Lustrie',campaignColor:'#3fae6a'}];state.active='A';save(true);navigateApp('/campaigns')});
+  await page.evaluate(()=>{siteLanguage='en';localStorage.removeItem(CAMP_LS_MINE);localStorage.setItem(ACCOUNT_SESSION_KEY,JSON.stringify({id:'u-smoke',username:'smoke'}));const f=D.factions[0];state.rosters=[{id:'A',name:'Band',factionId:f.id,gold:100,fighters:[],campaignId:'lus',campaignName:'Lustrie',campaignColor:'#3fae6a'}];state.active='A';save(true);navigateApp('/campaigns')});
   await page.waitForTimeout(2500);const t1=await page.textContent('#content');const n1=n;
   fail=false;await page.evaluate(()=>myCampaignEntriesRetry());await page.waitForTimeout(1200);const t2=await page.textContent('#content');
   expect(!/Loading…/.test(t1)&&/Lustrie/.test(t1)&&/Retry/.test(t1),'a failed answer still shows the warband\'s campaign with a Retry button: '+t1.slice(0,200));

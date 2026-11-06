@@ -5755,7 +5755,7 @@ body.read-mode .rule-page-text h4,body.read-mode .rule-page-text .rule-subhead{f
 @media (prefers-reduced-motion: reduce){.fx-statup,.fx-statplus,.fx-newtag,.gsum-sparks{animation:none}}
 /* V-AMBIENT */
 #ambientFx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.amb-fog{position:absolute;left:-200px;width:calc(100% + 2200px);background-repeat:repeat-x;background-size:900px 100%;filter:blur(3px);will-change:transform;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%)}
+.amb-fog{position:absolute;left:-120px;width:calc(100% + 1140px);background-repeat:repeat-x;background-size:900px 100%;filter:blur(3px);will-change:transform;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%);mask-image:linear-gradient(180deg,transparent 0%,#000 30%,#000 70%,transparent 100%)}
 .amb-fog.f1{top:14%;height:46%;opacity:.19;animation:ambFog 95s linear infinite,ambBreath 14s ease-in-out infinite}
 .amb-fog.f2{top:34%;height:44%;opacity:.15;animation:ambFog 60s linear infinite reverse}
 .amb-fog.f3{top:56%;height:40%;opacity:.18;animation:ambFog 130s linear infinite;filter:blur(5px)}

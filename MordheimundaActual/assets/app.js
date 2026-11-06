@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0772.0';
+const APP_BUILD='110.0773.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -14151,8 +14151,8 @@ function myCampaignInfo(c){
 }
 function myCampaignStatLine(c,i){const en=siteLanguage==='en';const bits=[];bits.push(`${en?'Playing as':'Joue avec'} <b class="mc-wb">${esc(i.wb)}</b>`);if(i.rank)bits.push(`${en?'rank':'rang'} <b>${i.rank}</b>${i.count?`/${i.count}`:''}`);if(i.val!=null)bits.push(`${esc(campaignStandingLabel(i.sk))} <b class="mc-gold">${i.val}${campaignStandingUnit(i.sk)?' '+esc(campaignStandingUnit(i.sk)):''}</b>`);if(i.res)bits.push(`${en?'lives in':'réside à'} ${esc(i.res.name||'')}`);return bits.join(' · ')}
 function myCampaigns(){
-  const en=siteLanguage==='en';if(myCampaignEntriesCache===null&&!myCampaignEntriesError)loadMyCampaignEntries('myCampaigns');if(campaignsCache===null||campaignListStale)loadCampaignList('myCampaigns');
-  const known=myCampaignEntriesCache||myCampaignEntriesKnown();const entries=(known||[]).filter(e=>!e.leftAt);const byCamp=new Map();entries.forEach(e=>{if(!byCamp.has(e.campaignId))byCamp.set(e.campaignId,{id:e.campaignId,name:e.campaignName,color:e.campaignColor,entries:[]});byCamp.get(e.campaignId).entries.push(e)});
+  const en=siteLanguage==='en';const signedIn=(()=>{try{return cloudIsSignedIn()}catch(e){return true}})();if(signedIn&&myCampaignEntriesCache===null&&!myCampaignEntriesError)loadMyCampaignEntries('myCampaigns');if(campaignsCache===null||campaignListStale)loadCampaignList('myCampaigns');
+  const known=myCampaignEntriesCache||myCampaignEntriesKnown()||(signedIn?null:[]);const entries=(known||[]).filter(e=>!e.leftAt);const byCamp=new Map();entries.forEach(e=>{if(!byCamp.has(e.campaignId))byCamp.set(e.campaignId,{id:e.campaignId,name:e.campaignName,color:e.campaignColor,entries:[]});byCamp.get(e.campaignId).entries.push(e)});
   const others=(campaignsCache||[]).filter(c=>!byCamp.has(c.id));
   const list=[...byCamp.values()];const last=restoreUiState('lastHub','');list.sort((a,b)=>(b.id===last)-(a.id===last));
   const enter=c=>`navigateApp('/campaigns/${encodeURIComponent(c.id)}')`;const rules=c=>`navigateApp('/rules/campaign/${encodeURIComponent(c.id)}')`;
@@ -14166,7 +14166,7 @@ function myCampaigns(){
       <div class="mc-wait"><span class="mc-wait-head${i.waiting?'':' ok'}">${i.loading?(en?'LOADING…':'CHARGEMENT…'):i.waiting?`${en?'WAITING FOR YOU':'EN ATTENTE'} · ${i.waiting}`:(en?'✓ UP TO DATE':'✓ À JOUR')}</span>${i.todo.map(todoMarkup).join('')||`<small class="muted">${en?'Nothing to do — go play a game!':'Rien à faire — va jouer une partie !'}</small>`}</div></div></section>`;
     rows=list.slice(1).map(c=>{const i=myCampaignInfo(c);const full=i.det||c;return `<div class="mc-row" style="--cc:${campaignColor(full)}" onclick="if(!event.target.closest('button,a'))${enter(c)}">${campaignCoverMarkup(full,'mc-row-img')}<div class="mc-row-body"><b>${esc(full.name||c.name||'')}</b><small>${myCampaignStatLine(c,i)}</small><span class="mc-row-note${i.waiting?' wip':''}">${i.waiting?`● ${i.waiting} ${en?'waiting for you':'en attente'}`:(en?'✓ Up to date':'✓ À jour')}</span></div><button type="button" class="button secondary mc-row-btn" onclick="${enter(c)}">${en?'Enter':'Entrer'} ▸</button></div>`}).join('');
   }
-  if(known!==null&&myCampaignEntriesCache===null&&myCampaignEntriesError)hero=myCampaignEntriesErrorMarkup(en,true)+hero;
+  if(signedIn&&known!==null&&myCampaignEntriesCache===null&&myCampaignEntriesError)hero=myCampaignEntriesErrorMarkup(en,true)+hero;
   $('#content').innerHTML=`<div class="ref-page mc-page"><div class="rules-head"><div class="eyebrow">${en?'PLAY':'JOUER'}</div><h1 class="rules-page-title">${en?'My Campaigns':'Mes campagnes'}</h1>${isAdminEditUI()?`<div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button primary" onclick="openCampaignEditor(null)">＋ ${en?'Create a campaign':'Créer une campagne'}</button></div>`:''}</div>
    ${hero}
    <div class="mc-lower${rows?'':' solo'}">${rows?`<section class="mc-others"><h3 class="mc-h">${en?'My other campaigns':'Mes autres campagnes'}</h3>${rows}</section>`:''}
@@ -21192,7 +21192,7 @@ window.addEventListener('popstate',readToolsSoon);
 // V-NUMPAD: every number field opens the phone's number keypad.
 function numpadSweep(root){try{(root||document).querySelectorAll('input[type=number]:not([inputmode])').forEach(i=>{const st=String(i.getAttribute('step')||'');i.setAttribute('inputmode',st&&st!=='1'&&st!=='any'?'decimal':(/\./.test(st)||st==='any'?'decimal':'numeric'))})}catch(e){}}
 // V-SPLASH: the logo screen fades out once the first page is drawn.
-function splashHide(){const s=document.getElementById('splash');if(!s||s.classList.contains('out'))return;s.classList.add('out');setTimeout(()=>s.remove(),450)}
+function splashHide(){try{sessionStorage.setItem('mu_booted','1')}catch(e){}const s=document.getElementById('splash');if(!s||s.classList.contains('out'))return;s.classList.add('out');setTimeout(()=>s.remove(),450)}
 function readToolsInit(){numpadSweep();setTimeout(splashHide,150);const mo=document.getElementById('modal');if(mo&&!mo.__numObs){mo.__numObs=new MutationObserver(()=>numpadSweep(mo));mo.__numObs.observe(mo,{childList:true,subtree:true})}const c=document.getElementById('content');if(c&&!c.__readObs){c.__readObs=new MutationObserver(()=>{numpadSweep(c);readToolsSoon();if(pfState.q)pfRefreshSoon()});c.__readObs.observe(c,{childList:true})}readToolsSoon()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',readToolsInit);else setTimeout(readToolsInit,0);
 // --- find in page
@@ -21609,10 +21609,13 @@ function ambientSync(force){try{const reduce=window.matchMedia?.('(prefers-reduc
   if(mode==='off'){if(el)el.remove();ambientBuilt='';return}
   if(el&&ambientBuilt===mode&&!force)return;if(!el){el=document.createElement('div');el.id='ambientFx';el.setAttribute('aria-hidden','true');const scrim=document.querySelector('.app-bg-scrim');if(scrim&&scrim.parentNode)scrim.parentNode.insertBefore(el,scrim.nextSibling);else document.body.prepend(el)}
   let html='';
-  if(mode==='fog'||mode==='both')html+=`<div class="amb-fog f1" style="background-image:${ambientFogTile(3,'0.0035','0.009',2.1)}"></div><div class="amb-fog f2" style="background-image:${ambientFogTile(9,'0.005','0.012',2.3)}"></div><div class="amb-fog f3" style="background-image:${ambientFogTile(21,'0.0028','0.008',2.0)}"></div>`;
+  if(mode==='fog'||mode==='both')html+=`<div class="amb-fog f1"></div><div class="amb-fog f2"></div><div class="amb-fog f3"></div>`;
   if(mode==='ash'||mode==='both'){let seed=11;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;for(let i=0;i<48;i++){const depth=[0,0,1,1,2][Math.floor(rnd()*5)];const x=rnd()*100,d=[22,15,10][depth]*(.8+rnd()*.45),dl=-rnd()*22,sz=[3,4.6,6.6][depth]*(.8+rnd()*.4),sw=(10+rnd()*35)*(rnd()<.5?-1:1),hot=rnd()<.4;
     html+=`<i class="amb-ash d${depth}${hot?' hot':''}" style="left:${x.toFixed(1)}%;width:${sz.toFixed(1)}px;height:${sz.toFixed(1)}px;animation-duration:${d.toFixed(1)}s;animation-delay:${dl.toFixed(1)}s;--sw:${sw.toFixed(0)}px"></i>`}}
-  el.innerHTML=html;el.className='amb-'+mode;ambientBuilt=mode}catch(e){}}
+  el.innerHTML=html;
+  // the texture is set from code: written inside the style attribute, its quotes broke the HTML
+  const tiles={f1:[3,'0.0035','0.009',2.1],f2:[9,'0.005','0.012',2.3],f3:[21,'0.0028','0.008',2.0]};el.querySelectorAll('.amb-fog').forEach(f=>{const k=['f1','f2','f3'].find(c=>f.classList.contains(c));if(k)f.style.backgroundImage=ambientFogTile(...tiles[k])});
+  el.className='ambient-'+mode;ambientBuilt=mode}catch(e){}}
 document.addEventListener('visibilitychange',()=>{document.getElementById('ambientFx')?.classList.toggle('paused',document.hidden)});
 try{window.matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('change',()=>ambientSync(true))}catch(e){}
 {const o=window.setSiteTheme;if(typeof o==='function')window.setSiteTheme=function(...a){const out=o.apply(this,a);try{ambientSync(true)}catch(e){}return out}}
