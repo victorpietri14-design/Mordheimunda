@@ -20,7 +20,10 @@ async function session(viewport){
   await page.waitForTimeout(800);
   return {ctx,page,errors};
 }
+// SHARD=k/n runs every n-th test starting at k (see tests/run-parallel.mjs).
+const SHARD=(process.env.SHARD||'').match(/^(\d+)\/(\d+)$/);let testIndex=0;
 async function test(name,viewport,fn){
+  {const i=testIndex++;if(SHARD&&i%Number(SHARD[2])!==Number(SHARD[1]))return;}
   const s=await session(viewport);
   try{await fn(s.page);if(s.errors.length)throw new Error('page errors: '+s.errors.slice(0,3).join(' | '));results.push(['PASS',name])}
   catch(e){failed++;results.push(['FAIL',name,String(e.message||e).slice(0,300)])}
@@ -945,6 +948,17 @@ await test('[desktop] My Campaigns never stays on Loading: last known campaign s
   expect(!/Loading…/.test(t1)&&/Lustrie/.test(t1)&&/Retry/.test(t1),'a failed answer still shows the warband\'s campaign with a Retry button: '+t1.slice(0,200));
   expect(n1<=2,'no request storm after a failure: '+n1);
   expect(/UP TO DATE|Up to date/i.test(t2)&&!/Retry/.test(t2),'Retry loads the real list: '+t2.slice(0,200));
+});
+await test('[desktop] light catalog: book text loads on demand; heavy pictures are re-encoded smaller',null,async page=>{
+  const out=await page.evaluate(async()=>{const before={split:!!D.bookSplit,pages:(D.pages||[]).length,text:(D.factions||[]).filter(f=>f.text).length};
+    await ensureBook();const after={pages:(D.pages||[]).length,text:(D.factions||[]).filter(f=>f.text).length};
+    const c=document.createElement('canvas');c.width=2000;c.height=1500;const g=c.getContext('2d');for(let i=0;i<4000;i++){g.fillStyle=`hsl(${i%360},70%,${30+i%40}%)`;g.fillRect(Math.random()*2000,Math.random()*1500,30,30)}
+    const big=c.toDataURL('image/png');const obj={image:big};const done=await imgShrinkInPlace(obj,'image',IMG_MAX_FIGHTER);
+    const dim=await new Promise(r=>{const im=new Image();im.onload=()=>r(Math.max(im.naturalWidth,im.naturalHeight));im.src=obj.image});
+    return {before,after,done,smaller:obj.image.length<big.length,webp:obj.image.startsWith('data:image/webp'),dim}});
+  expect(out.before.split&&out.before.pages===0&&out.before.text===0,'the startup catalog no longer carries the book text: '+JSON.stringify(out));
+  expect(out.after.pages>100&&out.after.text>=10,'the book loads when asked: '+JSON.stringify(out));
+  expect(out.done&&out.smaller&&out.webp&&out.dim<=640,'a heavy portrait is re-encoded to a 640px WebP: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
