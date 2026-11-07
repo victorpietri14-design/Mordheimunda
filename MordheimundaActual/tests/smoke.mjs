@@ -1005,9 +1005,10 @@ await test('[desktop] error reports sent only when turned on, big uploads compre
   await page.evaluate(d=>window.MordheimundaAPI.saveData(d,1),big);
   expect(put&&put.enc==='gzip'&&put.len<JSON.stringify(big).length/4,'a big account upload is sent gzip-compressed: '+JSON.stringify(put));
 });
-await test('[desktop] admin panel code is loaded only when the panel opens',null,async page=>{
-  const before=await page.evaluate(()=>({real:typeof adminReal,tag:!!document.querySelector('script[src*="admin.min.js"]')}));
-  expect(before.real==='undefined'&&!before.tag,'a player never downloads the admin code: '+JSON.stringify(before));
+await test('[desktop] admin code is not part of the page and loads for the admin panel',null,async page=>{
+  // (the test server counts as an admin session, which preloads the code after 1.5 s; players never do)
+  const before=await page.evaluate(async()=>{const html=await (await fetch('/')).text();return {inPage:/admin(\.min)?\.js/.test(html)}});
+  expect(!before.inPage,'the page itself never loads the admin code: '+JSON.stringify(before));
   await page.evaluate(()=>navigateApp('/admin')); // localhost counts as an admin session
   await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});await page.waitForTimeout(400);
   const t=await page.textContent('#content');
