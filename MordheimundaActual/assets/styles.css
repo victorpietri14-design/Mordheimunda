@@ -5747,3 +5747,14 @@ html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
 @media(max-width:760px){.scn-hero{margin:0 -4px;border-radius:10px}.scn-hero-text{left:12px;right:12px;bottom:10px}}
 .play-scn-title{display:flex;align-items:center;gap:12px}.play-scn-title img{width:84px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:none;margin-top:6px}
 @media(max-width:600px){.play-scn-title img{width:64px;height:44px}}
+/* V-SCNPIC: scenario pictures where a scenario is chosen */
+.pp-banner{margin:-16px -16px 0;height:120px;overflow:hidden;border-radius:inherit;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.pp-banner img{width:100%;height:100%;object-fit:cover;display:block}
+button.pc-fav.has-img{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;text-align:left}
+.pc-fav-img{width:84px;height:56px;object-fit:cover;border-radius:8px;flex:none}
+.pc-fav-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pc-chosen-card{margin-top:10px;border:1px solid var(--accent);border-radius:12px;overflow:hidden;background:var(--panel)}
+.pc-chosen-img{height:150px;overflow:hidden}.pc-chosen-img img{width:100%;height:100%;object-fit:cover;display:block}
+.pc-chosen-body{display:flex;flex-direction:column;gap:4px;padding:10px 14px 12px}
+.pc-chosen-body b{font:800 18px/1.15 Cinzel,serif}.pc-chosen-body small{color:var(--muted);font-size:12.5px;line-height:1.45}
+.pc-chosen-body a{font-size:12.5px;color:var(--accent);margin-top:2px}
