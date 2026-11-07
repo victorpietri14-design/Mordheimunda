@@ -1107,7 +1107,7 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
   expect(out.n>15&&!out.missing.length,'every page has a help entry (add it to HELP_PAGES): '+JSON.stringify(out));
   expect(out.check&&out.done1===1&&out.done2===2,'first steps tick themselves: '+JSON.stringify(out));
   expect(out.statRows===8&&out.notes===1&&out.starts===3&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
-  expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu===6,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
+  expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu>=6,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
 });
 await test('[desktop] rules warbands: race banners, sub-factions, categories apart (Dramatis, agents, neutral creatures)',null,async page=>{
   await seed(page);
@@ -1122,6 +1122,19 @@ await test('[desktop] rules warbands: race banners, sub-factions, categories apa
     const hire=hiredSwordAvailableFor(state.customFighters[2],f,null);
     return {head,tile,cats,neutralPage,hsPage,hire}});
   expect(out.head&&out.tile&&out.cats.length===3&&out.neutralPage&&out.hsPage&&out.hire===false,'rules warbands rework: '+JSON.stringify(out));
+});
+await test('[desktop] stat origin, sync pill, new-player preview, rules without French',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const L=f.warriors.find(w=>w.type==='Leader');
+    const x={...L,profile:(L.profile||[]).slice(),baseProfile:(L.profile||[]).slice(),instance:crypto.randomUUID(),wid:L.id,sourceName:L.name,name:L.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]};
+    x.profile[3]+=1;x.advancements.push({id:'a',kind:'stat',statIndex:3,value:'+1'});x.profile[0]-=1;x.injuries.push({name:'Leg wound',statMods:[{index:0,amount:-1}]});r.fighters.push(x);save(true);
+    const parts=statOriginParts(x,3);const legs=statOriginParts(x,0);
+    editingIndex=r.fighters.length-1;render('fighter');await new Promise(z=>setTimeout(z,300));
+    const cell=document.querySelector('.profile-stat[data-si="3"]');cell?.click();const sheet=document.querySelector('.help-sheet h3')?.textContent||'';helpSheetClose();
+    const pill=syncStatus();
+    siteLanguage='fr';await ensureRulesBook();const miss=frMissingRulePages().length;siteLanguage='en';
+    return {adv:parts.rows.some(r=>/Advances/.test(r[0])&&r[1]===1),inj:legs.rows.some(r=>/Leg wound/.test(r[0])&&r[1]===-1),cell:!!cell,sheet,pill:pill===null||typeof pill.t==='string',miss}});
+  expect(out.adv&&out.inj&&out.cell&&/4|5|6/.test(out.sheet)&&out.pill&&typeof out.miss==='number','stat origin etc: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

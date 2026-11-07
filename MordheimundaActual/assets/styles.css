@@ -5879,3 +5879,20 @@ html[data-theme="light"] .help-check{background:#f4f6ef}html[data-theme="light"]
 .wbx-subcat{font:700 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:4px 0 0}
 .wbx-create{margin:0 0 12px}
 @media(max-width:700px){.wbx-grid{grid-template-columns:1fr}}
+/* V-STATORIGIN / V-SYNCPILL / V-HELPPREVIEW */
+.profile-stat[data-si]{cursor:help}
+.so-rows{display:flex;flex-direction:column;margin-top:4px}
+.so-row{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;border-top:1px solid var(--line);font-size:14px}.so-row:first-child{border-top:0}
+.so-row b{font-weight:800}.so-row b.up{color:var(--accent)}.so-row b.down{color:#e0895a}
+.so-total{border-top:2px solid var(--line2,#4a4945);font-weight:700}
+.sync-pill{margin:-8px 8px 14px;padding:3px 10px;font:600 11.5px 'IBM Plex Sans',sans-serif;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.sync-pill.sync-busy::before{background:#8fc7ef}.sync-pill.sync-wait::before{background:#e0b04a}.sync-pill.sync-off::before{background:#8f8d88}
+@media(max-width:900px){.sync-pill{position:fixed;top:calc(env(safe-area-inset-top) + 60px);right:10px;margin:0;z-index:60;background:rgba(12,12,12,.9);border:1px solid var(--line);border-radius:99px;padding:3px 9px}.sync-pill.sync-ok{display:none}}
+.help-preview-bar{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 8px);z-index:1400;display:flex;gap:10px;align-items:center;background:#2a1d0e;border:1px solid #6a5420;color:#f4cf7a;border-radius:99px;padding:5px 6px 5px 12px;font:700 12px 'IBM Plex Sans',sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.help-preview-bar button{border:0;border-radius:99px;background:#e0b04a;color:#2a1e05;font:800 11.5px 'IBM Plex Sans',sans-serif;padding:5px 10px;cursor:pointer}
+
+/* V-ADMINLOG */
+.adlog-row{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.adlog-row:first-of-type{border-top:0}.adlog-main{flex:1;min-width:0}.adlog-main b{display:block;font-size:13.5px}.adlog-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.adlog-row.done{opacity:.6}
