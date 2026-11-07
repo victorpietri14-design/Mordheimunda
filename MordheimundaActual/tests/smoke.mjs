@@ -1083,6 +1083,24 @@ await test('[desktop] scenario sections grouped in Preparation / Play / Ending, 
   expect(r.hero&&r.g.map(x=>x.k).join()==='p,j,f'&&r.g.every(x=>x.open&&x.n>0),'scenario page: picture + three open parts: '+JSON.stringify(r));
   expect(r.tabs&&r.pg.join()==='p-,j+,f-','in a game the tabs stay and only Play starts open: '+JSON.stringify(r));
 });
+await test('[mobile] help: every page has help, ? sheet, first steps tick, welcome and tour','mobile',async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const src=document.querySelector('script[src*="app"]')?.src;const txt=await (await fetch(src)).text();const m=/\(\{(dashboard,[^}]*)\}\[/.exec(txt);const list=m?m[1].split(',').map(x=>x.trim()):[];
+    const missing=helpMissingPages(list);
+    localStorage.removeItem('mu_help');localStorage.setItem('mu_help_demo','1');helpSave({level:'new',welcomed:true});navigateApp('/');await new Promise(z=>setTimeout(z,300));
+    const check=!!document.querySelector('.help-check');const done1=document.querySelectorAll('.help-step.done').length;
+    const r=activeRoster();const f=faction(r);const L=f.warriors.find(w=>w.type==='Leader');r.fighters.push({...L,profile:(L.profile||[]).slice(),instance:crypto.randomUUID(),wid:L.id,sourceName:L.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[]});save(true);
+    navigateApp('/');await new Promise(z=>setTimeout(z,300));const done2=document.querySelectorAll('.help-step.done').length;
+    document.getElementById('helpBtn').click();const sheet=document.querySelector('.help-sheet h3')?.textContent||'';helpSheetClose();
+    navigateApp(warbandPath(r.id));await new Promise(z=>setTimeout(z,400));const tip=document.getElementById('helpTip')?.dataset.id||'';
+    helpTourStart('builder');const ring=!!document.querySelector('.help-ring');helpTourEnd();
+    helpSave({level:null});helpWelcomeOpen();const welcome=document.querySelectorAll('.help-opt').length;closeModal();
+    openHelpMenu();const menu=document.querySelectorAll('.help-menu button').length;helpSheetClose();
+    return {n:list.length,missing,check,done1,done2,sheet,tip,ring,welcome,menu}});
+  expect(out.n>15&&!out.missing.length,'every page has a help entry (add it to HELP_PAGES): '+JSON.stringify(out));
+  expect(out.check&&out.done1===1&&out.done2===2,'first steps tick themselves: '+JSON.stringify(out));
+  expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu===3,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
