@@ -44,3 +44,7 @@ Les données utilisateur sont dans `user_data` et sont indépendantes des fichie
 Chaque déploiement Vercel remplace le code, pas la base PostgreSQL. Les migrations de données restent versionnées dans `assets/core/migrations.js`.
 
 Avant une migration importante, effectuer une sauvegarde PostgreSQL.
+
+## Si un merge ne se déploie pas
+
+Si un merge sur `main` n’apparaît pas dans Vercel › Deployments, créer un déploiement à la main (Deployments › ⋯ › Create Deployment › `main`) ou pousser un nouveau commit sur `main`. Ne pas utiliser « Redeploy » sur un ancien déploiement : il reconstruit l’ancien commit.
