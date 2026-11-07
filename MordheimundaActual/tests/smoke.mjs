@@ -1043,6 +1043,16 @@ await test('[desktop] create warband: race banners with colour, motif, emblem; w
   expect(f.length===2&&f.every(Boolean),'a warband without a logo shows its race emblem: '+JSON.stringify(f));
   await page.evaluate(()=>{raceLooks={races:{},factions:{},packs:{}};createSelectedRace=null});
 });
+await test('[desktop] create warband: sub-factions get a banner right after their mother warband and pick its supplement',null,async page=>{
+  const r=await page.evaluate(async()=>{siteLanguage='en';const m=D.factions.find(f=>!f.packId&&availableSupplementsForFaction(f.id).length);if(!m)return {skip:true};raceTagMap.set(m.id,'Undead');render('create');await new Promise(z=>setTimeout(z,200));selectCreateRace('Undead');await new Promise(z=>setTimeout(z,200));
+    const tiles=[...document.querySelectorAll('.faction-choice.bn')];const i=tiles.findIndex(t=>t.dataset.faction===m.id&&!t.dataset.supp);const sub=tiles[i+1];
+    sub?.click();await new Promise(z=>setTimeout(z,100));
+    return {after:!!sub&&sub.dataset.faction===m.id&&!!sub.dataset.supp,kick:sub?.querySelector('.bn-kick')?.textContent||'',supp:selectedSupplements(),fac:selectedFaction,mother:m.id,sel:sub?.classList.contains('selected')}});
+  if(r.skip)return;
+  expect(r.after&&/Sub-faction of/.test(r.kick),'the sub-faction tile comes right after its mother warband and says so: '+JSON.stringify(r));
+  expect(r.fac===r.mother&&r.supp.length===1&&r.sel,'picking it selects the mother warband with that supplement ticked: '+JSON.stringify(r));
+  await page.evaluate(()=>{createSelectedRace=null});
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
