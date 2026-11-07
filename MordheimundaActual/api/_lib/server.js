@@ -81,7 +81,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // repeat visits no longer run the server or count against its transfer
 // quota. Admins always get the live version (their requests carry a unique
 // ?_t=, which the CDN never has in cache). Only successful answers are kept.
-const PUBLIC_CACHED_GETS=new Set(['/api/catalog/race-looks','/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+const PUBLIC_CACHED_GETS=new Set(['/api/catalog/race-looks','/api/catalog/help-texts','/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
 app.use((req,res,next)=>{
   if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
   const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
@@ -1909,6 +1909,19 @@ app.get('/api/catalog/race-looks',requireDb,async(req,res,next)=>{
 app.put('/api/admin/race-looks',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const looks=sanitizeRaceLooks(req.body?.looks);const json=JSON.stringify(looks);if(Buffer.byteLength(json)>4*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
     await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('raceLooks',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[json]);res.json({looks})}catch(e){next(e)}
+});
+// V-HELPTEXTS: the admin's rewrites of the in-app help (FR/EN per text key)
+// and the factions flagged "Beginner" for the guided warband creation.
+function sanitizeHelpTexts(v){const out={texts:{},beginner:[]};const src=v&&typeof v==='object'?v:{};const clean=x=>String(x??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').trim().slice(0,1200);
+  for(const [k,t] of Object.entries(src.texts&&typeof src.texts==='object'?src.texts:{}).slice(0,800)){if(!/^[a-z0-9_.:-]{1,100}$/i.test(k)||!t||typeof t!=='object')continue;const o={};const fr=clean(t.fr),en=clean(t.en);if(fr)o.fr=fr;if(en)o.en=en;if(Object.keys(o).length)out.texts[k]=o}
+  if(Array.isArray(src.beginner))out.beginner=[...new Set(src.beginner.map(x=>String(x||'').slice(0,120)).filter(Boolean))].slice(0,40);else out.beginner=null;
+  return out}
+app.get('/api/catalog/help-texts',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='helpTexts'");res.json({help:sanitizeHelpTexts(q.rows[0]?.value)})}catch(e){next(e)}
+});
+app.put('/api/admin/help-texts',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const help=sanitizeHelpTexts(req.body?.help);const json=JSON.stringify(help);if(Buffer.byteLength(json)>1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
+    await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('helpTexts',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[json]);res.json({help})}catch(e){next(e)}
 });
 app.get('/api/catalog/warband-size-limits',requireDb,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value FROM site_settings WHERE key='warbandSizeLimits'");res.json({limits:sanitizeSizeLimits(q.rows[0]?.value?.limits)})}catch(e){next(e)}

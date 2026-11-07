@@ -1096,10 +1096,18 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
     helpTourStart('builder');const ring=!!document.querySelector('.help-ring');helpTourEnd();
     helpSave({level:null});helpWelcomeOpen();const welcome=document.querySelectorAll('.help-opt').length;closeModal();
     openHelpMenu();const menu=document.querySelectorAll('.help-menu button').length;helpSheetClose();
-    return {n:list.length,missing,check,done1,done2,sheet,tip,ring,welcome,menu}});
+    // guide: cards, start sheet, creation guide bar, reading order
+    helpCardsOpen(2);const statRows=document.querySelectorAll('.help-stat').length;helpCardMove(1);const notes=document.querySelectorAll('.help-note').length;closeModal();
+    helpStartOpen();const starts=document.querySelectorAll('.help-start .help-opt').length;closeModal();
+    helpGuideStart();await new Promise(z=>setTimeout(z,300));const bar1=document.querySelector('.help-guide .help-guide-title')?.textContent||'';
+    const g=helpGuide();g.known=[];g.rid=r.id;helpSave({guide:g});renderCurrentRoute();await new Promise(z=>setTimeout(z,300));const bar2=document.querySelector('.help-guide .help-kicker')?.textContent||'';helpGuideQuit();
+    helpSave({level:'new'});navigateApp('/rules');await new Promise(z=>setTimeout(z,500));const reading=document.querySelectorAll('.help-read .help-step').length;
+    const keys=helpAllTexts().length;const ov=(helpOverrides.texts['card.0.title']={fr:'X',en:'X'},hx('card.0.title',['a','b']));delete helpOverrides.texts['card.0.title'];
+    return {n:list.length,missing,check,done1,done2,sheet,tip,ring,welcome,menu,statRows,notes,starts,bar1,bar2,reading,keys,ov}});
   expect(out.n>15&&!out.missing.length,'every page has a help entry (add it to HELP_PAGES): '+JSON.stringify(out));
   expect(out.check&&out.done1===1&&out.done2===2,'first steps tick themselves: '+JSON.stringify(out));
-  expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu===3,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
+  expect(out.statRows===8&&out.notes===1&&out.starts===3&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
+  expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu===6,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
