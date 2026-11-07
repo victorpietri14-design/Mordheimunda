@@ -1053,6 +1053,13 @@ await test('[desktop] create warband: sub-factions get a banner right after thei
   expect(r.fac===r.mother&&r.supp.length===1&&r.sel,'picking it selects the mother warband with that supplement ticked: '+JSON.stringify(r));
   await page.evaluate(()=>{createSelectedRace=null});
 });
+await test('[desktop] a fighter with a portrait keeps its role emblem next to the name',null,async page=>{
+  const r=await page.evaluate(()=>{const f=D.factions[0];const mk=(w,i,img)=>({...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:'e'+i,name:'Emb'+i,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[],image:img});
+    state.rosters=[{id:'EM',name:'Emb',factionId:f.id,gold:100,fighters:[mk(f.warriors[0],0,'data:image/png;base64,iVBORw0KGgo='),mk(f.warriors[1],1,'')]}];state.active='EM';
+    const a=ownedFighterCard(state.rosters[0].fighters[0],0,f),b=ownedFighterCard(state.rosters[0].fighters[1],1,f);
+    return {withImg:/name-emblem/.test(a),without:/name-emblem/.test(b)}});
+  expect(r.withImg&&!r.without,'emblem before the name only when a portrait replaced it: '+JSON.stringify(r));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

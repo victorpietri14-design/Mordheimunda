@@ -5716,3 +5716,8 @@ html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
 .rl-crop-stage img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
 .rl-crop-side{display:flex;flex-direction:column;gap:8px;flex:1 1 160px}
 .rl-preview.big{width:96px;height:96px}
+/* V-NAMEEMBLEM: role emblem before the name of a fighter with a portrait */
+.name-emblem{display:inline-flex;width:30px;height:30px;border-radius:50%;vertical-align:-5px;margin-right:8px;flex:none}
+.name-emblem .fighter-emblem svg{width:16px;height:16px}.name-emblem .fighter-emblem-race{display:none}
+.fighter-title-row .name-emblem{width:34px;height:34px;align-self:center}
+@media(max-width:600px){.name-emblem{width:26px;height:26px;margin-right:6px}.name-emblem .fighter-emblem svg{width:14px;height:14px}}
