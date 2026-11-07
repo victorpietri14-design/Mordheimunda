@@ -1073,6 +1073,16 @@ await test('[desktop] book pages added: characteristics and scenario rules in Ru
   expect(r.has&&r.nav&&r.wb&&r.side,'new book pages are in place: '+JSON.stringify(r));
   await page.evaluate(()=>setWarbandsRulesCategory('directory'));
 });
+await test('[desktop] scenario sections grouped in Preparation / Play / Ending, picture on top; play opens on Play',null,async page=>{
+  const r=await page.evaluate(async()=>{siteLanguage='en';const sc={id:'grp1',name:'Grouped',bandsMin:2,bandsMax:2,summary:'S',battlefield:{terrainType:'Ruins',setupInstructions:'Set up'},specialRules:'Special',objectives:{primary:'Win'},endCondition:'End',victory:{major:'Major'},rewards:['Gold'],thumbnail:'data:image/png;base64,iVBORw0KGgo='};
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]).filter(x=>x.id!=='grp1'),sc];currentScenarioId='grp1';render('scenarioDetail');await new Promise(z=>setTimeout(z,150));
+    const g=[...document.querySelectorAll('#content details.scn-grp')].map(d=>({k:d.dataset.grp,open:d.open,n:d.querySelectorAll('.scn-sub').length}));const hero=!!document.querySelector('#content .scn-hero img');
+    const f=D.factions[0];const r={id:'GP',name:'G',factionId:f.id,gold:0,fighters:[]};state.rosters=[...(state.rosters||[]),r];const ps=blankPlaySession();ps.scenarioId='grp1';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:'GP',rosterName:'G'};state.playSession=ps;
+    const html=playSessionMarkup();const box=document.createElement('div');box.innerHTML=html;const pg=[...box.querySelectorAll('details.scn-grp')].map(d=>d.dataset.grp+(d.open?'+':'-'));const tabs=!!box.querySelector('.play-cond-tabs');
+    state.playSession=null;state.rosters=state.rosters.filter(x=>x.id!=='GP');return {g,hero,pg,tabs}});
+  expect(r.hero&&r.g.map(x=>x.k).join()==='p,j,f'&&r.g.every(x=>x.open&&x.n>0),'scenario page: picture + three open parts: '+JSON.stringify(r));
+  expect(r.tabs&&r.pg.join()==='p-,j+,f-','in a game the tabs stay and only Play starts open: '+JSON.stringify(r));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0784.0';
+const APP_BUILD='110.0785.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7943,7 +7943,7 @@ const PM_CARD='background:var(--bg);border:1px solid var(--line);border-radius:1
 function playPickerCardMarkup(s,en){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const playable=(s.bandsMax||1)>=2;
-  return `<div class="scn-card" style="display:flex;flex-direction:column;gap:10px;padding:16px${playable?'':';opacity:.6'}">
+  return `<div class="scn-card" style="display:flex;flex-direction:column;gap:10px;padding:16px${playable?'':';opacity:.6'}">${s.thumbnail?`<div class="pp-banner"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async"></div>`:''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
       <h3 style="margin:0;font:700 16px 'Cinzel'">${esc(s.name)}</h3>
       ${scenarioCategoryTagsMarkup(s,en,true)}
@@ -8344,6 +8344,8 @@ function applyQuestScope(){if(adminQuestDraft)adminQuestDraft.__dirty=true;const
 // Expand all. playSessionMarkup's output is post-processed so the existing
 // section markup stays untouched.
 function playCollapseKey(n){return (playCondTab||'scenario')+':'+n}
+// where the scenario's own content starts in the play page (V-SCNGROUPS)
+function playScnCut(html){const a=html.indexOf('<div class="scn-groups"');const b=html.indexOf('<section class="scn-sec">');return a<0?b:b<0?a:Math.min(a,b)}
 function playSectionsCollapsible(html){
   const ps=state.playSession;const set=new Set(ps?.collapsedSecs||[]);const en=siteLanguage==='en';
   let any=false;
@@ -8358,7 +8360,7 @@ document.addEventListener('click',e=>{const head=e.target.closest('.scn-collapsi
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const head=e.target.closest?.('.scn-collapsible > :nth-child(2)');if(!head||e.target!==head)return;e.preventDefault();playToggleSection(head.closest('.scn-collapsible'))});
 function playSessionMarkup(){
   const ps=state.playSession;let html=playSessionMarkupTabs();
-  if(playIsGuest(ps)){const cut=html.indexOf('<section class="scn-sec">');const tabsAt=html.indexOf('<div class="play-cond-tabs"');
+  if(playIsGuest(ps)){const cut=playScnCut(html);const tabsAt=html.indexOf('<div class="play-cond-tabs"');
     // greys out the host's controls in the scenario / conditions tabs; the XP & quests tab stays the player's own
     if(playCondTab!=='quests'&&playCondTab!=='fighters'){const from=tabsAt>=0?html.indexOf('</div>',tabsAt)+6:cut;if(from>5)html=html.slice(0,from)+playGuestDisable(html.slice(from))}}
   const banner=playShareBannerMarkup(ps);
@@ -8369,7 +8371,7 @@ function playSessionMarkupTabs(){
   const ps=state.playSession;const html=playCampaignStripInject(playSessionMarkupBase(),ps);const camp=ps&&playConditionsCampaign(ps);
   // V-QUESTS: a Quests tab whenever one of your own warbands plays.
   const mine=ps?playQuestRosters(ps):[];
-  const en=siteLanguage==='en';const cut=html.indexOf('<section class="scn-sec">');if(cut<0)return html;
+  const en=siteLanguage==='en';const cut=playScnCut(html);if(cut<0)return html;
   let tab=playCondTab;if(tab==='conditions'&&!camp)tab='scenario';if(tab==='quests'&&!mine.length)tab='scenario';
   const qDone=ps.questKey?mine.reduce((n,r)=>n+(r.fighters||[]).reduce((m,x)=>m+(x.questRecord||[]).filter(e=>e.sessionKey===ps.questKey).length,0),0):0;
   const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}<button type="button" role="tab" class="${tab==='fighters'?'on':''}" onclick="setPlayCondTab('fighters')">⚔ ${en?'FIGHTERS':'COMBATTANTS'}${(()=>{const n=playOwnRosters(ps).reduce((k,r)=>k+(playEngagedMap(ps)[r.id]?.picks||[]).length,0);return n?` · ${n}`:''})()}</button>${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">${en?'XP & QUESTS':'XP & QUÊTES'}${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
@@ -8387,9 +8389,9 @@ function playSessionMarkupBase(){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];
   return `<div class="rules-shell-wrap scn-detail">
-   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div><h2 style="margin-top:6px">${esc(s.name)}</h2><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
+   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div><div class="play-scn-title">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async">`:''}<h2 style="margin-top:6px">${esc(s.name)}</h2></div><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
-   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)))}
+   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
   </div>`;
 }
 function playMode(){
@@ -8957,7 +8959,21 @@ function scenarioSections(s,en,deployBody){
   try{const used=scenarioRulesUsed(s);if(used.length)secs.unshift({title:en?'Rules used':'Règles utilisées',body:`<p class="scn-used-hint">${en?'Tap a rule to read it.':'Touche une règle pour la lire.'}</p><div class="scn-used">${used.map(t=>`<span class="rule-ref scn-used-chip" tabindex="0" data-ref-category="${t.cat}" data-ref-id="${esc(t.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(t.name)}</span>`).join('')}</div>`})}catch(e){}
   return secs;
 }
-function scenarioSectionsMarkup(secs){return secs.map((c,i)=>`<section class="scn-sec"><span class="scn-secnum">${String(i+1).padStart(2,'0')}</span>${c.head?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${c.title}</div>${c.head}</div>`:`<div class="scn-sectitle">${c.title}</div>`}${c.body}</section>`).join('')}
+// V-SCNGROUPS: the scenario's sections grouped in three folding parts —
+// Preparation · Play · Ending — with a thin line between sections instead of
+// one big spaced box each. opts.open: which parts start open (default all).
+function scenarioSectionGroup(title){const t=String(title||'').replace(/<[^>]*>/g,'');
+  if(/Special|Spéciale|Objective|Objectif/i.test(t))return 'j';
+  if(/End of Game|Fin de Partie|Victory|Victoire|Experience|Expérience|Reward|Récompense/i.test(t))return 'f';
+  return 'p'}
+const SCN_GROUP_ORDER=[/End of Game|Fin de Partie/i,/Victory|Victoire/i,/Experience|Expérience/i,/Reward|Récompense/i];
+function scenarioGroupRank(c){const t=String(c.title||'').replace(/<[^>]*>/g,'');const i=SCN_GROUP_ORDER.findIndex(r=>r.test(t));return i<0?-1:i}
+// in a game, the parts you open or close stay that way for that game
+document.addEventListener('toggle',e=>{const d=e.target;if(!d?.matches?.('details.scn-grp[data-play]'))return;const ps=state.playSession;if(!ps)return;ps.openScnGroups=[...document.querySelectorAll('details.scn-grp[data-play][open]')].map(x=>x.dataset.grp);try{save(true)}catch(err){}},true);
+function scenarioSectionsMarkup(secs,opts={}){const en=siteLanguage==='en';const open=new Set(opts.open||['p','j','f']);
+  const G=[['p',en?'Preparation':'Préparation'],['j',en?'Play':'Jeu'],['f',en?'Ending':'Fin']];let n=0;
+  return `<div class="scn-groups">${G.map(([k,label])=>{const list=secs.filter(c=>scenarioSectionGroup(c.title)===k).map((c,i)=>({c,i})).sort((a,b)=>(k==='f'?scenarioGroupRank(a.c)-scenarioGroupRank(b.c):0)||a.i-b.i).map(x=>x.c);if(!list.length)return '';n++;
+    return `<details class="scn-grp" data-grp="${k}"${opts.play?' data-play="1"':''}${open.has(k)?' open':''}><summary class="scn-grp-head"><span class="scn-grp-num">${n}</span><b>${label}</b><span class="scn-grp-count">${list.length} ${en?(list.length>1?'sections':'section'):(list.length>1?'sections':'section')}</span><span class="scn-grp-chev" aria-hidden="true">▾</span></summary>${list.map(c=>`<section class="scn-sub"><div class="scn-subtitle">${c.title}${c.head||''}</div>${c.body}</section>`).join('')}</details>`}).join('')}</div>`}
 function scenarioDetail(){
   const en=siteLanguage==='en';
   const s=SCENARIOS_CACHE.find(x=>x.id===currentScenarioId);
@@ -8978,7 +8994,8 @@ function scenarioDetail(){
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:(s.tableSize?[s.tableSize]:[]);
   const facts=[has(bf.terrainType)?`🏚 ${esc(bf.terrainType)}`:'',sizes.length?`📐 ${sizes.map(esc).join(' / ')}`:'',`👥 ${bandsCount} ${en?'warbands':'bandes'}`].filter(Boolean);
   $('#content').innerHTML=`<div class="rules-shell-wrap scn-detail">
-   <div class="page-intro scn-head"><div>${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2 style="margin-top:2px">${esc(s.name)}</h2>${has(s.summary)?`<p class="scn-summary">${esc(s.summary)}</p>`:''}<div class="scn-facts">${scenarioCategoryTagsMarkup(s,en,true)}${facts.map(t=>`<span class="chip">${t}</span>`).join('')}</div></div>${isAdminEditUI()?`<button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
+   ${s.thumbnail?`<div class="scn-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text">${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2>${esc(s.name)}</h2></div></div>`:''}
+   <div class="page-intro scn-head${s.thumbnail?' under-hero':''}"><div>${s.thumbnail?'':`${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2 style="margin-top:2px">${esc(s.name)}</h2>`}${has(s.summary)?`<p class="scn-summary">${esc(s.summary)}</p>`:''}<div class="scn-facts">${scenarioCategoryTagsMarkup(s,en,true)}${facts.map(t=>`<span class="chip">${t}</span>`).join('')}</div></div>${isAdminEditUI()?`<button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
    ${scenarioSectionsMarkup(secs)}
   </div>`;
 }
@@ -10275,6 +10292,8 @@ function playCampPick(cid){const d=playCampDraft;d.cid=cid;d.picks=(state.roster
 function playCampToggle(rid){const d=playCampDraft;const i=d.picks.indexOf(rid);if(i>=0)d.picks.splice(i,1);else d.picks.push(rid);render('playMode')}
 function playCampScenario(sid){playCampDraft.scenarioId=sid;render('playMode')}
 function playCampRoll(){const d=playCampDraft;const c=campaignDetailCache.get(d.cid);if(!campaignFeatureOn(c,'scenarioTable'))return;const kind=d.picks.length>2?'multi':'two';const t=c.definition.scenarioTable[kind];if(!t)return;const dice=[postBattleRoll(),postBattleRoll()];const name=t[dice[0]+dice[1]]||'—';d.roll={kind,dice,total:dice[0]+dice[1],name};const m=campaignScenarioMatches(name);d.scenarioId=m[0]?.id||d.scenarioId;render('playMode')}
+// V-SCNPIC: the chosen scenario as a card with its picture (if it has one)
+function playChosenScenarioMarkup(sel,en){return `<div class="pc-chosen-card${sel.thumbnail?' has-img':''}">${sel.thumbnail?`<div class="pc-chosen-img"><img src="${esc(sel.thumbnail)}"${imageFocusStyle(sel.thumbnailFocus)} alt="" decoding="async"></div>`:''}<div class="pc-chosen-body"><span class="micro-label">${en?'CHOSEN SCENARIO':'SCÉNARIO CHOISI'}</span><b>${esc(sel.name)}</b>${sel.summary?`<small>${esc(sel.summary)}</small>`:''}<a href="#" onclick="navigateApp('/rules/scenarios/'+encodeURIComponent('${esc(sel.id)}'));return false;">${en?'Read the scenario →':'Lire le scénario →'}</a></div></div>`}
 function playCampaignSetupMarkup(){
   const en=siteLanguage==='en';const d=playCampDraft;const camps=playMyCampaigns();
   if(!d.cid&&camps.length===1)d.cid=camps[0].id,d.picks=camps[0].rosters.slice(0,1).map(r=>r.id);
@@ -10293,10 +10312,10 @@ function playCampaignSetupMarkup(){
       const bands=members.map(m=>{const on=d.picks.includes(m.rosterId);const r=(state.rosters||[]).find(x=>x.id===m.rosterId);const resId=r?.campaignResidence||m.stats?.residence;const res=setts.find(x=>x.id===resId);return `<button type="button" class="pc-band${on?' on':''}" onclick="playCampToggle('${esc(m.rosterId)}')" aria-pressed="${on}"><i aria-hidden="true">${on?'✓':''}</i><span><b>${esc(m.rosterName||'—')}</b><small>${esc(m.faction||'')}${mineIds.has(m.rosterId)?` · ${en?'you':'toi'}`:m.username?` · ${esc(m.username)}`:''}</small></span><em>${res?esc(res.name):(en?'no residence':'sans résidence')}</em></button>`}).join('');
       const fav=c.definition?.favoredScenario;const favS=fav?.id?SCENARIOS_CACHE.find(x=>x.id===fav.id):fav?.name?campaignScenarioMatches(fav.name)[0]:null;
       const sel=SCENARIOS_CACHE.find(x=>x.id===d.scenarioId);const tableOn=campaignFeatureOn(c,'scenarioTable');
-      const scn=`${favS?`<button type="button" class="pc-fav${d.scenarioId===favS.id?' on':''}" onclick="playCampScenario('${esc(favS.id)}')"><span class="micro-label">★ ${en?'FAVOURED THIS ROUND':'FAVORI DE LA MANCHE'}</span><b>${esc(favS.name)}</b>${fav.note?`<small>${esc(fav.note)}</small>`:''}</button>`:''}
+      const scn=`${favS?`<button type="button" class="pc-fav${d.scenarioId===favS.id?' on':''}${favS.thumbnail?' has-img':''}" onclick="playCampScenario('${esc(favS.id)}')">${favS.thumbnail?`<img class="pc-fav-img" src="${esc(favS.thumbnail)}"${imageFocusStyle(favS.thumbnailFocus)} alt="" loading="lazy" decoding="async">`:''}<span class="pc-fav-txt"><span class="micro-label">★ ${en?'FAVOURED THIS ROUND':'FAVORI DE LA MANCHE'}</span><b>${esc(favS.name)}</b>${fav.note?`<small>${esc(fav.note)}</small>`:''}</span></button>`:''}
         ${tableOn?`<div class="pc-roll"><button type="button" class="button secondary" onclick="playCampRoll()">🎲 ${en?'Roll 2D6 on the campaign table':'Lancer 2D6 sur la table de la campagne'}</button>${d.roll?`<span class="pc-roll-res"><span class="cpb-art-dice">${d.roll.dice.map(v=>`<i>${v}</i>`).join('')}</span><b>${d.roll.total} · ${esc(d.roll.name)}</b></span>`:''}</div><small class="muted">${en?'2 warbands use the “two players” table, 3 or more the “multiplayer” one.':'2 bandes : table « deux joueurs », 3 ou plus : table « multijoueur ».'}</small>`:''}
         <label class="custom-field"><span>${en?'Or choose any scenario':'Ou choisis n’importe quel scénario'}</span><select onchange="playCampScenario(this.value)"><option value="">—</option>${SCENARIOS_CACHE.map(x=>`<option value="${esc(x.id)}" ${x.id===d.scenarioId?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
-        ${sel?`<div class="pc-chosen">${en?'Scenario':'Scénario'} : <b>${esc(sel.name)}</b></div>`:''}`;
+        ${sel?playChosenScenarioMarkup(sel,en):''}`;
       const condOn=campaignFeatureOn(c,'conditions'),explOn=campaignFeatureOn(c,'exploration');
       const rules=[[en?'Weather':'Météo',condOn,en?'START · 2D6':'DÉBUT · 2D6',en?'Rolled once on the campaign weather chart; shown on the game screen.':'Lancée une fois sur la table météo de la campagne ; affichée pendant la partie.'],[en?'Hazards':'Dangers',condOn,en?'START · D6 EACH':'DÉBUT · D6 CHACUN',en?'One D6 per fighter taking part: every 1 is a hazard (3D6).':'Un D6 par combattant qui prend part : chaque 1 est un danger (3D6).'],[en?'Residence':'Résidence',setts.length>0,en?'ALWAYS':'TOUJOURS',en?'Each warband’s settlement bonuses apply to its fighters and its market.':'Les bonus de la colonie de chaque bande s’appliquent à ses combattants et à son marché.'],[en?'Exploration':'Exploration',explOn,en?'POST-BATTLE':'POST-BATAILLE',en?'The campaign’s exploration chart replaces the basic one.':'La table d’exploration de la campagne remplace celle de base.'],[en?'Market':'Marché',true,en?'POST-BATTLE':'POST-BATAILLE',en?'Shared campaign stock; Band List purchases arrive after the next game.':'Stock partagé de la campagne ; les achats Band List arrivent après la partie suivante.'],[en?'Result':'Résultat',true,en?'END':'FIN',en?'Recorded in the campaign’s Battles for the other players to confirm.':'Enregistré dans les Batailles de la campagne, à confirmer par les autres joueurs.']];
       const ready=d.picks.length>=2&&sel;
