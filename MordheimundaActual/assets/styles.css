@@ -5891,3 +5891,8 @@ html[data-theme="light"] .help-check{background:#f4f6ef}html[data-theme="light"]
 @media(max-width:900px){.sync-pill{position:fixed;top:calc(env(safe-area-inset-top) + 60px);right:10px;margin:0;z-index:60;background:rgba(12,12,12,.9);border:1px solid var(--line);border-radius:99px;padding:3px 9px}.sync-pill.sync-ok{display:none}}
 .help-preview-bar{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 8px);z-index:1400;display:flex;gap:10px;align-items:center;background:#2a1d0e;border:1px solid #6a5420;color:#f4cf7a;border-radius:99px;padding:5px 6px 5px 12px;font:700 12px 'IBM Plex Sans',sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4)}
 .help-preview-bar button{border:0;border-radius:99px;background:#e0b04a;color:#2a1e05;font:800 11.5px 'IBM Plex Sans',sans-serif;padding:5px 10px;cursor:pointer}
+
+/* V-ADMINLOG */
+.adlog-row{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.adlog-row:first-of-type{border-top:0}.adlog-main{flex:1;min-width:0}.adlog-main b{display:block;font-size:13.5px}.adlog-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.adlog-row.done{opacity:.6}

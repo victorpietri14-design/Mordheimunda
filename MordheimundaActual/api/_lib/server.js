@@ -75,6 +75,32 @@ app.use(cors({origin:config.clientOrigin,credentials:true}));
 app.use(cookieParser());
 app.use(express.json({limit:'6mb'}));
 app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
+// V-ADMINLOG: every successful admin write is written to admin_log. For the
+// writes that replace one well-known value (a site setting, or one row keyed
+// by the URL), the value BEFORE the change is kept so it can be restored.
+const ADMIN_LOG_SNAP=[
+ [/^\/api\/admin\/help-texts$/,{setting:'helpTexts'}],[/^\/api\/admin\/race-looks$/,{setting:'raceLooks'}],[/^\/api\/admin\/price-rules$/,{setting:'equipmentPriceRules'}],
+ [/^\/api\/admin\/warband-size-limits$/,{setting:'warbandSizeLimits'}],[/^\/api\/admin\/warband-hire-rules$/,{setting:'warbandHireRules'}],[/^\/api\/admin\/quests$/,{setting:'questLibrary'}],
+ [/^\/api\/admin\/trophies$/,{setting:'trophyLibrary'}],[/^\/api\/admin\/translate-exclusions$/,{setting:'translateExclusions'}],[/^\/api\/admin\/home\/event$/,{setting:'activeEvent'}],
+ [/^\/api\/admin\/rules\/overrides\/([^/]+)\/(\d+)$/,{table:'rule_overrides',cols:['section_id','page']}],
+ [/^\/api\/admin\/catalog\/overrides\/([^/]+)$/,{table:'catalog_overrides',cols:['faction_id']}],
+ [/^\/api\/admin\/catalog\/weapon-overrides\/([^/]+)$/,{table:'weapon_overrides',cols:['weapon_name']}],
+ [/^\/api\/admin\/catalog\/race-tags\/([^/]+)$/,{table:'faction_race_tags',cols:['faction_id']}],
+ [/^\/api\/admin\/catalog\/race-maximums\/([^/]+)$/,{table:'race_stat_maximums',cols:['race']}],
+ [/^\/api\/admin\/catalog\/domain-overrides\/([^/]+)$/,{table:'magic_domain_overrides',cols:['domain_key']}],
+ [/^\/api\/admin\/catalog\/spell-weapon-profiles\/([^/]+)$/,{table:'spell_weapon_profile_overrides',cols:['entry_id']}]];
+function adminLogTarget(p,body){if(p==='/api/admin/rules/overrides'&&body&&body.sectionId&&Number.isFinite(Number(body.page)))return {table:'rule_overrides',key:{section_id:String(body.sectionId),page:Number(body.page)}};for(const [re,spec] of ADMIN_LOG_SNAP){const m=re.exec(p);if(!m)continue;if(spec.setting)return {setting:spec.setting};const key={};spec.cols.forEach((c,i)=>{let v=decodeURIComponent(m[i+1]);if(c==='page')v=Number(v);key[c]=v});return {table:spec.table,key}}return null}
+async function adminLogRead(t){if(t.setting){const q=await pool.query('SELECT value FROM site_settings WHERE key=$1',[t.setting]);return q.rows[0]?q.rows[0].value:null}
+  const cols=Object.keys(t.key);const q=await pool.query(`SELECT * FROM ${t.table} WHERE ${cols.map((c,i)=>`${c}=$${i+1}`).join(' AND ')}`,cols.map(c=>t.key[c]));const r=q.rows[0];if(!r)return null;const o={...r};delete o.updated_by;delete o.updated_at;return o}
+function adminLogInsert(user,method,path,t,before,ok){return pool.query('INSERT INTO admin_log(user_id,username,method,path,target,before,restorable) VALUES($1,$2,$3,$4,$5,$6,$7)',[user.user_id,user.username||null,method,String(path).slice(0,300),t?JSON.stringify(t):null,ok?JSON.stringify(before):null,!!ok])}
+app.use('/api/admin',(req,res,next)=>{
+  if(!pool||!['PUT','POST','DELETE','PATCH'].includes(req.method)||/^\/log\//.test(req.path))return next();
+  const full='/api/admin'+req.path;const t=adminLogTarget(full,req.body);
+  const go=before=>{res.on('finish',()=>{if(res.statusCode>=300||!req.user?.is_admin)return;let ok=!!t&&before!==undefined;try{if(ok&&Buffer.byteLength(JSON.stringify(before))>2*1024*1024)ok=false}catch(e){ok=false}
+    adminLogInsert(req.user,req.method,full,t,before,ok).then(()=>{if(Math.random()<.05)pool.query('DELETE FROM admin_log WHERE id NOT IN (SELECT id FROM admin_log ORDER BY id DESC LIMIT 3000)').catch(()=>{})}).catch(()=>{})});next()};
+  if(!t)return go(undefined);
+  adminLogRead(t).then(go,()=>go(undefined));
+});
 // V-PUBLICCACHE: shared content every visitor downloads when opening the site
 // (official warbands, scenarios, maps, rules edits, catalog changes, home
 // news…) is the same for everyone, so Vercel's CDN may keep it for a minute:
@@ -1924,6 +1950,27 @@ app.get('/api/catalog/help-texts',requireDb,async(req,res,next)=>{
 app.put('/api/admin/help-texts',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const help=sanitizeHelpTexts(req.body?.help);const json=JSON.stringify(help);if(Buffer.byteLength(json)>1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
     await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('helpTexts',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[json]);res.json({help})}catch(e){next(e)}
+});
+app.get('/api/admin/log',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const before=Number(req.query.before)||null;const q=await pool.query(`SELECT id,at,username,method,path,target,restorable,restored_at,restored_by FROM admin_log ${before?'WHERE id<$1':''} ORDER BY id DESC LIMIT 100`,before?[before]:[]);res.json({entries:q.rows})}catch(e){next(e)}
+});
+app.post('/api/admin/log/:id/restore',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT * FROM admin_log WHERE id=$1',[Number(req.params.id)||0]);const e=q.rows[0];if(!e)return res.status(404).json({error:'NOT_FOUND'});
+    if(!e.restorable||!e.target)return res.status(400).json({error:'NOT_RESTORABLE'});if(e.restored_at)return res.status(409).json({error:'ALREADY_RESTORED'});
+    const t=e.target,b=e.before;let now;try{now=await adminLogRead(t)}catch(x){now=undefined}
+    if(t.setting){
+      if(b===null)await pool.query('DELETE FROM site_settings WHERE key=$1',[t.setting]);
+      else await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[t.setting,JSON.stringify(b)]);
+    }else{
+      const spec=(ADMIN_LOG_SNAP.find(([,s])=>s.table===t.table)||[])[1];if(!spec)return res.status(400).json({error:'NOT_RESTORABLE'});const kc=Object.keys(t.key);
+      if(b===null)await pool.query(`DELETE FROM ${t.table} WHERE ${kc.map((c,i)=>`${c}=$${i+1}`).join(' AND ')}`,kc.map(c=>t.key[c]));
+      else{const cols=Object.keys(b).filter(c=>/^[a-z_]+$/.test(c));const vals=cols.map(c=>b[c]!==null&&typeof b[c]==='object'?JSON.stringify(b[c]):b[c]);
+        const sets=cols.filter(c=>!spec.cols.includes(c)).map(c=>`${c}=EXCLUDED.${c}`).concat(['updated_by=EXCLUDED.updated_by','updated_at=NOW()']).join(',');
+        await pool.query(`INSERT INTO ${t.table}(${[...cols,'updated_by','updated_at'].join(',')}) VALUES(${cols.map((c,i)=>`$${i+1}`).join(',')},$${cols.length+1},NOW()) ON CONFLICT(${spec.cols.join(',')}) DO UPDATE SET ${sets}`,[...vals,req.user.user_id])}
+    }
+    await pool.query('UPDATE admin_log SET restored_at=NOW(),restored_by=$2 WHERE id=$1',[e.id,req.user.username||null]);
+    await adminLogInsert(req.user,'RESTORE',e.path,t,now,now!==undefined);
+    res.json({ok:true})}catch(err){next(err)}
 });
 app.get('/api/catalog/warband-size-limits',requireDb,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value FROM site_settings WHERE key='warbandSizeLimits'");res.json({limits:sanitizeSizeLimits(q.rows[0]?.value?.limits)})}catch(e){next(e)}

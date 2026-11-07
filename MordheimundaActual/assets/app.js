@@ -5086,7 +5086,7 @@ let adminOpenCategory=null;
 // itself (admins, traffic, translation, backup), the game content
 // (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
 // players (support). Opening a section from elsewhere switches to its page.
-const ADMIN_GROUPS={site:['accounts','traffic','perf','errors','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+const ADMIN_GROUPS={site:['accounts','traffic','perf','errors','translate','frmissing','journal','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
 let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
 const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
 // V-ADMINLAZY: the admin panel's own code lives in assets/admin.js and is

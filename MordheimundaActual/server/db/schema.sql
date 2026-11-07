@@ -669,3 +669,20 @@ CREATE TABLE IF NOT EXISTS perf_samples (
   view_ms INTEGER
 );
 CREATE INDEX IF NOT EXISTS perf_samples_at_idx ON perf_samples(at DESC);
+
+-- V-ADMINLOG: every admin change (who, when, what), with the previous value
+-- when it can be put back ("Restore" in Admin > Change log).
+CREATE TABLE IF NOT EXISTS admin_log (
+  id BIGSERIAL PRIMARY KEY,
+  at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  username TEXT,
+  method TEXT NOT NULL,
+  path TEXT NOT NULL,
+  target JSONB,
+  before JSONB,
+  restorable BOOLEAN NOT NULL DEFAULT FALSE,
+  restored_at TIMESTAMPTZ,
+  restored_by TEXT
+);
+CREATE INDEX IF NOT EXISTS admin_log_at_idx ON admin_log(at DESC);
