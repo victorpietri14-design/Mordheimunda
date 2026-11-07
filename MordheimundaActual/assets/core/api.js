@@ -185,6 +185,8 @@
   adminSaveTranslation:(source,translated,html=true)=>request('/api/admin/translations',{method:'PUT',body:JSON.stringify({source,translated,html,target:'FR'})}),
   adminTranslateSettings:()=>request('/api/admin/translate-settings'),
   adminTraffic:()=>request('/api/admin/traffic'),
+  raceLooks:()=>request('/api/catalog/race-looks'),adminSaveRaceLooks:looks=>request('/api/admin/race-looks',{method:'PUT',compress:true,body:JSON.stringify({looks})}),
+  sendPerf:p=>request('/api/perf',{method:'POST',body:JSON.stringify(p)}),adminPerf:()=>request('/api/admin/perf'),
   sendErrors:(errors,device)=>request('/api/errors',{method:'POST',body:JSON.stringify({errors,device})}),adminErrors:()=>request('/api/admin/errors'),adminDeleteError:id=>request('/api/admin/errors/'+encodeURIComponent(id),{method:'DELETE'}),
   adminTrafficAccounts:days=>request('/api/admin/traffic/accounts?days='+encodeURIComponent(days||1)),
   adminTrafficAccount:(who,days)=>request('/api/admin/traffic/account?who='+encodeURIComponent(who)+'&days='+encodeURIComponent(days||7)),

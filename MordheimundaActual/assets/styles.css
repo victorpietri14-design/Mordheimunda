@@ -5671,3 +5671,36 @@ html[data-theme="light"] #ambientFx{display:none}
 .cmap-help{font-size:12.5px;color:var(--muted);margin:0 0 4px}.cmap-help.on{color:var(--accent);font-weight:600}
 .cmap-detail{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:6px}
 @media (max-width:860px){.cmap-ed-body{grid-template-columns:1fr}.cmap-ed-side{max-height:none}}
+/* V-RATINGPREVIEW */
+.rating-delta{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}.rating-delta b{color:var(--accent)}
+.buy-draft-head .rating-delta{display:inline;margin:0 0 0 10px}
+/* V-RACELOOK: race / warband banners on "Create a warband" */
+.mu-create-page .faction-grid.bn{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.mu-create-page .faction-choice.bn{position:relative;overflow:hidden;flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;gap:12px;min-height:86px;padding:12px 14px;border:2px solid rgba(255,255,255,.08);color:#f6f3ea;--motif:none;background:var(--motif),linear-gradient(120deg,var(--rcd),#0c0b0a 72%)}
+.mu-create-page .faction-choice.bn:hover{border-color:color-mix(in srgb,var(--rc) 55%,transparent)}
+.mu-create-page .faction-choice.bn .choice-img-wrap{flex:none;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--rc);background:rgba(0,0,0,.45);margin:0;overflow:hidden}
+.mu-create-page .faction-choice.bn .choice-sigil{border:0;background:none;color:var(--rc2);font-size:24px;width:auto;height:auto}
+.mu-create-page .faction-choice.bn.selected .choice-sigil{color:var(--rc2);border:0}
+.mu-create-page .faction-choice.bn .choice-img-wrap img{width:100%;height:100%;object-fit:cover}
+.mu-create-page .faction-choice.bn .bn-tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mu-create-page .faction-choice.bn .bn-kick{font:700 10px 'IBM Plex Sans',sans-serif;letter-spacing:2px;color:var(--rc2);text-transform:uppercase}
+.mu-create-page .faction-choice.bn .fname{font:800 17px/1.15 Cinzel,serif;color:#f6f3ea;margin:0}
+.mu-create-page .faction-choice.bn .fcount{color:#d7d4cc;margin:0}
+.mu-create-page .faction-choice.bn.selected{border-color:var(--rc);background:var(--motif),linear-gradient(120deg,var(--rcd),#0c0b0a 72%);box-shadow:0 0 0 2px color-mix(in srgb,var(--rc) 40%,transparent)}
+.mu-create-page .faction-choice.bn.motif-stripes{--motif:repeating-linear-gradient(135deg,rgba(255,255,255,.045) 0 10px,transparent 10px 20px)}
+.mu-create-page .faction-choice.bn.motif-forge{--motif:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 3px,transparent 3px 18px)}
+.mu-create-page .faction-choice.bn.motif-lines{--motif:repeating-linear-gradient(170deg,rgba(255,255,255,.055) 0 1px,transparent 1px 12px)}
+.mu-create-page .faction-choice.bn.motif-hatch{--motif:repeating-linear-gradient(45deg,rgba(255,255,255,.035) 0 6px,transparent 6px 16px)}
+.mu-create-page .faction-choice.bn.motif-glow{--motif:radial-gradient(circle at 82% 50%,color-mix(in srgb,var(--rc) 35%,transparent),transparent 55%)}
+.mu-create-page .faction-choice.bn.motif-mist{--motif:radial-gradient(circle at 80% 0%,color-mix(in srgb,var(--rc2) 25%,transparent),transparent 50%)}
+.mu-create-page .faction-choice.bn.motif-rings{--motif:repeating-radial-gradient(circle at 20% 120%,rgba(255,255,255,.04) 0 6px,transparent 6px 14px)}
+.mu-create-page .faction-choice.bn.motif-scales{--motif:repeating-linear-gradient(60deg,rgba(255,255,255,.04) 0 2px,transparent 2px 16px),repeating-linear-gradient(-60deg,rgba(255,255,255,.04) 0 2px,transparent 2px 16px)}
+.mu-create-page .faction-choice.bn.motif-plain{--motif:linear-gradient(transparent,transparent)}
+html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
+.supp-logo{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--line)}
+.rl-row{display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0}
+.rl-preview{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--rc);background:rgba(0,0,0,.45);overflow:hidden;color:var(--rc2);font-size:22px}
+.rl-preview img{width:100%;height:100%;object-fit:cover}
+.rl-fields{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rl-fields .custom-field{margin:0;flex:1 1 140px}
+.rl-fields input[type=color]{width:44px;height:36px;padding:0;border:1px solid var(--line);background:none}
+.rl-file{cursor:pointer}

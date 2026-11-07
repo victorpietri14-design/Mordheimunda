@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0779.0';
+const APP_BUILD='110.0780.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -436,7 +436,6 @@ const CORE_SPECIAL_RULES=[
 })();
 const REFERENCE_CATEGORIES={skills:'Compétences',traits:'Traits d’armes',special:'Règles spéciales',spells:'Sorts & prières',equipment:'Équipement'};
 const REFERENCE_CATEGORIES_EN={skills:'Skills',traits:'Weapon traits',special:'Special rules',spells:'Spells & prayers',equipment:'Equipment'};
-function referenceCategoryLabel(c){return siteLanguage==='en'?(REFERENCE_CATEGORIES_EN[c]||REFERENCE_CATEGORIES[c]):REFERENCE_CATEGORIES[c];}
 // Small persistence helper for "which section was I on" UI state (Référentiel
 // category, Règles open section…) — a normal tab switch already keeps these
 // in memory (plain module-level variables), but a hard page refresh reloads
@@ -625,7 +624,6 @@ function referenceFind(category,name){const list=referenceEntries(category);cons
   const same=(a,b)=>a===b||a+'s'===b||a===b+'s';const lead=(a,b)=>a.length<=b.length&&a.every((w,i)=>same(w,b[i]));
   const bw=words(rawBase||raw);if(!bw.length)return null;
   return list.find(e=>{const ew=words(e.name);return ew.length&&(lead(bw,ew)||lead(ew,bw))})||null;}
-function referenceCategoryForEquipment(name){return referenceFind('equipment',name)?'equipment':null;}
 function refLink(category,name,display=name){
   // V-COVERINGS: a covered weapon ("Ithilmar Sword") — hover/tap shows its
   // live covered profile like any item, even where an old book entry of the
@@ -1311,7 +1309,6 @@ function magicSpellGalleryMarkup(en){
 // opened; a category pick only switches the visible section, closing only
 // via ✕ or the FAB again. ==========================================
 function toggleReferenceNav(){referenceNavOpen=!referenceNavOpen;rerenderReferenceNavPanel()}
-function closeReferenceNav(){if(!referenceNavOpen)return;referenceNavOpen=false;rerenderReferenceNavPanel()}
 function rerenderReferenceNavPanel(){
   const panel=document.getElementById('referenceNavPanel');
   const btn=document.getElementById('referenceNavFab');
@@ -1570,7 +1567,6 @@ function equipmentNameCellMarkup(w){
   const customTag=w.custom?'<span class="tag offi">Custom</span>':'';
   return {nameHtml,editBtn,statsBtn,overrideTag,customTag,isEditing,sectionId,text,ge};
 }
-function openAdminWeaponEditFromRef(name){adminOpenCategory='gear';adminWeaponEditReturnToRef=name;openAdminWeaponEdit(name);}
 // V-CUSTOMEDITFROMREF: same idea as openAdminWeaponEditFromRef, but for an
 // item that lives in Custom > Équipements. That editor is a different tab
 // entirely (customContentTab==='equipment'), which editCustomEquipment()
@@ -2616,7 +2612,7 @@ function imageFocusStyle(focus){
 }
 function imageMarkup(src,kind='fighter',label='Importer une image',focus=null){
  const cls=(kind==='gang'||kind==='custom-warband')?'gang-icon-image':'fighter-avatar-image';
- return src?`<img class="${cls}"${imageFocusStyle(focus)} src="${esc(src)}" alt="${esc(label)}">`:`<span class="${(kind==='gang'||kind==='custom-warband')?'gang-icon-placeholder':'fighter-avatar-placeholder'}">＋</span>`;
+ return src?`<img class="${cls}"${imageFocusStyle(focus)} src="${esc(src)}" alt="${esc(label)}" loading="lazy" decoding="async">`:`<span class="${(kind==='gang'||kind==='custom-warband')?'gang-icon-placeholder':'fighter-avatar-placeholder'}">＋</span>`;
 }
 // V-EMBLEM: a fighter without a portrait gets an emblem instead of "+":
 // the shape and ring colour tell the role, the small badge the race initial.
@@ -3084,7 +3080,6 @@ function ensureFighterLoadouts(x){
 }
 function syncLoadoutProjection(x){if(!fighterUsesLoadouts(x))return;ensureFighterLoadouts(x);}
 function activeLoadout(x){if(!ensureFighterLoadouts(x))return null;return x.equipmentLoadouts.find(l=>l.id===x.activeLoadoutId)||x.equipmentLoadouts[0]||null;}
-function loadoutNames(x){return (x?.equipmentLoadouts||[]).map(l=>l.name||'Loadout');}
 function loadoutHasItem(x,item){const l=activeLoadout(x);const id=typeof item==='object'?item?.stashId:null;return !!l?.equipmentIds?.includes(id);}
 function loadoutSelectedEquipment(x){const l=activeLoadout(x);const ids=new Set(l?.equipmentIds||[]);return (x?.equipmentStash||[]).filter(e=>ids.has(e.stashId));}
 function setActiveLoadout(id){const x=activeRoster()?.fighters[editingIndex];if(!x||!fighterUsesLoadouts(x))return;x.activeLoadoutId=id;syncLoadoutProjection(x);syncCustomEquipmentEffects(x);save(true);render('fighter')}
@@ -3186,7 +3181,6 @@ function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBa
 // with several loadouts, only the active one (the stash's other sets don't).
 function fighterValue(x,f){if(isHiredSword(x))return 0;const eq=Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[];const adv=Array.isArray(x?.advancements)?x.advancements:[];return liveFighterCost(x,f)+recruitOptionsCost(x)+(eq.reduce((n,e)=>n+equipmentBandValue(e,f,x),0))+(adv.reduce((n,a)=>n+Number(a?.value||0),0))}
 function fighterPaid(x,f){const eq=fighterUsesLoadouts(x)?(Array.isArray(x?.equipmentStash)?x.equipmentStash:[]):(Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[]);return liveFighterCost(x,f)+(eq.reduce((n,e)=>n+Number(e?.paid ?? e?.price ?? 0),0))}
-function fighterCost(x,f){return fighterValue(x,f)}
 function recruitOptionsCost(x){return (Array.isArray(x?.recruitPicks)?x.recruitPicks:[]).reduce((n,o)=>n+(Number(o?.cost)||0),0)}
 function total(r){const fighters=Array.isArray(r?.fighters)?r.fighters:[];const reserve=Array.isArray(r?.reserve)?r.reserve:[];const f=faction(r);return fighters.reduce((n,x)=>n+fighterValue(x,f)+hiredSwordRatingShare(x),0)+reserve.reduce((n,e)=>n+equipmentBandValue(e,f),0)}
 const MAGIC_RULEBOOK={
@@ -3248,9 +3242,10 @@ const MAGIC_RULEBOOK={
 ['6','Gaze of Mork','-1 · Basic','Deux rayons causent chacun D3 touches S3 à 12" ; ils peuvent viser la même cible la plus proche ou les deux cibles les plus proches. Flaming Attack.']]
 };
 const MAGIC_RULEBOOK_EN={"Sigmar’s Fiery Hammer": "The Priest wields a magic hammer: S+2, AP -, D2, Flaming Attack, Stun.", "Beacon of Righteous Virtue": "Allies within 8\" become immune to Fear and Panic; the Leader may re-roll the D6 of the Rout test.", "Soulfire": "Every enemy within 4\" suffers an S3 Flaming Attack hit with no save; Undead and Daemonic suffer S5.", "Shield of Faith": "The Priest becomes immune to spells.", "Healing Hand": "A warrior within 2\" is restored to full Wounds; a Seriously Injured warrior stands up and nearby Flesh Wounds are removed.", "Armour of Righteousness": "The Priest gains a 2+ Armour Save and causes Fear.", "Soul Stealer": "A target within 6\" loses 1 Wound with no Armour Save; the Necromancer gains +1 Wound for the game. Does not work on Undead or Daemonic.", "Invocation of Nehek": "A Skeleton or Zombie Warrior of the warband that has just gone Out of Action returns within 6\" of the Necromancer, out of enemy contact.", "Hellish Vigour": "A friendly non-Vampiric Undead warrior within 6\" may immediately make a Fight (Basic) action.", "Gaze of Nagash": "Immediate attack at 12\": S4, AP -1, D1, D3 hits, no Armour Save.", "Vanhel’s Danse Macabre": "A friendly Undead warrior within 6\" immediately makes a Move (Simple) action; if it reaches contact, it counts as charging and may Fight.", "Spell of Awakening": "A slain enemy Hero or a dead Dreg (66) may be raised after the battle as a Skeleton Warrior, with its weapons and armour but no other equipment or skills; modified profile and the Undead rule.", "Vision of Torment": "A target within 6\" makes a Willpower check; pass: Pinned; fail: -1 Wound and Pinned. Does not affect Immune to Psychology.", "Eye of God": "Once per battle: a faithful warrior within 6\" gets a D6 result: 1 = Out of Action counting as Out Cold; 2–5 = +1 to one characteristic; 6 = +1 to all characteristics for the battle.", "Dark Blood": "Attack up to 8\": D3 S5 hits. After the spell, the Chaos Mage makes a Toughness check; fail = Flesh Wound.", "Lure of Chaos": "An enemy target within 12\" that has not activated makes a Willpower check; fail = it is activated under the Chaos Mage's control until it passes a Willpower check at the start of an activation.", "Wings of Darkness": "The Chaos Mage immediately makes a free Move (Basic) up to 12\", ignoring terrain and able to cross levels, but not walls or impassable terrain.", "Word of Pain": "Every warrior within 3\" of the Chaos Mage, friend or foe, suffers an S3 hit with no Armour Save.", "Fires of U’Zhul": "Immediate attack at 18\": S4, AP -1, D1, Flaming Attack.", "Flight of Zimmeran": "Free Move (Basic) up to 12\", ignoring terrain and levels, without crossing walls or impassable terrain.", "Dread of Aramar": "An enemy target within 12\" makes a Panic check; fail = Broken. Immune to Psychology is not affected.", "Silver Arrows of Arha": "Immediate attack at 24\": S3, AP -, D1, D3+2 hits.", "Luck of Shemtek": "The Wizard may re-roll failed rolls once; the second results stand. Until his next activation.", "Flaming Sword of Rhuin": "The Wizard wields a melee weapon S+2, AP -1, D1, +1 Attack dice, +2 WS, Parry, Flaming Attack.", "Warp Lightning": "Attack at 9\": S4, AP -1, D1, D3 hits; every warrior within 2\" of the target also suffers an S3 hit.", "Skitterleap": "The Sorcerer moves up to 13\" without ending within 1\" of an enemy. If Engaged, he counts as having made a Retreat with no Initiative test; enemies Engaged with him suffer -1 to their Initiative test.", "Vermintide": "A target within 8\" suffers 2D6 S1 hits with -1 to the save.", "Black Fury": "Immediate Charge (Double) up to 13\" with +2 Attacks and +1 Strength until the next activation.", "Eye of the Warp": "Enemies Engaged with the Sorcerer test Cool; fail = S3 hit, Broken and Running for Cover. Immune to Psychology avoids Broken.", "Sorcerer’s Curse": "Within 13\", a target in line of sight must re-roll its successful Armour Saves and successful hit rolls until the Sorcerer's next activation.", "Winter’s Chill": "Every warrior Engaged with the Priest suffers -1 to hit.", "Ice Blast": "Attack at 12\": S3, AP -6, D1, Blast (5\"), no Armour Save.", "Battle Fury": "The Priest attacks at Strength +2 and with Hack; if he already has Hack, a natural 5 or 6 to hit gives a further +1 Strength.", "Ulric’s Gift": "An ally within 12\" who is not a Hired Sword gains Frenzy.", "Heart of the Wolf": "Allies within 8\" become immune to Fear and Panic; the Leader may re-roll the D6 of the Rout test.", "Call of Ulric": "Immediate Charge (Double) up to 12\" with +2 Attacks and +1 Strength until the next activation.", "Stags Leap": "The Priest moves up to 9\"; on contact he counts as charging and gains +1 Strength in the first round. Against a fleeing enemy: 1 automatic hit at +1 Strength.", "Blessed Ale": "A model within 2\" recovers all its Wounds. Living enemies within 2\" lose 1 Attack next round; Undead and Daemonic are excluded.", "Bears Paw": "The Priest or an ally within 6\" gains +2 Strength until the Priest's next activation.", "Earth Shudder": "A building within 4\" collapses; enemies in contact suffer S3. Models on it fall following the falling rules and the building is replaced by rubble (Difficult Terrain).", "Tanglefoot": "All models within 12\" except Ostlander Jaeger move at half speed until the next shooting phase.", "Summon Squirrels": "An enemy target within 12\" suffers 2D6 S1 hits with no Armour Save.", "‘Ere we go!": "Orcs and Goblins within 4\" of the Shaman gain Strike First.", "The Hand of Gork": "A target within 8\" is moved D6\" directly away; a collision with a warrior or terrain = S3 hit to the models involved. Not on an Engaged target.", "Brain Bursta": "Attack at 12\": S4, AP -6, D1, D3 hits, no Armour Save.", "Fooled Ya!": "No enemy may charge the Shaman at his next activation. If Engaged, he may immediately move 4\"; lasts until his next activation.", "Fists of Gork": "The Shaman wields a weapon S+2, AP -1, D1, +1 Attack dice, Stun.", "Gaze of Mork": "Two beams each cause D3 S3 hits at 12\"; they may target the same nearest target or the two nearest targets. Flaming Attack."};
-function magicRulesMarkup(){const en=siteLanguage==='en';return `<div class="rule-spell-groups">${Object.entries(MAGIC_RULEBOOK).map(([domain,spells])=>`<details class="rule-spell-domain"><summary><b>${esc(domain)}</b><span>${en?'6 results · 1D6':'6 résultats · 1D6'}</span></summary><div class="rule-spell-list">${spells.map(x=>`<article><div class="spell-roll">${x[0]}</div><div><b>${esc(x[1])}</b><small>${esc(x[2])}</small><p>${esc(en&&MAGIC_RULEBOOK_EN[x[1]]||x[3])}</p></div></article>`).join('')}</div></details>`).join('')}</div>`}
 
-const RULES_BOOK=[{"id": "firstprinciples", "title": "0. First Principles", "pages": "—", "content": [{"page": 1, "text": "First Principles\nIn any game, there are certain conventions for all players to be aware of. In Mordheim, these include such things as when players can or cannot measure distances, when it is acceptable to change one’s mind, and so forth.\n\n[SUBHEAD]Fighters & Models[/SUBHEAD]\nIn games of Mordheim, players use finely-detailed models to represent the fighters and vehicles of their gangs on the battlefield. In game terms, it is sensible to be quite precise in how such things are defined in order that players can easily interpret the rules.\n• Any model that represents a single humanoid or a single animal is referred to as a ‘Fighter’ by the rules. This could be a lowly warband member, a renowned hired sword, or even an animal owned by a mighty warband champion.\n• Any model that is mounted on a mount is a fighter subject to the Mounted condition.\n• Battlefield details such as plants are never referred to as models but rather as markers.\n\n[SUBHEAD]Controlling & Opposing Player[/SUBHEAD]\nFrequently, rules will refer to the controlling player – this is the player whose model is being affected; the opposing player is their opponent.\n\n[SUBHEAD]Take-backs & Changing One’s Mind[/SUBHEAD]\nIt is not uncommon for players of any game to second-guess themselves occasionally, saying they are about to do something before immediately changing their mind. As a general rule, players should be tolerant of this in their opponents, as they will likely do it themselves! However, once dice have been rolled for any reason, or the range of a declared action measured, players must abide by their decision; they can no longer go back and change anything that came before the dice roll or the act of measuring!"}]},{"id": "measurement", "title": "0.1 Measurement", "pages": "—", "content": [{"page": 1, "text": "Measurement\nMordheim is a game that relies greatly on players measuring distances, be it between two models when making a ranged attack, or the distance a model can move during their activation.\n\n[SUBHEAD]Measuring Distances[/SUBHEAD]\nIn games of Mordheim, all distances are measured in inches (\\\") with a range ruler or tape measure. Distances can only be measured when the rules call for it (for example, when checking the range between an attacking fighter and their target) – in Mordheim, there are very few certainties! Therefore, pre-measuring distances when making any kind of action is not allowed – declare the action and nominate any other models involved before range is measured.\nDistances between models and any other battlefield objects (terrain features, objectives and so forth) are measured from the closest point of one base to the closest point of the other. If a model or an object does not have a base, measure to or from the closest point of the model or object overall.\nWhen measuring to or from a Prone fighter, assume that their base occupies the same space as it would if they were Standing.\n\n[SUBHEAD]Measurement & Solid Terrain Features[/SUBHEAD]\nSome terrain features such as the thick walls that separate corridors, the floors and ceilings that separate levels, or large rock formations looming up from the landscape are defined by the rules as ‘solid’. Unless stated, distances cannot be measured through any terrain feature defined as being solid."}]},{"id": "lineofsight", "title": "0.2 Line of Sight & Cover", "pages": "—", "content": [{"page": 1, "text": "Line of Sight & Cover\nVisibility in Mordheim is vitally important; fighters need to be able to see where their enemies are in order to shoot at them. But in the dense and dark terrain of the ruins, or within the thick clouds of dust that hang over the battlefield, a clear and unobstructed line of sight is often hard to find.\n\n[SUBHEAD]Fighter Vision Arcs[/SUBHEAD]\nEach fighter has a vision arc, representing the area that is visible to them. This is 90° to the front of the model – as determined by the direction the model’s head is facing or the direction in which its weapon is pointed, whichever the controlling player prefers – starting from the centre of their base.\n\n[SUBHEAD]Line of Sight[/SUBHEAD]\nWhile a model’s vision arc is determined by their facing, their line of sight (i.e., what they can see) is determined by the presence of terrain and other models. Unlike measuring distances, which can only be done when the rules call for it, a model’s line of sight can be checked at any time.\nTo check one model’s line of sight to another model, stoop down to look from the first model’s point of view:\n• If a straight, uninterrupted line can be drawn from within the first model’s vision arc to any part of the other model*, the first model has a line of sight to them.\n• If no such line can be drawn to the other model due to intervening terrain or the presence of other models*, the first model does not have a line of sight to them.\n*Excluding their base or any insignificant elements, such as a protruding hairstyle, a weapon or a spike from their armour, for example.\nIf players cannot agree whether one model has a line of sight to another, it should be settled by rolling off.\n\n[SUBHEAD]Line of Sight & Solid Terrain Features[/SUBHEAD]\nSolid terrain such as the walls between corridors, the floors and ceilings between levels, or large rock formations looming up from the landscape are, by their nature, impossible to see through. Unless stated, a line of sight can never be drawn through any terrain feature defined as being solid.\n\n[SUBHEAD]Cover[/SUBHEAD]\nIn the majority of cases, the line of sight between one model and another will be checked for the purposes of shooting and, in many cases, a model that wishes to shoot at an enemy model may be able to draw a line of sight only to part of their intended target.\nTo see if a target is in cover, stoop down to look from the attacker’s point of view, in exactly the same manner as described for checking line of sight. However, when checking to see if the target is in cover, disregard any friendly fighters in base contact with the attacker – moving them aside temporarily if necessary, as long as they return to the original place (and facing) once the shot has been resolved (note that vehicles in base contact will still block line of sight):\n• If the target is fully visible, they are not in cover (i.e., they are ‘in the open’).\n• If less than half of the target is obscured by terrain or models, they are in partial cover.\n• If at least half of the target is obscured by terrain or models, they are in full cover.\nAs with line of sight, ignore the target’s base and any minor elements such as hair, gun barrels and spikes – and again, if a decision cannot be reached, the players should roll off.\nThe benefits of partial and full cover are discussed in more detail under the rules for Shooting."}]},{"id": "rollingdice", "title": "0.3 Rolling Dice", "pages": "—", "content": [{"page": 1, "text": "Rolling Dice\nA game of Mordheim uses dice rolls a great deal. The roll of a dice determines everything, be it a fighter’s ability to keep their cool in the heat of battle, or the effectiveness of a shot fired from a weapon. Throughout the rules, players will encounter certain terms that relate to the rolling of dice.\n\n[SUBHEAD]Single Dice Rolls[/SUBHEAD]\nThe rules will often require a player to roll a single dice, in which case the rules will state quite simply ‘roll a D6’. Sometimes the rules might require several single dice to be rolled at once, for example, ‘roll three D6’ means three dice are rolled together, but the result of each dice is considered separately.\n\n[SUBHEAD]Multiple Dice Rolls[/SUBHEAD]\nOften the rules will require a player to roll multiple D6s and add the results together. For example, the rules might instruct a player to ‘roll 2D6’. In such cases, two D6 are rolled and the results added together to give a total between 2 and 12. This is a multiple dice roll.\n\n[SUBHEAD]Dice Pools[/SUBHEAD]\nSometimes the game may require two or more dice be rolled and a single result selected – for example, a player might roll two or three Location dice and select one result to apply. In this case a ‘pool’ of dice has been rolled.\n\n[SUBHEAD]Target Number Rolls[/SUBHEAD]\nUsually, when making a single dice roll or a multiple dice roll, the rules will require a player to roll a specific number followed by a ‘+’. This indicates that the roll is a ‘target number roll’. Making a target number roll is simple. If a player is required to roll a 4+ on a single D6, for example, a roll of 4, 5 or 6 would be a success, but a roll of 1, 2 or 3 would not be.\n\n[SUBHEAD]Modifying Dice Rolls[/SUBHEAD]\nThe rules will often call for a dice roll to be modified, particularly when making a target number roll. To do this, simply roll the dice and then add or subtract the modifier(s) shown, effectively changing the outcome of the dice roll. If the rules ever require a player to divide a dice roll in any way, any fractions should be rounded up, unless the rules state otherwise.\n\n[SUBHEAD]Rolling Off[/SUBHEAD]\nThe rules may call for both players to roll a dice (usually either a D6 or a D3). Often a characteristic of some sort will be added to the result. This is called ‘rolling off’ and the highest score always wins a roll-off. In the case of a tie, roll again unless otherwise instructed.\n\n[SUBHEAD]Natural Rolls[/SUBHEAD]\nA ‘natural’ roll is the actual number rolled on a dice, regardless of modifiers (including the halving of the result rolled on a D6 when rolling it as a D3). It is not uncommon for a natural roll to grant a bonus or a penalty, or to grant an automatic success or cause an automatic failure, regardless of any modifiers that might apply to the dice roll.\n\n[SUBHEAD]Re-rolls[/SUBHEAD]\nWhen rolling dice, it is common for things to go wrong! Fortunately, there are many special rules that allow for certain dice rolls to be re-rolled:\n• The second result must always be accepted, even if it is worse than the original result.\n• A dice can never be re-rolled more than once, regardless of the source of the re-roll."}]},{"id": "fighterstatus", "title": "0.4 Fighter Status", "pages": "—", "content": [{"page": 1, "text": "Fighter Status\nA fighter’s Status dictates what they can or cannot do. The actions a fighter can perform during their activation will depend heavily upon their current Status. During a game of Mordheim, a fighter’s Status can change. This is generally represented by how the fighter is positioned on the battlefield, be they Standing or Prone, as described below, but may also depend upon other factors.\n\n[SUBHEAD]Standing[/SUBHEAD]\nA fighter that is upright on the battlefield is said to be ‘Standing’. Whilst Standing, a fighter may perform a wide range of actions with relative ease.\nWhilst Standing, a fighter will always be subject to one of two Secondary Statuses as well: ‘Active’ or ‘Engaged’. This Secondary Status will affect the actions a Standing fighter may perform during their activation.\n• Active: A Standing fighter is Active if they are not currently engaged with any enemy fighters. This is the default Status for a fighter; Standing and Active, and such fighters enjoy the greatest freedom to perform actions.\n• Engaged: In order for fighters to make close combat attacks, they must be engaging an enemy model. If the base of a Standing fighter is touching the base of an enemy fighter, they are said to be in base to base contact and are engaged with that enemy fighter. If the base of a Standing fighter is within 1\\\" of any part of an enemy vehicle, they may choose to Engage that vehicle. A vehicle cannot Engage an enemy fighter. A Standing fighter that is Engaged can generally only choose actions that allow them to fight or retreat, but other factors such as skills may increase the number of available options. Players should note that in some cases a fighter may be able to Engage an enemy fighter they are not in base to base contact with — for example, weapons with the Versatile trait allow a fighter to Engage enemy models from further away.\n\n[SUBHEAD]Prone[/SUBHEAD]\nA fighter that is laid down is ‘Prone’. A Prone fighter has no facing and effectively has no vision arc. Unless otherwise stated, Prone fighters never block line of sight – they are considered to be well out of the way of the action. A Prone fighter may be placed face-up or face-down, depending upon their Secondary Status.\nWhilst Prone, a fighter will always be subject to one of two Secondary Statuses as well: ‘Pinned’ or ‘Seriously Injured’. This Secondary Status will affect the actions a Prone fighter may perform and the way in which other models may interact with them.\n• Pinned: Fighters generally become Prone and Pinned as a result of being hit by an enemy Blackpowder Weapon, and will need to spend an action to stand up, becoming Standing and Active. If a Prone and Pinned fighter ever becomes engaged by an enemy fighter, they will immediately perform a Stand Up (Basic) action for free, becoming Standing and Engaged, though they do count as having had to Turn to Face. A fighter can never be both Prone and Pinned and Engaged. A Prone fighter that is Pinned is laid face-up, representing the fighter keeping their head down to avoid enemy fire — alternatively, place an orange token close to the model to represent this status.\n• Seriously Injured: If a fighter should suffer a Serious Injury result on an Injury dice (either as the result of being reduced to 0 Wounds, or as the result of an attack from a weapon with a trait such as Gas or Toxin), that fighter is laid face-down and becomes Prone and Seriously Injured — alternatively, place a red token close to the model to represent this status. A fighter is very vulnerable whilst this is their Status, being susceptible to enemy attacks against which they cannot defend themselves and being unable to move quickly towards safety."}]},{"id": "conditions", "title": "0.5 Conditions", "pages": "—", "content": [{"page": 1, "text": "Conditions\nA fighter’s Status is always either Standing and Active, Standing and Engaged, Prone and Pinned or Prone and Seriously Injured, but they may also be subject to one or more of the following Conditions. Conditions are denoted by placing a Condition marker either next to the fighter on the battlefield or on their Fighter card as a reminder that the Condition is in effect.\nThe following list of Conditions is not exhaustive. Some Conditions are common and will apply to a model many times during a battle. Others are less common and may be the result of an attack from a weapon with a certain trait; the full rules for such Conditions can be found in the corresponding Weapon Trait rules. Other Conditions, in particular Out of Ammo, may apply specifically to a weapon the model carries rather than the model themselves. A model may be subject to several Conditions at the same time.\nAny in-game effect that results in a marker being placed on a model should be considered a Condition.\n\n[SUBHEAD]Ready[/SUBHEAD]\nThe most simple but arguably the most important Condition. At the start of each round, during the Priority phase, all models will have a Ready marker placed on them. Once that model has activated during the Action phase, this marker is removed, indicating that the model may not be activated again.\n\n[SUBHEAD]Broken[/SUBHEAD]\nA fighter may become Broken as the result of either seeing a friendly fighter Seriously Injured or taken Out of Action within 3\\\" of them, or seeing a friendly vehicle Wrecked within 6\\\" of them. Broken fighters may not perform any actions other than Running for Cover (Double), which they perform every time they are activated. If Standing and Engaged, a Broken fighter may only make Reaction attacks, and must apply a -2 modifier to their Hit rolls. Broken fighters may be rallied in the End phase.\nA vehicle may become Broken as the result of seeing a friendly vehicle Wrecked within 6\\\" of them. Broken vehicles may not perform any actions other than Break For Air (Double) if Mobile or Burn Out (Double) if Stationary and Stalled, which they perform every time they are activated. Broken vehicles may be rallied in the End phase.\n\n[SUBHEAD]Out of Ammo[/SUBHEAD]\nShould a model fire a weapon with the Reload (X) trait, put a marker close to it as a reminder that the weapon cannot be used until it has been reloaded.\nNote: Unlike other Conditions, Out of Ammo is applied to a weapon carried by a model rather than the model themselves. It is therefore possible for a model to have multiple Out of Ammo markers on them at one time, indicating more than one weapon is subject to the Condition.\n\n[SUBHEAD]Flesh Wound(s)[/SUBHEAD]\nThese are suffered as a result of Injury dice rolls made against a fighter. A fighter can suffer multiple Flesh Wounds, each of which reduces their Toughness characteristic by 1 for the remainder of the battle. If a fighter is reduced to Toughness 0 as a result of multiple Flesh Wounds, they go Out of Action.\n\n[SUBHEAD]Other Conditions[/SUBHEAD]\nThe following Conditions are less frequently seen, but are no less significant. Models may become subject to them as the result of an attack from a weapon with a certain trait, or as the result of a scenario or terrain special rule.\n• Hidden: A model may stay hidden over several rounds, so long as it stays behind a wall or similar feature. It may even move around so long as it stays hidden while doing so. If an enemy moves so that it can see the hidden fighter without the benefit of cover, the model is no longer hidden and the marker is removed. When hidden, a fighter cannot be seen, shot at or charged. While hidden, a model cannot shoot or cast spells without giving away its position. If a hidden model shoots, casts a spell, moves twice, or moves so that it can be seen, it is no longer hidden and can be shot at as normal. Enemy fighters will always see, hear or otherwise detect hidden foes within their Initiative value in inches. So a fighter whose Initiative value is 3 will automatically spot all hidden enemies within 3\\\"."}]},{"id":"prebattle","title":"1. The pre-Battle Sequence","pages":"p. 143","content":[{"page":143,"text":"The pre-battle sequence\nIn a Campaign, there are additional steps that take place before and after a battle, as listed below. They must be followed in the order shown, and must be done while both players are present. The pre-battle sequence has the following steps:\n\nTHE PRE-BATTLE SEQUENCE\n1. MAKE A CHALLENGE and Stake of the battle.\n2. RECRUIT HIRED SWORDS\n3. DETERMINE SCENARIO\n4. SET UP THE BATTLEFIELD\n5. CHOOSE CREWS\n6. ANNOUNCE EXPLORATION BOONS\n7. DEPLOYMENT\n\n1. MAKE A CHALLENGE\nFor a battle to be fought, one player must challenge another player to play a game.\n2. RECRUIT HIRED SWORDS\nPlayers can spend gold crowns to recruit Hired Swords. Again, if both players wish to do so, the player with the lower Warband Rating goes first.\n3. DETERMINE SCENARIO\n\nSTANDARD MISSION\nThe player with the lowest warband rating rolls on the Scenario table to determine which scenario is played. The scenario table depends on the campaign setup.\nRESCUE MISSIONS\nIf one player has Captured another player’s warrior(s), the Captured warrior’s player may issue a challenge to play the Rescue Mission scenario. If the challenge is accepted, then the Rescue Mission scenario is automatically used for the battle. If the player holding the Captive refuses the challenge, they automatically forfeit the Captive.\nDETERMINING THE ATTACKER AND DEFENDER\nIn the scenarios where there is an attacker and a defender, the player with lowest warband rating may choose which he is.\nHOME TURF ADVANTAGE\nThe scenario being played may indicate that the defender benefits from the Home Turf Advantage, representing the warband fighting furiously to defend their valuable turf from attackers. A warband fighting with the Home Turf Advantage is far less likely to rout and in some cases will fight ferociously until the last.\n4. SET UP THE BATTLEFIELD\nThe players now set up the battlefield. Some scenarios have special instructions for terrain. The more buildings the better, so you should place all the terrain you have.\n5. CHOOSE CREWS\nAfter the battlefield has been set up, before warbands can be deployed, players must select their starting crews for the battle ahead. The scenario being played will detail the method of selection to be used and how many warriors can be selected. After warbands are chosen, determine the warband rating; if there is at least a 100 point difference, use the Underdog table.\n6. ANNOUNCE EXPLORATION BOONS\nPlayers may have Exploration Boons granted by the Exploration chart (e.g. Catacombs). Players should announce which, if any, of their Exploration Boons grant them a bonus that will have an effect on this game at this stage, forewarning their opponent. If an Exploration Boon is not announced, it cannot be used during the coming game.\n7. DEPLOYMENT\nMany scenarios will provide details of the size and location of deployment zones."}]},{"id":"underdogbonus","title":"1.1 Underdog Bonus","pages":"—","content":[{"page":1,"text":"Underdog Bonus\n\n[SUBHEAD]Overview[/SUBHEAD]\nWrite the Underdog Bonus rules here.\n\nNote: this page is empty on purpose — click the ✎ Edit button above to write the real text. The editor toolbar's ▦ button (or the TABLE option) opens a visual table builder: add/remove rows and columns with buttons and type straight into the cells, so a table can be fixed or extended later without retyping it from scratch."}]},{"id":"structure","title":"2. Game Structure","pages":"p. 11","content":[{"page":11,"text":"The Rules\nMany of the rules that follow will be familiar to players of Necromunda, as they utilise a lot of the same core mechanics and principles. For much of the time players should use the Necromunda rule books. But beware, certain elements have been modified in order to bring to the fore the highly tactical and narrative character of the dark and deadly environment of the ruined city over which rival warbands do battle.\nThis section contains rules that allow players to fight out the bitter and vicious skirmishes that punctuate the daily lives of the Mordheim warbands. The Turn sequence, activating warriors, attacking the enemy with ranged weapons or in combat, suffering and recovering from injuries, warbands or individual warriors losing their nerve and fleeing – all of these things are dealt with over the following pages.\n\nGame structure\nA game of Mordheim is split into several rounds. During a round, players will determine who has Priority, take turns activating one or more warriors and perform actions with them. They will attempt to recover Injured warriors, rally fleeing warriors and determine if their warband can hold its nerve in the face of the enemy.\n\nROUND SEQUENCE\nEach round is split into three phases, each in turn consisting of a number of steps resolved one at a time. These are as follows:\n\nPRIORITY PHASE\n• ROLL FOR PRIORITY: Both players roll for Priority.\n• READY WARRIORS: Each warrior is given a Ready marker.\n\nACTION PHASE\n• FLEEING THE BATTLEFIELD: If either warband has failed a Rout test, Cool checks are made before the controlling player picks their first warrior to activate. Warriors that fail will flee the battlefield.\n• ACTIVATE WARRIORS: Starting with the player with Priority, players take turns to pick one of their Ready warriors to activate.\n\nEND PHASE\n• ROUT TESTS: If either or both player(s) has at least one warrior Seriously Injured or Out of Action, they will have to make a Rout test for their warband.\n• RECOVERY TESTS: The controlling player makes a Recovery roll for each of their Seriously Injured warrior(s) on the battlefield.\n• RALLY TESTS: Cool checks are made for Broken warriors to see if they can Rally."}]},{"id":"priority","title":"2.1 Priority Phase","pages":"p. 12","content":[{"page":12,"text":"The Priority Phase\nThe Priority phase is split into the following steps:\n•\n•\n\nROLL FOR PRIORITY\nREADY WARRIORS\n\nROLL FOR PRIORITY\n\nThis step determines which player wins the Priority marker\nfor this round. The Priority marker is a coin or token, such\nas that contained in the Necromunda: Underhive boxed set,\nthat is held by the player with Priority for the round, acting\nas a reminder. Holding the Priority marker gives a player a\nhuge advantage, as they are able to activate first and can\ndictate the flow of the action during the round, often putting\ntheir opponent onto the back foot and making their\nwarband behave reactively rather than proactively in\nresponse to their foes moving and attacking first.\nEach player rolls a D6, and the player who rolls the highest\ntakes the Priority marker for this round. In the case of a tie,\nthe player who had the Priority marker in the previous\nround passes it to their opponent. If the first Priority roll of\nthe battle is tied, neither player will have held the Priority\nmarker previously, therefore both players roll again.\n\nPRIORITY IN MULTI-PLAYER GAMES\n\nSometimes, more than two warbands find themselves\nfighting on the same battlefield either allying together to\ntake out hated foes, or in a bloody free-for-all.\nPlayers roll for Priority as normal, using 2D6, but ties are\nhandled differently. Players determine play order based on\ntheir dice score when rolling for Priority. Any ties are rerolled (for example, if four players roll for Priority and score\na 5, 4, 4 and 2, the player that rolled 5 has Priority, the player\nthat rolled 2 goes last and the players that each rolled a 4 roll\noff again to determine who is going second and third).\n\nREADY WARRIORS\n\nDuring this step of the Priority phase, both players place a\nReady marker on each warrior in their warband that is\ncurrently on the battlefield, regardless of Status, Secondary\nStatus or any other Conditions. The Necromunda:\nUnderhive boxed set and the Warband Leader’s Accessories\nPack both contain a number of Ready markers that can be\nused for this. Ready markers should be placed either on the\nwarrior’s Warrior card or next to their model on the\nbattlefield. Once a warrior has been activated, their Ready\nmarker is removed. Under normal circumstances, a warrior\nthat is no longer Ready may not activate again, but players\nshould take note that there are some instances in which a\nwarrior may activate again, notably in the case of some skills\nand Tactics cards."}]},{"id":"actionphase","title":"2.2 The Action Phase","pages":"p. 13","content":[{"page":13,"text":"The Action Phase\nThe Action phase consists of the following steps:\n•\n•\n\nFLEEING THE BATTLEFIELD\nACTIVATE WARRIORS\n\nFLEEING THE BATTLEFIELD\n\nIf either warband has failed a Rout test, Cool checks must be\nmade for each warrior in the warband before any warriors\nactivate. Even warbands who are normally immune to\npsychology (such as Undead) must make Rout tests.\nStarting with the player that holds the Priority marker, each\nplayer makes a Cool check for every one of their warriors on\nthe battlefield, regardless of their Status, Secondary Status or\nany Conditions. If any of these Cool checks are failed, that\nwarrior will immediately flee the battlefield and play no\nfurther part in the battle. Remove the warrior from play. For\nthe purposes of the scenario being played, warriors that flee\nin this way are considered to have gone Out of Action,\nunless the scenario states otherwise.\nLEADING BY EXAMPLE\nWarriors draw courage from their leaders and will follow\ntheir example:\n• If the warband Leader passes their Cool check, any\nfriendly warriors within 12\" are considered to have\npassed their Cool check as well and will not flee the\nbattlefield.\n• If a Champion passes their Cool check, any friendly\nwarriors (not including the Leader or another\nChampion) that are within 6\" are considered to\nhave passed their Cool check as well and will not\nflee the battlefield.\n• Players should remember to consider the role of\nwalls and solid terrain features when measuring the\ndistance between a warrior and an inspirational\nLeader or Champion!\n• If a Leader or Champion is Seriously Injured, their\nCool checks are not eligible for Leading by\nExample.\n\nACTIVATE WARRIORS\n\nThe bulk of the Action phase consists of play alternating\nback and forth between the players and the warband they\ncontrol, activating individual warriors or small groups of\nwarriors. When it is a player’s turn, they must pick one of\nthe warriors from their warband that is Ready and make up\nto two actions with them (this is referred to as ‘activating’\nthe warrior). The actions a Ready warrior can perform are\ngoverned by their current Status and Secondary Status.\nPlayers should note that certain Conditions will also limit\nthe actions a warrior may make, most notably Broken. A\nwarrior subject to the Broken Condition may only make a\nRunning for Cover (Double) action when activated,\nregardless of Status or Secondary Status. If one player runs\nout of warriors to activate, the other player can activate all of\ntheir remaining warriors in an order of their choosing. Once\nall warriors have been activated, even if they performed no\nactions during their activation, the Activation phase ends.\nGROUP ACTIVATIONS\nWhen a player activates their warband Leader or a\nChampion (or the equivalent rank in warbands that use\nother titles for these warriors), they can choose to activate\nadditional Ready warriors that are within 3\" of them when\nthey activate at the same time as part of a Group Activation:\n• A Leader may activate two additional Ready\nwarriors within 3” of them at the start of their\nActivation.\n• A Champion may activate one additional Ready\nwarrior within 3\" of them at the start of their\nActivation.\nIf a Leader or Champion is activated in this way, they may\nnot then perform a Group Activation themselves!\nThe controlling player must nominate all of the warriors\nwho will be activated in this way before any of them are\nactivated. The controlling player must make it clear to their\nopponent which warrior is leading the Group Activation, be\nthey the Leader or a Champion.\nOnce all participants of the Group Activation have been\nnominated, the controlling player picks one and activates\nthem as normal, fully resolving their activation before\npicking the next warrior nominated as part of the Group\nActivation to activate, and so on until the entire group has\nbeen activated. Each warrior activates individually; groups\ndo not activate simultaneously.\nA group activation may not be performed by a leader or\nchampion who is Seriously Injured. In these instances, the\nwarrior is unable to give instructions to fellow warriors."}]},{"id":"types","title":"2.2.1 Types of Action","pages":"p. 14","content":[{"page":14,"text":"TYPES OF ACTION\nThe following section covers the types of actions models can perform when activated.\nPlayers should take note that whilst the actions a model can perform are based upon their current Status and Secondary Status, performing an action can and will, in many cases, change either their Status, their Secondary Status, or both.\nThere are four types of action a model may perform when activated:\n\nSIMPLE ACTION\nA model can perform the same Simple action more than once during its activation. Each time a Simple action is repeated during an activation, it uses up one action. For example, a Standing and Active fighter may perform two Move (Simple) actions, using both of their actions but allowing them to move twice. If an active model's first action is a Simple action, it may fully resolve it before declaring its second action.\n\n[CALLOUT]\nCHANGING FACING\nA Standing warrior may turn to face any direction they wish when they are activated, before making either of their actions.\n[/CALLOUT]\n\nBASIC ACTION\nA Basic action can only be performed once per model activation. If an activated model's first action is a Basic action, it may fully resolve it before declaring its second action.\nDOUBLE ACTION\nPerforming a Double action counts as making two actions. For example, if a Mobile vehicle makes a Ram (Double) action, it will have used both of its actions and cannot perform another during this activation. If a model can only perform one action during its activation for any reason, it may not perform a Double action.\nFREE ACTION\nPerforming a Free action does not count as using one of your actions. Each Free action can only be performed once per activation. A model may not perform a Free action with the same name as a Basic action that they have performed this activation and vice versa.\nCHANGING ACTION TYPE\nSome effects may change an action's type; for example, the Unwieldy trait changes the Shoot (Basic) action to a Shoot (Double) action. Unless stated otherwise, any effect that applies to an action applies regardless of the action type (i.e., if a gang tactic is triggered by a Shoot (Basic) action it will also be triggered by a Shoot (Double) or a Shoot (Simple) action)."}]},{"id":"actions","title":"2.2.2 Actions","pages":"p. 14–16","content":[{"page":14,"text":"[ACTIONSEARCH]\n\n[ACTIONCARDS]\nMove|simple|active|The warrior may move up to their Movement characteristic, climb vertically, cross a narrow gap between platforms, attempt to leap a wider one, or jump down to a level below.\nCharge|double|active|A standard move at double Movement. May move to within 1\" of enemy warriors that are Standing (Active or Engaged) or Prone (Pinned or Seriously Injured), but must have enough movement left to reach base contact and become Engaged, or stop 1\" away. Engaged at the end of this move → free Fight (Basic) action.\nTake Cover|basic|active|The warrior moves up to half their Movement characteristic and is then Prone and Pinned.\nShoot|basic|active|The warrior makes an attack with a ranged weapon.\nAim|basic|active|If the warrior makes a subsequent Shoot (Basic) action, add 1 to the result of any hit rolls they make.\nReload|simple|active,pinned|Pick one of the warrior’s weapons that is Out of Ammo — it is reloaded and the Out of Ammo condition/marker is removed. A weapon with the RELOAD (X) trait takes X Reload (Simple) actions to reload.\nCoup de Grâce|simple|active|If not Engaged, pick one Seriously Injured enemy warrior within 1\" and within this warrior’s vision arc — that warrior immediately goes Out of Action. A warrior making a Charge (Double) action may make this instead of a Fight (Basic) if they end their move within 1\" of a Prone and Seriously Injured warrior and are not Engaged.\nEngage|basic|active|The fighter moves D3\" plus a bonus from their Initiative towards an enemy fighter, and can move within 1\" of them provided they end the move Engaged with the target. If they end Engaged, they must immediately make a Fight action or a Coup de Grâce action as a Free action. Otherwise, they must move as close to the target as their remaining movement allows.\n[/ACTIONCARDS]\n\n[ACTIONCARDS]\nFight|basic|engaged|The warrior makes close combat attacks against one or more enemy warriors they are Engaged with.\nRetreat|basic|engaged|Make an Initiative test. On a success, the warrior can make a Move (Basic) action, moving up to their Initiative characteristic instead of their Movement characteristic. Whatever the result, each enemy warrior Engaged with them can make an Initiative test to attempt a Reaction attack (Attacks counted as 1, before modifiers) against the retreating warrior.\nFeed|basic|engaged|Starving warriors only. Replaces a Fight or Coup de Grâce action against a Prone and Seriously Injured warrior. Roll immediately on the Lasting Injuries table (Lesson Learned counts as Out Cold); the warrior loses their Starving condition if the Feed succeeds.\n[/ACTIONCARDS]\n\n[ACTIONCARDS]\nCast Spell (X)|Wizard|wizard|Also used for Prayers. The caster makes a Willpower check with the spell’s Difficulty modifier. Success: the spell takes effect immediately. Failure: no effect, the action is wasted. A failed check on a double 6, or a passed check on a double 1, forces an immediate roll on the Magical Miscast table (a double-1 success also cannot be Dispelled). Cannot be performed while wearing armour or using a shield/buckler — Priests are the exception.\nMaintain Control|Free|wizard|A free action — the Wizard can still make two other actions this turn. Used to maintain a Continuous Effect: make a Willpower check with the spell’s Difficulty modifier, at -1 to the roll. Failure, or not performing this action, ends the Continuous Effect at the start of this activation. A Wizard can only maintain one Continuous Effect at a time, and it ends immediately if the Wizard is Seriously Injured or taken Out of Action.\n[/ACTIONCARDS]\n\n[ACTIONCARDS]\nStand Up|basic|pinned|The warrior stands up, returning to Active status. The controlling player chooses the warrior’s facing.\nCrawl|double|pinned,injured|The warrior may move up to half of their Movement characteristic. (Reload (Simple) is also available to a Pinned warrior — see above.)\nRunning for Cover|double|active,pinned,injured|Mandatory for a Broken warrior when activated. Standing and Active warriors move 2D6\"; Prone and Pinned or Prone and Seriously Injured warriors move half their Movement characteristic.\nRunning for Cover|double|broken|If the warrior is Standing and Active, they will move 2D6\". If the warrior is Prone and Pinned or Prone and Seriously Injured, they can only move half of their Movement characteristic. When a Broken warrior moves they must attempt to end their move, in order of priority: 1. So that they are more than 3\" away from enemy warriors. 2. So that they are out of line of sight of enemy warriors. 3. In partial or full cover. 4. As far away from any enemy warriors as possible. If a Broken warrior is Standing and Engaged when activated, they must make an Initiative check. If it is passed, they must move as described previously. Each enemy warrior that is Engaged with them makes an Initiative check and if passed can make Reaction attacks before the Broken warrior is moved. If the Broken warrior fails the Initiative check, they remain Engaged and can perform no further actions.\n[/ACTIONCARDS]"}]},{"id":"movement","title":"2.2.3 Movement","pages":"p. 17","content":[{"page":17,"text":"Movement\nDuring the Action phase, a number of actions allow a warrior to move in different ways, as detailed previously. Sometimes a\nwarrior may even be moved involuntarily as a result of an enemy attack or an in-game effect. This section deals with how warriors\nare moved around the tabletop and how terrain can hinder their progress.\n\nMOVING MODELS\nWarriors move by making actions. For example, a warrior\nmight make a Move (Simple) action to advance cautiously,\nor may make two Move (Simple) actions in quick succession\nto run forward and cover a lot more ground. A warrior\nmight Charge (Double) to get into combat, or Crawl\n(double) to get out of the firing line.\nA warrior is not obliged to move their full movement\nallowance, they can move any distance up to their\nmovement allowance, but they cannot move further.\nMovement need not be in a straight line, a warrior can\nzigzag around terrain as appropriate, though note that a\nCharge (Double) action should take the shortest route\npossible. After moving, a warrior can turn to face any\ndirection.\nAll Move actions must be declared before any measuring is\ncarried out. Sometimes, after a warrior’s declared movement\nis measured, it may become obvious that a warrior does not\nhave as much movement as hoped and will end their\nmovement short of where they had planned. In this case,\nmove the warrior as far as possible in the desired direction,\nand try to make good use of any available cover! In the case\nof a Charge (Double) action, if a warrior has insufficient\nmovement to make it into base to base contact with an\nenemy warrior, they must still move the full distance\n(stopping 1\" away, as follows) and may often end their\nmovement in a very dangerous position!\nFighters can move through friendly fighters.\n\nTHE 1\" RULE\nWarriors cannot move to within 1\" of any enemy warrior\nduring their activation, unless that enemy warrior is Prone\nand Seriously Injured. The only exception to this rule is\nwhen a Standing and Active warrior makes a Charge\n(Double) action, in which case they may move within 1\" of\none or more enemy warriors, provided that they end their\n\nmovement in base to base contact with one or more enemy\nwarriors. If a warrior making a Charge (Double) action has\nsufficient movement to get within 1\" of an enemy warrior\nbut does not have sufficient movement to make it into base\nto base contact with and Engage the enemy warrior, they\nmust stop moving 1\" away.\nIt may occur that a warrior is moved involuntarily to within\n1\" of an enemy warrior. For example, a warrior with the\nHurl skill may throw an enemy warrior that they are\nEngaged with, which may result in that warrior coming into\ncontact with other warriors, friendly or enemy. Should this\nhappen, the normal rules described previously are\ntemporarily suspended until the movement and any other\neffects it causes have been fully resolved (such as in the\nprevious Hurl example, in which case the warriors would\nsuffer hits as a result of coming into contact with one\nanother). Once they have been and if neither warrior is\nProne and Seriously Injured, move the warrior that was\ninvoluntarily moved by the shortest route possible until they\nare 1\" away from the enemy warrior.\n\nDIRECTLY TOWARDS AND DIRECTLY\nAWAY FROM\n\nSometimes the rules will say that a warrior needs to move\ndirectly towards another warrior. To do this, trace an\nimaginary straight line that crosses the centre of each\nwarrior’s base – the moving warrior then moves towards the\nother warrior along this line the required distance. Similarly,\nto move directly away from another warrior, follow the same\nmethod but move the moving warrior away.\nAs always, this cannot make a warrior move through a wall,\nimpassable terrain or a closed door. Should they contact one\nof these features, they stop and do not move further."}]},{"id":"terrain","title":"2.2.4 Terrain","pages":"p. 18–19","content":[{"page":18,"text":"Terrain\nAs mentioned previously, terrain features prominently in games of Mordheim. One of the most obvious ways in which warbands\nand warriors interact with terrain is when they attempt to move through and over it. The following section covers the various ways\nin which terrain affects a warrior’s movement.\n\nDIFFICULT TERRAIN\nPools of toxic sludge, areas of fallen rubble and broken or\nmissing walkways sections – there are numerous things in\nthe city of damned that can make the terrain difficult to\ncross.\nFor every 1\" a warrior moves through any terrain designated\nas difficult terrain when setting up the battlefield, they count\nas having moved 2\".\n\nDANGEROUS TERRAIN\nVats of molten metal, spinning turbines set into the floor\nand more – any terrain feature designated as dangerous\nwhen setting up the battlefield can pose a huge risk to\nwarriors crossing it.\nA Warrior treats Dangerous Terrain as Difficult Terrain\nwhen determining how far they can move\nAdditionally, after moving through Dangerous Terrain, a\nfighter must make an Initiative test (a roll of 6 is always a\nfailure):\nOn a failure, they immediately suffer 1 wound with no saves\nallowed.\nOn a success, nothing happens.\n\nOBSTACLES\nObstacles are any free standing terrain feature measuring no\nmore than 2\" high and no more than 2\" across, such as\nbarricades, barrels and pipelines. Warriors may cross\nobstacles as they move, but doing so reduces their\nmovement by a number of inches equal to the height of the\nobstacle. A warrior may not end their movement on top of\nan obstacle.\n\nSTRUCTURES\nStructures are any terrain feature measuring more than 2\"\nhigh and more than 2\" across, be they free standing or\nconnected to other terrain features in some way. Warriors\nmay climb up and onto structures and between the various\nlevels and platforms of a structure as they move and may\nend their movement on any level of a structure if there is\nsufficient space for their base. See ‘Climbing’ below.\n\nCLOSE COMBAT ACROSS BARRICADES\nA warrior who is in base contact with a barricade counts as\nbeing Engaged with a warrior that is in base contact with the\nother side of the barricade, even though their bases are not\ntouching, as long as the two warriors are within ½\" of each\nother. Close combat attacks made across a barricade in this\nway have a -1 modifiers to any hit roll.\n\nIMPASSABLE TERRAIN AND SOLID TERRAIN\nFEATURES\nZone Mortalis walls and closed doors are always impassable.\nAny suitable terrain on a Sector Mechanicus battlefield may\nbe designated as impassable when setting up the battlefield.\nSuch terrain on a Sector Mechanicus battlefield should also\nbe designated as a solid terrain feature for the purposes of\nline of sight and measurement, as described previously.\nWarriors may not move across impassable terrain.\n\nCLIMBING\n\nWarriors can climb up or down any vertical surface to reach\na higher level or platform of a structure during their\nmovement. For every 1\" a warrior moves vertically by\nclimbing, they count as having moved 2\". A warrior cannot\nend their activation mid-climb; they must have sufficient\nmovement to reach a flat surface. If they cannot, they will\nstay where they were when the action was declared.\nPlayers should note that a warrior may end a Move (Simple)\naction mid-climb, provided that they are able to\nimmediately use another action to complete the climb.\nSTEPPING UP: During a warrior’s move, a warrior may\nfreely ‘step up’ onto another level or platform of a structure,\nprovided that it is no more than 1⁄2\" higher than the level\nthey are currently on. If the difference in height is more than\n1⁄2\", they must climb as described above.\nOVERHANGS: When climbing, a warrior can traverse an\noverhang as long as it protrudes no more than 1\" from the\nvertical surface. Overhangs that protrude more than 1\" are\nconsidered impassable to a climbing warrior.\nLADDERS AND STAIRS: When climbing a ladder or stairs\nbetween the levels of a structure, there are no modifiers to a\nwarrior’s movement.\n\nLEAPING GAPS\n\nA moving warrior may attempt to leap across a gap that is\nbigger than their base, provided that they have enough\nMovement to do so. The warrior stops at the edge and\nmakes an Initiative check. If they pass, they leap the gap and\nmay continue moving. If they fail, they will fall straight\ndown by the shortest possible route to the next level down\nand will suffer a hit as follows."},{"page":19,"text":"JUMPING DOWN\n\nA warrior may attempt to jump down to a level below. They\nmust pass an Initiative check with no modifier for the first 2\"\njumped, but with a cumulative -1 modifier for every\nadditional 2\" jumped (rounded up). If the check is failed,\nthey fall and will suffer a hit as described below.\n\nFALLING HAZARDS\n\nA warrior is at risk of falling if they go from Standing to\nProne whilst within 1⁄2\" of the edge of a level or platform.\nShould this happen, the warrior must make an Initiative\ncheck. If the check is passed, nothing happens. If the check is\nfailed or if a natural 1 is rolled, the warrior will fall as\ndescribed below.\nRAILINGS: If the nearest edge of a level or platform is\nbounded by a railing, low wall or similar barrier at least 1⁄2\"\ntall, the chance of falling is reduced. Add 1 to the result of\nthe Initiative check to see if the warrior falls.\n\nFALLING\nIf a warrior falls 3\" or more, they will take a hit as described\non page 45 based on how far they fell, rounded up to the\nnearest inch:\n[TABLE]\nDistance Fallen|Strength|AP|Damage\n*3'' – 5''|*3|*—|*1\n*6'' – 7''|*5|*-1|*1\n*8'' – 9''|*7|*-2|*2\n*10'' +|*9|*-3|*3\n[/TABLE]\n\nA falling warrior is immediately Prone and Pinned and their\nactivation ends. If they land on top of another warrior, they\nare also Pinned and suffer a hit identical to that taken by the\nfalling warrior. Move the falling warrior the shortest possible\ndistance so that the two are not overlapping. Once the hits\nhave been resolved, and if neither warrior is Prone and\nSeriously Injured, if the falling warrior fell on an enemy\nwarrior, move the warrior that fell by the shortest route\npossible until they are 1\" away from the enemy warrior.\nIf a falling warrior lands within 1⁄2\" of a platform edge, they\nmust pass an Initiative check or will fall again.\ninto it)."}]},{"id":"shooting","title":"2.2.5 Shooting","pages":"p. 20–21","content":[{"page":20,"text":"Shooting\nThere are several ways in which a warrior may make a\nranged attack against an enemy, most frequently by making\na Shoot (Basic) action, but certain skills and Tactics cards\nwill also allow warriors to make a ranged attack outside of\nthe game's normal sequence.\nWhenever a warrior makes an attack against one or more\nenemy warriors with a ranged weapon, this sequence is\nfollowed:\n1. DECLARE THE SHOT\n2. CHECK THE RANGE\n3. MAKE THE HIT ROLL\n4. TARGET IS PINNED\n5. RESOLVE HITS\n\n1. DECLARE THE SHOT\n\nPick a ranged weapon carried by the warrior, and pick an\neligible enemy.\nTARGET PRIORITY\nA warrior must target the closest eligible target when\nmaking a ranged attack. An enemy warrior is an eligible\ntarget if they are within the vision arc and line of sight of the\nattacker, even if they are Engaged by a friendly warrior.\nHowever, if the closest eligible target is Seriously Injured or\nharder to hit than one further away, the attacker may choose\nto ignore them. Otherwise, to attack an eligible target that is\nnot the closest, the attacker must first pass a Cool check.\nPRONE TARGETS\nThe attacking warrior cannot target an enemy if the enemy\nis both Prone (either Pinned or Seriously Injured) and in\npartial or full cover – they are assumed to be keeping their\nhead very low!\n\n2. CHECK THE RANGE\n\nMeasure the range from the attacker to the target. If the\ntarget is outside the weapon's Long range, the attack\nautomatically misses. The with the Reload (x) trait will still\nneed to be reloaded.\n\n3. MAKE THE HIT ROLL\n\nTo determine whether a shot hits its target, roll a D6. The\ndice score needed will depend upon how good a shot the\nfirer is (as indicated by his Ballistic Skill). The chart below\nshows the minimum D6 roll needed to score a hit. (A roll of\n1 is allways a faillure)\n[TABLE]\nBS of Shooter|1|2|3|4|5|6|7|8|9|10\nD6 Roll Needed|*6|*5|*4|*3|*2|*1|*0|*-1|*-2|*-3\n[/TABLE]\n\n• IN PARTIAL COVER (-1): The target is in partial cover, apply the modifier.\n• IN FULL COVER (-2): The target is in full cover, apply the modifier.\n• LONG RANGE (-1): The target is more than half of your weapon's maximum range away.\n• TARGET IS ENGAGED (-1): If the target is Standing and Engaged, apply the modifier.\n• TARGET IS PRONE (-1, LONG RANGE ONLY): If the target is Prone (either Pinned or Seriously Injured) and the attacker is firing at Long range, apply the modifier.\n• BRACE OF PISTOLS (-1): The warrior attacks with two weapons with the Pistol trait.\n• TARGET MOVED FAST (-1): If the target moved 10'' or more this round.\n• MOVING & SHOOTING (-1): If your model has moved at all (other than standing up, or turning to face your target) during this turn.\n• SMALL TARGET (-1): The whole target is less than 1/2\" tall or wide. Warband models are always larger than this, even if modelled smaller! Firing a Blast Template is always considered to be targeting a small target.\n• LARGE TARGET (+1): The whole target is 2'' wide or tall.\n\n4. TARGET IS PINNED\n\nWhen a Standing and Active warrior is hit by a ranged\nattack that has the Black Powder trait, they are automatically\nplaced Prone and Pinned. Players should note that a\nStanding and Engaged warrior cannot become Prone and\nPinned.\nOnly weapons with the Black Powder trait have the Pinned\nrule as standard. If a warrior is hit by any other missile\nweapon they are not Pinned (unless specifically stated).\n\n5. RESOLVE HITS\n\nEach attack that scores a hit is resolved as described below.\nBLAST MARKERS\nIf attacking with any weapon with the Blast (X) trait, a\nwarrior may target a point on the tabletop instead of an\neligible enemy warrior, using a Blast marker.\n• Place the appropriately sized Blast marker (determined by the number in brackets after the trait on the weapon's profile) so that the central hole is anywhere within line of sight of the warrior making the attack.\n• If the central hole is beyond the Long range of the weapon, the attack still goes ahead but the Blast marker is moved directly back towards the attacking warrior until the central hole is within range.\n– Roll a Scatter dice and 2D6. The marker moves in the\ndirection shown by the Scatter dice (using the small arrow if\nthe Hit symbol is rolled) a number of inches equal to the\nnumber rolled on the 2D6 substraticting the BS of the\nshooting model. The marker will stop moving if the central\nhole comes into contact with a wall, structure or impassable\nterrain feature.\n• Once the Blast marker's position has been established, each warrior (friend and enemy) whose base is beneath the Blast marker is hit by the attack (unless there is a wall or solid terrain feature between them and the centre of the Blast marker).\n• Follow steps 4 and 5 of the Shooting sequence as normal for each warrior hit, in an order of the attacking player's choice.\nPlayers should note that, after scattering, the Blast marker\nmay end beyond the weapon's range or out of line of sight.\nFLAME TEMPLATES\nIf attacking with any weapon with the Template trait, the\nweapon will make use of the Flame template to determine\nwhich warriors are hit by the attack.\n• During step 1 of the Shooting sequence, instead of declaring an enemy to be the target of the attack, place the Flame template so that the narrow end is touching the attacking warrior's base and the entire template is within their vision arc.\n• Each warrior (friend and enemy) whose base is beneath the template is hit automatically by the attack (unless there is a wall or solid terrain feature between them and the warrior making the attack).\nFollow steps 4 and 5 of the Shooting sequence as normal for\neach warrior hit, in an order of the attacking player's choice.\nSTRAY SHOTS\nIf an attack with a ranged weapon misses, there is a chance\nthat other warriors, friendly or enemy, that are Engaging the\ntarget, or that are within 1\" of the line along which the range\nbetween the attacker and the target was measured, will be\nhit.\nIf the attack misses, roll a D6 for each warrior that is at risk\nof being hit, starting with the warrior closest to the attacker.\nOn the roll of 1, 2 or 3, the warrior is hit by the attack. On a\n4, 5 or 6, the shot misses them - move on to the next warrior\nat risk of being hit. If the attack would have caused more\nthan one hit, follow this sequence for every hit.\nEditor's Note: Warriors engaged with the target who are\nfurther away may be hit by a Stray Shot.\nBRACE OF PISTOLS\nIf a warrior is armed with two weapons with the Pistol trait,\nthey can choose to attack with both of them as part of a\nsingle Shoot (Basic) action. Make the hit roll for each\nweapon before resolving any hits scored. Both attacks must\nbe made against the same target and the hit roll for each\nsuffers a -1 modifier."}]},{"id":"combat","title":"2.2.6 Close Combat","pages":"p. 22–23","content":[{"page":22,"text":"Close Combat\nWarriors that are Standing and Engaged with an enemy\nwarrior may make close combat attacks against them. Most\noften, this is done by performing a Fight (Basic) action –\neither on its own or as part of a Charge (Double) action – or\nby making Reaction attacks after an enemy warrior they are\nEngaged with has resolved a Fight (Basic) action against\nthem. Additionally, certain skills and Tactics cards will also\nallow warriors to make a close combat attack outside of the\nnormal sequence of the game.\n\nWhen a combat is resolved as a result of a fighter making a\nFight action, each fighter makes their attacks in an order\ndetermined by their Initiative, following the steps below.\n\n1. TURN TO FACE\n2. PICK WEAPONS\n3. DETERMINE ATTACK DICE\n4. DECLARE TARGETS\n5. DETERMINE INITIATIVE\n6. MAKE HIT ROLL(S)\n7. RESOLVE HITS\n8. CONSOLIDATE\n\n1. TURN TO FACE\n\nThe attacking warrior may turn to face any direction.\nDoing so reduces the result of any hit roll by 1. This\nmodifier is cumulative with any others. For example, if a\nwarrior that is Broken turns to face before making a\nReaction attack, they will reduce the result of any hit roll by\na total of 3.\n\n2. PICK WEAPONS\n\nThe active fighter chooses a weapon with the Melee trait as their primary weapon. If they have two close combat weapons or more, they can choose another of those weapons as their secondary weapon, provided neither the primary nor the secondary weapon is Two Handed. All other fighters choose a close combat weapon as their primary weapon.\n\n3. DETERMINE ATTACK DICE\n\nThe number of Attack dice rolled is equal to the warrior's\nAttacks characteristic, plus the following modifiers:\n• Primary weapon — The number of Attack dice is equal to the fighter's Attacks characteristic.\n• Secondary weapon — The fighter makes only one attack with their secondary weapon or sidearm.\nAll other fighters make only one attack with their primary\nweapon, regardless of their Attacks characteristic. Certain\nskills and traits may modify this.\n\nPISTOLS AT CLOSE QUARTERS: A weapon with the\nPistol trait can only have one Attack dice allocated to it. Any\nremaining attacks must be allocated to a weapon with the\nMelee trait. If a warrior has no other weapons with the\nMelee trait, any remaining attacks must be Unarmed\nattacks, as described above.\nIf a warrior attacks with a weapon with the Pistol trait in\nclose combat, shooting modifiers do not apply – this is only\nused when making ranged attacks.\n\n4. DECLARE TARGETS\n\nDeclare a target enemy warrior that is A) Engaged with the\nattacker and B) within their vision arc. Attacks can be split\nbetween eligible enemy warriors as the player wishes.\n\n5. DETERMINE INITIATIVE\n\n• If the primary or secondary weapon has the Fight Last\ntrait, the fighter's Initiative is set to 1 before applying\nany other modifiers.\n• If the fighter successfully made a Charge action during\nthis activation, their Initiative is then increased by 1.\nEach fighter resolves their attacks in order of their modified\nInitiative, unless they have been taken Out of Action or have\nbecome Seriously Injured / Damaged as a result of a fighter\nacting with a higher modified Initiative.\n\n6. MAKE HIT ROLL(S)\n\nMake a To Hit roll for the attacking warrior with each\nAttack dice. Roll separately for different weapons and/or\ndifferent targets.\n[TABLE]\nAttacker's WS vs Defender's WS|D6 Roll Required\nIs the Attacker's WS TWICE the Defender's WS or greater?|*2+\nIs the Attacker's WS GREATER than the Defender's WS?|*3+\nIs the Attacker's WS EQUAL to or LOWER than the Defender's WS?|*4+\nIs the Attacker's WS MORE THAN HALF the Defender's WS or lower?|*5+\n[/TABLE]\n\nTO HIT MODIFIERS\nApply the following modifiers to the D6 roll required to hit.\n• ASSISTS (+?): See below.\n• INTERFERENCE (-?): See below.\n• HIGHER UP (+1): If your warrior is standing on a higher level, platform, or slope then add +1 to their to Hit roll.\n• OBSTACLE (-1): If you charge an enemy who is sheltering behind cover such as a low wall, then you suffer a -1 penalty on your to Hit score that turn. Note this penalty only applies during the round when you charge.\n• TURN TO FACE (-1): The attacking warrior may turn to face any direction. Doing so reduces the result of any hit roll.\n• REACH (-1): If the enemy warrior's reach (Melee X) is greater than your weapons reach (Melee X), you suffer -1 to hit. In the case of warriors with dual weapons, use the reach of the longest weapon.\n\nROLLS OF A NATURAL 1: If, when making an attack, the\nhit roll is a natural 1, the attack automatically misses,\nregardless of any modifiers that may apply.\nASSISTS AND INTERFERENCE\nEngaging more than one opponent is much more difficult\nthan Engaging a lone warrior. When making close combat\nattacks, a warrior can claim 'assists' from friendly warriors\nwho are also Engaged with the target of the attack, and can\nsuffer 'interference' from enemy warriors other than the\ntarget of the attack who are also Engaged with them.\nASSISTS\nWhen a warrior makes a close combat attack, they can claim\nan assist from each other friendly warrior that is:\n• Engaged with the target of the close combat attack.\n• Not Engaged with any other warriors from the same warband as the target of the attack.\nEach assist claimed in this way adds 1 to the result of the hit\nroll.\nINTERFERENCE\nWhen a warrior makes a close combat attack, they may\nsuffer interference from each other enemy warrior that is:\n• Engaged with the attacker.\n• Not Engaged with any other warriors from the same warband as the attacker.\nEach interference subtracts 1 from the result of the hit roll.\n\n7. RESOLVE HITS\n\nEach attack that scores a hit is resolved as described on page\n45.\n\n8. CONSOLIDATE\n\nIf all enemy fighters that the active fighter was Engaged with\nare now Out of Action or Seriously Injured / Damaged, they\ncan move up to a distance equal to their Initiative, in inches,\nin any direction.\nDuring this move, they can move within 1\" of enemy\nfighters, but must end their move at least 1\" away from all\nenemy fighters."}]},{"id":"resolve","title":"2.2.7 Resolve Hit","pages":"p. 24–25","content":[{"page":24,"text":"Resolve hits\nWhen a warrior suffers a successful hit, follow this sequence:\n1. MAKE WOUND ROLL\n2. MAKE A SAVE ROLL\n3. INFLICT DAMAGE\n\nARBITRATOR’S NOTE: HIT RESOLUTION\nORDER\n\nAll hits (ie the many hits from a single attacker’s multiple\nclose combat hits, the results of BRACE OF PISTOLS) are\nassumed to occur at the same time, before the consequences\nof each hit (for example being knocked back, becoming\npinned and falling into cover, etc) occurs.\n\n1. MAKE WOUND ROLL\n\nCross reference the weapon’s Strength with the hit warrior’s\nToughness and roll on the table below to determine if the\nwarrior is wounded by the attack:\n[TABLE]\nStrength vs Toughness|D6 Roll Required\nIs the Strength TWICE the Toughness or greater?|*2+\nIs the Strength GREATER than the Toughness?|*3+\nIs the Strength EQUAL to the Toughness?|*4+\nIs the Strength LOWER than the Toughness?|*5+\nIs the Strength HALF the Toughness or lower?|*6+\n[/TABLE]\n\n2. MAKE A SAVE ROLL\n\nIf a hit results in a successful wound roll, or leads to an\nInjury roll being made against the warrior for any reason,\nthe warrior may be able to make a save roll.\nOnly one save roll may be made for each hit that successfully\nwounds, or leads to an Injury roll being made, regardless of\nhow many different save rolls a warrior may have.\nArmour saves are made either:\n• After the Wound roll is made but before the\nWound is removed from the warrior, in which case\nthe Wound is ‘saved’ and not removed.\n• If the attack has a Damage ‘-’ characteristic and\ncauses an Injury dice to be rolled against the\nwarrior for any reason, a save roll is made before\nany Injury dice are rolled.\nPlayers should note that some weapon traits will disallow\nsave rolls. For example, the Gas Weapon Trait states that no\n\nsave roll can be made. In such cases, regardless of any\nmodifiers, no save roll can be made.\n\nARMOUR PENETRATION: It may happen that the AP\ncharacteristic of a weapon is greater than the save roll\ngranted by the armour a warrior wears, thus cancelling out\nthe save roll. For example, a warrior wearing mesh armour\nhas a save roll of 5+, but if they are hit by a weapon with AP\n-3, no save roll would be possible.\nPOSITIVE SAVE MODIFIERS: In some situations, such as\nsome weapon traits, a warrior’s save roll may be improved.\nIn such situations, this positive modifier may be added to a\nwarrior’s normal save roll. For example, if a warrior wearing\nlight armour (6+ save) gains a +1 modifier to their save roll,\ntheir armour save is now (5+).\nIf a warrior not wearing armour benefits from a positive\nsave modifier, treat their save as 6+ for the purposes of\nmodification. For example, if a warrior wearing no armour\ngains a +2 save modifier, they will be able to make a save roll\nof 5+.\nWARD SAVES: A ward save represents some kind of rare\nmagical protection, be it a spell, enchanted armour or\nperhaps even the innate nature of a Daemon or other\nmagical creature. The value of the ward save will always be\nshown in the warriors entry, Daemons for example have a\nWard Save(5+). The key difference ward saves and armour\nsaves is that wards saves are never modified by AP or\nanything. If a model has more than one wards save only\nmake one roll for the best.\nSometimes a warrior has both an armour save and a ward\nsave. In this case, the warrior takes its armour save as\nnormal first. If the armour save is failed (or modified to the\npoint at which the warrior cannot pass it) then the warrior\ntakes its ward save."},{"page":25,"text":"3. INFLICT DAMAGE\n\nDamage is inflicted following a successful unsaved wound\nroll, as follows:\n1. Each point of Damage caused by a weapon removes one\nWound from a warrior.\n2. When a warrior is reduced to 0 Wounds by Damage from\nan attack, immediately roll one Injury dice and apply the\nresult to the warrior (see below).\n3. If the weapon has additional points of Damage to cause\nafter the last Wound has been removed, immediately roll an\nadditional Injury dice for each and apply the result to the\nwarrior.\nFor example, if a warrior with two Wounds is hit by a\nweapon that causes three points of Damage, two Injury dice\nwill be rolled. The first point of Damage removes a Wound,\nthe second reduces the warrior to 0 Wounds and one Injury\ndice is rolled, and the third and final point of Damage will\ncause another Injury dice to be rolled.\n\nINJURY DICE\n\nWhen any number of Injury dice are rolled against a warrior\nfor any reason, apply the results of each individual dice as\nfollows:\n\n•\n•\n\n•\n\nOUT OF ACTION: The warrior is immediately\nremoved from play.\nSERIOUS INJURY: The warrior is placed Prone\nand laid face-down. They may successfully\nrecover in a later End phase. If this injury was\ninflicted in close combat, the warrior may be\nvulnerable to a Coup de Grace action\nFLESH WOUND: The warrior suffers a Flesh\nWound, reducing their Toughness\ncharacteristic by 1. If a warrior is reduced to\nToughness 0, they go Out of Action.\n\nINJURY DICE CHART\n[TABLE]\nD6|Result\n*1-2|Flesh Wound\n*3-5|Serious Injury\n*6|Out of Action\n[/TABLE]\n\nDAMAGE ‘ - ’ WEAPONS\nA weapon with a Damage characteristic of ‘-’ does not\ncause Damage in the usual way and will not cause a\nwarrior to lose a Wound. Such weapons cause injuries\nthrough the use of deadly poisons, venoms or gas.\nConsequently, if any Injury dice are rolled against a\nwarrior as the result of an attack made by a Damage ‘-’\nweapon, the result(s) of the Injury dice are applied as\nnormal. No Wounds are removed from the warrior.\nThe warrior may suffer a Flesh Wound, indicating they\nhave been weakened by the attack, may suffer a Serious\nInjury, representing their struggle to shake off the effects\nof the attack, or may be taken Out of Action as they\nsuccumb to the effects of the weapon.\n\nFALLING\n\nIf a warrior falls 3\" or more, they will take a hit based on how\nfar they fell, rounded up to the nearest inch:\n[TABLE]\nDistance Fallen|Strength|AP|Damage\n*3'' – 5''|*3|*—|*1\n*6'' – 7''|*5|*-1|*1\n*8'' – 9''|*7|*-2|*2\n*10'' +|*9|*-3|*3\n[/TABLE]\n\nLASTING INJURIES\n\nIf a warrior goes Out of Action during a campaign game, for\nany reason, immediately roll on the Lasting Injury Chart\nand apply the result:\n[TABLE]\nD66|Lasting Injury\n*11|Lesson Learned. Into recovery, +D3 Experience.\n*12-26|Out Cold. No effect.\n*31-45|Grievous Injury. Into recovery.\n*46|Humiliated. Into recovery, -1 Ld and Cl.\n*51|Head Injury. Into recovery, -1 Int and Wil.\n*52|Eye Injury. Into recovery, -1 BS.\n*53|Hand Injury. Into recovery, -1 WS.\n*54|Hobbled. Into recovery, -1 M.\n*55|Spinal Injury. Into recovery, -1 S.\n*56|Enfeebled. Into recovery, -1 T.\n*61-65|Critical Injury. Dead, unless saved by a Physician.\n*66|Memorable Death. Dead – attacker gains +1 Experience.\n[/TABLE]"}]},{"id":"psychology","title":"2.2.8 Psychology","pages":"p. 26","content":[{"page":26,"text":"Psychology\n\nFEAR\nFear is a natural reaction to huge or horrifying creatures. A\nwarrior must make a Cool check in the following situations.\n• If the warrior is charged by a warrior or a creature\nwhich causes fear. If a warrior is charged by an\nenemy that he fears then he must take a test to\novercome that fear. Check when the charge is\ndeclared and is determined to be within range. If\nthe check is passed the warrior may fight as normal.\nIf it is failed, the warrior has its WS reduced to 1.\n• If the warrior wishes to charge a fear-causing\nenemy. If it fails the warrior is paralysed with fear\nmay not charge and cannot perform any actions\nthat turn.\nNote, warriors that cause Fear ignore Fear tests. Warriors\nwhich cause Fear treat Terror as Fear instead.\nFRENZY\nWhen a warrior with Frenzy activates, if there are enemy\nwarriors in charge range, they must perform a Charge\n(double) action and perform a Fight (Basic) action. The\nplayer may make a Cool check to avoid this if they wish.\nIn close combat a Frenzied warrior gains an extra attack dice\nbut cannot use the Parry Skill or Parry weapon trait.\nOnce they are within charge range, Warriors with Frenzy\ngain the Immune to Psychology special rule, and don’t have\nto take Fear, Panic or Stupidity tests as long as they remain\nwithin charge range.\nDuring the battle, if a Warrior with Frenzy is Seriously\nInjured or Broken and then recovers, he is no longer\nfrenzied. The warrior loses the Frenzy ability for the rest of\nthe battle.\nHATRED\nWhen a warrior with Hatred activates check if:\n• There is an enemy warrior within their maximum\nCharge range. If so then they must Charge the\nenemy and perform a Fight(Basic) action.\n• The warrior must shoot at a visible Hated enemy\n(and does not need to target nearest enemy).\n• The warrior will always perform a Coup de Grace\naction against a Hated enemy that has been\nSeriously Injured in close combat.\nA warrior with Hatred may make a Cool check to avoid the\nabove. If successful then the warrior does not suffer Hatred.\nWarriors who fight enemies they hate in close combat may\nre-roll any misses when they charge, or if charged they may\nreroll any misses for reaction attacks. The warrior has +1\nCool (to max of CL 10) while fighting a Hated enemy in\nclose combat.\n\nPANIC TESTS\nWarriors must take a Panic check when a friendly warrior is\nSeriously Injured or taken Out of Action within 3\" of them.\nAll warriors must check regardless of their Status and\nSecondary Status, though it should be noted that some\nwarriors may be subject to a special rule that makes them\nimmune to Panic tests.\nTo make a Panic check, make a Cool check for the warrior,\nadd +1 to their Cool for each friendly warrior within 3\" of\nthem that is not Broken and is not Prone and Seriously\nInjured. If the check is passed, nothing happens. If the check\nis failed, the warrior becomes Broken. Place a Broken\nmarker on their Warrior card.\nBROKEN WARRIORS\nWhen a warrior becomes Broken, they will immediately\nmake a Running for Cover (Double) action as described\nabove. If the warrior is Ready, they lose their Ready marker.\nBroken warriors may be rallied in the End phase. When a\nBroken warrior activates in a subsequent round, they may\nnot make any actions other than Running for Cover\n(Double). If a Broken warrior is Engaged by an enemy\nwarrior, they may only make Reaction attacks with a -2\nmodifier.\n\nSTUPIDITY\nStupidity represents a creature’s tendency to do exactly the\nwrong thing! The warrior might be absent minded, it might\nrepresent shock, being easily distracted, animalistic\nbehaviour, or even a mental disorder.\nIf a friendly Leader or Champion is within 6\" (that isn't\nSeriously Injured or Broken) then there is no need to make a\nStupidity check as they keep the warrior’s mind focused.\nWhen a warrior with Stupidity activates make an\nIntelligence check. If you pass all is well – the warrior may\nmove and fight as normal.\nIf the Intelligence check failed the warrior will make no\nactions this turn. If a warrior who fails a Stupidity check is\nnot Engaged, roll a D6.\n1-3\nThe warrior makes one Move (Simple) action in a\nrandom direction. They will not charge an enemy\n(stop his movement 1\" away from any enemy he\nwould have come into contact with). If the warrior\ncomes within 1/2\" of an edge (of a building) it must\ntake an Initiative check or fall off (see Falling). If\nthe warrior walks into an obstacle it will stop\nmoving.\n4-6\nThe warrior stands inactive and performs no\nactions this turn. They are probably distracted by\nsomething shiny or a squirrel."}]},{"id":"magic","title":"2.2.9 Magic","pages":"p. 32–34","content":[{"page":32,"text":"Magic\nThere have always been those who have used magic: witches and wizards, wise women and warlocks. But as all scholars know, all\nmagic is dangerous, for it originates from Chaos, the source of corruption and change. Indeed, during these times, sorcery is illegal\nand punishable by death. Wizards have little say in whether the world of magic touches them or not. They are born with second\nsight and to them the world of magical energies and spells is much more real than the mundane world of normal mortals. With all\nthe persecution, fear and hatred it is little wonder that wizards become reclusive and suspicious, and many are downright insane.\nSome even turn to the worship of the dark gods, and others follow the forbidden path of necromancy.\nMordheim has become home to many magic users and they roam the ruins hiding from Witch Hunters. But there are other ways\nof gaining power over and above that of a normal mortal man. The gods watch over their subjects and a priest of strong faith can\ncall upon them to assist him in battle. Of these, the Priests of Sigmar are the most common, for Sigmar is the patron god of the\nEmpire, and his following is strong during these times of strife.\nIn Mordheim we commonly refer to spell casters as Wizards.\nSome races use different names, such as warlock, magister,\nshaman, priest or seer, but all of these are considered to be\ntypes of Wizard.\nWizards can cast Spells and Priests can use Prayers. Prayers\nare essentially the same as Spells, they use the same actions,\nthe only difference is items and abilities that protect against\nspells will not protect Prayers. And priests can wear armour\nand still use prayers. When we refer to Spells this also\nincludes Prayers (unless stated).\nDuring a battle, wizards are activated just like any other\nwarrior, with the exception that they may perform ‘Cast\nSpells (X)’ actions, which enable them to manifest their\nabilities.\nA Cast Spells (X) action may be (Simple), (Basic) or\n(Double), depending upon the complexity of the Cast Spell\nthe wizard is attempting to manifest. This will always be\nshown in brackets after the name of the Cast Spell itself.\nWhen a wizard is activated, they may choose to perform one\nor more Cast Spells (X) actions.\nRegardless of the Cast Spell(s) that a wizard knows, all\nwizards are able to perform the following actions:\nMAINTAIN CONTROL (Simple/free)\nThis is a free action. The Wizard can still make two actions\non a turn they are activated. Some CAST SPELL (X) actions\nare noted as being a Continuous Effect. Such a power lasts\nfrom when the warrior performs the action until the start of\ntheir next activation when it will expire. In order to maintain\na Continuous Effect, the warrior must perform this action.\nThe warrior immediately makes a Willpower check,\napplying the Difficulty modifier of the spell, and then\napplying -1 to the result of the dice roll (it’s easier to\nmaintain the spell once cast). If they do not perform this\naction, or they fail the Willpower check, the Continuous\nEffect expires at the beginning of this warrior’s activation\nand the spell ends. A Wizard can only ever have one\n\nContinuous Effect in play. If a Wizard is Seriously Injured or\ntaken Out of Action, any Continuous Effects will\nimmediately expire.\nCONCENTRATE (BASIC)\nIf the warrior makes a Willpower check in their subsequent\naction, apply a -1 to the result of the dice roll.\n\nCasting Spells\nWhen a wizard makes a Cast Spells (X) action, they must\nmake a Willpower check to see if the action is successful. If\nthe check is passed, the Cast Spell takes immediate effect. If\nit is failed, the Cast Spell has no effect and the action is\nwasted.\nMAGIC MISSILES\nWhen a wizard casts a ranged spell at an enemy warrior,\nthey must follow the same rules as shooting. The target must\nbe an Eligible target and Target Priority still counts (see\nshooting above). The spell takes immediate effect and hits\nautomatically (unless stated).\nA warrior targeted by a magic missile spell is Pinned.\nCAST SPELL (X) –(This action is also used for Prayers). To\nsee if the action is successful the spell caster must make a\nWillpower check with the Spell’s Difficulty modifier applied.\nIf the check is passed, the spell takes immediate effect. If it is\nfailed, the Spell has no effect and the action is wasted.\nHowever, using magic is not without risk. If the Willpower\ncheck is failed on the roll of a double 6, the spell caster must\nimmediately roll on the Magical Miscast table (see below). If\nthe Willpower check is passed on the roll of a double 1, the\nSpell takes effect, cannot be Dispelled (see Magic below) and\nthe Wizard must immediately roll on the Magical Miscast\ntable."},{"page":33,"text":"WIZARDS AND ARMOUR\nA Wizard cannot perform the action Cast Spell (X) if the\nwarrior is wearing armour or has a shield or buckler, they\ncause too much magical interference. Priests are an\nexception and may wear armour and still cast spells.\n\nMagical Miscasts\n\nHowever, using Cast Spells is not without risk. If the\nWillpower check is failed on the roll of a double 6, the\nwizard must immediately roll on the Magical Miscasts table\n(see overleaf). If the Willpower check is passed on the roll of\na double 1, the Cast Spell takes effect, cannot be Disrupted\n(see below) and the wizard must immediately roll on the\nMagical Miscasts table.\n\nDispel\nWhenever a wizard is activated to make a Cast Spells (X)\naction or to make a Maintain Control (Simple) action, if\nthere is a Standing and Active or Prone and Pinned enemy\nwizard within 18\", they may attempt to Dispel the wizard’s\nsuccessful Cast Spell. A Standing and Engaged or Prone and\nSeriously Injured wizard may not attempt to Dispel a Cast\nSpell.\nTo Dispel a successful Cast Spells (X) action, a wizard must\nroll 2D6. If the total is lower than the total rolled for the\nWillpower check made to successfully perform the action,\nthe Cast Spell is Dispelled and fails as if the wizard making\nthe action had failed their own Willpower check. If the total\nis equal to or higher than the total of the Willpower check\nmade to successfully perform the action, the Dispel attempt\nfails and the Cast Spells (X) action is resolved.\n\nHowever, Dispel attempts can be just as risky as casting\nspells.\nIf a double 1 is rolled, the Cast Spell is cancelled, but the\nwizard making the Dispel attempt must immediately roll on\nthe Magical Miscast table.\nIf a double 6 is rolled, the Dispel attempt fails and the wizard\nmaking the Dispel attempt must immediately roll on the\nMagical Miscast table.\n\nAllocated Spells\nThe chart below summarises the different kinds of magic\nand explains who can use what spells.\nWizard\nChaos Magisters\nMercenary wizards and\nWarlocks\nSkaven Grey Seer Apprentice\nSisters of Sigmar\n& Warrior-Priests of Sigmar\nNecromancers\nOrc Shaman\n\nType of Magic\nChaos Rituals\nLesser Magic\nMagic of the Horned Rat\nPrayers of Sigmar\nNecromancy\nPower of da Waaagh!\n\nEach wizard starts with one randomly determined spell, but\nmay gain more. Roll a D6 and consult the appropriate chart\nbelow. If you get the same spell twice, roll again or lower the\nspell’s difficulty by 1."},{"page":34,"text":"Magical Miscasts\nMagic is fickle, and writhes like a thing alive even whilst a Wizard shapes it to his will. Magic always strives to be free of constraint,\nand should the Wizard mispronounce a single word, or otherwise miscast the spell, the magic will shatter its bindings in a burst of\nincredible energy. Wizards can therefore be described as not trying to empower their spells, but to hold that same energy in check\nlest it prove to be their undoing.\nWhenever a Wizard rolls a double 1 or a double 6 when making a Willpower check to perform a Cast Spell (X) action, or when\nattempting to Dispel a Wizard’s Spell, roll 2D6 and consult the table below:\n\n[TABLE]\n2D6|Result\n*2-3|A Tear in Reality! The Wizard loses control and the fibre of reality itself is torn apart as a passage to the Realm of Chaos opens. Centre a 5” diameter Blast marker on the Wizard; any warrior touched by the marker must pass a Willpower check or lose a wound as their flesh mutates and their soul is sucked away. The Wizard then goes Out of Action.\n*4-5|Immaterium Inverse. The spell inverts upon those attempting to control it. The Wizard becomes the target of the spell (regardless of range). If the spell is beneficial, the Wizard instead becomes Pinned and suffers a Strength 6 hit that inflicts 2 Damage ignoring armour saves. The power has no other effects.\n*6-8|Whispers from the Realm of Chaos. The wizard’s mind is filled with screaming daemonic voices. The wizard becomes subject to Stupidity condition for the rest of the game. Place a marker on the wizard’s Warrior card and make an Intelligence check when they activate.\n*9-10|Power Surge! The Wizard’s spell becomes overcharged with magical energy. The Wizard may immediately try to manifest the same spell again as a free action, or if they were trying to disrupt a spell, they may immediately manifest one of their own spells as a free action – this additional manifestation of the spell can trigger a Magical Miscast as normal. After working out the effects of the spell, the Wizard becomes Pinned and suffers a Strength 4 hit that inflicts 1 Damage ignoring armour saves.\n*11-12|Daemonic Possession. Daemonic energy courses through the Wizard’s body. The Wizard increases their Movement, Weapon Skill, Strength, Toughness an Attacks characteristics all by 3. Their unarmed attacks inflict 2 Damage and have an AP of -1. They gain the Daemonic Special rule. In the End phase of the following round, or if the Wizard generates this result again, they go Out of Action.\n[/TABLE]"}]},{"id":"mountedcombat","title":"2.2.10 Mounted Combat","pages":"—","content":[{"page":1,"text":"Mounted Combat\n\nMounting is a condition granted by being on a mount.\n\n[SUBHEAD color=accent]MOUNTING / DISMOUNTING[/SUBHEAD]\nIt requires half a warrior's move to mount or dismount a riding creature (as a Simple action).\n\n[SUBHEAD color=accent]DEFENSIVE BONUS[/SUBHEAD]\nAll riding warriors get -1 to be hit in close combat against weapons with Melee 0.\n\n[SUBHEAD color=accent]OFFENSIVE BONUS[/SUBHEAD]\nA mounted fighter may count as Higher Up if the fighter himself is 1\" above the enemy model.\n\n[SUBHEAD color=accent]NOT INDOORS[/SUBHEAD]\nMounts cannot normally be ridden indoors or underground, unless playing a specially devised scenario that allows this.\n\n[SUBHEAD color=accent]DENSE TERRAIN[/SUBHEAD]\nRiding mounts are rare both amongst the ruins of Mordheim and in the claustrophobic jungles of Lustria. The dense terrain makes riding difficult, and large numbers of riders are highly ineffective. In these settings, a warband may only have a maximum of two mounts (not including those belonging to Hired Swords). In more open settings, such as the open fields of the countryside around Mordheim or the deserts of Khemri, a warband may have as many mounts as they can afford.\n\nMOUNTED\n\n[SUBHEAD color=info]CONTROLLING A MOUNT[/SUBHEAD]\nThe Special Riding Skills may be used by warriors who have a riding animal, but only after the skill Ride has been gained; warriors that come provided with a riding animal are assumed to possess the Ride skill already.\nWarriors without this skill may still ride animals but must test against their Leadership if hit by any missile or at the beginning of any Combat phase when a standing enemy is in base contact. If the test is failed, they lose control of their mount and must roll on the Whoa, Boy! table. Note that if an enemy is not standing, the mounted warrior is not considered to be in combat and thus does not need to test for loss of control.\n\n[SUBHEAD color=info]BOLTING MOUNTS[/SUBHEAD]\nIn certain circumstances, a mount may bolt. A bolting mount must make a Cool test at the beginning of the owning model's activation; if successful, it stops running, otherwise it continues fleeing. The easiest way to determine the direction a mount bolts is to use an Artillery Scatter dice.\n\nDISMOUNTED\n\n[SUBHEAD color=wip]LEADING ANIMALS[/SUBHEAD]\nOn occasion, a warrior may want to lead a riding animal rather than riding it. A warrior may only lead one riding animal unless he has the Animal Handling skill, for that particular animal, in which case he can lead as many as he wishes.\nGroups of led animals are tethered together and must maintain base contact with each other; at least one must be in base contact with the warrior leading them. Riding animals that are being led do not roll for loss of control. If required to make a Cool test (e.g. when charged by a fear-causing enemy) they use the Cool of the warrior leading them. A warrior leading riding animals may move and fight as normal, but must maintain base contact at all times.\n\n[SUBHEAD color=wip]UN-LED ANIMALS[/SUBHEAD]\nRiding animals which are not being either led or ridden will remain stationary but must make a Leadership test at the beginning of their turn. If this is failed, they will bolt, using the rules above.\n\n[SUBHEAD color=danger]LOSING CONTROL[/SUBHEAD]\nIf a mounted warrior has lost his last wound, then the player must roll on the Whoa, Boy! table. This replaces the normal Injuries chart.\n\nWHOA BOY\n\n[TABLE]\nD6|Result\n1-3|The rider suffers a Flesh Wound. The mount makes a panic test: if failed, the rider keeps his seat but must spend an action or stay stationary, unable to move or shoot.\n4-5|The rider falls off his mount and suffers a Serious Injury, taking an additional Strength 2 hit in the process with no Armour save. In addition, make a panic test on the mount: on a fail, the mount immediately bolts 3D6\" in a random direction and continues until it has left the table - the mount may be recovered after the battle; on a success, the mount remains stationary and the warrior may remount once recovered. Note: the mount does not count as unridden or un-led in this instance.\n6|The rider and his mount crash to the ground together. Both the rider and the mount are automatically Out of Action. In addition, roll a D6: on a roll of 1-2, the mount lands on top of its rider, crushing him - the warrior must roll twice on the Serious Injuries chart after the battle. In addition, after the battle roll a D6: on a roll of 1-2 the mount was crippled or killed by the fall and is removed from the warband roster.\n[/TABLE]"}]},{"id":"endphase","title":"2.3 End Phase","pages":"p. 27","content":[{"page":27,"text":"THE END PHASE\nAfter all warriors that wish to activate have activated, the\nAction phase ends and play moves on to the End phase. The\nEnd phase has three steps:\n1. MAKE ROUT TEST (IF NECESSARY).\n2. MAKE RECOVERY TESTS FOR SERIOUSLY\nINJURED WARRIORS.\n3. MAKE RALLY TESTS FOR ANY BROKEN\nWARRIORS.\n\n1. MAKE ROUT TEST (IF NECESSARY)\n\nAt the start of the End phase, either or both players will be\nrequired to make a Rout test for their warband if one or\nmore of their warriors are either Seriously Injured or Out of\nAction. Even warbands who are normally immune to\npsychology (such as Undead) must make Rout tests.\nTo make a Rout test for the warband, roll a D6 and add to\nthe result the total number of warriors that are Seriously\nInjured or Out of Action. If the final result is higher than the\ntotal number of warriors in the starting crew (the number of\nwarriors who were present at the start of the battle, see page\n506), then the warband as a whole has failed the Rout test\nand if Fleeing.\nFLEEING THE BATTLEFIELD\nOnce a warband is Fleeing, warriors may begin to flee the\nbattlefield. At the start of the Action phase, the controlling\nplayer will have to make a Cool check for each of their\nwarriors on the battlefield. Each warrior that fails this Cool\ncheck will immediately flee the battlefield and is removed\nfrom play.\nNote: although Undead are immune to psychology this can\nbe thought of as their masters cutting their loses and\ncommanding them to retreat. Or it can be thought of as\nmagical instability.\nLEADING BY EXAMPLE\nWarriors draw courage from their leaders and will follow\ntheir example:\n•\n• If the warband Leader passes their Cool check,\nany friendly warriors within 12\" are considered to have\npassed their Cool check and will not flee the battlefield.\n•\n• If a Champion passes their Cool check, any\nfriendly warriors that are not the Leader or another\nChampion within 6\" are considered to have passed their\nCool check and will not flee the battlefield.\nVOLUNTARY ROUT\nIn campaign play, a warband's controlling player can choose\nto voluntarily fail any Rout test they make, instead of rolling\nfor it.\n\nDECLARE WARBAND IS FLEEING\nOnce a warband has failed a Rout test (whether voluntarily\nor by falling a Rout test), the controlling player can declare\nthat the warband will flee the battlefield at the start of any\nAction phase. Any Active and Pinned warriors from the\nwarband immediately flee the battlefield and are removed\nfrom play. Engaged warriors must first attempt to break\naway from their fight- make an initiative check for each of\nthem. If the check is passed, they flee, but if it fails, they are\nSeriously Injured. Once the warband that has declared it will\nflee has only Seriously injured warriors on the battlefield, the\nbattle ends. Roll to see whether warriors succumb to their\ninjuries or are captured as normal.\n\n2. MAKE RECOVERY TESTS FOR SERIOUSLY INJURED WARRIORS.\n\nFor each member of their warband that is Seriously Injured\nand still on the battlefield, the controlling player makes a\nRecovery test by rolling an Injury dice:\n•\nIf the result is Out of Action, the warrior is\nremoved from play. During a campaign game, roll for\nLasting Injuries.\n•\nIf the result is Seriously Injured, the warrior\nremains as they are, Prone and Seriously Injured.\n•\nIf the result is a Flesh Wound, the warrior suffers a\nFlesh Wound (see page 46) and becomes Prone and Pinned.\nASSISTANCE\nWhen making a Recovery test for a Seriously Injured\nwarrior, one Standing and Active friendly warrior that is\nwithin 1\" can offer assistance. If they do so, roll one extra\nInjury dice, then pick one of the Injury dice to resolve and\ndiscard the other.\nA warrior can only assist one Recovery test per End phase.\nMULTIPLE INJURY DICE\nIt may happen that, due to assistance, items of Wargear,\nTactics cards or skills that, when making a Recovery test,\nseveral Injury dice are rolled. Regardless of how many are\nrolled, one Injury dice is picked and resolved, the others are\ndiscarded, as described previously.\n\n3. MAKE RALLY TESTS FOR ANY BROKEN WARRIORS.\n\nAfter making Recovery tests for Seriously Injured warriors,\nplayers may attempt to Rally Broken warriors.\nTo Rally a Broken warrior, make a Cool check for them,\nadding 1 to the result for each friendly warrior within 3\" of\nthem that is not Broken and is not Prone and Seriously\nInjured. If the check is passed, the warrior is no longer\nBroken. If the check is failed, the warrior remains Broken\nuntil the next End phase."}]},{"id": "postbattlesequence", "title": "3. The Post-Battle Sequence", "pages": "", "content": [{"page": 130, "text": "The post-battle sequence\nThe post-battle sequence has the following steps:\n\nTHE POST-BATTLE SEQUENCE\n1. WRAP UP\n2. RECEIVE REWARDS\n3. COLLECT INCOME\n4. POST-BATTLE ACTIONS\n5. UPDATE ROSTER\n6. REPORT RESULTS\n\n1. WRAP UP\nEach player checks to see whether any of their Seriously Injured warriors succumb to their injuries, and whether they capture any enemy warriors. Any other events that take place 'at the end of the battle' are triggered here. Warriors that were recovering have made a full recovery and their In Recovery box on the warband roster is cleared, meaning Leaders and Champions become available for post-battle actions once more.\n\nPlayers should also consider shaking hands, congratulating/commiserating with their opponent and sharing favourite moments from the battle – some would say this is the most important step!\n\nSUCCUMBING TO INJURIES\n\nIf a warrior is Seriously Injured when the battle ends, roll a D6 for them during the Wrap-up. On a 3 or more, they survive without any further complications, but on a 1 or 2, they succumb to the injuries suffered during the battle and are treated as having gone Out of Action. A Lasting Injury roll is made for them, as described previously.\n\nBEING CAPTURED\n\nIf only one warband has warriors on the battlefield at the end of the battle, there is a chance that they might Capture a fallen enemy. Roll 2d6 and add the number of opposing warriors who went Out of Action (including those who have succumbed to their injuries, during the Wrap-up). If the warband also includes a Bounty Hunter, add +1 to the result of the roll. If the result is 13 or greater, an enemy warrior has been Captured. Shuffle together the Warrior cards of any enemy warriors who went Out of Action (leaving those with the Fear or Terror rule), but not those for any that suffered a Critical Injury or Memorable Death result, they are left where they fell! Draw one of these Warrior cards at random – that warrior is Captured. Make a note in the Lasting Injury/Captured By box on the warband roster for the Captured warrior, recording the name of the warband of the player who has Captured the warrior. Whilst a warrior is Captured, they are unavailable for battles and post-battle actions as if they were In Recovery – however, this lasts until they are freed (as follows) rather than for just one battle. The Capturing warband should make a note in the Stash section of their warband roster of the name of the warrior they now hold Captive.\n\nCAPTURED WARRIORS\n\nOnce a warrior has been Captured, their warband has the chance to attempt to free them. The next time the same two warbands face each other, the Captured warrior's controlling player may declare that they will be attempting a Rescue Mission. This supersedes the Determine Scenario steps of the pre-battle sequence – instead, the Rescue Mission scenario is played. If the warband does not wish to attempt the Rescue Mission scenario, and a different scenario is played, the warband holding the Captive will sell them to slavers or kill them and collect their bounty (see below). This is worked out in the post-battle sequence of that battle or any subsequent battle. At any time during the campaign, regardless of whether a Rescue Mission has been attempted, the two warbands' controlling players can come to an agreement to secure the Captive's return. This could be a payment of gold crowns, a trade for another Captive, or a valuable item of equipment or anything else – this is entirely up to the two players to decide and either warband is free to decline an offer made by the other. If an agreement is reached, the Captured warrior is returned immediately and becomes available to the warband once more.\n\n2. RECEIVE REWARDS\n\nEach scenario shows a list of rewards which the warbands can receive, based on their performance during the battle. Any equipment gained is added to the warband's Stash – it can be distributed to warriors in Step 6.\n\nGAINING AND LOSING REPUTATION\n\nEach scenario contains a number of ways in which a warband can gain or lose Reputation. If a warband both gains and loses Reputation, any gains are applied before any losses.\n\n3. COLLECT INCOME AND EXPLORATION\n\nEach warband rolls on the Exploration chart and determines how many shards of wyrdstone they have found. They can then sell the shards of wyrdstone for gold crowns.\n\n4. POST-BATTLE ACTIONS\n\nEach Leader or Champion in the warband can make one post-battle action. Each of these actions is carried out one at a time, in an order of the controlling player's choice. Warriors who are in Recovery or who have been Captured cannot make post-battle actions. Unless otherwise stated, the same action can be made more than once.\n\nVISIT THE TRADING POST\n\nThe warrior visits the Trading Post, increasing the warband's chances of finding Rare items. This is resolved in step 6 (below).\n\nSELL CAPTIVE\n\nHuman and Dwarf warbands that capture evil races will collect a bounty (and likely execute the enemy warrior). Non-human and non-Dwarf warbands will likely sell the captive to Slavers (or eat them, or turn them into an undead warrior). Whether selling to slavers or collecting a bounty, the outcome is the same.\n\nThe warrior can sell any number of Captive warriors – as long as the Captive's warband has had a chance to rescue them. Each captive is worth half their value, rounding up to the nearest 5 – this many gold crowns are added to this warband's Stash. The Captive's controlling player should be informed as soon as possible, and must delete the captive from their roster.\n\nMEDICAL ESCORT\n\nThe warrior escorts a critically injured fellow warband member to the Physician. Pick another warrior in the warband who suffered a Critical Injury during the battle and pay 2D6x10 gold crowns from the warband's Stash. If the warband does not have sufficient funds, or does not wish to pay the full amount, no roll is made and the warrior dies.\n\nOtherwise, roll a D6 on the table below:\n\n[TABLE]\nD6|Result\n*1|Complications. The warrior dies.\n*2-5|Stabilized. Roll a D6 – this is the second dice of a D66 roll, the first is automatically a 5. Apply the appropriate result from the Lasting Injuries table.\n*6|Full Recovery. The warrior goes into Recovery, but suffers no lasting effects.\n[/TABLE]\n\n5. UPDATE ROSTER\n\nThese steps are carried out in order:\n\n• Delete Dead or Retiring Warriors\n• Visit the Trading Post\n• Gain Boons from Exploration\n• Distribute Equipment\n• Update Warband Rating\n\nIn Recovery: if a warrior missed this battle because they were recovering, their In Recovery box on the warband roster will have been cleared during the Wrap-up.\n\nDELETE DEAD OR RETIRING WARRIORS\n\nDead warriors are deleted from the roster. Their equipment (except for armour) is added to the warband's Stash as long as their warband had at least one warrior on the battlefield at the end of the battle, or if the warrior was taken to the Physician but still died (either because the warband could not pay for their treatment, or there were complications). Otherwise, the dead warrior's equipment is lost.\n\nAlso, at this point, the controlling player can choose to retire warriors – usually because Lasting Injuries have rendered them unfit for battle. These warriors are deleted from the roster, and their equipment is added to the warband's Stash. Equipment in the warband's Stash can be sold or transferred to a new warrior in the next step.\n\nLOSS OF A LEADER\n\nIf a warband's Leader is killed or is retired, a new Leader must be nominated from among the warband's Champions. If it has no Champions, the new Leader must be either a Veteran or a Raw Recruit. If it has no Veterans or Raw Recruits, the new Leader is a Henchman.\n\nIn any case, the eligible warrior with the best Leadership must be selected as the new Leader. If more than one eligible warrior is tied for best Leadership, use Advancements as a tie-breaker; if there is still a tie, the controlling player can decide.\n\nWhen a warrior is promoted in this way, their Type is changed to Leader on the warband roster, and from now on they count as a Leader for determining which equipment and skill sets they can access. Their characteristics do not change.\n\nVISIT THE TRADING POST\n\nThe warband can make any of the Trading Post actions described below, allowing them to hire new warriors and buy or sell equipment. The actions can be taken in any order, and there is no limit to how many times a warband can perform each one. Any spent gold crowns are deducted from the warband's Stash; any gained gold crowns are added to the warband's Stash.\n\nHire a Warrior: The warband can hire a new warrior from their Warband Type list, paying for them as they did when founding the warband. No equipment is purchased for them – they receive equipment in the next step.\n\n[CALLOUT]\nGANG COMPOSITION\nThe Warband Composition section of the Warband Type List must be honoured when hiring new warriors. For example, if a warband with a Reputation of 9 already has two Hangers-on, it cannot hire any more. Similarly, if a warband has fewer Henchmen (including Veterans) than its total number of Leaders, Champions and Raw Recruits, only Henchmen can be hired until this is no longer the case.\n[/CALLOUT]\n\nRecruit Hangers-on: The warband can spend gold crowns to add a Hanger-on to their roster. Their Reputation must be sufficient to allow this.\n\nSell Unwanted Equipment: Any equipment in the warband's Stash can be sold. The item is deleted from the Stash, and the warband gains half its value in gold crowns (rounded down). In a campaign with a shared market, the campaign market price applies instead (see the sale window).\n\nPurchase Equipment: The warband can purchase any equipment from their Warband Type Equipment List at the price shown, adding it to their Stash. They can also purchase Common equipment from the Trading Post, at the price shown. They cannot use this action to purchase Rare equipment from the Trading Post – that can only be obtained with the Seek Rare Equipment action, as follows:\n\nSeek Rare Equipment: This action is only performed once and is done to determine the availability of Rare items on offer at the Trading Post or the Black Market. Roll 2D6 to determine the availability of items, adding the following bonuses:\n\n• +2 if the warband's Leader is making a Trade post-battle action.\n• +1 for each Champion making a Trade post-battle action.\n• +1 for every full 10 Reputation the warband has (for example, a warband with Reputation 24 would get +2).\n• +/-X as from a specified special rule.\n\nThe result is the Availability level – the higher it is, the rarer the equipment that is on offer. The warband can now purchase Rare items from the Trading Post with a Rarity value equal to or lower than the Availability level. Any items that are purchased are immediately added to the warband's Stash.\n\nGAIN BOONS FROM EXPLORATION\n\nSome Exploration results grant a warband additional recruits, Hangers-on, or equipment – see Exploration Chart for details.\n\nDISTRIBUTE EQUIPMENT\n\nAny equipment in the warband's Stash, or gained as an Exploration Chart result, can now be distributed among its warriors. Weapon choices must respect the restrictions shown in the warband's Warband Type list – for example, a Flagellant could not be equipped with a crossbow. Also, the limit of no more than three weapons must be adhered to, with the Two-Handed weapon trait taking the space of two.\n\nOnce any equipment has been added to a Warrior card, the card's gold crowns value is updated accordingly. If the warrior is equipped with an item that has two different costs – one in the warrior's Warband Type Equipment list and the other in the Trading Post – the value in the Warband Type list takes precedence.\n\nPlayers are reminded that no warrior can discard a weapon once added to their Warrior cards. Leaders and Champions however can have multiple equipment sets as described below.\n\nEQUIPMENT SETS\n\nThe senior members of warbands often maintain a cache of weapons that allows them to equip themselves appropriately for each battle. As such, a warrior with the Tools of the Trade special rule can have multiple Warrior cards, each representing a different set of equipment. An appropriate model should be available for each. There is no additional cost for having multiple equipment sets; the controlling player can make an additional Warrior card for the warrior at any time.\n\nRegardless of the number of equipment sets a warrior has, they still have a single entry on the warband roster. If the warrior suffers any Lasting Injuries or gains any Advancements, they should be recorded on all of their Warrior cards. The warrior's cost, as shown on the roster, is equal to the cost of the Warrior card they are currently equipped with; equipment held on their other cards stays in the Stash and is not counted.\n\nOnly one of a warrior's cards can be used for a battle. If a battle uses random warriors from the warband, all of the warrior's cards should be shuffled together and one should be drawn at random and added to the rest of the warband's Warrior cards before any cards are drawn. This means that only one of this warrior's cards can be drawn for the battle, and that the controlling player cannot choose which of their equipment sets they will be using.\n\nWhen distributing equipment from the warband's Stash, it can be moved to any or all of a Leader or Champion's cards, and can even be moved to more than one.\n\nUPDATING WARBAND RATING\n\nRecalculate the warband's Warband Rating, and update the roster accordingly. Note that this is not done until this step, meaning that any other references to the Warband Rating in the post-battle sequence are referring to the value before it is updated.\n\n7. REPORT RESULTS\n\nThe players should report the outcome of the battle to the Arbitrator, who will update the campaign stats accordingly. The report should contain which warbands fought, the outcome of the battle (i.e., who won), how many enemies each warband took Out of Action and the final Warband Rating and Wealth of the warbands."}]}];
+// V-RULESLAZY: the book's sections live in data/rules-book.js, loaded just
+// after the first screen (ensureRulesBook). Until then only House Rules.
+const RULES_BOOK=[];
 // V-HOUSEPAGES: three rule pages written for the site's own systems (house
 // rules, exploration & income, experience & advancement). Their text is
 // editable like any other page (✎ Modify); an [AUTO name] line is replaced at
@@ -3956,6 +3951,14 @@ function frRulesBundle(){return window.MORDHEIMUNDA_FR_RULES||null}
 function frSourceHash(t){t=String(t||'').replace(/\r\n/g,'\n').trim();let h=5381;for(let i=0;i<t.length;i++)h=((h*33)^t.charCodeAt(i))>>>0;return 'o'+h.toString(36)}
 // French version of a built-in English data text (exploration, …), or the English text.
 function frData(key,en){if(siteLanguage!=='fr')return en;const v=frRulesBundle()?.[key];return typeof v==='string'?v:en}
+let rulesBookLoading=null;
+function rulesBookReady(){return RULES_BOOK.some(s=>s.id==='firstprinciples')}
+function ensureRulesBook(){if(rulesBookReady())return Promise.resolve();if(rulesBookLoading)return rulesBookLoading;
+  rulesBookLoading=new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src='/data/rules-book.js?v='+encodeURIComponent(APP_BUILD);
+    sc.onload=()=>{searchRulesIndexCache=null;ok();try{const v=parseAppRoute().view;if(v==='rules'||v==='admin'||document.getElementById('rulesNavSidebar'))renderCurrentRoute()}catch(e){}try{const inp=document.getElementById('siteSearchInput');if(inp&&inp.value)inp.dispatchEvent(new Event('input',{bubbles:true}))}catch(e){}};
+    sc.onerror=()=>{rulesBookLoading=null;ko(new Error('RULES_BOOK'))};document.head.appendChild(sc)});
+  rulesBookLoading.catch(()=>{});return rulesBookLoading}
+setTimeout(()=>{try{ensureRulesBook()}catch(e){}},200);
 function ensureFrRules(){
   if(siteLanguage!=='fr'||frRulesBundle()||frRulesLoading)return;
   frRulesLoading=true;
@@ -4154,93 +4157,6 @@ function insertRuleEditToken(kind){
 // textarea underneath.
 let ruleTableEditorRows=null; // array of rows, each an array of {text,hi}
 let ruleTableEditorSelRange=null; // {start,end} in the textarea to replace, or null to insert fresh at the cursor
-function ruleTableEditorParseExisting(raw){
- return raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(line=>line.split('|').map(c=>{
-  const t=c.trim();const hi=t.startsWith('*');
-  return {text:hi?t.slice(1):t,hi};
- }));
-}
-function ruleTableEditorSerialize(){
- const lines=ruleTableEditorRows.map(row=>row.map(c=>(c.hi?'*':'')+c.text).join('|'));
- return `[TABLE]\n${lines.join('\n')}\n[/TABLE]`;
-}
-function openRuleTableEditor(){
- const en=siteLanguage==='en';
- const el=ruleEditTarget();if(!el)return;
- ruleTableEditorRows=null;ruleTableEditorSelRange=null;
- const start=el.selectionStart??0,end=el.selectionEnd??0;
- const selected=el.value.slice(start,end);
- let m=/^\[TABLE\]\s*\n([\s\S]*?)\n\s*\[\/TABLE\]$/.exec(selected.trim());
- if(m){
-  ruleTableEditorRows=ruleTableEditorParseExisting(m[1]);
-  ruleTableEditorSelRange={start,end};
- } else {
-  // Nothing selected — but the cursor might still sit inside an existing
-  // [TABLE]…[/TABLE] block further up/down the text; find the nearest
-  // enclosing pair (if any) so clicking the toolbar button re-opens that
-  // table for editing instead of always starting a blank one.
-  const before=el.value.slice(0,start),after=el.value.slice(end);
-  const openIdx=before.lastIndexOf('[TABLE]');
-  const closeIdxBefore=before.lastIndexOf('[/TABLE]');
-  const closeIdxRel=after.indexOf('[/TABLE]');
-  if(openIdx>closeIdxBefore&&closeIdxRel!==-1){
-   const blockStart=openIdx,blockEnd=end+closeIdxRel+'[/TABLE]'.length;
-   const m2=/^\[TABLE\]\s*\n([\s\S]*?)\n\s*\[\/TABLE\]$/.exec(el.value.slice(blockStart,blockEnd));
-   if(m2){ruleTableEditorRows=ruleTableEditorParseExisting(m2[1]);ruleTableEditorSelRange={start:blockStart,end:blockEnd};}
-  }
- }
- if(!ruleTableEditorRows){
-  ruleTableEditorRows=[[{text:'D6',hi:false},{text:en?'Result':'Résultat',hi:false}],
-   ...[1,2,3,4,5,6].map(n=>[{text:String(n),hi:false},{text:(en?'Result '+n+'…':'Résultat '+n+'…'),hi:false}])];
- }
- renderRuleTableEditorOverlay();
-}
-function closeRuleTableEditor(){document.getElementById('ruleTableEditorOverlay')?.remove();ruleTableEditorRows=null;ruleTableEditorSelRange=null;}
-function ruleTableEditorAddRow(){ruleTableEditorRows.push(ruleTableEditorRows[0].map(()=>({text:'',hi:false})));renderRuleTableEditorOverlay();}
-function ruleTableEditorRemoveRow(i){if(ruleTableEditorRows.length<=1)return;ruleTableEditorRows.splice(i,1);renderRuleTableEditorOverlay();}
-function ruleTableEditorAddCol(){ruleTableEditorRows.forEach(r=>r.push({text:'',hi:false}));renderRuleTableEditorOverlay();}
-function ruleTableEditorRemoveCol(j){if(ruleTableEditorRows[0].length<=1)return;ruleTableEditorRows.forEach(r=>r.splice(j,1));renderRuleTableEditorOverlay();}
-function ruleTableEditorCellInput(i,j,value){if(ruleTableEditorRows[i]&&ruleTableEditorRows[i][j])ruleTableEditorRows[i][j].text=value;}
-function ruleTableEditorToggleHi(i,j){ruleTableEditorRows[i][j].hi=!ruleTableEditorRows[i][j].hi;renderRuleTableEditorOverlay();}
-function ruleTableEditorInsert(){
- const el=ruleEditTarget();if(!el||!ruleTableEditorRows)return;
- // Cells update their own data on every keystroke via oninput, but a redraw
- // (add/remove row or column) rebuilds all the <input> elements, so pick up
- // whatever's live in the DOM right now too, just in case.
- document.querySelectorAll('#ruleTableEditorOverlay .rte-cell-input').forEach(inp=>{
-  const i=Number(inp.dataset.row),j=Number(inp.dataset.col);
-  if(ruleTableEditorRows[i]&&ruleTableEditorRows[i][j])ruleTableEditorRows[i][j].text=inp.value;
- });
- const block=ruleTableEditorSerialize();
- if(ruleTableEditorSelRange){
-  const {start,end}=ruleTableEditorSelRange;
-  el.value=el.value.slice(0,start)+block+el.value.slice(end);
-  const pos=start+block.length;el.focus();el.setSelectionRange(pos,pos);
- } else {
-  const start=el.selectionStart??el.value.length,end=el.selectionEnd??el.value.length;
-  const before=el.value.slice(0,start),after=el.value.slice(end);
-  const needsNL=before.length&&!/\n\n?$/.test(before);
-  const prefix=needsNL?'\n\n':'';
-  const suffix=(!after.length||!after.startsWith('\n'))?'\n':'';
-  el.value=before+prefix+block+suffix+after;
-  const pos=(before+prefix+block).length;el.focus();el.setSelectionRange(pos,pos);
- }
- closeRuleTableEditor();
-}
-function renderRuleTableEditorOverlay(){
- const en=siteLanguage==='en';
- let overlay=document.getElementById('ruleTableEditorOverlay');
- if(!overlay){overlay=document.createElement('div');overlay.id='ruleTableEditorOverlay';overlay.className='rte-overlay';document.body.appendChild(overlay);}
- const rows=ruleTableEditorRows;
- const gridRows=rows.map((row,i)=>`<tr>${row.map((c,j)=>`<td><input class="rte-cell-input" data-row="${i}" data-col="${j}" value="${esc(c.text)}" oninput="ruleTableEditorCellInput(${i},${j},this.value)"><button type="button" class="rte-hi-btn${c.hi?' on':''}" title="${en?'Highlight this cell':'Mettre en valeur cette cellule'}" onclick="ruleTableEditorToggleHi(${i},${j})">★</button></td>`).join('')}<td class="rte-rowbtn"><button type="button" title="${en?'Remove row':'Supprimer la ligne'}" onclick="ruleTableEditorRemoveRow(${i})">✕</button></td></tr>`).join('');
- overlay.innerHTML=`<div class="rte-panel">
-   <div class="rte-head"><h3>${en?'Table builder':'Générateur de tableau'}</h3><button type="button" class="rte-close" onclick="closeRuleTableEditor()">✕</button></div>
-   <p class="rte-hint">${en?'First row is the header. ★ marks a cell as highlighted (rule-table-hi style).':'La première ligne est l’en-tête. ★ met une cellule en valeur (style rule-table-hi).'}</p>
-   <div class="rte-grid-wrap"><table class="rte-grid"><tbody>${gridRows}</tbody></table></div>
-   <div class="rte-toolrow"><button type="button" class="button secondary" onclick="ruleTableEditorAddRow()">+ ${en?'Row':'Ligne'}</button><button type="button" class="button secondary" onclick="ruleTableEditorAddCol()">+ ${en?'Column':'Colonne'}</button></div>
-   <div class="rte-actions"><button type="button" class="button secondary" onclick="closeRuleTableEditor()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="ruleTableEditorInsert()">${ruleTableEditorSelRange?(en?'Update table':'Mettre à jour le tableau'):(en?'Insert table':'Insérer le tableau')}</button></div>
- </div>`;
-}
 // V-EDITTOOLBAR: the rules editor toolbar, shared with the campaign page editor
 // (both write into #ruleEditTextarea).
 function ruleEditToolbarMarkup(actionCardBtn,hint){const en=siteLanguage==='en';return `<div class="rule-edit-toolbar">
@@ -4302,7 +4218,6 @@ async function restoreRuleOriginal(sectionId,page){
  }catch(e){toast(authError(e,en));}
 }
 
-function ruleSectionMarkup(section){return `<details class="rules-section" data-rule-id="${section.id}" ${rulesOpen===section.id?'open':''} ontoggle="if(this.open){rulesOpen='${section.id}';persistUiState('rulesOpen','${section.id}')}"><summary><span><b>${esc(section.title)}</b></span><i>＋</i></summary><div class="rules-section-body">${section.content.map(p=>rulePageMarkup(p,section.id)).join('')}</div></details>`}
 function openRuleSection(id){rulesOpen=id;persistUiState('rulesOpen',id);render('rules');const title=document.querySelector('.rules-main .title-row')||document.querySelector('.rules-title');if(title)title.scrollIntoView({block:'start',behavior:'auto'});else window.scrollTo({top:0,left:0,behavior:'auto'})}
 // Quick-nav on the Règles reading page: sticky list of the current page's
 // headings on desktop, a bottom-right ☰ dropdown on mobile/tablet (where the
@@ -4326,7 +4241,6 @@ function scrollToRuleHeading(e,id){
 // picking a link inside it never closes it on its own.
 let rulesPagesNavOpen=false;
 function toggleRulesPagesNav(){rulesPagesNavOpen=!rulesPagesNavOpen;rerenderRulesPagesNavPanel()}
-function closeRulesPagesNav(){if(!rulesPagesNavOpen)return;rulesPagesNavOpen=false;rerenderRulesPagesNavPanel()}
 function rerenderRulesPagesNavPanel(){
   const panel=document.getElementById('rulesPagesNavPanel');
   const btn=document.getElementById('rulesPagesNavFab');
@@ -4593,7 +4507,7 @@ function printList(){
    ${list.length?`<div class="print-list-items">${list.map((it,i)=>`${it.section&&it.section!==list[i-1]?.section?`<div class="print-list-section">${esc(it.section)}</div>`:''}<section class="print-list-item${it.card?' is-card':''}"><div class="print-list-item-head"><div><b>${esc(it.label||'—')}</b><small>${esc([it.group,it.source?.title].filter(Boolean).join(' · '))}</small></div><div class="print-list-item-actions"><button type="button" class="equipment-action" title="${en?'Up':'Monter'}" onclick="printListMove(${i},-1)" ${i?'':'disabled'}>↑</button><button type="button" class="equipment-action" title="${en?'Down':'Descendre'}" onclick="printListMove(${i},1)" ${i<list.length-1?'':'disabled'}>↓</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Retirer'}" onclick="printListRemove(${i})">✕</button></div></div>${/table/i.test(it.group||'')&&!it.section?`<div class="print-list-item-title">${esc(String(it.label||'').split(' — ')[0])}</div>`:''}<div class="print-snap">${it.html||''}</div></section>`).join('')}</div>`:`<div class="empty large"><strong>${en?'The print list is empty.':'La liste d’impression est vide.'}</strong><span>${en?'On any page, open 🖨 Print… (or Ctrl+P), tick what you want and click “Add to print list”.':'Sur n’importe quelle page, ouvre 🖨 Imprimer… (ou Ctrl+P), coche ce que tu veux et clique sur « Ajouter à la liste d’impression ».'}</span></div>`}
   </div>`;
 }
-function printPrepare(picks){
+function printPrepare(picks){try{document.querySelectorAll('img[loading="lazy"]').forEach(im=>{im.loading='eager'})}catch(e){}
   if(printPrep)return;const root=$('#content');if(!root)return;
   const prep={theme:document.documentElement.getAttribute('data-theme'),details:[],hidden:[],rules:new Map(rulesSectionState)};
   document.documentElement.setAttribute('data-theme','light');document.body.classList.add('printing');
@@ -4736,28 +4650,6 @@ async function acceptFriendRequestUI(id){const en=siteLanguage==='en';try{await 
 async function declineFriendRequestUI(id){try{await window.MordheimundaAPI.declineFriendRequest(id);loadFriendsPanel();}catch(e){}}
 async function cancelFriendRequestUI(id){try{await window.MordheimundaAPI.cancelFriendRequest(id);loadFriendsPanel();}catch(e){}}
 async function removeFriendUI(id){try{await window.MordheimundaAPI.removeFriend(id);loadFriendsPanel();}catch(e){}}
-async function adminSupportSearchUI(ev){
-  ev.preventDefault();const en=siteLanguage==='en',q=$('#adminSupportQuery')?.value.trim(),box=$('#adminSupportResult');if(!q||!box)return;
-  box.innerHTML=`<p class="muted">${en?'Searching…':'Recherche…'}</p>`;
-  try{
-    const {users}=await window.MordheimundaAPI.adminSupportSearch(q);
-    box.innerHTML=users.length?users.map(u=>`<div class="friend-row"><span class="friend-avatar">${esc((u.username||'?')[0].toUpperCase())}</span><strong>${esc(u.username)}</strong><span class="muted" style="font-size:11px">${esc(u.email||'')}</span><span class="friend-actions"><button class="button secondary tiny" onclick="adminSupportViewUI('${u.id}')">${en?'View (read-only)':'Consulter (lecture seule)'}</button></span></div>`).join(''):`<p class="muted">${en?'No match.':'Aucun résultat.'}</p>`;
-  }catch(e){box.innerHTML=`<p class="muted">${authError(e,en)}</p>`}
-}
-async function adminSupportViewUI(userId){
-  const en=siteLanguage==='en',box=$('#adminSupportResult');if(!box)return;
-  box.innerHTML=`<p class="muted">${en?'Loading…':'Chargement…'}</p>`;
-  try{
-    const {user,data}=await window.MordheimundaAPI.adminSupportView(userId);
-    const rosters=(data?.payload?.rosters||[]);
-    box.innerHTML=`<div class="admin-support-view"><p><strong>${esc(user.username)}</strong> — ${esc(user.email||'')}</p>
-      <p class="muted">${en?'This lookup has been logged; the user can see it was consulted.':'Cette consultation a été journalisée ; l’utilisateur peut voir qu’il a été consulté.'}</p>
-      <p>${en?'Warbands':'Bandes'}: <strong>${rosters.length}</strong></p>
-      <ul>${rosters.map(r=>`<li>${esc(r.name||(en?'Unnamed':'Sans nom'))} — ${(r.fighters||[]).length} ${en?'fighters':'combattants'}</li>`).join('')}</ul>
-      <button class="button secondary tiny" onclick="loadFriendsPanel();$('#adminSupportResult').innerHTML=''">${en?'Close':'Fermer'}</button>
-    </div>`;
-  }catch(e){box.innerHTML=`<p class="muted">${authError(e,en)}</p>`}
-}
 async function loadAccessLog(){
   const en=siteLanguage==='en',box=$('#accessLogBody');if(!box)return;
   try{
@@ -5181,7 +5073,6 @@ let adminRulesEditId=null,adminRulesEditData=null;
 // active editing buffer through activeAdminEditData() rather than
 // adminRulesEditData directly, so exactly one of the two is ever set.
 let adminCatalogFactionId=null,adminCatalogEditData=null;
-function activeAdminEditData(){return adminRulesEditData||adminCatalogEditData}
 // V152: the admin page's top-level sections used to all render at once as a
 // wall of big cards — too much scroll/space. Now they're grouped by type
 // into a slim accordion (one category open at a time); category bodies
@@ -5191,11 +5082,78 @@ let adminOpenCategory=null;
 // itself (admins, traffic, translation, backup), the game content
 // (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
 // players (support). Opening a section from elsewhere switches to its page.
-const ADMIN_GROUPS={site:['accounts','traffic','errors','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+const ADMIN_GROUPS={site:['accounts','traffic','perf','errors','translate','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
 let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
 const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
 // V-ADMINLAZY: the admin panel's own code lives in assets/admin.js and is
 // only downloaded when an admin opens the panel. Until then this stands in.
+// V-ADMINLAZY: editors only admins use (campaign, scenarios, map builder,
+// rule tables, catalog…) live in assets/admin.js. Buttons that call them
+// from shared pages go through these stand-ins, which load that file first.
+// Admin sessions load it in the background shortly after start.
+function openRaceLooksEditor(...a){return adminLazyCall('openRaceLooksEditor',this,a)}
+function openFactionLogosEditor(...a){return adminLazyCall('openFactionLogosEditor',this,a)}
+try{openRaceLooksEditor.__adminStub=true;openFactionLogosEditor.__adminStub=true}catch(e){}
+function adminLazyCall(name,self,args){return ensureAdminCode().then(()=>{const f=window[name];if(typeof f!=='function'||f.__adminStub)throw new Error('ADMIN_FN '+name);return f.apply(self,args)}).catch(e=>{console.warn(e);toast(siteLanguage==='en'?'Could not load the admin tools':'Impossible de charger les outils admin')})}
+function openAdminWeaponEditFromRef(...a){return adminLazyCall('openAdminWeaponEditFromRef',this,a)}
+function openRuleTableEditor(...a){return adminLazyCall('openRuleTableEditor',this,a)}
+function adminSupportSearchUI(...a){return adminLazyCall('adminSupportSearchUI',this,a)}
+function activeAdminEditData(...a){return adminLazyCall('activeAdminEditData',this,a)}
+function adminDeletePublishedEquipment(...a){return adminLazyCall('adminDeletePublishedEquipment',this,a)}
+function adminDeleteWeaponForAll(...a){return adminLazyCall('adminDeleteWeaponForAll',this,a)}
+function openSkillTreeOverrideEditor(...a){return adminLazyCall('openSkillTreeOverrideEditor',this,a)}
+function openDomainOverrideEditor(...a){return adminLazyCall('openDomainOverrideEditor',this,a)}
+function openRaceTagEditor(...a){return adminLazyCall('openRaceTagEditor',this,a)}
+function openFactionCategoryEditor(...a){return adminLazyCall('openFactionCategoryEditor',this,a)}
+function openRuleGroupsEditor(...a){return adminLazyCall('openRuleGroupsEditor',this,a)}
+function openAdminWeaponEdit(...a){return adminLazyCall('openAdminWeaponEdit',this,a)}
+function newAdminWeapon(...a){return adminLazyCall('newAdminWeapon',this,a)}
+function toggleAdminWeaponHidden(...a){return adminLazyCall('toggleAdminWeaponHidden',this,a)}
+function adminWeaponFormMarkup(...a){return adminLazyCall('adminWeaponFormMarkup',this,a)}
+function saveAdminWarbandRules(...a){return adminLazyCall('saveAdminWarbandRules',this,a)}
+function saveAdminWarrior(...a){return adminLazyCall('saveAdminWarrior',this,a)}
+function adminWarriorFormMarkup(...a){return adminLazyCall('adminWarriorFormMarkup',this,a)}
+function saveAdminEquipment(...a){return adminLazyCall('saveAdminEquipment',this,a)}
+function adminWarbandRulesPanel(...a){return adminLazyCall('adminWarbandRulesPanel',this,a)}
+function adminDeleteSkillTree(...a){return adminLazyCall('adminDeleteSkillTree',this,a)}
+function adminAddSpellToDomain(...a){return adminLazyCall('adminAddSpellToDomain',this,a)}
+function openHomeEventEditor(...a){return adminLazyCall('openHomeEventEditor',this,a)}
+function openHomeNewsEditor(...a){return adminLazyCall('openHomeNewsEditor',this,a)}
+function mapBuilderClamp(...a){return adminLazyCall('mapBuilderClamp',this,a)}
+function mapBuilderLocalXY(...a){return adminLazyCall('mapBuilderLocalXY',this,a)}
+function mapBuilderItemDown(...a){return adminLazyCall('mapBuilderItemDown',this,a)}
+function mapBuilderHandleDown(...a){return adminLazyCall('mapBuilderHandleDown',this,a)}
+function mapBuilderCanvasDown(...a){return adminLazyCall('mapBuilderCanvasDown',this,a)}
+function openScenarioEditor(...a){return adminLazyCall('openScenarioEditor',this,a)}
+function initScenarioEditorAutoGrow(...a){return adminLazyCall('initScenarioEditorAutoGrow',this,a)}
+function openHubEventEditor(...a){return adminLazyCall('openHubEventEditor',this,a)}
+function openHubFavoredEditor(...a){return adminLazyCall('openHubFavoredEditor',this,a)}
+function openCampMapEditor(...a){return adminLazyCall('openCampMapEditor',this,a)}
+function hubAdminConfirm(...a){return adminLazyCall('hubAdminConfirm',this,a)}
+function importLustriaConditions(...a){return adminLazyCall('importLustriaConditions',this,a)}
+function importLustriaExploration(...a){return adminLazyCall('importLustriaExploration',this,a)}
+function importLustriaRulePages(...a){return adminLazyCall('importLustriaRulePages',this,a)}
+function openExplorationEntryEditor(...a){return adminLazyCall('openExplorationEntryEditor',this,a)}
+function openHazardEditor(...a){return adminLazyCall('openHazardEditor',this,a)}
+function openWeatherEditor(...a){return adminLazyCall('openWeatherEditor',this,a)}
+function openScenarioTableEditor(...a){return adminLazyCall('openScenarioTableEditor',this,a)}
+function importLustriaScenarioTable(...a){return adminLazyCall('importLustriaScenarioTable',this,a)}
+function openCampaignPageEditor(...a){return adminLazyCall('openCampaignPageEditor',this,a)}
+function openCampaignArtifactEditor(...a){return adminLazyCall('openCampaignArtifactEditor',this,a)}
+function saveCampaignArtifactsIntro(...a){return adminLazyCall('saveCampaignArtifactsIntro',this,a)}
+function importLustriaArtifacts(...a){return adminLazyCall('importLustriaArtifacts',this,a)}
+function openSettlementEditor(...a){return adminLazyCall('openSettlementEditor',this,a)}
+function openOutsiderPenaltyEditor(...a){return adminLazyCall('openOutsiderPenaltyEditor',this,a)}
+function importLustriaSettlements(...a){return adminLazyCall('importLustriaSettlements',this,a)}
+function openCampaignEditor(...a){return adminLazyCall('openCampaignEditor',this,a)}
+function openSpellWeaponProfileEditor(...a){return adminLazyCall('openSpellWeaponProfileEditor',this,a)}
+function adminDeleteError(...a){return adminLazyCall('adminDeleteError',this,a)}
+function adminConvertMedia(...a){return adminLazyCall('adminConvertMedia',this,a)}
+function openGreatQuestEditor(...a){return adminLazyCall('openGreatQuestEditor',this,a)}
+function addAdminWarriorRule(...a){return adminLazyCall('addAdminWarriorRule',this,a)}
+function removeAdminWarriorRule(...a){return adminLazyCall('removeAdminWarriorRule',this,a)}
+["openAdminWeaponEditFromRef","openRuleTableEditor","adminSupportSearchUI","activeAdminEditData","adminDeletePublishedEquipment","adminDeleteWeaponForAll","openSkillTreeOverrideEditor","openDomainOverrideEditor","openRaceTagEditor","openFactionCategoryEditor","openRuleGroupsEditor","openAdminWeaponEdit","newAdminWeapon","toggleAdminWeaponHidden","adminWeaponFormMarkup","saveAdminWarbandRules","saveAdminWarrior","adminWarriorFormMarkup","saveAdminEquipment","adminWarbandRulesPanel","adminDeleteSkillTree","adminAddSpellToDomain","openHomeEventEditor","openHomeNewsEditor","mapBuilderClamp","mapBuilderLocalXY","mapBuilderItemDown","mapBuilderHandleDown","mapBuilderCanvasDown","openScenarioEditor","initScenarioEditorAutoGrow","openHubEventEditor","openHubFavoredEditor","openCampMapEditor","hubAdminConfirm","importLustriaConditions","importLustriaExploration","importLustriaRulePages","openExplorationEntryEditor","openHazardEditor","openWeatherEditor","openScenarioTableEditor","importLustriaScenarioTable","openCampaignPageEditor","openCampaignArtifactEditor","saveCampaignArtifactsIntro","importLustriaArtifacts","openSettlementEditor","openOutsiderPenaltyEditor","importLustriaSettlements","openCampaignEditor","openSpellWeaponProfileEditor","adminDeleteError","adminConvertMedia","openGreatQuestEditor","addAdminWarriorRule","removeAdminWarriorRule"].forEach(n=>{try{window[n].__adminStub=true}catch(e){}});
+setTimeout(()=>{try{if(isAdminSession())ensureAdminCode().catch(()=>{})}catch(e){}},1500);
 let adminCodeLoading=null;
 function ensureAdminCode(){if(typeof adminReal==='function')return Promise.resolve();if(adminCodeLoading)return adminCodeLoading;
   adminCodeLoading=new Promise((ok,ko)=>{const s=document.createElement('script');s.src='/assets/admin.min.js?v='+encodeURIComponent(APP_BUILD);s.onload=()=>typeof adminReal==='function'?ok():ko(new Error('ADMIN_CODE'));s.onerror=()=>ko(new Error('ADMIN_CODE'));document.head.appendChild(s)}).catch(e=>{adminCodeLoading=null;throw e});
@@ -5272,7 +5230,6 @@ async function openAdminWarbandRules(officialId){
   }catch(e){toast(authError(e,en));}
 }
 function arr2(v){return Array.isArray(v)?v.slice():[]}
-function closeAdminWarbandRules(){adminRulesEditId=null;adminRulesEditData=null;adminWarbandSection='rules';adminEditingWarriorIdx=null;adminEditingEquipmentIdx=null;render('admin')}
 /* ================= ADMIN — EDIT THE BASE M17 CATALOG (V147) ===============
    Same direct-edit panel as an official warband (openAdminWarbandRules
    above) but retargeted at a book faction's baked-in fighters/equipment
@@ -5298,27 +5255,6 @@ function openAdminCatalogEdit(factionId){
   adminCatalogEditData={name:f.displayName||f.name,warriors:arr2(f.warriors),equipment:arr2(f.equipment),traits:arr2(existing.traits),specialRules:arr2(existing.specialRules),bandRuleNames:arr2(existing.bandRuleNames).map(String),skillTrees:arr2(existing.skillTrees),skills:arr2(existing.skills),magicDomains:arr2(existing.magicDomains),spells:arr2(existing.spells)};
   adminWarbandSection='warriors';adminEditingWarriorIdx=null;adminEditingEquipmentIdx=null;
   render('admin');
-}
-function closeAdminCatalogEdit(){adminCatalogFactionId=null;adminCatalogEditData=null;adminWarbandSection='rules';adminEditingWarriorIdx=null;adminEditingEquipmentIdx=null;render('admin')}
-async function saveAdminCatalogEdit(){
-  const en=siteLanguage==='en';const d=adminCatalogEditData;if(!d||!adminCatalogFactionId)return;
-  if(!d.warriors.length){toast(en?'A faction needs at least one fighter':'Une faction a besoin d’au moins un combattant');return}
-  try{
-    const bookName=D.factions.find(f=>f.id===adminCatalogFactionId)?.__catalogBookName||'';const newName=String(d.name||'').trim();
-    await window.MordheimundaAPI.adminSaveCatalogOverride(adminCatalogFactionId,{displayName:newName&&newName!==bookName?newName:'',warriors:d.warriors,equipment:Array.isArray(d.equipment)?d.equipment:[],bandRuleNames:arr2(d.bandRuleNames),traits:arr2(d.traits),specialRules:arr2(d.specialRules),skillTrees:arr2(d.skillTrees),skills:arr2(d.skills),magicDomains:arr2(d.magicDomains),spells:arr2(d.spells)});
-    await loadCatalogOverrides();
-    toast(en?'Base catalog updated':'Catalogue de base mis à jour');
-    // V-ADMINSAVESTAY: stay in the same editor instead of bouncing back to
-    // the base Admin page (see saveAdminWarbandRules above).
-    render('admin');
-  }catch(e){toast(authError(e,en));}
-}
-function toggleAdminCatalogEquipment(el){
-  const d=adminCatalogEditData;if(!d)return;
-  const name=el?.dataset?.wname;if(!name)return;
-  if(!Array.isArray(d.equipment))d.equipment=[];
-  const i=d.equipment.findIndex(n=>normName(n)===normName(name));
-  if(el.checked){if(i<0)d.equipment.push(name)}else if(i>=0)d.equipment.splice(i,1);
 }
 // Fetched once at boot (see the app-init line near the bottom of this file)
 // and applied on top of D.factions — same "public read, admin-only write"
@@ -5538,40 +5474,7 @@ function pruneDeletedWeaponsFromFactions(){
     if(f.equipmentItemGroups&&typeof f.equipmentItemGroups==='object')Object.keys(f.equipmentItemGroups).forEach(k=>{if(!keep(k))delete f.equipmentItemGroups[k]});
   });
 }
-function weaponDeletedForAll(name){return !!D.__deletedWeaponNames?.has(normName(name))}
 function officialWarbandsHoldingEquipment(name){const n=normName(name);return (D.factions||[]).filter(f=>f?.__official&&(f.equipment||[]).some(e=>e&&typeof e==='object'&&e.customEquipmentId&&normName(e.name)===n))}
-function adminDeletePublishedEquipment(enc){
-  const en=siteLanguage==='en';const name=decodeURIComponent(enc);const holders=officialWarbandsHoldingEquipment(name);const mine=customEquipmentList().some(w=>normName(w.name)===normName(name));
-  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE FOR EVERYONE':'SUPPRESSION POUR TOUT LE MONDE'}</div><h2>${en?`Delete “${esc(name)}”?`:`Supprimer « ${esc(name)} » ?`}</h2><p>${en?'Removed from every official warband it was published into — for every account: Band Lists, Market, Référentiel. Fighters who already own it keep their copy.':'Retiré de toutes les bandes officielles où il a été publié — pour tous les comptes : Band Lists, Market, Référentiel. Les combattants qui le possèdent déjà gardent leur exemplaire.'}</p><p class="muted">${holders.map(f=>esc(f.displayName||f.name)).join(' · ')}</p>${mine?`<label class="toggle-line"><input id="delPubMine" type="checkbox" checked><span>${en?'Also delete it from my Custom library':'Le supprimer aussi de ma bibliothèque Custom'}</span></label>`:''}<button type="button" class="big-delete" onclick="confirmAdminDeletePublishedEquipment('${esc(enc)}')">${en?'DELETE FOR EVERYONE':'SUPPRIMER POUR TOUT LE MONDE'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
-}
-async function confirmAdminDeletePublishedEquipment(enc){
-  const en=siteLanguage==='en';const name=decodeURIComponent(enc),n=normName(name);const alsoMine=!!$('#delPubMine')?.checked;const arr2=v=>Array.isArray(v)?v:[];let done=0,failed=0;
-  for(const f of officialWarbandsHoldingEquipment(name)){
-    const id=String(f.id).replace(/^official-/,'');
-    try{const res=await window.MordheimundaAPI.adminGetWarband(id);const full=res?.warband||res;if(!full){failed++;continue}
-      const d={name:full.name,warriors:arr2(full.warriors),equipment:arr2(full.equipment).filter(e=>normName(typeof e==='string'?e:e?.name)!==n),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells),traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames),creatures:arr2(full.creatures)};
-      await window.MordheimundaAPI.adminUpdateOfficialWarband(id,{...d,viaAdminEditor:true});done++}catch(e){failed++}
-  }
-  if(alsoMine){state.customEquipment=customEquipmentList().filter(w=>normName(w.name)!==n);save(true)}
-  adminOfficialCache=null;try{await loadOfficialWarbands()}catch(e){}
-  closeModal();renderCurrentRoute();
-  toast(failed?(en?`${name}: removed from ${done} warband(s), ${failed} failed`:`${name} : retiré de ${done} bande(s), ${failed} échec(s)`):(en?`${name} deleted for everyone`:`${name} supprimé pour tout le monde`),3500);
-}
-function adminDeleteWeaponForAll(name){
-  const en=siteLanguage==='en';
-  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'DELETE FOR EVERYONE':'SUPPRESSION POUR TOUT LE MONDE'}</div><h2>${en?`Delete “${esc(name)}”?`:`Supprimer « ${esc(name)} » ?`}</h2><p>${en?'Removed for every account: from the shared pool, every warband’s equipment list, the Market and the Référentiel. Fighters who already own it keep their copy. The book data is kept, so it can be restored later from Admin → Weapons & gear catalog → Deleted.':'Retiré pour tous les comptes : du pool partagé, de la liste d’équipement de chaque bande, du Marché et du Référentiel. Les combattants qui le possèdent déjà gardent leur exemplaire. Les données du livre sont conservées : tu peux le restaurer plus tard depuis Admin → Catalogue d’armes & équipement → Supprimés.'}</p><button type="button" class="big-delete" data-wname="${esc(name)}" onclick="confirmAdminDeleteWeaponForAll(this.dataset.wname)">${en?'DELETE FOR EVERYONE':'SUPPRIMER POUR TOUS'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
-}
-async function confirmAdminDeleteWeaponForAll(name){
-  const en=siteLanguage==='en';
-  const w=(D.weapons||[]).find(x=>x.name===name)||(D.__weaponsBaseline||[]).find(x=>x.name===name)||{name};
-  const data={name:w.name,category:w.category||'Équipements divers',price:Number(w.price||0),availability:w.availability||'',market:false,band:false,hidden:true,deleted:true};
-  try{
-    await window.MordheimundaAPI.adminSaveWeaponOverride(w.name,data);
-    await loadWeaponOverrides();
-    if(adminWeaponEditName===name)adminWeaponEditName=null;
-    closeModal();toast(en?`${name} deleted for everyone`:`${name} supprimé pour tout le monde`);render(parseAppRoute().view==='references'?'references':'admin');
-  }catch(e){toast(authError(e,en));}
-}
 /* ================= OFFICIAL MAGIC DOMAIN OVERRIDES (Task #56) =============
    Admin-editable DISPLAY name + frame color for an official (book)
    magic/prayer domain, shown in the Référentiel. Deliberately cosmetic
@@ -5620,13 +5523,6 @@ function skillTreeColor(name){
   const s=String(name||'');let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
   return SPELL_DOMAIN_PALETTE[h%SPELL_DOMAIN_PALETTE.length];
 }
-function openSkillTreeOverrideEditor(rawName){
-  const en=siteLanguage==='en';
-  const key=skillTreeOverrideKey(rawName);
-  const o=domainOverrideMap.get(normName(key));
-  const name=o?.name||rawName;
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">ADMIN</div><h2>${en?'Rename skill tree':'Renommer l’arbre de compétences'}</h2><p class="muted">${en?'Renames how this tree is shown in the Reference — the underlying skills/access are unaffected.':'Renomme l’affichage de cet arbre dans le Référentiel — les compétences/accès sous-jacents ne sont pas touchés.'}</p><label class="custom-field wide"><span>${en?'Displayed name':'Nom affiché'}</span><input id="skillTreeOverrideName" value="${esc(name)}"></label><div class="account-actions"><button class="button primary" type="button" onclick="saveSkillTreeOverrideUI('${esc(rawName).replace(/'/g,"\\'")}')">${en?'Save':'Enregistrer'}</button>${o?`<button class="button secondary" type="button" onclick="resetSkillTreeOverrideUI('${esc(rawName).replace(/'/g,"\\'")}')">${en?'Revert to book':'Revenir au livre'}</button>`:''}<button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveSkillTreeOverrideUI(rawName){
   const en=siteLanguage==='en';
   const name=($('#skillTreeOverrideName')?.value||'').trim();
@@ -5646,13 +5542,6 @@ async function resetSkillTreeOverrideUI(rawName){
     closeModal();render(currentViewName());
     toast(en?'Reverted to the book name':'Nom du livre restauré');
   }catch(e){toast(authError(e,en));}
-}
-function openDomainOverrideEditor(rawKey){
-  const en=siteLanguage==='en';
-  const o=domainOverrideMap.get(normName(rawKey));
-  const name=o?.name||rawKey;
-  const color=o?.color||spellDomainColor(rawKey);
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">ADMIN</div><h2>${en?'Edit domain':'Modifier le domaine'}</h2><p class="muted">${en?'Renames how this domain is shown in the Reference and sets its card color — the underlying game data (fighter access, spells) is unaffected.':'Renomme l’affichage de ce domaine dans le Référentiel et fixe la couleur de ses cartes — les données de jeu (accès des combattants, sorts) ne sont pas touchées.'}</p><label class="custom-field wide"><span>${en?'Displayed name':'Nom affiché'}</span><input id="domainOverrideName" value="${esc(name)}"></label><label class="custom-field"><span>${en?'Frame color':'Couleur du cadre'}</span><input id="domainOverrideColor" type="color" value="${esc(color)}"></label><label class="custom-field wide"><span>${en?'Category in the Reference menu':'Catégorie dans le menu du Référentiel'}</span><input id="domainOverrideGroup" list="domainGroupList" value="${esc(o?.group||'')}" placeholder="${en?'Empty = automatic (Base Magic or the warband’s race)':'Vide = automatique (Base Magic ou race de la bande)'}"><datalist id="domainGroupList">${[...new Set(['Base Magic',...[...domainOverrideMap.values()].map(x=>x.group).filter(Boolean)])].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></label><div class="account-actions"><button class="button primary" type="button" onclick="saveDomainOverrideUI('${esc(rawKey).replace(/'/g,"\\'")}')">${en?'Save':'Enregistrer'}</button>${o?`<button class="button secondary" type="button" onclick="resetDomainOverrideUI('${esc(rawKey).replace(/'/g,"\\'")}')">${en?'Revert to book':'Revenir au livre'}</button>`:''}<button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 async function saveDomainOverrideUI(rawKey){
   const en=siteLanguage==='en';
@@ -5700,32 +5589,6 @@ async function loadRaceMaximums(){
 function raceMaximumsFor(race){if(!race)return null;const m=raceMaximumsMap.get(normName(race));return Array.isArray(m)&&m.some(v=>v!==null&&v!==undefined&&v!=='')?m:null}
 let adminRaceMaxExtra=[];
 function raceIcon(r){return {'Humain':'☉','Dwarf':'⚒','Elves':'✦','Orcs and Goblin':'☠','Chaos':'✶','Undead':'☾','Skaven':'⁂','Unique':'◈'}[r]||'◆'}
-function openRaceTagEditor(currentRace){
-  const en=siteLanguage==='en';
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">${en?'EDIT':'ÉDITER'}</div><h2>${en?'Assign warbands to a race':'Assigner des warbands à une race'}</h2><p class="muted">${en?'Picking a race for a warband here just moves it between tiles on the Create page — nothing is duplicated or changed about the warband itself. Change as many as you like, then Save.':'Choisir une race ici déplace simplement la warband entre les cases de la page Créer — rien n’est dupliqué ni modifié dans la warband elle-même. Change autant de lignes que tu veux, puis Enregistre.'}</p><div id="raceTagEditorBody"></div><div class="account-actions"><button class="button primary" type="button" onclick="saveRaceTagEditor()">${en?'Save':'Enregistrer'}</button><button class="button secondary" type="button" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`);
-  renderRaceTagEditor();
-}
-function renderRaceTagEditor(){
-  const en=siteLanguage==='en',box=$('#raceTagEditorBody');if(!box)return;
-  const list=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f)).slice().sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
-  box.innerHTML=`<div class="custom-item-list" style="max-height:50vh;overflow:auto">${list.map(f=>{
-    const current=raceTagMap.get(f.id)||'';
-    return `<article class="custom-item-row"><div class="custom-item-main"><div><strong>${esc(f.displayName||f.name)}</strong><small>${f.__official?(en?'Official warband':'Warband officielle'):(en?'Book faction':'Faction du livre')}</small></div></div><div class="custom-item-actions"><select class="raceTagSelect" data-fid="${esc(f.id)}">${['',...RACE_CATEGORIES].map(r=>`<option value="${esc(r)}" ${current===r?'selected':''}>${r===''?(en?'— none —':'— aucune —'):esc(r)}</option>`).join('')}</select></div></article>`;
-  }).join('')}</div>`;
-}
-async function saveRaceTagEditor(){
-  const en=siteLanguage==='en';
-  const rows=[...document.querySelectorAll('.raceTagSelect')];
-  const changed=rows.filter(s=>(raceTagMap.get(s.dataset.fid)||'')!==s.value);
-  if(!changed.length){toast(en?'Nothing changed':'Rien n’a changé');return}
-  try{
-    await Promise.all(changed.map(s=>s.value?window.MordheimundaAPI.adminSetRaceTag(s.dataset.fid,s.value):window.MordheimundaAPI.adminClearRaceTag(s.dataset.fid)));
-    await loadRaceTags();
-    renderRaceTagEditor();
-    toast(en?`Saved — ${changed.length} updated`:`Enregistré — ${changed.length} modifiée${changed.length!==1?'s':''}`);
-    render('create');
-  }catch(e){toast(authError(e,en));}
-}
 /* ================= FACTION CATEGORIES (V-WBCATEGORIES) =====================
    "créer des catégir qui ressemlberait a une warband pour en mettre des
    warband officielle en sous warband. Mais la grande serait vide ( il s'agit
@@ -5760,21 +5623,6 @@ async function loadFactionCategories(){
     const members=Array.isArray(r?.members)?r.members:[];
     factionCategoryMemberMap=new Map(members.map(m=>[m.factionId,m.categoryId]));
   }catch(e){console.warn('Faction categories unavailable',e);}
-}
-function openFactionCategoryEditor(){
-  const en=siteLanguage==='en';
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">${en?'EDIT':'ÉDITER'}</div><h2>${en?'Warband categories':'Catégories de warbands'}</h2><p class="muted">${en?'A category is an empty shell, scoped to one race, that groups several standalone warbands together on the directory (e.g. "Human Mercenaries" holding Averland, Middenheim…). It never has a roster of its own — it just groups existing warbands visually.':'Une catégorie est une coquille vide, propre à une race, qui regroupe plusieurs warbands indépendantes dans le répertoire (ex. « Human Mercenaries » avec Averland, Middenheim…). Elle n’a jamais de roster propre — elle regroupe juste des warbands existantes visuellement.'}</p>
-  <div class="custom-form-grid" style="margin-bottom:10px">
-    <label class="custom-field"><span>${en?'Race':'Race'}</span><select id="fcatNewRace">${RACE_CATEGORIES.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('')}</select></label>
-    <label class="custom-field wide"><span>${en?'New category name':'Nom de la nouvelle catégorie'}</span><input id="fcatNewName" placeholder="${en?'e.g. Human Mercenaries':'ex. Human Mercenaries'}"></label>
-  </div>
-  <div class="custom-actions" style="margin-bottom:14px"><button class="button secondary" type="button" onclick="createFactionCategoryUI()">＋ ${en?'Add category':'Ajouter la catégorie'}</button></div>
-  <div id="fcatListBody"></div>
-  <hr style="border-color:var(--line);margin:16px 0">
-  <h3 style="margin:0 0 8px">${en?'Assign warbands':'Assigner les warbands'}</h3>
-  <div id="fcatAssignBody"></div>
-  <div class="account-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`);
-  renderFactionCategoryEditor();
 }
 function renderFactionCategoryEditor(){
   const en=siteLanguage==='en';
@@ -5845,12 +5693,6 @@ async function saveFactionCategoryAssignments(){
 // once (same whole-array-replace pattern as the other admin content tools
 // this session), so partial edits never half-save.
 let adminRuleGroupsEditData=null;
-function openRuleGroupsEditor(){
-  const en=siteLanguage==='en';
-  adminRuleGroupsEditData=RULES_NAV_GROUPS.map(g=>({...g,ids:g.ids.slice()}));
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">${en?'EDIT':'ÉDITER'}</div><h2>${en?'Rules page categories':'Catégories de la page Règles'}</h2><p class="muted">${en?'These are the theme cards on the Rules page. Rename, reorder, add, delete, or move a rule section between them, then Save.':'Ce sont les cartes-thèmes de la page Règles. Renomme, réordonne, ajoute, supprime, ou déplace une règle d’une catégorie à l’autre, puis Enregistre.'}</p><div id="ruleGroupsEditorBody"></div><div class="custom-actions" style="margin-top:10px"><button class="button secondary" type="button" onclick="addRuleGroupRow()">＋ ${en?'Add a category':'Ajouter une catégorie'}</button></div><div class="account-actions"><button class="button primary" type="button" onclick="saveRuleGroupsEditor()">${en?'Save':'Enregistrer'}</button><button class="button secondary" type="button" onclick="resetRuleGroupsEditor()">${en?'Reset to defaults':'Réinitialiser par défaut'}</button><button class="button secondary" type="button" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`);
-  renderRuleGroupsEditor();
-}
 function renderRuleGroupsEditor(){
   const en=siteLanguage==='en',box=$('#ruleGroupsEditorBody');if(!box||!adminRuleGroupsEditData)return;
   const allSections=RULES_BOOK.map(s=>({id:s.id,title:s.title}));
@@ -5895,122 +5737,6 @@ function removeRuleGroupRow(i){
   adminRuleGroupsEditData.splice(i,1);
   renderRuleGroupsEditor();
 }
-async function saveRuleGroupsEditor(){
-  const en=siteLanguage==='en';
-  syncRuleGroupsFromInputs();
-  if(!adminRuleGroupsEditData.length){toast(en?'Add at least one category':'Ajoute au moins une catégorie');return}
-  if(adminRuleGroupsEditData.some(g=>!g.fr.trim()||!g.en.trim())){toast(en?'Every category needs both labels':'Chaque catégorie a besoin des deux libellés');return}
-  try{
-    await window.MordheimundaAPI.adminSaveRuleNavGroups(adminRuleGroupsEditData);
-    await loadRuleNavGroups();
-    closeModal();
-    toast(en?'Categories saved':'Catégories enregistrées');
-    render('rules');
-  }catch(e){toast(authError(e,en));}
-}
-async function resetRuleGroupsEditor(){
-  const en=siteLanguage==='en';
-  try{
-    await window.MordheimundaAPI.adminResetRuleNavGroups();
-    await loadRuleNavGroups();
-    adminRuleGroupsEditData=RULES_NAV_GROUPS.map(g=>({...g,ids:g.ids.slice()}));
-    renderRuleGroupsEditor();
-    toast(en?'Reset to defaults':'Réinitialisé par défaut');
-    render('rules');
-  }catch(e){toast(authError(e,en));}
-}
-function openAdminWeaponEdit(name){adminWeaponEditName=name;const w=(D.weapons||[]).find(x=>x.name===name);const t=w?.profile?.traits;adminWeaponTraitDraft=Array.isArray(t)?t.slice():String(t||'').split(',').map(x=>x.trim()).filter(Boolean);skipAdminWeaponResetOnce=true;render('admin')}
-function newAdminWeapon(){adminWeaponEditName='__new__';adminWeaponTraitDraft=[];skipAdminWeaponResetOnce=true;render('admin')}
-function closeAdminWeaponEdit(){adminWeaponEditName=null;finishAdminWeaponEdit()}
-function finishAdminWeaponEdit(){
-  const returnName=adminWeaponEditReturnToRef;
-  adminWeaponEditReturnToRef=null;
-  if(returnName){
-    render('references');
-    setTimeout(()=>{
-      const ge=equipmentGlossaryEntry(returnName);
-      const target=ge?document.getElementById('ref-entry-'+ge.id):null;
-      if(target)target.scrollIntoView({behavior:'smooth',block:'center'});
-    },60);
-  }else{
-    render('admin');
-  }
-}
-async function saveAdminWeapon(originalName){
-  const en=siteLanguage==='en';
-  const name=($('#awpName')?.value||'').trim();
-  if(!name){toast(en?'Give the item a name':'Donne un nom à l’objet');return}
-  const key=originalName==='__new__'?name:originalName;
-  const data={
-    name:key,
-    category:$('#awpCategory')?.value||'Équipements divers',
-    price:Number($('#awpPrice')?.value||0),
-    availability:($('#awpAvailability')?.value||'').trim(),
-    market:$('#awpMarket')?.checked!==false,
-    band:$('#awpBand')?.checked!==false,
-    hidden:$('#awpHidden')?.checked===true,
-    factions:document.querySelector('input[name="awpScope"]:checked')?.value==='some'?[...document.querySelectorAll('.awpFaction:checked')].map(x=>x.dataset.faction):[],
-    profile:{range:($('#awpRange')?.value||''),strength:($('#awpStrength')?.value||''),ap:($('#awpAp')?.value||''),damage:($('#awpDamage')?.value||''),traits:adminWeaponTraitDraft.join(', ')}
-  };
-  try{
-    await window.MordheimundaAPI.adminSaveWeaponOverride(key,data);
-    await loadWeaponOverrides();
-    // V-WEAPONEDITMERGE: persist the free-text rules/description alongside
-    // the structured profile — same override mechanism the old standalone
-    // "✎" textarea editor used (ruleOverrides keyed by ref:equipment:<id>),
-    // just saved from this unified form instead. Only attempted when the
-    // item actually has a glossary/reference entry to attach text to; an
-    // emptied field restores the original book text instead of saving blank.
-    const ge=equipmentGlossaryEntry(key);
-    if(ge){
-      const sectionId=referenceOverrideSectionId('equipment',ge.id);
-      const rulesText=($('#awpRulesText')?.value||'').trim();
-      try{
-        if(rulesText){
-          await window.MordheimundaAPI.adminSaveRuleOverride(sectionId,0,rulesText);
-          ruleOverridesCache=ruleOverridesCache||{};ruleOverridesCache[ruleOverrideKey(sectionId,0)]=rulesText;
-        }else if(ruleHasOverride(sectionId,0)){
-          await window.MordheimundaAPI.adminDeleteRuleOverride(sectionId,0);
-          if(ruleOverridesCache)delete ruleOverridesCache[ruleOverrideKey(sectionId,0)];
-        }
-      }catch(e2){toast(authError(e2,en));}
-    }
-    toast(en?'Item saved':'Objet enregistré');
-    adminWeaponEditName=null;
-    finishAdminWeaponEdit();
-  }catch(e){toast(authError(e,en));}
-}
-// V-WEAPONHIDE: lets an admin remove a buggy/undesirable BOOK item (one with
-// no override yet, so resetAdminWeapon's 🗑 only offers "revert to book" —
-// there's nothing to revert TO that would remove it) from every
-// player-facing list site-wide — Market, Band List, Armoury, Référentiel —
-// without touching data/catalog.js or breaking a fighter who already owns a
-// copy (purchaseEquipment/refLink/etc. still resolve it by name via
-// D.weapons, this only adds a `.hidden` flag that consumer-facing LISTS
-// filter out; see equipmentPool/armory/renderArmory/referenceEntries/
-// customFighterAllEquipment). Reuses the exact same weapon_overrides
-// upsert as saveAdminWeapon — full row resend, never a partial patch — so an
-// item with NO existing override yet is seeded from its live book values.
-async function toggleAdminWeaponHidden(name){
-  const en=siteLanguage==='en';
-  const w=(D.weapons||[]).find(x=>x.name===name);if(!w)return;
-  const data={name:w.name,category:w.category||'Équipements divers',price:Number(w.price||0),availability:w.availability||'',market:w.market!==false,band:w.band!==false,profile:w.profile?{...w.profile}:undefined,...(w.profile2?{profile2:{...w.profile2}}:{}),hidden:!w.hidden};
-  try{
-    await window.MordheimundaAPI.adminSaveWeaponOverride(name,data);
-    await loadWeaponOverrides();
-    toast(data.hidden?(en?`${name} hidden everywhere`:`${name} masqué partout`):(en?`${name} visible again`:`${name} de nouveau visible`));
-    render('admin');
-  }catch(e){toast(authError(e,en));}
-}
-async function resetAdminWeapon(name){
-  const en=siteLanguage==='en';
-  try{
-    await window.MordheimundaAPI.adminResetWeaponOverride(name);
-    await loadWeaponOverrides();
-    toast(en?'Reverted to the book values':'Revenu aux valeurs du livre');
-    render('admin');
-  }catch(e){toast(authError(e,en));}
-}
 // V-RACERULES: writes a special rule (and/or drops a default skill) into the
 // fighter PROFILES of one race, everywhere they live — base book factions
 // (their Base catalog), official warbands (incl. drafts/supplements) and this
@@ -6030,39 +5756,6 @@ function applyRaceRuleToWarrior(w,op){
   return changed;
 }
 function en2(a,b){return siteLanguage==='en'?a:b}
-function adminWeaponFormMarkup(name){
-  const en=siteLanguage==='en';
-  const isNew=name==='__new__';
-  const w=isNew?null:(D.weapons||[]).find(x=>x.name===name);
-  const p=w?.profile||{};
-  const cats=EQUIPMENT_CATEGORY_NAMES_FR;
-  // V-WEAPONEDITMERGE: the item's free-text rules/description (previously
-  // only reachable through a separate plain-textarea "✎" override editor)
-  // now lives in this same form, right below the structured profile+traits
-  // — one panel for everything, like the custom-weapon builder.
-  if(ruleOverridesCache===null)loadRuleOverrides();
-  const {ge,text:rulesText}=isNew?{ge:null,text:''}:equipmentEffectiveText(w?.name||name);
-  return `<div class="custom-form-head"><div><div class="eyebrow">${isNew?(en?'NEW ITEM':'NOUVEL OBJET'):(en?'EDIT':'MODIFICATION')}</div><h3>${esc(w?.name||(en?'Add to the shared pool':'Ajouter au pool partagé'))}</h3></div></div>
-  <p class="custom-field-help">${en?'Shared by every faction/warband — editing it here changes it everywhere it’s used. Per-faction access (who can buy it) is set from that faction’s Base catalog → Equipment tab instead.':'Partagé par toutes les factions/bandes — le modifier ici le change partout où il est utilisé. L’accès par faction (qui peut l’acheter) se règle depuis l’onglet Équipement du Catalogue de base de chaque faction.'}</p>
-  <div class="custom-form-grid">
-    <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="awpName" value="${esc(w?.name||'')}" ${isNew?'':'disabled'}></label>
-    <label class="custom-field"><span>${en?'Category':'Sous-catégorie'}</span><select id="awpCategory">${cats.map(c=>`<option value="${esc(c)}" ${c===(w?.category||'Équipements divers')?'selected':''}>${c}</option>`).join('')}</select></label>
-    <label class="custom-field"><span>${en?'Price (GC)':'Prix (GC)'}</span><input id="awpPrice" type="number" min="0" step="1" value="${Number(w?.price||0)}"></label>
-    <label class="custom-field"><span>${en?'Availability':'Disponibilité'}</span><input id="awpAvailability" value="${esc(w?.availability||'')}"></label>
-    <label class="custom-check"><input id="awpMarket" type="checkbox" ${w?.market!==false?'checked':''}><span>${en?'Sold on the open Market':'Vendu sur le Marché libre'}</span></label>
-    <label class="custom-check"><input id="awpBand" type="checkbox" ${w?.band!==false?'checked':''}><span>${en?'Available as a Band List item':'Disponible dans la Liste de Bande'}</span></label>
-    ${isNew?'':`<label class="custom-check"><input id="awpHidden" type="checkbox" ${w?.hidden===true?'checked':''}><span>${en?'Hidden — buggy or undesirable, removed from Market/Band List/Reference everywhere':'Masqué — bugué ou non désirable, retiré du Marché/Liste de Bande/Référentiel partout'}</span></label>`}
-  </div>
-  ${(()=>{const sel=Array.isArray(w?.factions)?w.factions:[];const some=sel.length>0;const opts=creatureScopeFactionOptions();return `<details class="custom-collapse"${some?' open':''}><summary><span>${en?'AVAILABILITY':'DISPONIBILITÉ'}</span><small>${some?`${sel.length} ${en?'warband'+(sel.length>1?'s':''):'bande'+(sel.length>1?'s':'')}`:(en?'All warbands':'Toutes les bandes')}</small></summary>
-    <label class="custom-check"><input type="radio" name="awpScope" value="all" ${some?'':'checked'} onchange="this.closest('details').querySelector('.awp-faction-grid').style.display='none'"> <span><b>${en?'All warbands':'Toutes les bandes'}</b><small>${en?'Visible to every warband (according to the Market / Band List ticks above).':'Visible par toutes les bandes (selon les cases Marché / Liste de bande ci-dessus).'}</small></span></label>
-    <label class="custom-check"><input type="radio" name="awpScope" value="some" ${some?'checked':''} onchange="this.closest('details').querySelector('.awp-faction-grid').style.display=''"> <span><b>${en?'Only the warbands ticked below':'Seulement les bandes cochées ci-dessous'}</b><small>${en?'Hidden from everyone else — Band List, Market, Unrestricted list and Trading Post. E.g. Wardogs for Human warbands only.':'Invisible pour les autres — Liste de bande, Marché, liste libre et Trading Post. Ex. : Wardogs réservés aux bandes humaines.'}</small></span></label>
-    <div class="custom-faction-grid awp-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="awpFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div></details>`})()}
-  <div class="custom-weapon-grid" id="awpProfileFields"><label class="custom-field"><span>${en?'Range':'Portée'}</span><input id="awpRange" value="${esc(p.range||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Strength':'Force'}</span><input id="awpStrength" value="${esc(p.strength||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>AP</span><input id="awpAp" value="${esc(p.ap||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Damage':'Dégâts'}</span><input id="awpDamage" value="${esc(p.damage||'')}" oninput="refreshAdminWeaponPreview()"></label></div>
-  ${traitPickerMarkup('adminWeapon')}
-  <div class="custom-weapon-preview" id="awpWeaponPreview">${adminWeaponPreviewMarkup(w?.name||$('#awpName')?.value,p)}</div>
-  <label class="custom-field wide"><span>${en?'Special rules / description (shown in the Reference tab)':'Règles spéciales / description (affiché dans l’onglet Référentiel)'}</span><textarea id="awpRulesText" class="wide-textarea" rows="6" placeholder="${en?'Optional — leave empty if this item has no extra rules text.':'Facultatif — laisse vide si cet objet n’a pas de texte de règle particulier.'}">${esc(rulesText||'')}</textarea></label>
-  <div class="custom-actions"><button type="button" class="button secondary" data-orig="${esc(isNew?'__new__':name)}" onclick="closeAdminWeaponEdit()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" data-orig="${esc(isNew?'__new__':name)}" onclick="saveAdminWeapon(this.dataset.orig)">${en?'Save':'Enregistrer'}</button></div>`;
-}
 function adminWeaponPreviewMarkup(name,p){
   return weaponProfileMarkup({name:name||'Arme',customEquipmentId:'preview',profile:{range:$('#awpRange')?.value??p?.range??'',strength:$('#awpStrength')?.value??p?.strength??'',ap:$('#awpAp')?.value??p?.ap??'',damage:$('#awpDamage')?.value??p?.damage??'',traits:adminWeaponTraitDraft.join(', ')}}).replace(/data-ref-category="equipment"[^>]*>/g,'>');
 }
@@ -6070,76 +5763,7 @@ function refreshAdminWeaponPreview(){
   const box=$('#awpWeaponPreview');if(!box)return;
   box.innerHTML=adminWeaponPreviewMarkup($('#awpName')?.value,null);
 }
-function setAdminWarbandSection(v){adminWarbandSection=v;adminEditingWarriorIdx=null;adminEditingEquipmentIdx=null;render('admin')}
-function toggleAdminBandRule(kind,idx){
-  // V151: was reading adminRulesEditData directly, so this silently no-op'd
-  // in the base-catalog editor (adminCatalogEditData) even once that data
-  // shape gained traits/specialRules/bandRuleNames — see activeAdminEditData.
-  const d=activeAdminEditData();if(!d)return;
-  if(!Array.isArray(d.bandRuleNames))d.bandRuleNames=[];
-  const list=kind==='special'?d.specialRules:d.traits;
-  const r=list?.[idx];if(!r)return;
-  const set=new Set(d.bandRuleNames.map(normName));
-  if(set.has(normName(r.name)))d.bandRuleNames=d.bandRuleNames.filter(n=>normName(n)!==normName(r.name));
-  else d.bandRuleNames=[...d.bandRuleNames,r.name];
-  render('admin');
-}
-function addAdminBandRule(kind){
-  const en=siteLanguage==='en';
-  const d=activeAdminEditData();if(!d)return;
-  if(!Array.isArray(d.bandRuleNames))d.bandRuleNames=[];
-  const nameId=kind==='special'?'adminNewSpecialName':'adminNewTraitName',textId=kind==='special'?'adminNewSpecialText':'adminNewTraitText';
-  const name=($('#'+nameId)?.value||'').trim(),text=($('#'+textId)?.value||'').trim();
-  if(!name){toast(en?'Give the rule a name':'Donne un nom à la règle');return}
-  if(!Array.isArray(d.specialRules))d.specialRules=[];
-  if(!Array.isArray(d.traits))d.traits=[];
-  const list=kind==='special'?d.specialRules:d.traits;
-  if(list.some(r=>normName(r.name)===normName(name))){toast(en?'A rule with this name already exists':'Une règle porte déjà ce nom');return}
-  list.push({name,text});
-  d.bandRuleNames=[...d.bandRuleNames,name];
-  render('admin');
-}
-async function saveAdminWarbandRules(force){
-  const en=siteLanguage==='en';
-  const d=adminRulesEditData;if(!d||!adminRulesEditId)return;
-  if(!String(d.name||'').trim()){toast(en?'Give the warband a name':'Donne un nom à la bande');return}
-  // V-SAVEGUARD: a save that would drop most of the fighters or equipment
-  // the editor originally loaded is far more likely to be an accident
-  // (a partial/stale load, one delete click too many) than an intentional
-  // mass-removal — confirm before it overwrites the live warband. Doesn't
-  // fire on a real, deliberate cleanup (small/moderate drops, or when
-  // there was nothing to lose in the first place).
-  if(!force&&adminRulesOriginalCounts){
-    const shrunkWarriors=adminRulesOriginalCounts.warriors>=3&&d.warriors.length<=Math.ceil(adminRulesOriginalCounts.warriors*0.4);
-    const shrunkEquipment=adminRulesOriginalCounts.equipment>=3&&d.equipment.length<=Math.ceil(adminRulesOriginalCounts.equipment*0.4);
-    if(shrunkWarriors||shrunkEquipment){
-      const parts=[];
-      if(shrunkWarriors)parts.push(en?`fighters: ${adminRulesOriginalCounts.warriors} → ${d.warriors.length}`:`combattants : ${adminRulesOriginalCounts.warriors} → ${d.warriors.length}`);
-      if(shrunkEquipment)parts.push(en?`equipment: ${adminRulesOriginalCounts.equipment} → ${d.equipment.length}`:`équipement : ${adminRulesOriginalCounts.equipment} → ${d.equipment.length}`);
-      openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'BIG DROP DETECTED':'GROSSE CHUTE DÉTECTÉE'}</div><h2>${en?'This save will remove most of this warband’s content':'Cet enregistrement va retirer la majorité du contenu de cette bande'}</h2><p>${esc(parts.join(' · '))}</p><p>${en?'If this isn’t intentional, go back and check before overwriting the live warband.':'Si ce n’est pas voulu, reviens en arrière et vérifie avant d’écraser la bande en ligne.'}</p><button type="button" class="big-delete" onclick="saveAdminWarbandRules(true);closeModal()">${en?'SAVE ANYWAY':'ENREGISTRER QUAND MÊME'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
-      return;
-    }
-  }
-  try{
-    // V-WARBANDLOCK (Task #80): viaAdminEditor:true tells the server this
-    // save came from the direct admin editor, not from the original
-    // custom-warband owner's "Publier les modifications" republish — it
-    // marks the warband as admin-locked (admin_edited_at) so that republish
-    // path stops silently overwriting whatever gets added here.
-    await window.MordheimundaAPI.adminUpdateOfficialWarband(adminRulesEditId,{name:d.name,warriors:d.warriors,equipment:d.equipment,skillTrees:d.skillTrees,skills:d.skills,magicDomains:d.magicDomains,spells:d.spells,traits:d.traits,specialRules:d.specialRules,bandRuleNames:d.bandRuleNames,viaAdminEditor:true});
-    adminOfficialCache=null;
-    await loadOfficialWarbands();
-    toast(en?'Live warband updated':'Bande en ligne mise à jour');
-    // V-ADMINSAVESTAY: previously called closeAdminWarbandRules() here, which
-    // kicked the admin all the way back to the base Admin page on every save
-    // — annoying when making several edits in a row. Now stays in the same
-    // editor (adminRulesEditData/adminRulesEditId are left untouched) and
-    // just re-renders in place.
-    render('admin');
-  }catch(e){toast(authError(e,en));}
-}
 /* ---- Warriors (fighters) section of the admin direct-edit panel ---- */
-function adminEditWarrior(idx){const d=activeAdminEditData();adminEditingWarriorIdx=idx;adminRuleDraft=(d?.warriors?.[idx]?.ruleNames||[]).slice();render('admin')}
 // The free text shown under each profile on recruitment cards (e.g. the
 // notes imported with a warband draft). Clearing it here is the same as
 // emptying each profile's DESCRIPTION field by hand.
@@ -6148,369 +5772,11 @@ async function clearWarbandFighterDescriptions(cwId){
   if(!await siteConfirm(en?`Clear the description of ${list.length} profile(s)? (Publish changes afterwards for an official warband.)`:`Effacer la description de ${list.length} profil(s) ? (Publie ensuite les modifications pour une warband officielle.)`))return;
   list.forEach(w=>{w.description=''});save(true);render('custom');toast(en?'Descriptions cleared':'Descriptions effacées');
 }
-async function adminClearWarriorDescriptions(){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  if(!await siteConfirm(en?'Clear every fighter description of this warband? Save the warband afterwards.':'Effacer toutes les descriptions des combattants de cette bande ? Enregistre ensuite la bande.'))return;
-  (d.warriors||[]).forEach(w=>{if(w)w.description=''});render('admin');toast(en?'Descriptions cleared — save the warband':'Descriptions effacées — enregistre la bande');
-}
-function adminNewWarrior(){adminEditingWarriorIdx=-1;adminRuleDraft=[];render('admin')}
-function adminCancelWarrior(){adminEditingWarriorIdx=null;adminRuleDraft=[];render('admin')}
-function confirmAdminDeleteWarrior(idx){
-  const en=siteLanguage==='en';
-  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'REMOVE FIGHTER':'RETIRER LE COMBATTANT'}</div><h2>${en?'Remove this fighter from the warband?':'Retirer ce combattant de la bande ?'}</h2><p>${en?'This only affects the definition — saving is still required to apply it.':'Ceci ne modifie que la fiche en cours d’édition — il faudra encore Enregistrer pour l’appliquer.'}</p><button type="button" class="big-delete" onclick="adminDeleteWarrior(${idx});closeModal()">${en?'REMOVE':'RETIRER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
-}
-// Inserts a copy right after the original (new id, "(copy)" name) and opens
-// it; nothing is sent until the warband is saved, like any other edit here.
-function adminDuplicateWarrior(idx){
-  const en=siteLanguage==='en';const d=activeAdminEditData();const src=d?.warriors?.[idx];if(!src)return;
-  const copy=JSON.parse(JSON.stringify(src));
-  const base=String(src.name||'').replace(/\s*\((?:copy|copie)(?: \d+)?\)$/i,'');const taken=new Set(d.warriors.map(w=>normName(w.name)));
-  let name=`${base} (${en?'copy':'copie'})`,n=2;while(taken.has(normName(name))){name=`${base} (${en?'copy':'copie'} ${n})`;n++}
-  copy.name=name;copy.id=(crypto.randomUUID?crypto.randomUUID():String(Date.now()));delete copy.customFighterId;
-  d.warriors.splice(idx+1,0,copy);
-  adminEditWarrior(idx+1);
-  toast(en?`“${name}” added — edit it, then save the warband`:`« ${name} » ajouté — modifie-le puis enregistre la bande`);
-}
-function adminDeleteWarrior(idx){const d=activeAdminEditData();if(!d)return;d.warriors.splice(idx,1);adminEditingWarriorIdx=null;render('admin')}
-// What the Equipment Access checklist starts from: the saved exact list, or
-// (never edited yet) everything the fighter can buy today through the book's
-// group access plus any item added explicitly.
-function adminEffectiveEquipmentAccess(w){
-  if(!w)return [];
-  if(w.customFighterId||w.equipmentAccessExact)return Array.isArray(w.equipmentAccess)?w.equipmentAccess.slice():[];
-  const fid=adminCatalogFactionId||(adminRulesEditId?'official-'+adminRulesEditId:null);
-  const fac=D.factions.find(f=>f.id===fid)||D.factions.find(f=>f.id===adminCatalogFactionId)||null;
-  try{return customFighterAllEquipment().filter(it=>warriorBandAllowed(it,w,fac)).map(it=>it.name)}catch(e){return Array.isArray(w.equipmentAccess)?w.equipmentAccess.slice():[]}
-}
-function saveAdminWarrior(idx){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  const name=($('#awName')?.value||'').trim();
-  if(!name){toast(en?'Give the fighter a name':'Donne un nom au combattant');return}
-  const profile=P.map((_,i)=>Number($('#awStat'+i)?.value||0));
-  const maxRaw=($('#awMax')?.value||'').trim();
-  const maxMode=$('#awMaxMode')?.value||'auto';
-  const manualMaxProfile=maxMode==='manual'?P.map((_,i)=>{const n=Number($('#awMaxStat'+i)?.value);return Number.isFinite(n)?n:profile[i]||0}):null;
-  const existingW=(idx===-1||idx==null||idx<0)?null:d.warriors[idx];
-  const w={
-    // V-ADMINKEEP: start from the existing record so fields this form
-    // doesn't show (Hired Sword upkeep, who can hire it, its choices,
-    // customFighterId…) survive an edit instead of being wiped.
-    ...(existingW||{}),
-    // V-NOWARRIORID: this editor used to build the warrior object with no
-    // `id` at all — on a NEW fighter that meant it never had one, and on an
-    // EDIT this whole object replaces d.warriors[idx], so even a fighter
-    // that already had an id lost it silently the moment an admin touched
-    // it here. Every recruitment mechanism (the pool's Recruter button,
-    // owned-count matching, wid lookups) depends on that id existing — so a
-    // fighter edited/added through this panel could never be recruited
-    // again (the button's data-recruit-fighter ends up empty and its click
-    // handler bails out silently, no error, no toast: exactly what looked
-    // like "recruiting does nothing"). Keep the existing id when editing,
-    // mint a real one when there wasn't one already (new fighter, or an
-    // older one saved before this fix).
-    id:d.warriors[idx]?.id||crypto.randomUUID(),
-    name,type:$('#awType')?.value||'Henchman',
-    cost:Number($('#awCost')?.value||0),
-    race:($('#awRace')?.value||'Human').trim()||'Human',
-    max:maxRaw===''?null:Number(maxRaw),
-    profile,maxMode,manualMaxProfile,
-    ruleNames:adminRuleDraft.slice(),
-    defaultSkills:customFighterReadChecks('awDefaultSkills'),
-    defaultEquipment:customFighterReadChecks('awDefaultEquipment'),
-    equipmentAccess:customFighterReadChecks('awEquipmentAccess'),
-    equipmentAccessExact:true,
-    noEquipment:!!$('#awNoEquip')?.checked,
-    noMisericordia:!!$('#awNoMiseri')?.checked,
-    updatedAt:Date.now(),
-    skillAccess:(()=>{const o={};document.querySelectorAll('.awSkillAccess').forEach(s=>{if(s.value)o[s.dataset.set]=s.value});return o})(),
-    magicAccess:(()=>{const o={};document.querySelectorAll('.awMagicAccess').forEach(s=>{if(s.value)o[s.dataset.domain]=s.value});return o})(),
-    // Book fighters commonly carry this as the STRING "ALL" (see
-    // warriorBandAllowed's `if(groups==='ALL')return true`), not an array —
-    // Array.isArray alone used to silently reset that to [] on every edit
-    // through this panel, cutting the fighter off from all equipment. Keep
-    // "ALL" as-is; only default to [] when there's truly nothing to carry
-    // over (a brand-new fighter).
-    equipmentAccessGroups:d.warriors[idx]?.equipmentAccessGroups==='ALL'?'ALL':Array.isArray(d.warriors[idx]?.equipmentAccessGroups)?d.warriors[idx].equipmentAccessGroups.slice():[],
-    recruitOptions:recruitOptionsRead().filter(o=>o.name),
-    bannedCategories:bannedCategoriesRead(),
-    bannedExceptions:bannedExceptionsRead(),
-    description:($('#awDescription')?.value||'')
-  };
-  w.rules=w.ruleNames.join(', ');
-  if(w.type==='Hired Sword'){w.hiredSword=true;w.max=1;w.upkeep=Math.max(0,Number($('#awUpkeep')?.value||0))||0;}else{delete w.hiredSword;}
-  if(idx===-1||idx==null||idx<0)d.warriors.push(w);else d.warriors[idx]=w;
-  adminEditingWarriorIdx=null;
-  render('admin');
-}
-function adminWarriorRow(w,i,total){
-  const en=siteLanguage==='en';
-  return `<article class="custom-item-row"><div class="custom-item-main"><div class="custom-item-icon">☠</div><div><strong>${esc(w.name)}</strong><small>${esc(w.type||'Henchman')} · ${esc(w.race||'Human')} · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" title="${en?'Move up (appears earlier in recruitment)':'Monter (apparaît plus tôt en recrutement)'}" ${i===0?'disabled':''} onclick="moveAdminWarrior(${i},-1)">▲</button><button type="button" class="equipment-action" title="${en?'Move down':'Descendre'}" ${i===total-1?'disabled':''} onclick="moveAdminWarrior(${i},1)">▼</button><button type="button" class="equipment-action" title="${en?'Duplicate this fighter':'Dupliquer ce combattant'}" onclick="adminDuplicateWarrior(${i})">⧉</button><button type="button" class="equipment-action" onclick="adminEditWarrior(${i})">✎</button><button type="button" class="equipment-action remove" onclick="confirmAdminDeleteWarrior(${i})">🗑</button></div></article>`;
-}
 /* Recruitment shows fighter types in this array's order (see fighterPool),
    so moving a row here directly controls where it appears in the
    recruitment picker for players. */
-function moveAdminWarrior(i,dir){
-  const d=activeAdminEditData();if(!d||!Array.isArray(d.warriors))return;
-  const j=i+dir;if(j<0||j>=d.warriors.length)return;
-  const tmp=d.warriors[i];d.warriors[i]=d.warriors[j];d.warriors[j]=tmp;
-  render('admin');
-}
-function adminWarriorFormMarkup(w,idx){
-  const en=siteLanguage==='en';
-  const types=['Leader','Champion','Raw Recruit','Henchman','Hired Sword'];
-  // V-ADMINHS: a Hired Sword edited here (e.g. in the content pool) keeps
-  // its type; one already saved as a plain fighter by the old form is
-  // recognized by name and offered back as a Hired Sword.
-  const knownHS=new Set([...customFighterList().filter(isHiredSword).map(x=>normName(x.name)),...BOOK_HIRED_SWORDS.map(b=>normName(b.name))]);
-  const awTypeValue=isHiredSword(w)||(w?.name&&knownHS.has(normName(w.name)))?'Hired Sword':(w?.type||'Henchman');
-  const p=w?.profile||P.map(()=>1);
-  // V-WARBANDSYNC (Task #37): customMergedSkillSets()/customMergedMagicDomains()
-  // called with no faction only ever merge in the ADMIN'S OWN per-account
-  // custom trees/domains — never this warband's own exclusive skill trees /
-  // magic domains (d.skillTrees/d.magicDomains, e.g. a Vampire faction's
-  // "Bloodline Powers" tree). That left no checkbox at all for those, so
-  // saving this form — which builds skillAccess/magicAccess purely from the
-  // <select> elements actually present — silently wiped any fighter's access
-  // to their warband's own exclusive tree/domain on every admin edit. Union
-  // in this warband's own d.skillTrees/d.magicDomains names explicitly.
-  const d=activeAdminEditData();
-  const skillSetNames=[...new Set([...Object.keys(customMergedSkillSets()),...(d?.skillTrees||[]).map(t=>t.name).filter(Boolean)])];
-  const magicDomainNames=[...new Set([...Object.keys(customMergedMagicDomains()),...(d?.magicDomains||[]).map(t=>t.name).filter(Boolean)])];
-  // Same gap for the DEFAULT SKILLS checklist below: customFighterSkillNames()
-  // only lists skills from the account's own custom trees, not this
-  // warband's own exclusive ones (d.skills) — union them in too.
-  const defaultSkillNames=[...new Set([...customFighterSkillNames(),...(d?.skills||[]).map(s=>s.name).filter(Boolean)])].sort((a,b)=>a.localeCompare(b));
-  // V-WARBANDSYNC2 (Task #55): the checkbox above only shows a tree/domain
-  // whose name EXACTLY matches one of skillSetNames/magicDomainNames, and
-  // whether it's pre-selected also compares the fighter's stored
-  // skillAccess/magicAccess key by exact string. A fighter saved with a
-  // slightly different spelling of its own tree/domain (the same
-  // casing/whitespace drift fixed elsewhere for officializing/duplicating)
-  // shows here as "Not allowed" even though it truly has that access — and
-  // since saveAdminWarrior() below rebuilds skillAccess/magicAccess purely
-  // from whatever the selects show, clicking Apply on ANY other field then
-  // silently drops that access for good. Falling back to a normalized-name
-  // lookup keeps the checkbox honest, and re-saves the CANONICAL key
-  // (dataset.set/dataset.domain, not the drifted one) going forward.
-  const skillAccessNorm={};Object.entries(w?.skillAccess||{}).forEach(([k,v])=>{skillAccessNorm[normName(k)]=v;});
-  const magicAccessNorm={};Object.entries(w?.magicAccess||{}).forEach(([k,v])=>{magicAccessNorm[normName(k)]=v;});
-  return `<div class="custom-form-head"><div><div class="eyebrow">${idx===-1?(en?'NEW FIGHTER':'NOUVEAU COMBATTANT'):(en?'EDIT FIGHTER':'MODIFICATION')}</div><h3>${esc(w?.name||(en?'Build a fighter':'Construire un combattant'))}</h3></div></div>
-  <div class="custom-form-grid">
-    <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="awName" value="${esc(w?.name||'')}" placeholder="${en?'e.g. Warlord':'Ex. Maître de guerre'}"></label>
-    <label class="custom-field"><span>${en?'Role':'Sous-catégorie'}</span><select id="awType" onchange="const u=document.getElementById('awUpkeepField');if(u)u.style.display=this.value==='Hired Sword'?'':'none'">${types.map(t=>`<option value="${esc(t)}" ${t===awTypeValue?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
-    <label class="custom-field" id="awUpkeepField" style="${awTypeValue==='Hired Sword'?'':'display:none'}"><span>${en?'Upkeep (GC)':'Entretien (GC)'}</span><input id="awUpkeep" type="number" min="0" step="1" value="${Number(w?.upkeep||0)}"></label>
-    <label class="custom-field"><span>${en?'Cost (GC)':'Valeur de base (GC)'}</span><input id="awCost" type="number" min="0" step="1" value="${Number(w?.cost||0)}"></label>
-    <label class="custom-field"><span>${en?'Race':'Race'}</span><input id="awRace" value="${esc(w?.race||'Human')}"></label>
-    <label class="custom-field"><span>${en?'Max in warband':'Limite'}</span><input id="awMax" type="number" min="0" step="1" value="${w?.max===null||w?.max===undefined?'':Number(w.max)}" placeholder="${en?'Blank = no limit':'Vide = aucune limite'}"></label>
-    <label class="custom-field"><span>${en?'Stat maximums mode':'Mode des maximums'}</span><select id="awMaxMode"><option value="auto" ${(w?.maxMode||'auto')==='auto'?'selected':''}>${en?'Automatic (race + modifiers)':'Automatique (race + modificateurs)'}</option><option value="manual" ${(w?.maxMode||'auto')==='manual'?'selected':''}>${en?'Manual':'Manuel'}</option></select></label>
-  </div>
-  <details class="custom-collapse" open><summary><span>${en?'PROFILE':'CARACTÉRISTIQUES'}</span><small>12 ${en?'values':'valeurs'}</small></summary><table class="custom-stat-bar"><tr>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}</tr><tr>${P.map((n,i)=>`<td><input id="awStat${i}" type="number" step="1" value="${esc(p[i]??'')}"></td>`).join('')}</tr></table></details>
-  <details class="custom-collapse" open><summary><span>${en?'STAT MAXIMUMS':'MAXIMUMS MANUELS'}</span><small>${en?'Used if mode is Manual':'Utilisés si mode manuel'}</small></summary><table class="custom-stat-bar"><tr>${P.map((n,i)=>`<th title="${esc(P_FULL[i])}">${esc(n)}</th>`).join('')}</tr><tr>${P.map((n,i)=>`<td><input id="awMaxStat${i}" type="number" min="0" step="1" value="${esc((w?.manualMaxProfile?.[i]??p[i]??0))}"></td>`).join('')}</tr></table></details>
-  <details class="custom-collapse" open><summary><span>${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</span><small>${adminRuleDraft.length} ${en?'linked':(adminRuleDraft.length!==1?'liées':'liée')}</small></summary><div class="custom-tag-editor"><div id="awRuleTags" class="custom-trait-tags">${adminRuleDraft.map((s,i)=>`<span class="custom-trait-tag">${refLink('special',s,s)}${isEditableParamTag('adminFighter',s)?`<button type="button" title="${en?'Edit value':'Modifier la valeur'}" class="trait-tag-edit" onclick="editTraitParamValue('adminFighter',${i})">✎</button>`:''}<button type="button" onclick="removeAdminWarriorRule(${i})">×</button></span>`).join('')||`<span class="custom-trait-empty">${en?'No special rules.':'Aucune règle spéciale.'}</span>`}</div><div class="custom-trait-add"><input id="awRuleInput" list="awRulesDatalist" placeholder="${en?'Search a special rule…':'Rechercher une règle spéciale…'}" onkeydown="handleAdminWarriorRuleKey(event)"><datalist id="awRulesDatalist">${[...new Set([...referenceEntries('special').filter(s=>!/^Race\s*\(/i.test(s.name)).map(s=>s.name),...(d?.specialRules||[]).map(s=>s?.name).filter(Boolean)])].map(n=>`<option value="${esc(n)}">`).join('')}</datalist><button type="button" class="button secondary" onclick="addAdminWarriorRule()">＋ ${en?'Add':'Ajouter'}</button></div></div></details>
-  <details class="custom-collapse" open><summary><span>${en?'SKILL TREE ACCESS':'ARBRE DE COMPÉTENCES'}</span><small>${en?'Not allowed / Authorized / Primary / Secondary':'Non autorisé / Autorisé / Primary / Secondary'}</small></summary><div class="custom-skill-access-grid">${skillSetNames.map(set=>{const val=w?.skillAccess?.[set]??skillAccessNorm[normName(set)]??'';return `<label><span>${esc(set)}</span><select class="awSkillAccess" data-set="${esc(set)}"><option value="">${en?'Not allowed':'Non autorisé'}</option><option value="Access" ${val==='Access'?'selected':''}>${en?'Authorized':'Autorisé'}</option><option value="Primary" ${val==='Primary'?'selected':''}>Primary</option><option value="Secondary" ${val==='Secondary'?'selected':''}>Secondary</option></select></label>`}).join('')}</div></details>
-  <details class="custom-collapse"><summary><span>${en?'MAGIC DOMAIN ACCESS':'SORTS / DOMAINES DE MAGIE'}</span><small>${en?'None / Primary / Secondary':'Non autorisé / Primary / Secondary'}</small></summary><div class="custom-skill-access-grid">${magicDomainNames.map(domain=>{const val=w?.magicAccess?.[domain]??magicAccessNorm[normName(domain)]??'';return `<label><span>${esc(domain)}</span><select class="awMagicAccess" data-domain="${esc(domain)}"><option value="">${en?'Not allowed':'Non autorisé'}</option><option value="Primary" ${val==='Primary'?'selected':''}>Primary</option><option value="Secondary" ${val==='Secondary'?'selected':''}>Secondary</option></select></label>`}).join('')}</div></details>
-  <details class="custom-collapse"><summary><span>${en?'DEFAULT SKILLS':'COMPÉTENCES PAR DÉFAUT'}</span><small>${(w?.defaultSkills||[]).length}</small></summary><div class="custom-equipment-checks">${defaultSkillNames.map(s=>`<label><input class="awDefaultSkills" data-name="${esc(s)}" type="checkbox" ${(w?.defaultSkills||[]).some(n=>normName(n)===normName(s))?'checked':''}><span>${refLink('skills',s,s)}</span></label>`).join('')}</div></details>
-  <details class="custom-collapse"><summary><span>${en?'DEFAULT EQUIPMENT':'ÉQUIPEMENT PAR DÉFAUT'}</span><small>${(w?.defaultEquipment||[]).length}</small></summary>${customFighterEquipmentChooser('awDefaultEquipment',w?.defaultEquipment||[],'default')}</details>
-  <label class="custom-check no-equip-check"><input type="checkbox" id="awNoMiseri" ${w?.noMisericordia?'checked':''}><span>${en?'No weapon (Misericordia) — this fighter doesn’t carry the Misericordia every fighter has':'Pas d’arme (Misericordia) — ce combattant n’a pas la Misericordia que tout le monde porte'}</span></label>
-  <label class="custom-check no-equip-check"><input type="checkbox" id="awNoEquip" ${w?.noEquipment?'checked':''}><span>${en?'Cannot receive equipment — buys nothing and gets no Stash items (starting gear stays)':'Ne peut pas recevoir d’équipement — n’achète rien et ne reçoit aucun objet de la réserve (l’équipement de départ reste)'}</span></label>
-  ${(()=>{const acc=adminEffectiveEquipmentAccess(w);return `<details class="custom-collapse"><summary><span>${en?'EQUIPMENT ACCESS':'ACCÈS À L’ÉQUIPEMENT'}</span><small>${acc.length}</small></summary><p class="custom-field-help">${en?'The complete list of what this fighter can buy (its Band List). Ticked = allowed, unticked = not allowed — saving makes this list exact, the book’s group access is no longer added on top.':'La liste complète de ce que ce combattant peut acheter (sa Band List). Coché = autorisé, décoché = interdit — l’enregistrement rend cette liste exacte, l’accès par groupe du livre n’est plus ajouté par-dessus.'}</p>${customFighterEquipmentChooser('awEquipmentAccess',acc,'access')}</details>`})()}
-  ${recruitOptionsEditorMarkup(w)}
-  ${bannedCategoriesEditorMarkup(w)}
-  <details class="custom-collapse"${String(w?.description||'').trim()?' open':''}><summary><span>DESCRIPTION</span><small>${String(w?.description||'').trim()?(en?'Shown on the profile':'Affichée sur le profil'):(en?'Empty':'Vide')}</small></summary>${customTextToolbarMarkup('awDescription')}<textarea id="awDescription" class="wide-textarea" rows="4">${esc(w?.description||'')}</textarea><button type="button" class="button secondary small desc-clear" onclick="const t=document.getElementById('awDescription');if(t)t.value=''">✕ ${en?'Clear the description':'Effacer la description'}</button></details>
-  <div class="custom-actions"><button type="button" class="button secondary" onclick="adminCancelWarrior()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveAdminWarrior(${idx})">${en?'Apply':'Appliquer'}</button></div>`;
-}
 /* ---- Equipment section of the admin direct-edit panel ---- */
 function adminEditEquipment(idx){adminEditingEquipmentIdx=idx;render('admin')}
-function adminNewEquipment(){adminEditingEquipmentIdx=-1;render('admin')}
-function adminCancelEquipment(){adminEditingEquipmentIdx=null;render('admin')}
-function confirmAdminDeleteEquipment(idx){
-  const en=siteLanguage==='en';
-  openModal(`<div class="delete-dialog"><div class="eyebrow">${en?'REMOVE EQUIPMENT':'RETIRER L’ÉQUIPEMENT'}</div><h2>${en?'Remove this item from the warband?':'Retirer cet objet de la bande ?'}</h2><p>${en?'This only affects the definition — saving is still required to apply it.':'Ceci ne modifie que la fiche en cours d’édition — il faudra encore Enregistrer pour l’appliquer.'}</p><button type="button" class="big-delete" onclick="adminDeleteEquipment(${idx});closeModal()">${en?'REMOVE':'RETIRER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`);
-}
-function adminDeleteEquipment(idx){const d=activeAdminEditData();if(!d)return;d.equipment.splice(idx,1);adminEditingEquipmentIdx=null;render('admin')}
-function toggleAdminWeaponFields(){
-  const box=$('#awWeaponFields');if(!box)return;
-  const weapon=$('#aeType')?.value==='weapon';
-  box.innerHTML=weapon?`<div class="custom-weapon-grid"><label class="custom-field"><span>${siteLanguage==='en'?'Range':'Portée'}</span><input id="aeRange" value=""></label><label class="custom-field"><span>${siteLanguage==='en'?'Strength':'Force'}</span><input id="aeStrength" value=""></label><label class="custom-field"><span>AP</span><input id="aeAp" value=""></label><label class="custom-field"><span>${siteLanguage==='en'?'Damage':'Dégâts'}</span><input id="aeDamage" value=""></label><label class="custom-field wide"><span>${siteLanguage==='en'?'Traits (comma-separated)':'Traits (séparés par des virgules)'}</span><input id="aeTraits" value=""></label></div>`:'';
-}
-function saveAdminEquipment(idx){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  const name=($('#aeName')?.value||'').trim();
-  if(!name){toast(en?'Give the item a name':'Donne un nom à l’objet');return}
-  const isWeapon=$('#aeType')?.value==='weapon';
-  // V-ADMINEQUIPIDLOSS: this used to always build `e` from scratch with only
-  // {name,category,rarity,price,rulesText,profile,traits} — on an EXISTING
-  // item that meant customEquipmentId (and unrestricted/market/subcategory/
-  // profile2/weaponSlotCost/customArmor/factions) was silently dropped on
-  // every save, even for an item that already had a correct id — so editing
-  // from here, including to FIX an id-less legacy item, re-broke it the
-  // moment you saved. A brand-new item (idx===-1) never got an id at all
-  // either. Starting from the existing record (if any) and healing a stable
-  // id the same way mergeOfficialWarbandPackage does keeps every field this
-  // form doesn't expose intact, and makes every item saved here resolvable
-  // by officialCustomEquipmentList() going forward.
-  const existing=(idx===-1||idx==null||idx<0)?null:d.equipment[idx];
-  const e={
-    ...(existing||{}),
-    name,
-    category:$('#aeCategory')?.value||'Équipements divers',
-    rarity:($('#aeRarity')?.value||'').trim(),
-    price:Number($('#aePrice')?.value||0),
-    rulesText:($('#aeRulesText')?.value||''),
-    profile:isWeapon?{range:($('#aeRange')?.value||''),strength:($('#aeStrength')?.value||''),ap:($('#aeAp')?.value||''),damage:($('#aeDamage')?.value||''),traits:($('#aeTraits')?.value||'')}:null,
-    traits:isWeapon?($('#aeTraits')?.value||'').split(',').map(s=>s.trim()).filter(Boolean):[],
-    ...readItemUseFields('aeUse'),
-    bandValue:readBandValueField('aeBandValue'),
-    type:isWeapon?'weapon':'equipment'
-  };
-  if(!isWeapon)e.profile2=null;
-  if(!e.customEquipmentId)e.customEquipmentId='book-'+normName(name);
-  // V-NOEQUIPUNRESTRICTED: same universal default as the mergeOfficialWarbandPackage
-  // heal — every custom item is unrestricted:true in the normal creation
-  // flow (saveCustomEquipment), never user-optional, so an item missing it
-  // (an old broken officialize, or one created straight from this admin
-  // form before this fix) should always get it rather than staying
-  // invisible in the general equipment browser.
-  if(e.unrestricted!==true)e.unrestricted=true;
-  if(idx===-1||idx==null||idx<0)d.equipment.push(e);else d.equipment[idx]=e;
-  adminEditingEquipmentIdx=null;
-  render('admin');
-}
-function adminEquipmentRow(e,i){
-  const weapon=!!e.profile;
-  return `<article class="custom-item-row"><div class="custom-item-main"><div class="custom-item-icon">${weapon?'⚔':'◆'}</div><div><strong>${esc(e.name)}</strong><small>${esc(e.category||'')} · ${Number(e.price||0)} GC${e.rarity?' · '+esc(e.rarity):''}</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action" onclick="adminEditEquipment(${i})">✎</button><button type="button" class="equipment-action remove" onclick="confirmAdminDeleteEquipment(${i})">🗑</button></div></article>`;
-}
-function adminEquipmentFormMarkup(e,idx){
-  const en=siteLanguage==='en';
-  const weapon=!!e?.profile;
-  const cats=EQUIPMENT_CATEGORY_NAMES_FR;
-  const p=e?.profile||{};
-  return `<div class="custom-form-head"><div><div class="eyebrow">${idx===-1?(en?'NEW ITEM':'NOUVEL ÉQUIPEMENT'):(en?'EDIT ITEM':'MODIFICATION')}</div><h3>${esc(e?.name||(en?'Build an item':'Construire un équipement'))}</h3></div></div>
-  <div class="custom-form-grid">
-    <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="aeName" value="${esc(e?.name||'')}"></label>
-    <label class="custom-field"><span>${en?'Type':'Type'}</span><select id="aeType" onchange="toggleAdminWeaponFields()"><option value="equipment" ${!weapon?'selected':''}>${en?'Equipment':'Équipement'}</option><option value="weapon" ${weapon?'selected':''}>${en?'Weapon':'Arme'}</option></select></label>
-    <label class="custom-field"><span>${en?'Category':'Sous-catégorie'}</span><select id="aeCategory">${cats.map(c=>`<option value="${esc(c)}" ${c===(e?.category||'Équipements divers')?'selected':''}>${c}</option>`).join('')}</select></label>
-    <label class="custom-field"><span>${en?'Rarity':'Rareté'}</span><input id="aeRarity" value="${esc(e?.rarity||'')}"></label>
-    <label class="custom-field"><span>${en?'Price (GC)':'Prix (GC)'}</span><input id="aePrice" type="number" min="0" step="1" value="${Number(e?.price??e?.value??0)}"></label>
-    ${bandValueFieldMarkup(e,'aeBandValue')}
-    <label class="custom-field wide"><span>${en?'Rules text':'Règles de l’équipement'}</span>${customTextToolbarMarkup('aeRulesText')}<textarea id="aeRulesText" class="wide-textarea" rows="3">${esc(e?.rulesText||'')}</textarea></label>
-  </div>
-  ${itemUseFieldsMarkup(e,'aeUse')}
-  <div id="awWeaponFields">${weapon?`<div class="custom-weapon-grid"><label class="custom-field"><span>${en?'Range':'Portée'}</span><input id="aeRange" value="${esc(p.range||'')}"></label><label class="custom-field"><span>${en?'Strength':'Force'}</span><input id="aeStrength" value="${esc(p.strength||'')}"></label><label class="custom-field"><span>AP</span><input id="aeAp" value="${esc(p.ap||'')}"></label><label class="custom-field"><span>${en?'Damage':'Dégâts'}</span><input id="aeDamage" value="${esc(p.damage||'')}"></label><label class="custom-field wide"><span>${en?'Traits (comma-separated)':'Traits (séparés par des virgules)'}</span><input id="aeTraits" value="${esc((e?.traits||[]).join(', '))}"></label></div>`:''}</div>
-  <div class="custom-actions"><button type="button" class="button secondary" onclick="adminCancelEquipment()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveAdminEquipment(${idx})">${en?'Apply':'Appliquer'}</button></div>`;
-}
-// V150: lets an admin retroactively turn an already-published official
-// warband into a Supplement of another faction, or convert a Supplement back
-// into an independent warband — the user's explicit request "Et me permetre
-// de passe une warband deja existante en Supplément". Applies immediately via
-// the dedicated PATCH endpoint (like Unpublish/Republish), independent of the
-// Save button, which only ever touches name/definition.
-function adminSupplementControlMarkup(d){
-  const en=siteLanguage==='en';
-  const selfFactionId=`official-${adminRulesEditId}`;
-  const options=D.factions.filter(f=>!f.packId&&f.id!==selfFactionId&&!isContentPoolFaction(f)).map(f=>`<option value="${esc(f.id)}" ${d.supplementOf===f.id?'selected':''}>${esc(f.displayName)}</option>`).join('');
-  const isSupplement=!!d.supplementOf;
-  return `<section class="card admin-card" style="margin-bottom:14px">
-    <div class="eyebrow">◈ ${en?'SUPPLEMENT':'SUPPLÉMENT'}</div>
-    <p class="custom-field-help">${en?'A Supplement never shows its own tile in Create Warband — it appears as a selectable alternative under the base faction chosen here, replacing that faction’s rules when a player picks it.':'Un Supplément n’a jamais sa propre case dans Créer une bande — il apparaît comme alternative sélectionnable sous la faction de base choisie ici, et en remplace les règles si un joueur le sélectionne.'}</p>
-    ${isSupplement?`<p><strong>${en?'Currently a Supplement of':'Actuellement un Supplément de'} ${esc(D.factions.find(f=>f.id===d.supplementOf)?.displayName||d.supplementOf)}</strong></p>`:''}
-    <label class="custom-field wide"><span>${en?'Make it a Supplement of…':'En faire un Supplément de…'}</span><select id="adminSupplementBase"><option value="">${en?'— none (independent warband) —':'— aucune (bande indépendante) —'}</option>${options}</select></label>
-    <div class="custom-actions"><button type="button" class="button secondary" onclick="applyAdminWarbandSupplement()">${en?'Apply':'Appliquer'}</button></div>
-  </section>`;
-}
-async function applyAdminWarbandSupplement(){
-  const en=siteLanguage==='en';
-  if(!adminRulesEditId)return;
-  const baseFactionId=$('#adminSupplementBase')?.value||null;
-  try{
-    await window.MordheimundaAPI.adminSetWarbandSupplement(adminRulesEditId,baseFactionId);
-    adminOfficialCache=null;
-    const supRes=await window.MordheimundaAPI.adminGetWarband(adminRulesEditId);
-    const full=supRes?.warband||supRes;
-    adminRulesEditData={...full,traits:arr2(full.traits),specialRules:arr2(full.specialRules),bandRuleNames:arr2(full.bandRuleNames).map(String),warriors:arr2(full.warriors),equipment:arr2(full.equipment),skillTrees:arr2(full.skillTrees),skills:arr2(full.skills),magicDomains:arr2(full.magicDomains),spells:arr2(full.spells)};
-    await loadOfficialWarbands();
-    toast(baseFactionId?(en?'Now a Supplement':'Devenue un Supplément'):(en?'Now an independent warband':'Redevenue indépendante'));
-    render('admin');
-  }catch(e){toast(authError(e,en));}
-}
-function adminWarbandRulesPanel(){
-  const en=siteLanguage==='en',isCatalog=!!adminCatalogFactionId,d=activeAdminEditData();
-  // V151 (Task #63): a base book/catalog faction now stores the exact same
-  // bandRuleNames/traits/specialRules/skillTrees/skills/magicDomains/spells
-  // shape an official warband already does (see openAdminCatalogEdit), so
-  // the Rules and Skills/Magic tabs — previously hidden here in catalog mode
-  // — apply unmodified; lazily default in case an older, not-yet-migrated
-  // override row is missing one of the new fields.
-  if(!Array.isArray(d.bandRuleNames))d.bandRuleNames=[];
-  if(!Array.isArray(d.traits))d.traits=[];
-  if(!Array.isArray(d.specialRules))d.specialRules=[];
-  if(!Array.isArray(d.skillTrees))d.skillTrees=[];
-  if(!Array.isArray(d.skills))d.skills=[];
-  if(!Array.isArray(d.magicDomains))d.magicDomains=[];
-  if(!Array.isArray(d.spells))d.spells=[];
-  const bandSet=new Set(d.bandRuleNames.map(normName));
-  const rowsFor=(kind,list)=>list.length?list.map((r,i)=>`<label class="custom-check"><input type="checkbox" ${bandSet.has(normName(r.name))?'checked':''} onchange="toggleAdminBandRule('${kind}',${i})"><span><b>${esc(r.name)}</b><small>${esc((r.text||'').slice(0,140))}</small></span></label>`).join(''):`<div class="empty compact">${en?'None yet.':'Aucune pour l’instant.'}</div>`;
-  // Catalog mode's Equipment tab stays a name-membership picker into the
-  // shared global weapon pool (D.weapons) — see the isCatalog branch below —
-  // not the per-item object editor official warbands use; editing an item's
-  // own stats/price is a separate tool (the weapon-pool card in Admin).
-  const sections=[['rules',en?'RULES':'RÈGLES'],['warriors',en?'FIGHTERS':'COMBATTANTS'],['equipment',en?'EQUIPMENT':'ÉQUIPEMENT'],['skillsmagic',en?'SKILLS / SPELLS':'COMPÉTENCES / SORTS']];
-  const tabs=`<div class="custom-warband-sections">${sections.map(([v,label])=>`<button type="button" class="${adminWarbandSection===v?'active':''}" onclick="setAdminWarbandSection('${v}')">${label}</button>`).join('')}</div>`;
-  let body='';
-  if(adminWarbandSection==='rules'){
-    body=`<div class="admin-grid">
-      <section class="card admin-card">
-        <div class="eyebrow">✚ ${en?'SPECIAL RULES':'RÈGLES SPÉCIALES'}</div>
-        <div class="custom-choice-list">${rowsFor('special',d.specialRules)}</div>
-        <div class="custom-form-grid" style="margin-top:12px"><label class="custom-field"><span>${en?'New rule name':'Nom de la nouvelle règle'}</span><input id="adminNewSpecialName" placeholder="${en?'e.g. Undead don’t check Rout':'Ex. Les Morts-vivants ne testent pas la Déroute'}"></label><label class="custom-field"><span>${en?'Text':'Texte'}</span><input id="adminNewSpecialText" placeholder="${en?'Full rule text…':'Texte complet de la règle…'}"></label></div>
-        <div class="custom-actions"><button type="button" class="button secondary" onclick="addAdminBandRule('special')">＋ ${en?'Add band-wide rule':'Ajouter une règle de bande'}</button></div>
-      </section>
-      <section class="card admin-card">
-        <div class="eyebrow">◆ ${en?'TRAITS':'TRAITS'}</div>
-        <div class="custom-choice-list">${rowsFor('traits',d.traits)}</div>
-        <div class="custom-form-grid" style="margin-top:12px"><label class="custom-field"><span>${en?'New trait name':'Nom du nouveau trait'}</span><input id="adminNewTraitName" placeholder="${en?'Trait name…':'Nom du trait…'}"></label><label class="custom-field"><span>${en?'Text':'Texte'}</span><input id="adminNewTraitText" placeholder="${en?'Full trait text…':'Texte complet du trait…'}"></label></div>
-        <div class="custom-actions"><button type="button" class="button secondary" onclick="addAdminBandRule('traits')">＋ ${en?'Add band-wide trait':'Ajouter un trait de bande'}</button></div>
-      </section>
-    </div>`;
-  }else if(adminWarbandSection==='warriors'){
-    if(adminEditingWarriorIdx!=null){
-      body=`<section class="card admin-card">${adminWarriorFormMarkup(adminEditingWarriorIdx===-1?null:d.warriors[adminEditingWarriorIdx],adminEditingWarriorIdx)}</section>`;
-    }else{
-      body=`<section class="card admin-card"><p class="sheet-help">${en?'Use ▲/▼ to reorder — this is also the order fighters appear in the recruitment list.':'Utilise ▲/▼ pour réordonner — c’est aussi l’ordre d’apparition des combattants en recrutement.'}</p><div class="custom-item-list">${d.warriors.length?d.warriors.map((w,i)=>adminWarriorRow(w,i,d.warriors.length)).join(''):`<div class="empty">${en?'No fighters yet.':'Aucun combattant pour l’instant.'}</div>`}</div><div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="adminNewWarrior()">＋ ${en?'Add fighter':'Ajouter un combattant'}</button>${(d.warriors||[]).some(w=>String(w?.description||'').trim())?`<button type="button" class="button secondary" onclick="adminClearWarriorDescriptions()">🧹 ${en?'Clear all fighter descriptions':'Effacer toutes les descriptions'}</button>`:''}</div></section>`;
-    }
-  }else if(adminWarbandSection==='equipment'){
-    if(isCatalog){
-      const list=(D.weapons||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
-      // V-EQUIPCATSOURCE4: same canonicalization as the other equipment
-      // choosers (see V-EQUIPCATSOURCE3 above) — this is the Band List
-      // membership picker in a book faction's catalog editor.
-      const groups={};list.forEach(w=>{const c=canonEquipmentCategory(equipmentCategory(w));(groups[c]||(groups[c]=[])).push(w)});
-      const orderedCats=EQUIPMENT_SECTIONS.map(s=>s.cat).filter(c=>groups[c]);
-      const set=new Set((d.equipment||[]).map(normName));
-      body=`<section class="card admin-card">
-        <p class="custom-field-help">${en?'Which items from the shared pool this faction can buy from the Band List. An item’s own stats/price are edited from the separate “Weapons & gear catalog” card in Admin.':'Quels objets du pool partagé cette faction peut acheter dans la Liste de Bande. Les caractéristiques/prix d’un objet se modifient depuis la carte « Catalogue d’armes & équipement » séparée, dans Admin.'}</p>
-        <div class="custom-equipment-chooser">${orderedCats.map(cat=>{const items=groups[cat];return `<details class="custom-mini-collapse"><summary>${esc(cat)} <small>${items.length}</small></summary><div class="custom-equipment-checks">${items.map(w=>`<label><input type="checkbox" data-wname="${esc(w.name)}" ${set.has(normName(w.name))?'checked':''} onchange="toggleAdminCatalogEquipment(this)"><span>${esc(w.name)}<small>${Number(w.price||0)} GC</small></span></label>`).join('')}</div></details>`}).join('')}</div>
-      </section>`;
-    }else if(adminEditingEquipmentIdx!=null){
-      body=`<section class="card admin-card">${adminEquipmentFormMarkup(adminEditingEquipmentIdx===-1?null:d.equipment[adminEditingEquipmentIdx],adminEditingEquipmentIdx)}</section>`;
-    }else{
-      body=`<section class="card admin-card"><div class="custom-item-list">${d.equipment.length?d.equipment.map((e,i)=>adminEquipmentRow(e,i)).join(''):`<div class="empty">${en?'No equipment yet.':'Aucun équipement pour l’instant.'}</div>`}</div><div class="custom-actions" style="margin-top:12px"><button type="button" class="button secondary" onclick="adminNewEquipment()">＋ ${en?'Add item':'Ajouter un équipement'}</button></div></section>`;
-    }
-  }else if(adminWarbandSection==='skillsmagic'){
-    body=adminWarbandSkillsMagicMarkup(d,en);
-  }
-  const introText=isCatalog
-    ?(en?'Edits the base M17 catalog directly — nothing touches data/catalog.js; the correction is stored separately and layered on top, so every account sees it immediately. "Revert to book" (in Admin) removes it and falls back to the original values.':'Modifie directement le catalogue de base M17 — rien ne touche à data/catalog.js ; la correction est stockée à part et appliquée par-dessus, visible immédiatement par tous les comptes. « Revenir au livre » (depuis Admin) la retire et restaure les valeurs d’origine.')
-    :(en?'Edits the published warband directly — no draft or copy is ever created, and nothing shows up in your Custom tab. Saving pushes the whole definition back to the live warband at once.':'Modifie directement la bande publiée — aucun brouillon ni copie n’est jamais créé, et rien n’apparaît dans ton onglet Custom. Enregistrer renvoie la fiche complète vers la bande en ligne en une fois.');
-  const supplementCard=isCatalog?'':adminSupplementControlMarkup(d);
-  return `<div class="admin-page">
-    <div class="page-intro"><div><div class="eyebrow">ADMIN / ${en?'GESTION':'GESTION'}${isCatalog?(en?' — BASE CATALOG':' — CATALOGUE DE BASE'):''}</div><label class="admin-wb-name-label" for="adminWbNameInput">✎ ${en?'Warband name':'Nom de la bande'}${isCatalog?` <small>(${en?'empty = book name':'vide = nom du livre'})</small>`:''}</label><h2><input type="text" class="admin-wb-name-input" id="adminWbNameInput" value="${esc(d.name)}" placeholder="${en?'Warband name':'Nom de la bande'}" oninput="activeAdminEditData().name=this.value" title="${en?'Rename this warband':'Renommer cette bande'}"></h2>${(()=>{const fid=isCatalog?adminCatalogFactionId:(adminRulesEditId?'official-'+adminRulesEditId:null);if(!fid)return '';const cur=Number(warbandSizeLimits[fid])||'';const fac=D.factions.find(x=>x.id===fid);const inh=!cur&&fac?warbandSizeLimitFor(fac):null;return `<label class="admin-wb-name-label" for="adminWbMaxSize">${en?'Maximum fighters':'Combattants max'} <small>(${en?'Hired Swords not counted, empty = no limit':'Hired Swords non compris, vide = pas de limite'}${inh?(en?` — currently ${inh} from the base warband`:` — actuellement ${inh} via la bande de base`):''})</small></label><input type="number" min="1" max="200" step="1" id="adminWbMaxSize" class="admin-wb-max-input" value="${cur}" placeholder="—" onchange="saveWarbandSizeLimit('${esc(fid)}',this.value)" style="max-width:120px"><div class="admin-hire-bans" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">${['hs','dp'].map(k=>{const own=!!(warbandHireRules[fid]||{})[k];const inhB=!own&&fac&&warbandHireBan(fac,k);return `<label class="toggle-line"><input type="checkbox" id="adminWbBan_${k}" ${own?'checked':''} onchange="saveWarbandHireRule('${esc(fid)}','${k}',this.checked)"><span>${k==='hs'?(en?'No Hired Swords':'Hired Swords interdits'):(en?'No Dramatis Personae':'Dramatis Personae interdits')}${inhB?` <small>(${en?'already, via the base warband':'déjà, via la bande de base'})</small>`:''}</span></label>`}).join('')}</div>`})()}<p>${introText}</p></div><button type="button" class="button secondary" onclick="${isCatalog?'closeAdminCatalogEdit()':'closeAdminWarbandRules()'}">← ${en?'Back to Admin':'Retour à Admin'}</button></div>
-    ${supplementCard}
-    ${tabs}
-    ${body}
-    <div class="custom-actions" style="margin-top:16px"><button type="button" class="button primary" onclick="${isCatalog?'saveAdminCatalogEdit()':'saveAdminWarbandRules()'}">${isCatalog?(en?'Save — override the book values':'Enregistrer — surcharger les valeurs du livre'):(en?'Save — update the live warband':'Enregistrer — mettre à jour la bande en ligne')}</button></div>
-  </div>`;
-}
 /* ================= V-WARBANDSKILLS: admin-managed exclusive skills/spells
    (Task #35) ==================================================================
    Until now a live official warband's own exclusive skill trees / magic
@@ -6523,190 +5789,6 @@ function adminWarbandRulesPanel(){
    (a tree/domain card that holds up to 6 skills/spells) but writing
    straight into adminRulesEditData instead of the account's own
    customContentList. */
-function adminAddSkillTree(){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  const input=$('#adminNewSkillTreeName');const name=(input?.value||'').trim();
-  if(!name){toast(en?'Give the tree a name':'Donne un nom à l’arbre');return}
-  if(!Array.isArray(d.skillTrees))d.skillTrees=[];if(!Array.isArray(d.skills))d.skills=[];
-  if(D.skillSets[name]||d.skillTrees.some(t=>normName(t.name)===normName(name))){toast(en?'A tree with this name already exists':'Un arbre porte déjà ce nom');return}
-  d.skillTrees.push({name});input.value='';render('admin');
-}
-function adminDeleteSkillTree(i){
-  const d=activeAdminEditData();if(!d)return;const t=d.skillTrees[i];if(!t)return;
-  d.skillTrees.splice(i,1);d.skills=(d.skills||[]).filter(s=>normName(s.tree||'')!==normName(t.name));
-  // V-ORPHANTREEACCESS: deleting a tree used to only ever touch d.skillTrees/
-  // d.skills — never any warrior's own skillAccess object. Once the tree is
-  // gone, its name no longer appears in the per-fighter "SKILL TREE ACCESS"
-  // checklist (built from d.skillTrees, see adminWarriorFormMarkup), so there
-  // is no checkbox left to uncheck it with — but the raw key stays in
-  // w.skillAccess forever, and warbandExclusiveSkillTrees(f) (the Rules:
-  // Warbands page) reads warriors' skillAccess keys directly, independent of
-  // whether a tree definition still exists for them. The deleted tree kept
-  // showing up there — "still active" with no fighter visibly granted it and
-  // no way to remove it from the UI — even after the tree itself was gone.
-  (d.warriors||[]).forEach(w=>{
-    if(!w?.skillAccess)return;
-    const key=Object.keys(w.skillAccess).find(k=>normName(k)===normName(t.name));
-    if(key)delete w.skillAccess[key];
-  });
-  render('admin');
-}
-// V-ADMINRENAMESKILLTREE: mirrors openRenameSkillTree/confirmRenameSkillTree
-// for the Custom page, but on the admin warband/catalog editor's own
-// skillTrees array (adminRulesEditData/adminCatalogEditData, via
-// activeAdminEditData()) — a warband's exclusive skill tree name is likewise
-// only a plain string match against each skill's `tree` field, so a rename
-// has to rewrite that on every skill filed under the old name too.
-function adminRenameSkillTree(i){
-  const d=activeAdminEditData();if(!d)return;const t=d.skillTrees[i];if(!t)return;
-  const en=siteLanguage==='en';
-  openModal(`<div class="purchase-dialog"><div class="eyebrow">${en?'RENAME':'RENOMMER'}</div><h2>${en?'Rename tree':'Renommer l’arbre'}</h2><label class="custom-field"><span>${en?'Tree name':'Nom de l’arbre'}</span><input id="adminRenameTreeInput" value="${esc(t.name)}"></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="adminConfirmRenameSkillTree(${i})">${en?'Save':'Enregistrer'}</button></div></div>`);
-}
-function adminConfirmRenameSkillTree(i){
-  const d=activeAdminEditData();if(!d)return;const t=d.skillTrees[i];if(!t)return;
-  const en=siteLanguage==='en';
-  const newName=($('#adminRenameTreeInput')?.value||'').trim();
-  if(!newName){toast(en?'Give the tree a name':'Donne un nom à l’arbre');return}
-  if(normName(newName)!==normName(t.name)&&(D.skillSets[newName]||d.skillTrees.some((x,xi)=>xi!==i&&normName(x.name)===normName(newName)))){toast(en?'A tree with this name already exists':'Un arbre porte déjà ce nom');return}
-  const oldName=t.name;t.name=newName;
-  (d.skills||[]).forEach(s=>{if(normName(s.tree||'')===normName(oldName))s.tree=newName;});
-  adminRenameAccessKey(d,'skillAccess',oldName,newName);
-  closeModal();render('admin');toast(en?'Tree renamed':'Arbre renommé');
-}
-// V-DOMAINRENAME: renames a warband's magic domain at its core — the domain,
-// every spell filed under it and every fighter's magic access to it — so
-// nothing is left pointing at the old name. Saved with the warband.
-function adminRenameAccessKey(d,field,oldName,newName){(d.warriors||[]).forEach(w=>{const acc=w?.[field];if(!acc||typeof acc!=='object')return;const key=Object.keys(acc).find(k=>normName(k)===normName(oldName));if(key==null)return;const v=acc[key];delete acc[key];acc[newName]=v;})}
-function adminRenameMagicDomain(i){
-  const d=activeAdminEditData();if(!d)return;const dom=d.magicDomains?.[i];if(!dom)return;const en=siteLanguage==='en';
-  openModal(`<div class="purchase-dialog"><div class="eyebrow">${en?'RENAME':'RENOMMER'}</div><h2>${en?'Rename domain':'Renommer le domaine'}</h2><p class="muted">${en?'Changes the domain itself: its spells and every fighter’s magic access follow. Save the warband afterwards.':'Change le domaine lui-même : ses sorts et l’accès magie de chaque combattant suivent. Enregistre la bande ensuite.'}</p><label class="custom-field"><span>${en?'Domain name':'Nom du domaine'}</span><input id="adminRenameDomainInput" value="${esc(dom.name)}"></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="adminConfirmRenameMagicDomain(${i})">${en?'Save':'Enregistrer'}</button></div></div>`);
-}
-function adminConfirmRenameMagicDomain(i){
-  const d=activeAdminEditData();if(!d)return;const dom=d.magicDomains?.[i];if(!dom)return;const en=siteLanguage==='en';
-  const newName=($('#adminRenameDomainInput')?.value||'').trim();
-  if(!newName){toast(en?'Give the domain a name':'Donne un nom au domaine');return}
-  if(normName(newName)!==normName(dom.name)&&(MAGIC_DOMAINS[newName]||d.magicDomains.some((x,xi)=>xi!==i&&normName(x.name)===normName(newName)))){toast(en?'A domain with this name already exists':'Un domaine porte déjà ce nom');return}
-  const oldName=dom.name;dom.name=newName;
-  (d.spells||[]).forEach(s=>{if(normName(s.domain||'')===normName(oldName))s.domain=newName;});
-  adminRenameAccessKey(d,'magicAccess',oldName,newName);
-  closeModal();render('admin');toast(en?'Domain renamed — save the warband':'Domaine renommé — enregistre la bande');
-}
-function adminAddSkillToTree(treeName){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  const key='skill-'+refSlug(treeName);
-  const name=($('#'+key+'-name')?.value||'').trim(),text=($('#'+key+'-text')?.value||'').trim();
-  if(!name){toast(en?'Give the skill a name':'Donne un nom à la compétence');return}
-  if(!Array.isArray(d.skills))d.skills=[];
-  const count=d.skills.filter(s=>normName(s.tree||'')===normName(treeName)).length;
-  if(count>=6){toast(en?'Maximum of 6 skills in this tree':'Maximum de 6 compétences dans cet arbre');return}
-  if(d.skills.some(s=>normName(s.name)===normName(name))){toast(en?'A skill with this name already exists':'Une compétence porte déjà ce nom');return}
-  d.skills.push({name,tree:treeName,text});render('admin');
-}
-function adminDeleteSkillFromTree(i){const d=activeAdminEditData();if(!d)return;d.skills.splice(i,1);render('admin')}
-// V-ADMINEDITSKILLSPELL: this editor only ever offered Add/Delete for an
-// individual skill or spell — there was no way to correct one in place, so
-// "renaming" one meant adding a corrected copy and manually deleting the
-// old one. That's exactly how a Dark Elf domain ended up with 8 spells
-// instead of 6 (Soul Stealer/Word of Pain left behind after Soul Siphon/
-// Tongue of Dolor were added to replace them — the delete step was easy to
-// forget with no in-place edit to make the intent obvious). This adds a
-// real edit-in-place for both, mirroring adminRenameSkillTree's modal.
-function adminEditSkillInTree(i){
-  const d=activeAdminEditData();if(!d)return;const s=d.skills[i];if(!s)return;
-  const en=siteLanguage==='en';
-  openModal(`<div class="purchase-dialog"><div class="eyebrow">${en?'EDIT':'MODIFIER'}</div><h2>${en?'Edit skill':'Modifier la compétence'}</h2><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="adminEditSkillName" value="${esc(s.name)}"></label><label class="custom-field"><span>${en?'Text':'Texte'}</span><textarea id="adminEditSkillText" class="wide-textarea" rows="5">${esc(s.text||'')}</textarea></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="adminConfirmEditSkillInTree(${i})">${en?'Save':'Enregistrer'}</button></div></div>`);
-}
-function adminConfirmEditSkillInTree(i){
-  const d=activeAdminEditData();if(!d)return;const s=d.skills[i];if(!s)return;
-  const en=siteLanguage==='en';
-  const name=($('#adminEditSkillName')?.value||'').trim(),text=($('#adminEditSkillText')?.value||'').trim();
-  if(!name){toast(en?'Give the skill a name':'Donne un nom à la compétence');return}
-  if(d.skills.some((x,xi)=>xi!==i&&normName(x.name)===normName(name))){toast(en?'A skill with this name already exists':'Une compétence porte déjà ce nom');return}
-  s.name=name;s.text=text;closeModal();render('admin');toast(en?'Skill updated':'Compétence mise à jour');
-}
-function adminAddMagicDomain(){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  const input=$('#adminNewMagicDomainName');const name=(input?.value||'').trim();
-  if(!name){toast(en?'Give the domain a name':'Donne un nom au domaine');return}
-  if(!Array.isArray(d.magicDomains))d.magicDomains=[];if(!Array.isArray(d.spells))d.spells=[];
-  if(MAGIC_DOMAINS[name]||d.magicDomains.some(t=>normName(t.name)===normName(name))){toast(en?'A domain with this name already exists':'Un domaine porte déjà ce nom');return}
-  d.magicDomains.push({name});input.value='';render('admin');
-}
-function adminDeleteMagicDomain(i){
-  const d=activeAdminEditData();if(!d)return;const dom=d.magicDomains[i];if(!dom)return;
-  d.magicDomains.splice(i,1);d.spells=(d.spells||[]).filter(s=>normName(s.domain||'')!==normName(dom.name));
-  // V-ORPHANTREEACCESS: same fix as adminDeleteSkillTree, for magic domains —
-  // see that function's comment.
-  (d.warriors||[]).forEach(w=>{
-    if(!w?.magicAccess)return;
-    const key=Object.keys(w.magicAccess).find(k=>normName(k)===normName(dom.name));
-    if(key)delete w.magicAccess[key];
-  });
-  render('admin');
-}
-function adminAddSpellToDomain(domainName){
-  const en=siteLanguage==='en';const d=activeAdminEditData();if(!d)return;
-  const key='spell-'+refSlug(domainName);
-  const name=($('#'+key+'-name')?.value||'').trim(),text=($('#'+key+'-text')?.value||'').trim();
-  if(!name){toast(en?'Give the spell a name':'Donne un nom au sort');return}
-  if(!Array.isArray(d.spells))d.spells=[];
-  // V-DOMAINSPELLCAP: this used to hard-cap a domain at 6 spells, mirroring
-  // the book's usual 6-spell lore layout — but that's a convention, not a
-  // rule this editor needs to enforce, and it silently blocked adding any
-  // spell past the 6th (a toast easy to miss admist everything else on this
-  // screen) rather than refusing outright, which is what actually happened
-  // to 2 of this warband's Dark Elf domain spells. Custom/admin content can
-  // legitimately need more (a homebrew or supplement lore with 7-8 spells),
-  // so this no longer refuses — it only still blocks an exact duplicate name.
-  //
-  // V-DOMAINSPELLDUP: the duplicate check itself used to compare against
-  // EVERY spell being edited here, across every domain in this admin
-  // session, not just this one — so a name already used by some other
-  // domain's spell (which the real book does: several lores reuse common
-  // spell names) got silently rejected as if it were a duplicate of THIS
-  // domain, which is exactly how 2 of this warband's Dark Elf spells never
-  // got saved. Scoping the check to this domain only is the actual fix.
-  if(d.spells.some(s=>normName(s.domain||'')===normName(domainName)&&normName(s.name)===normName(name))){toast(en?'A spell with this name already exists in this domain':'Un sort porte déjà ce nom dans ce domaine');return}
-  d.spells.push({name,domain:domainName,text});render('admin');
-}
-function adminDeleteSpellFromDomain(i){const d=activeAdminEditData();if(!d)return;d.spells.splice(i,1);render('admin')}
-function adminEditSpellInDomain(i){
-  const d=activeAdminEditData();if(!d)return;const s=d.spells[i];if(!s)return;
-  const en=siteLanguage==='en';
-  openModal(`<div class="purchase-dialog"><div class="eyebrow">${en?'EDIT':'MODIFIER'}</div><h2>${en?'Edit spell':'Modifier le sort'}</h2><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="adminEditSpellName" value="${esc(s.name)}"></label><label class="custom-field"><span>${en?'Text':'Texte'}</span><textarea id="adminEditSpellText" class="wide-textarea" rows="5">${esc(s.text||'')}</textarea></label><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="adminConfirmEditSpellInDomain(${i})">${en?'Save':'Enregistrer'}</button></div></div>`);
-}
-function adminConfirmEditSpellInDomain(i){
-  const d=activeAdminEditData();if(!d)return;const s=d.spells[i];if(!s)return;
-  const en=siteLanguage==='en';
-  const name=($('#adminEditSpellName')?.value||'').trim(),text=($('#adminEditSpellText')?.value||'').trim();
-  if(!name){toast(en?'Give the spell a name':'Donne un nom au sort');return}
-  if(d.spells.some((x,xi)=>xi!==i&&normName(x.domain||'')===normName(s.domain||'')&&normName(x.name)===normName(name))){toast(en?'A spell with this name already exists in this domain':'Un sort porte déjà ce nom dans ce domaine');return}
-  s.name=name;s.text=text;closeModal();render('admin');toast(en?'Spell updated':'Sort mis à jour');
-}
-function adminWarbandSkillsMagicMarkup(d,en){
-  if(!Array.isArray(d.skillTrees))d.skillTrees=[];if(!Array.isArray(d.skills))d.skills=[];
-  if(!Array.isArray(d.magicDomains))d.magicDomains=[];if(!Array.isArray(d.spells))d.spells=[];
-  const treeCards=d.skillTrees.map((t,ti)=>{
-    const items=d.skills.map((s,i)=>({s,i})).filter(x=>normName(x.s.tree||'')===normName(t.name));
-    const key='skill-'+refSlug(t.name);
-    return `<section class="custom-tree-card open"><header class="custom-tree-card-head"><div><div class="eyebrow">${en?'SKILL TREE':'ARBRE DE COMPÉTENCES'}</div><h3>${esc(t.name)}</h3></div><div class="custom-tree-card-meta"><span>${items.length}/6</span><button type="button" class="equipment-action" title="${en?'Rename':'Renommer'}" onclick="adminRenameSkillTree(${ti})">✎</button><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteSkillTree(${ti})">🗑</button></div></header>
-      <div class="custom-builder-items">${items.map(({s,i})=>`<div class="custom-builder-item"><div class="custom-builder-item-main"><div><strong>${esc(s.name)}</strong><p>${customTextMarkup(s.text||'')}</p></div></div><div class="custom-builder-item-actions"><button type="button" class="equipment-action" title="${en?'Edit':'Modifier'}" onclick="adminEditSkillInTree(${i})">✎</button><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteSkillFromTree(${i})">🗑</button></div></div>`).join('')||`<div class="custom-builder-empty">${en?'No skill in this tree yet.':'Aucune compétence dans cet arbre pour l’instant.'}</div>`}</div>
-      ${items.length>=6?`<div class="custom-builder-limit">${en?'Maximum reached: 6 skills.':'Maximum atteint : 6 compétences.'}</div>`:`<div class="custom-inline-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="${key}-name" placeholder="${en?'Skill name…':'Nom de la compétence…'}"></label><label class="custom-field wide"><span>${en?'Text':'Texte'}</span><textarea id="${key}-text" class="wide-textarea" rows="4" placeholder="${en?'Full rule text…':'Texte complet de la règle…'}"></textarea></label></div><div class="custom-actions"><button type="button" class="button secondary" onclick="adminAddSkillToTree('${esc(t.name)}')">＋ ${en?'Add skill':'Ajouter une compétence'}</button></div>`}
-    </section>`;
-  }).join('');
-  const domainCards=d.magicDomains.map((dom,di)=>{
-    const items=d.spells.map((s,i)=>({s,i})).filter(x=>normName(x.s.domain||'')===normName(dom.name));
-    const key='spell-'+refSlug(dom.name);
-    return `<section class="custom-tree-card open"><header class="custom-tree-card-head"><div><div class="eyebrow">${en?'MAGIC DOMAIN':'DOMAINE DE MAGIE'}</div><h3>${esc(dom.name)}</h3></div><div class="custom-tree-card-meta"><span>${items.length}/6</span><button type="button" class="equipment-action" title="${en?'Rename':'Renommer'}" onclick="adminRenameMagicDomain(${di})">✎</button><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteMagicDomain(${di})">🗑</button></div></header>
-      <div class="custom-builder-items">${items.map(({s,i})=>`<div class="custom-builder-item"><div class="custom-builder-item-main"><div><strong>${esc(s.name)}</strong><p>${customTextMarkup(s.text||'')}</p></div></div><div class="custom-builder-item-actions"><button type="button" class="equipment-action" title="${en?'Edit':'Modifier'}" onclick="adminEditSpellInDomain(${i})">✎</button><button type="button" class="equipment-action remove" title="${en?'Delete':'Supprimer'}" onclick="adminDeleteSpellFromDomain(${i})">🗑</button></div></div>`).join('')||`<div class="custom-builder-empty">${en?'No spell in this domain yet.':'Aucun sort dans ce domaine pour l’instant.'}</div>`}</div>
-      ${items.length>=6?`<div class="custom-builder-limit">${en?'Maximum reached: 6 spells.':'Maximum atteint : 6 sorts.'}</div>`:`<div class="custom-inline-grid"><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="${key}-name" placeholder="${en?'Spell name…':'Nom du sort…'}"></label><label class="custom-field wide"><span>${en?'Text':'Texte'}</span><textarea id="${key}-text" class="wide-textarea" rows="4" placeholder="${en?'Full rule text…':'Texte complet de la règle…'}"></textarea></label></div><div class="custom-actions"><button type="button" class="button secondary" onclick="adminAddSpellToDomain('${esc(dom.name)}')">＋ ${en?'Add spell':'Ajouter un sort'}</button></div>`}
-    </section>`;
-  }).join('');
-  return `<div class="admin-grid">
-    <section class="card admin-card"><div class="eyebrow">★ ${en?'EXCLUSIVE SKILL TREES':'ARBRES DE COMPÉTENCES EXCLUSIFS'}</div><p class="custom-field-help">${en?'Skill trees brought in only by this warband — only fighters it grants access to can use them.':'Arbres de compétences propres à cette bande — seuls les combattants auxquels elle en donne accès peuvent les utiliser.'}</p>${treeCards||`<div class="empty">${en?'None yet.':'Aucun pour l’instant.'}</div>`}<div class="custom-tree-create" style="margin-top:12px"><input id="adminNewSkillTreeName" placeholder="${en?'New tree name…':'Nom du nouvel arbre…'}"><button type="button" class="button secondary" onclick="adminAddSkillTree()">＋ ${en?'Create tree':'Créer l’arbre'}</button></div></section>
-    <section class="card admin-card"><div class="eyebrow">✦ ${en?'EXCLUSIVE MAGIC DOMAINS':'DOMAINES DE MAGIE EXCLUSIFS'}</div><p class="custom-field-help">${en?'Magic domains brought in only by this warband.':'Domaines de magie propres à cette bande.'}</p>${domainCards||`<div class="empty">${en?'None yet.':'Aucun pour l’instant.'}</div>`}<div class="custom-tree-create" style="margin-top:12px"><input id="adminNewMagicDomainName" placeholder="${en?'New domain name…':'Nom du nouveau domaine…'}"><button type="button" class="button secondary" onclick="adminAddMagicDomain()">＋ ${en?'Create domain':'Créer le domaine'}</button></div></section>
-  </div>`;
-}
 // V150: before publishing, let the admin choose whether the new official
 // warband stands on its own (a normal top-level faction, the only option
 // that existed before) or is a Supplement of some existing faction — an
@@ -7480,7 +6562,6 @@ function applySiteTheme(){
 function setSiteTheme(v){siteTheme=v==='light'?'light':v==='candle'?'candle':'dark';localStorage.setItem(SITE_THEME_KEY,siteTheme);try{if(siteTheme==='candle')localStorage.setItem('mu_ui_candle','1');else localStorage.removeItem('mu_ui_candle')}catch(e){}applySiteTheme();try{ambientSync(true)}catch(e){}}
 function toggleCandleTheme(){setSiteTheme(siteTheme==='candle'?'dark':'candle')}
 try{if(localStorage.getItem('mu_ui_candle')==='1')siteTheme='candle'}catch(e){}
-function toggleSiteTheme(){setSiteTheme(siteTheme==='light'?'dark':'light');}
 // V-COMFORT: opt-in reading comfort for players less at ease with a phone.
 // Off by default (the site looks exactly as before). "large"/"xlarge"
 // enlarge the whole interface (CSS zoom on <html>, the layout reflows to the
@@ -7688,7 +6769,6 @@ document.addEventListener('click',(e)=>{
 // phone). Every query word must start a word of the result, so "Hired Swords"
 // no longer lists every plain "Sword"; names count far more than body text.
 function searchNorm(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[’'`]/g,' ').replace(/[^a-z0-9]+/g,' ').trim()}
-function searchWords(t){return searchNorm(t).split(' ').filter(Boolean)}
 function searchTokenHit(tok,words){const stem=tok.length>4&&tok.endsWith('s')?tok.slice(0,-1):tok;return words.some(w=>w.startsWith(tok)||w.startsWith(stem))}
 function searchScore(q,name,body){
   const qn=searchNorm(q);if(!qn)return 0;const toks=qn.split(' ');const nn=searchNorm(name);
@@ -7838,7 +6918,7 @@ function openTabSheet(kind){
   }else{
     const admin=isAdminSession();
     html=`<div class="tab-sheet-label">${en?'MORE':'PLUS'}</div>`+tabSheetLink(APP_ROUTES.custom,'✦',en?'Personal content':'Contenu perso')+tabSheetLink(APP_ROUTES.account,'👤',en?'Account':'Compte')+(admin?tabSheetLink(APP_ROUTES.admin,'⛉',en?'Admin panel':'Panneau admin'):'')
-     +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
+     +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();shareWarbandImage()"><i>🖼</i><span>${en?'Share as a picture':'Partager en image'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
      +`<div class="tab-sheet-sep"></div><label class="tab-sheet-row"><span>${en?'Day mode':'Mode jour'}</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Candle mode':'Mode bougie'}</span><span class="theme-switch"><input type="checkbox" class="candle-toggle-input" ${siteTheme==='candle'?'checked':''} onchange="toggleCandleTheme()"><i>✦</i></span></label><label class="tab-sheet-row"><span>${en?'Candle in the evening':'Bougie le soir'}</span><span class="theme-switch"><input type="checkbox" ${themeAutoOn()?'checked':''} onchange="setThemeAuto(this.checked)"><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Animated background':'Fond animé'}</span>${ambientSelectMarkup(en)}</label>`
      +(admin?`<label class="tab-sheet-row"><span>${en?'Player view':'Vue Joueur'}</span><span class="theme-switch"><input type="checkbox" class="admin-view-toggle-input" ${adminViewMode==='player'?'checked':''}><i>🎭</i></span></label>`:'')
      +`<label class="tab-sheet-row"><span>${en?'Interface size':'Taille de l’interface'}</span>${comfortSelectMarkup(en)}</label>`
@@ -7990,7 +7070,7 @@ function applySiteLanguage(root){
 // only two moments the sidebar/static chrome actually needs re-translating.
 let i18nNeedsFullPass=true;
 function setSiteLanguage(v){siteLanguage=v==='fr'?'fr':'en';localStorage.setItem(SITE_LANGUAGE_KEY,siteLanguage);i18nNeedsFullPass=true;renderCurrentRoute();}
-function render(view='dashboard',opts={}){ensureFrRules();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
+function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
   const next=routeForView(view);
   if(opts.history!==false&&next!==appPath(location.pathname)){history.pushState({mordheimunda:true,view},'',next)}
   // A handful of search/filter fields call render() straight from their
@@ -8038,8 +7118,7 @@ function render(view='dashboard',opts={}){ensureFrRules();try{view=playTempSheet
     const main=$('.main');if(main)main.scrollTop=restore.mainScroll||0;
   }
 }
-function dashKpi(label,value,accent){return `<div class="dash-kpi-card"><span class="dash-kpi-label">${esc(label)}</span><strong class="dash-kpi-value"${accent?` style="color:${accent}"`:''}>${value}</strong></div>`}
-function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction(r)||{displayName:r?.factionName||r?.factionId||(en?'Unknown faction':'Faction inconnue'),budget:1000};const bar=warbandColor(r);const labelColor=bar;const bannerVisual=r.icon?`<img class="dash-wcard-cover"${imageFocusStyle(r.iconFocus)} src="${esc(r.icon)}" alt="${en?'Icon for':'Icône de'} ${esc(r.name)}">`:`<span class="gang-icon">${imageMarkup(r.icon,'gang',`${en?'Icon for':'Icône de'} ${esc(r.name)}`,r.iconFocus)}</span>`;
+function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction(r)||{displayName:r?.factionName||r?.factionId||(en?'Unknown faction':'Faction inconnue'),budget:1000};const bar=warbandColor(r);const labelColor=bar;const bannerVisual=r.icon?`<img class="dash-wcard-cover"${imageFocusStyle(r.iconFocus)} src="${esc(r.icon)}" alt="${en?'Icon for':'Icône de'} ${esc(r.name)}" loading="lazy" decoding="async">`:`<span class="gang-icon">${imageMarkup(r.icon,'gang',`${en?'Icon for':'Icône de'} ${esc(r.name)}`,r.iconFocus)}</span>`;
   // V147 — landscape poster card ported from the Main.dc.html mockup: a wide
   // image band (~72%) with just the rank tag, accent bar and duplicate icon,
   // and a slim bottom strip (~28%) holding only faction + name on the left
@@ -8279,7 +7358,7 @@ function homeCover(r,cls){return r.icon?`<img class="${cls}"${imageFocusStyle(r.
 function homeSpotlightMarkup(r){
   const en=siteLanguage==='en';const f=faction(r)||{displayName:r.factionName||''};const rec=homeRecord(r);const living=homeLiving(r);
   const sub=[r.campaignName?esc(r.campaignName):'',homeLastBattle(r)].filter(Boolean).join(' · ');
-  const crew=living.slice(0,14).map(x=>{const ring=fighterStatus(x).recovery?'#d65c55':homeCanAdvance(x)?'#e8c547':'var(--line2)';const pic=x.image?`<img src="${esc(x.image)}" alt="">`:esc(String(x.name||'?').replace(/[^\p{L}]/gu,'').slice(0,1)||'?');return `<a class="home-crew" href="${fighterPath(r.id,x.instance)}" data-app-route="1" title="${esc(x.name)}"><span class="home-crew-pic" style="border-color:${ring}">${pic}</span><span class="home-crew-name">${esc(x.name)}</span></a>`}).join('')+(living.length>14?`<a class="home-crew" href="${warbandPath(r.id)}" data-app-route="1"><span class="home-crew-pic">+${living.length-14}</span><span class="home-crew-name">${en?'more':'autres'}</span></a>`:'');
+  const crew=living.slice(0,14).map(x=>{const ring=fighterStatus(x).recovery?'#d65c55':homeCanAdvance(x)?'#e8c547':'var(--line2)';const pic=x.image?`<img src="${esc(x.image)}" alt="" loading="lazy" decoding="async">`:esc(String(x.name||'?').replace(/[^\p{L}]/gu,'').slice(0,1)||'?');return `<a class="home-crew" href="${fighterPath(r.id,x.instance)}" data-app-route="1" title="${esc(x.name)}"><span class="home-crew-pic" style="border-color:${ring}">${pic}</span><span class="home-crew-name">${esc(x.name)}</span></a>`}).join('')+(living.length>14?`<a class="home-crew" href="${warbandPath(r.id)}" data-app-route="1"><span class="home-crew-pic">+${living.length-14}</span><span class="home-crew-name">${en?'more':'autres'}</span></a>`:'');
   const todos=homeTodos(r);const advTodo=todos.find(t=>t.dot==='#e8c547');const pbTodo=todos.find(t=>t.dot==='#ff8a3d');
   return `<article class="home-spot" style="--wb:${warbandColor(r)}"><a class="home-spot-cover${r.icon?'':' no-img'}" href="${warbandPath(r.id)}" onclick="event.preventDefault();homeOpen('${esc(r.id)}')" aria-label="${en?'Open':'Ouvrir'} ${esc(r.name)}">${homeCover(r,'home-cover-img')}<div class="home-spot-title"><span class="home-kicker" style="color:${warbandColor(r)}">${en?'PRIORITY':'PRIORITÉ'} 1 · ${esc(f.displayName||'')}</span><h2>${esc(r.name)}</h2>${sub?`<span class="home-spot-sub">${sub}</span>`:''}</div></a>
    <div class="home-spot-body"><div class="home-block"><span class="home-label">${en?'THE BAND':'LA BANDE'}</span><div class="home-crew-row">${crew||`<span class="muted">${en?'No fighter yet.':'Aucun combattant.'}</span>`}</div><div class="home-legend"><span><i style="background:#e8c547"></i>${en?'can advance':'peut progresser'}</span><span><i style="background:#d65c55"></i>${en?'in recovery':'en convalescence'}</span><span><i style="background:var(--line2)"></i>${en?'ready':'prêt'}</span></div></div>
@@ -8333,19 +7412,9 @@ function saveHomePriorities(){
   save(true);closeModal();render('dashboard');
 }
 let homeCampaignOptions=null;
-function openHomeEventEditor(){
-  const en=siteLanguage==='en';const ev=homeData?.event||{};
-  const draw=()=>openModal(`<div class="wc-dialog"><div class="eyebrow">ADMIN · ${en?'HOME':'ACCUEIL'}</div><h2>${en?'Active event':'Événement en cours'}</h2><p class="sheet-help">${en?'Shown to every player on the Home page. Leave the title and text empty to remove it.':'Affiché à tous les joueurs sur l’accueil. Laisse le titre et le texte vides pour le retirer.'}</p><label class="custom-field"><span>${en?'Small heading':'Petit titre'}</span><input id="hevLabel" value="${esc(ev.label||'')}" placeholder="${en?'ACTIVE EVENT':'ÉVÉNEMENT EN COURS'}"></label><label class="custom-field"><span>${en?'Title':'Titre'}</span><input id="hevTitle" value="${esc(ev.title||'')}"></label><label class="custom-field"><span>${en?'Text':'Texte'}</span><textarea id="hevText" rows="5">${esc(ev.text||'')}</textarea></label><label class="custom-field"><span>${en?'Linked campaign':'Campagne liée'}</span><select id="hevCampaign"><option value="">—</option>${(homeCampaignOptions||[]).map(c=>`<option value="${esc(c.id)}" ${c.id===ev.campaignId?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label><label class="custom-field"><span>${en?'Or a link':'Ou un lien'}</span><input id="hevLink" value="${esc(ev.link||'')}" placeholder="/rules/scenarios/…"></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveHomeEvent()">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-  draw();
-  if(homeCampaignOptions===null)window.MordheimundaAPI.adminCampaigns().then(d=>{homeCampaignOptions=(d?.campaigns||[]).map(c=>({id:c.id,name:c.name}));if(document.getElementById('hevCampaign')){const keep={label:$('#hevLabel').value,title:$('#hevTitle').value,text:$('#hevText').value,link:$('#hevLink').value};Object.assign(ev,keep);draw()}}).catch(()=>{homeCampaignOptions=[]});
-}
 function saveHomeEvent(){
   const en=siteLanguage==='en';const p={label:$('#hevLabel').value.trim(),title:$('#hevTitle').value.trim(),text:$('#hevText').value.trim(),campaignId:$('#hevCampaign').value,link:$('#hevLink').value.trim()};
   window.MordheimundaAPI.adminSetHomeEvent(p).then(()=>{closeModal();toast(en?'Event saved':'Événement enregistré');loadHomeData(true)}).catch(e=>toast((en?'Save failed: ':'Échec : ')+e.message));
-}
-function openHomeNewsEditor(){
-  const en=siteLanguage==='en';
-  openModal(`<div class="wc-dialog"><div class="eyebrow">ADMIN · ${en?'HOME':'ACCUEIL'}</div><h2>${en?'Add a news line':'Ajouter une nouveauté'}</h2><p class="sheet-help">${en?'Published warbands, Hired Swords, campaigns and scenarios are added automatically. Use this for anything else.':'Les warbands, Hired Swords, campagnes et scénarios publiés sont ajoutés automatiquement. Utilise ceci pour le reste.'}</p><label class="custom-field"><span>${en?'Text':'Texte'}</span><input id="hnTitle" maxlength="160"></label><label class="custom-field"><span>${en?'Type':'Type'}</span><select id="hnKind">${Object.entries(HOME_NEWS_LABELS).map(([k,l])=>`<option value="${k}" ${k==='update'?'selected':''}>${esc(en?l[0]:l[1])}</option>`).join('')}</select></label><label class="custom-field"><span>${en?'Link (optional)':'Lien (optionnel)'}</span><input id="hnLink" placeholder="/rules/warbands/…"></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveHomeNews()">${en?'Add':'Ajouter'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 function saveHomeNews(){const en=siteLanguage==='en';const title=$('#hnTitle').value.trim();if(!title){toast(en?'Write the text':'Écris le texte');return}window.MordheimundaAPI.adminAddNews({title,kind:$('#hnKind').value,link:$('#hnLink').value.trim()}).then(()=>{closeModal();loadHomeData(true)}).catch(e=>toast(e.message))}
 async function deleteHomeNews(id){if(!await siteConfirm(siteLanguage==='en'?'Remove this news line?':'Retirer cette nouveauté ?'))return;window.MordheimundaAPI.adminDeleteNews(id).then(()=>loadHomeData(true)).catch(e=>toast(e.message))}
@@ -8364,16 +7433,12 @@ function recordRecentPage(){
     const list=homeRecentPages().filter(p=>p.path!==path);list.unshift({path,label,section,ts:Date.now()});localStorage.setItem(HOME_RECENT_KEY,JSON.stringify(list.slice(0,8)));
   }catch(e){}
 }
-function dashFilterWarbands(q){const term=String(q||'').trim().toLowerCase();const cards=Array.from(document.querySelectorAll('#dashWgrid .dash-wcard'));cards.forEach(c=>{const name=(c.querySelector('.dash-wcard-name')?.textContent||'').toLowerCase();c.style.display=!term||name.includes(term)?'':'none'})}
-function factionTile(f){const pack=f.packId?(window.NECROHEIM_PACKS||[]).find(p=>p.id===f.packId):null;return `<button class="faction-tile" onclick="startFaction('${f.id}')"><span class="faction-sigil">${factionSigils[f.id]||'◆'}</span><span class="faction-name">${esc(f.displayName)}</span><span class="faction-sub">${f.warriors.length} profils · ${esc(f.group||'M17')}</span>${pack?`<span class="pack-badge">PACK · ${esc(pack.name)}</span>`:''}<span class="faction-arrow">→</span></button>`}
 function customWarbandCreateTile(cw){const fid=`custom-warband-${cw.id}`;const count=(cw.fighterIds||[]).length;const sigil=cw.icon?`<span class="choice-sigil has-icon">${imageMarkup(cw.icon,'custom-warband',esc(cw.name),cw.iconFocus)}</span>`:`<span class="choice-sigil">⚔</span>`;
   // Once a custom warband has been made official (cw.officialId set), it's no
   // longer a "custom" pick — drop the CUSTOM badge here, same as everywhere
   // else this warband's name is shown.
   return `<button class="faction-choice custom-warband" data-faction="${esc(fid)}" onclick="selectFaction('${esc(fid)}',this)"><span class="choice-img-wrap">${sigil}</span><span class="fname">${esc(cw.name)}</span><span class="fcount">${count} profil${count!==1?'s':''} custom</span>${cw.officialId?'':'<span class="custom-badge">CUSTOM</span>'}</button>`}
 function customWarbandFaction(cw){return {id:`custom-warband-${cw.id}`,displayName:cw.name,group:'CUSTOM',budget:1000,warriors:customWarbandWarriors(cw),equipment:customWarbandEquipmentObjects(cw),choices:cw.choices||null,maxWarriors:Number(cw.maxWarriors)||null}}
-function allCreateWarbandEntries(){const official=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f));const customs=customWarbandList().map(customWarbandFaction);return [...official,...customs]}
-function startFaction(fid){render('create');setTimeout(()=>{const el=$(`[data-faction="${fid}"]`);if(el)selectFaction(fid,el)},0)}
 // ================= Rules: Warbands (V152) =================
 // Directory page grouping every faction (book + published community/
 // official warbands, both already merged into D.factions at boot by
@@ -8414,7 +7479,6 @@ function warbandsSidebarMarkup(){
 }
 let warbandsNavOpen=false;
 function toggleWarbandsNav(){warbandsNavOpen=!warbandsNavOpen;rerenderWarbandsNavPanel()}
-function closeWarbandsNav(){if(!warbandsNavOpen)return;warbandsNavOpen=false;rerenderWarbandsNavPanel()}
 function rerenderWarbandsNavPanel(){
   const panel=document.getElementById('warbandsNavPanel');
   const btn=document.getElementById('warbandsNavFab');
@@ -8529,20 +7593,6 @@ function rulesWarbandsRaceColumnsMarkup(){
 // then the trail (each parent a link, the current page plain).
 function siteCrumbs(back,items){const link=([label,route])=>route?`<a href="${esc(route)}" data-app-route="1" onclick="event.preventDefault();navigateApp('${esc(route)}')">${esc(label)}</a>`:`<span class="cur">${esc(label)}</span>`;return `<div class="site-crumbs"><button type="button" class="button secondary rules-back" aria-label="${siteLanguage==='en'?'Back':'Retour'}" onclick="navigateApp('${esc(back)}')">←</button><nav class="rules-crumb">${items.map(link).join('<span class="sep">›</span>')}</nav></div>`}
 function openRulesWarband(fid){navigateApp('/rules/warbands/'+encodeURIComponent(fid))}
-// Generic "not built yet" page: the nav entry exists (so people can see the
-// feature is planned and find it later) but the page itself is just a WIP
-// notice for now, rather than a broken/empty screen.
-function wipPage(titleFr,titleEn){
-  // Deliberately minimal: just the page's own background + a centered
-  // notice, no other layout — the sidebar/nav around #content stays fully
-  // usable, this only fills the content area itself.
-  const en=siteLanguage==='en';
-  $('#content').innerHTML=`<div style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;color:var(--muted-2,#8a8a86)">
-  <div style="font-size:38px;line-height:1">🚧</div>
-  <div style="font:800 13px 'IBM Plex Sans';letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim,#cfcfca)">${en?titleEn:titleFr}</div>
-  <div style="font-size:13px">Work in progress</div>
-</div>`;
-}
 // ============ V-PLAYMODE: Play mode (random multiplayer deployment) =======
 // state.playSession (persisted, see its declaration near the top of the
 // file) holds the whole in-progress game: null means no game is set up yet
@@ -8735,13 +7785,6 @@ function playBuildZoneLines(d0,d1,w,h,m,color){
   for(let i=0;i<verts.length-1;i++){const [x1,y1]=verts[i],[x2,y2]=verts[i+1];lines.push({type:'line',x1,y1,x2,y2,color,dash:false});}
   return lines;
 }
-function playZoneArrivalCircle(d0,d1,w,h,insetPx,rPx,color,label){
-  const dm=(d0+d1)/2;
-  const p=playPerimeterPoint(dm,w,h);
-  const cx=Math.max(rPx,Math.min(w-rPx,p.x+p.nx*insetPx));
-  const cy=Math.max(rPx,Math.min(h-rPx,p.y+p.ny*insetPx));
-  return {type:'circle',cx,cy,r:rPx,color,label:label||''};
-}
 function playEdgeLabel(cx,cy,w,h,en){
   if(cy<=h*0.15)return en?'North':'Nord';
   if(cy>=h*0.85)return en?'South':'Sud';
@@ -8798,46 +7841,6 @@ function playZoneWeightedRoll(options){
 }
 function playRollZone1Count(){return playZoneWeightedRoll([[1,20],[2,50],[3,30]]);}
 function playRollZone2Count(){return playZoneWeightedRoll([[2,20],[1,50],[0,30]]);}
-// A zone circle's wall-distance on a given axis is worth stating only when
-// it ISN'T already obvious from the table's own reference lines — flush to
-// a wall, dead-center, or at a quarter. "x=50%, y=12 inches from the top"
-// only needs the 12" called out; the 50% is redundant with the center line
-// already drawn on the card.
-function playZoneAxisSnapped(v,dim){
-  const fracs=[0,0.25,0.5,0.75,1],tol=DEPLOY_SCALE*0.3;
-  return fracs.some(f=>Math.abs(v-f*dim)<=tol);
-}
-// V-BUILDFIX: this used to be a top-level `const ...=6*DEPLOY_SCALE`, which
-// ran immediately at script-load time — but DEPLOY_SCALE itself is declared
-// later in the file (the map-builder section), so that line threw
-// "Cannot access 'DEPLOY_SCALE' before initialization" and broke the whole
-// script before any page could render. Computed inside the function instead
-// (called only later, once everything is initialized), same 6" value.
-function playZoneMinGapPx(){return 6*DEPLOY_SCALE;}
-function playZonePointOk(cx,cy,centers){const min=playZoneMinGapPx();return centers.every(c=>Math.hypot(cx-c.cx,cy-c.cy)>=min);}
-function playPlaceZone1(w,h,r,centers){
-  for(let i=0;i<300;i++){
-    const cx=r+Math.random()*(w-2*r),cy=r+Math.random()*(h-2*r);
-    if(playZonePointOk(cx,cy,centers))return {cx:Math.round(cx),cy:Math.round(cy)};
-  }
-  // Table too crowded to satisfy the 6" rule after 300 tries (very dense
-  // setup) — place it anyway rather than silently dropping a zone the roll
-  // said should exist.
-  return {cx:Math.round(r+Math.random()*(w-2*r)),cy:Math.round(r+Math.random()*(h-2*r))};
-}
-function playPlaceZone2(d0,d1,w,h,insetPx,r,centers){
-  const pad=r+1*DEPLOY_SCALE; // stay clear of the segment's own corners
-  for(let i=0;i<300;i++){
-    const span=Math.max(0,(d1-d0)-2*pad);
-    const dm=span>0?d0+pad+Math.random()*span:(d0+d1)/2;
-    const p=playPerimeterPoint(dm,w,h);
-    const cx=Math.max(r,Math.min(w-r,p.x+p.nx*insetPx));
-    const cy=Math.max(r,Math.min(h-r,p.y+p.ny*insetPx));
-    if(playZonePointOk(cx,cy,centers))return {cx:Math.round(cx),cy:Math.round(cy)};
-  }
-  const dm=(d0+d1)/2,p=playPerimeterPoint(dm,w,h);
-  return {cx:Math.round(Math.max(r,Math.min(w-r,p.x+p.nx*insetPx))),cy:Math.round(Math.max(r,Math.min(h-r,p.y+p.ny*insetPx)))};
-}
 // V-FIXEDZONES: a coordinate needs no distance on the map when the zone
 // touches a table edge or sits exactly on a central axis.
 function playZoneFreeCoord(v,dim,r){const t=DEPLOY_SCALE*0.3;return Math.abs(v-r)<=t||Math.abs(v-(dim-r))<=t||Math.abs(v-dim/2)<=t}
@@ -9306,7 +8309,6 @@ function questSkillTreeOptions(current){const m=new Map();const add=n=>{const k=
 function questScopeLabel(sc,en){if(questScopeEmpty(sc))return en?'Everyone':'Tout le monde';const opts=creatureScopeFactionOptions();const parts=[...(sc.races||[]).map(rc=>(en?'race ':'race ')+rc),...(sc.factions||[]).map(id=>opts.find(o=>o.id===id)?.name||id),...(sc.fighters||[]).map(e=>e.name)];return (en?'Exclusive: ':'Exclusif : ')+(parts.length>3?parts.slice(0,3).join(', ')+` +${parts.length-3}`:parts.join(', '))}
 let questScopeEdit=null;
 function questScopeTarget(){const e=questScopeEdit;const t=adminQuestDraft?.trees?.[e?.ti];if(!t)return null;return e.qi<0?t:t.quests?.[e.qi]}
-function openQuestScopeEditor(ti,qi){const t=adminQuestDraft?.trees?.[ti];const tgt=qi<0?t:t?.quests?.[qi];if(!tgt)return;questScopeEdit={ti,qi,draft:JSON.parse(JSON.stringify(tgt.scope||{factions:[],fighters:[]})),ignoreSkills:!!t.ignoreSkills,pick:questScopeEdit?.pick||''};renderQuestScopeEditor()}
 function questScopeRaceOptions(){const set=new Map();const add=v=>{v=String(v||'').replace(/^Race\s*\(\s*/i,'').replace(/\s*\)\s*$/,'').trim();if(v&&!set.has(normName(v)))set.set(normName(v),v)};(D.factions||[]).forEach(f=>(f.warriors||[]).forEach(w=>add(w.race)));try{hiredSwordRawList().forEach(w=>add(w.race))}catch(e){}(state.customFighters||[]).forEach(w=>add(w.race));return [...set.values()].sort((a,b)=>a.localeCompare(b))}
 function questScopeToggleRace(rc,on){const d=questScopeEdit.draft;d.races=(d.races||[]).filter(x=>normName(x)!==normName(rc));if(on)d.races.push(rc);renderQuestScopeEditor()}
 function renderQuestScopeEditor(){
@@ -9452,10 +8454,6 @@ function scenarioCategoryTagsMarkup(s,en,static_){
   return scenarioCategoriesOf(s).map(c=>`<span class="scn-cat-tag scn-cat-${esc(c)}"${static_?' style="position:static"':''}>${scenarioCategoryLabel(c,en)}</span>`).join('');
 }
 function scenarioTableSizeLabel(ts){return ts==='48x72'?'48" × 72"':'48" × 48"'}
-// Orientation-agnostic: the "long" table is stored landscape (w:72,h:48)
-// going forward, but this still matches any leftover legacy map stored the
-// old portrait way (w:48,h:72) — see mapShapesToLandscape.
-function scenarioTableSizeKey(sh){const ti=sh?.tableInches;return (ti&&Math.max(ti.w,ti.h)===72)?'48x72':'48x48'}
 
 // ============ V-MAPBUILDER2: flat-vector deployment maps ===================
 // Deployment cards are drawn as plain shapes (circles, rectangles, corner
@@ -9773,7 +8771,7 @@ function deploymentMapHandlesMarkupSafe(sh,opts){try{return mapBuilderHandlesMar
 // library tile, scenario editor's map-picker checkbox grid.
 function deploymentMapPreviewMarkup(m,opts){
   if(deploymentMapHasShapes(m))return deploymentMapCardSVG(m.shapes,opts&&opts.forceDims?{forceDims:true}:null);
-  return `<img src="${esc(m.image||'')}" alt="">`;
+  return `<img src="${esc(m.image||'')}" alt="" loading="lazy" decoding="async">`;
 }
 
 // ---- Map builder: toolbar + draggable/resizable canvas + side panel -------
@@ -9792,78 +8790,6 @@ let mapBuilderEdgeStripIn=12; // depth (in inches) the Edge strips quick-zone bu
 const MAP_BUILDER_MP_EDGE_DEFAULTS={2:['top','bottom'],3:['top','right','bottom'],4:['top','right','bottom','left']};
 const MAP_BUILDER_MP_COLOR_DEFAULTS=['accent','danger','info','wip'];
 let mapBuilderMPPlayers=MAP_BUILDER_MP_EDGE_DEFAULTS[2].map((edge,i)=>({edge,color:MAP_BUILDER_MP_COLOR_DEFAULTS[i],c1:1,c2:0}));
-function mapBuilderSetMPCount(n){
-  const edges=MAP_BUILDER_MP_EDGE_DEFAULTS[n]||MAP_BUILDER_MP_EDGE_DEFAULTS[2];
-  const prev=mapBuilderMPPlayers;
-  mapBuilderMPPlayers=edges.map((edge,i)=>prev[i]?{...prev[i],edge:prev[i].edge||edge}:{edge,color:MAP_BUILDER_MP_COLOR_DEFAULTS[i]||'accent',c1:1,c2:0});
-  render('admin');
-}
-function mapBuilderMPUpdate(i,field,value){
-  if(!mapBuilderMPPlayers[i])return;
-  mapBuilderMPPlayers[i][field]=value;
-  render('admin');
-}
-// Centers for N circles spaced along one edge of the table, inset from the
-// wall (so they sit just inside it, not overlapping) and from the corners
-// (so two players on adjacent edges don't collide). Consecutive centers are
-// at most 12" apart center-to-center — 3"+3" of radius plus the requested
-// 6" max gap between the circles' own edges — packed tighter only when the
-// edge is too short to fit that spacing.
-function mapBuilderMPCirclePositions(side,n,w,h){
-  if(n<=0)return[];
-  const inset=4*DEPLOY_SCALE,cornerMargin=5*DEPLOY_SCALE,spacingMax=12*DEPLOY_SCALE;
-  const vertical=side==='top'||side==='bottom';
-  const span=(vertical?w:h)-2*cornerMargin;
-  const mid=(vertical?w:h)/2;
-  const step=n>1?Math.min(spacingMax,span/(n-1)):0;
-  const start=mid-step*(n-1)/2;
-  const fixed=side==='top'?inset:side==='bottom'?h-inset:side==='left'?inset:w-inset;
-  const out=[];
-  for(let i=0;i<n;i++){
-    const along=start+step*i;
-    out.push(vertical?{cx:along,cy:fixed}:{cx:fixed,cy:along});
-  }
-  return out;
-}
-function mapBuilderGenerateMultiplayer(){
-  if(!adminMapBuilderData)return;
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const items=adminMapBuilderData.shapes.items;
-  const m=1*DEPLOY_SCALE;
-  const edgeLinePresets={
-    top:{x1:m,y1:m,x2:w-m,y2:m},bottom:{x1:m,y1:h-m,x2:w-m,y2:h-m},
-    left:{x1:m,y1:m,x2:m,y2:h-m},right:{x1:w-m,y1:m,x2:w-m,y2:h-m}
-  };
-  mapBuilderMPPlayers.forEach(p=>{
-    const ep=edgeLinePresets[p.edge];if(!ep)return;
-    items.push({type:'line',...ep,color:p.color,dash:false});
-    const positions=mapBuilderMPCirclePositions(p.edge,(p.c1||0)+(p.c2||0),w,h);
-    let pi=0;
-    for(let k=0;k<(p.c1||0);k++,pi++)items.push({type:'circle',cx:positions[pi].cx,cy:positions[pi].cy,r:MAP_BUILDER_ARRIVAL_RADIUS_IN*DEPLOY_SCALE,color:p.color,label:'',marker:'turn1'});
-    for(let k=0;k<(p.c2||0);k++,pi++)items.push({type:'circle',cx:positions[pi].cx,cy:positions[pi].cy,r:MAP_BUILDER_ARRIVAL_RADIUS_IN*DEPLOY_SCALE,color:p.color,label:'',marker:'turn2'});
-  });
-  mapBuilderSelectedIndex=-1;mapBuilderTool='select';
-  render('admin');
-}
-function blankMapBuilderDraft(){return {name:'',shapes:blankMapShapes()}}
-function openMapBuilder(id){
-  if(!id){adminMapBuilderId=null;adminMapBuilderData=blankMapBuilderDraft();mapBuilderSelectedIndex=-1;mapBuilderTool='select';render('admin');return}
-  const m=(DEPLOYMENT_MAPS_CACHE||[]).find(x=>x.id===id);
-  if(!m)return;
-  adminMapBuilderId=id;
-  const loadedShapes=deploymentMapHasShapes(m)?JSON.parse(JSON.stringify(m.shapes)):blankMapShapes();
-  // V-ARRIVALRADIUSFIX: arrival markers (①/②) are meant to always be a
-  // fixed 3" radius — self-heal any that drifted away from it (e.g. from
-  // an accidental drag on the (now removed) resize handle, before that
-  // handle was blocked for marker circles) the moment the map is opened.
-  (loadedShapes.items||[]).forEach(it=>{if(it.type==='circle'&&it.marker)it.r=MAP_BUILDER_ARRIVAL_RADIUS_IN*DEPLOY_SCALE;});
-  adminMapBuilderData={name:m.name||'',shapes:mapShapesToLandscape(loadedShapes)};
-  mapBuilderSelectedIndex=-1;mapBuilderTool='select';
-  render('admin');
-}
-function closeMapBuilder(){adminMapBuilderId=null;adminMapBuilderData=null;mapBuilderSelectedIndex=-1;mapBuilderDrag=null;render('admin')}
-function mapBuilderSetTool(t){mapBuilderTool=t;mapBuilderSelectedIndex=-1;render('admin')}
-function mapBuilderSetColor(c){mapBuilderColor=c;render('admin')}
 // Preserves which wall a coordinate is nearest to, and its exact inch
 // distance from that wall, across a table resize — e.g. a circle placed
 // 6" from the left and 8" from the top stays exactly 6"/8" from those
@@ -9921,347 +8847,7 @@ function deploymentMapResizeShapes(sh,w,h){
   });
   return next;
 }
-function mapBuilderSetTableSize(w,h){
-  adminMapBuilderData.shapes=deploymentMapResizeShapes(adminMapBuilderData.shapes,w,h);
-  render('admin');
-}
-// Snap to table center/quarter lines and to the table edges — within a ~0.8"
-// catch radius — so zones land exactly where they visually should instead
-// of a couple of pixels off. Always called before clamping to the table
-// bounds, which is what lets a drag that overshoots past the frame still
-// land exactly ON the edge (addresses "sortir de la zone avec ma souris
-// pour bien coller mes zones au bord du cadre").
-function mapBuilderSnap(v,max){
-  const catchPx=DEPLOY_SCALE*0.8;
-  const targets=[0,max*0.25,max*0.5,max*0.75,max];
-  for(const t of targets)if(Math.abs(v-t)<=catchPx)return t;
-  return v;
-}
-function mapBuilderClamp(v,max){return Math.max(-MAP_BUILDER_MARGIN_PX,Math.min(max+MAP_BUILDER_MARGIN_PX,v))}
-// A circle counts as "anchored" when it lands exactly on one of the
-// table-border snap points — a corner, an edge mid-point, or an edge
-// quarter-point (the same 0/25/50/75/100% targets mapBuilderSnap already
-// catches while dragging). An anchored circle is re-expressed as that SAME
-// fraction of the new table size on a table-format change, instead of the
-// fixed-inch wall-distance rule used for a freely-placed circle — so a
-// marker dropped in a corner, or at the middle/quarter of a border, stays
-// exactly there (proportionally upscaled) whatever table size is picked,
-// which is the whole point of pinning it to the border in the first place.
-// V-AXISANCHOR: an anchor is now PER AXIS, not just a border point — "les
-// ancres pourraient aussi être sur un axe (comme l'axe du milieu)". Either
-// fx or fy (or both) can be a locked fraction of the table; a null axis
-// just keeps the old fixed-inch wall-distance behavior for that axis alone.
-// A circle dropped exactly on the vertical center LINE (fx=0.5) but at some
-// unremarkable height stays glued to that center line — upscaled — on any
-// table-size change, even though its Y never matched a snap point.
-function mapBuilderCircleAnchor(cx,cy,w,h){
-  const fracs=[0,0.25,0.5,0.75,1],tol=DEPLOY_SCALE*0.2;
-  let fx=null,fy=null;
-  for(const f of fracs)if(Math.abs(cx-f*w)<=tol){fx=f;break}
-  for(const f of fracs)if(Math.abs(cy-f*h)<=tol){fy=f;break}
-  if(fx==null&&fy==null)return null;
-  return {fx,fy};
-}
-// V-ANCHORBUTTON: "je voudrai pouvoir ancrer des points avec un bouton" —
-// anchoring used to only happen by dragging a circle pixel-exact onto a
-// corner/mid-point/quarter-point (mapBuilderCircleAnchor, called from the
-// move-drag handler). This snaps the SELECTED circle to whichever of those
-// border points it's currently closest to, in one click, without needing a
-// precise drag — "ancrer de manière proportionnelle" still holds: it sets
-// the same {fx,fy} fraction mapBuilderCircleAnchor would, so the circle
-// stays locked to that same proportional spot (e.g. dead-center on the
-// mid-point axis) through any later table-size change, exactly like a
-// drag-anchored one already does.
-function mapBuilderAnchorSelected(){
-  if(!adminMapBuilderData||mapBuilderSelectedIndex<0)return;
-  const it=adminMapBuilderData.shapes.items[mapBuilderSelectedIndex];
-  if(!it||it.type!=='circle')return;
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const fracs=[0,0.25,0.5,0.75,1];
-  let best=null,bestDist=Infinity;
-  fracs.forEach(fx=>{
-    fracs.forEach(fy=>{
-      if(fx!==0&&fx!==1&&fy!==0&&fy!==1)return; // must sit on the table border itself
-      const tx=fx*w,ty=fy*h,d=Math.hypot(it.cx-tx,it.cy-ty);
-      if(d<bestDist){bestDist=d;best={fx,fy,tx,ty}}
-    });
-  });
-  if(!best)return;
-  it.cx=best.tx;it.cy=best.ty;it.anchor={fx:best.fx,fy:best.fy};
-  render('admin');
-}
-// V-AXISANCHOR: per-axis anchor control — "les ancres pourraient aussi être
-// sur un axe (comme l'axe du milieu)". Lets the admin lock just the X axis
-// (e.g. to 50% = the vertical center line) or just the Y axis, independent
-// of the other one, instead of only ever snapping both at once to a corner.
-// frac=null frees that axis back to the fixed-inch wall-distance rule.
-function mapBuilderSetAxisAnchor(axis,frac){
-  if(!adminMapBuilderData||mapBuilderSelectedIndex<0)return;
-  const it=adminMapBuilderData.shapes.items[mapBuilderSelectedIndex];
-  if(!it||it.type!=='circle')return;
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const cur=it.anchor||{fx:null,fy:null};
-  const next={fx:cur.fx,fy:cur.fy};
-  if(axis==='x'){next.fx=frac;if(frac!=null)it.cx=Math.round(frac*w);}
-  else{next.fy=frac;if(frac!=null)it.cy=Math.round(frac*h);}
-  it.anchor=(next.fx==null&&next.fy==null)?null:next;
-  render('admin');
-}
-// Per-axis quick-pick row for the anchor panel: Free + the 5 snap fracs,
-// highlighting whichever one (if any) this axis is currently locked to.
-function mapBuilderAxisAnchorButtons(sel,axis,en){
-  const cur=sel.anchor?(axis==='x'?sel.anchor.fx:sel.anchor.fy):null;
-  const opts=[{f:null,label:en?'Free':'Libre'},{f:0,label:'0%'},{f:0.25,label:'25%'},{f:0.5,label:en?'50% (center)':'50% (centre)'},{f:0.75,label:'75%'},{f:1,label:'100%'}];
-  return opts.map(o=>`<button type="button" class="button secondary ${cur===o.f?'active':''}" style="padding:4px 9px;font-size:10.5px;${cur===o.f?'border-color:var(--accent);color:var(--accent)':''}" onclick="mapBuilderSetAxisAnchor('${axis}',${o.f===null?'null':o.f})">${o.label}</button>`).join('');
-}
-function mapBuilderAnchorLabel(a,en){
-  if(!a||(a.fx==null&&a.fy==null))return '';
-  const pct=f=>`${Math.round(f*100)}%`;
-  if(a.fx!=null&&a.fy==null)return a.fx===0.5?(en?'Vertical center axis':'Axe central vertical'):(en?`X locked at ${pct(a.fx)}`:`X verrouillé à ${pct(a.fx)}`);
-  if(a.fy!=null&&a.fx==null)return a.fy===0.5?(en?'Horizontal center axis':'Axe central horizontal'):(en?`Y locked at ${pct(a.fy)}`:`Y verrouillé à ${pct(a.fy)}`);
-  const onX=a.fx===0||a.fx===1,onY=a.fy===0||a.fy===1;
-  if(onX&&onY)return en?'Corner':'Coin';
-  if(onX||onY){
-    const f=onX?a.fy:a.fx;
-    if(f===0.5)return en?'Edge mid-point':'Milieu de bord';
-    return en?'Edge quarter-point':'Quart de bord';
-  }
-  if(a.fx===0.5&&a.fy===0.5)return en?'Table center':'Centre de la table';
-  return en?`Point (${pct(a.fx)}, ${pct(a.fy)})`:`Point (${pct(a.fx)}, ${pct(a.fy)})`;
-}
-function mapBuilderLocalXY(evt){
-  const svg=document.getElementById('mapBuilderCanvas');if(!svg||!adminMapBuilderData)return [0,0];
-  const rect=svg.getBoundingClientRect();if(!rect.width||!rect.height)return [0,0];
-  const sh=adminMapBuilderData.shapes;
-  const {w,h}=deploymentMapPx(sh);
-  const m=MAP_BUILDER_MARGIN_PX;
-  if(deploymentMapRotated(sh)){
-    // Canvas is displayed rotated 90° (viewBox is h×w, offset by -m -m to
-    // show the margin strip — see deploymentMapCardSVG) — map the screen
-    // point into that viewBox, then invert the rotation back to real
-    // table-inch coordinates (see deploymentMapCardSVG for the forward map).
-    const sx=(evt.clientX-rect.left)/rect.width*(h+2*m)-m;
-    const sy=(evt.clientY-rect.top)/rect.height*(w+2*m)-m;
-    return [sy,h-sx];
-  }
-  const x=(evt.clientX-rect.left)/rect.width*(w+2*m)-m;
-  const y=(evt.clientY-rect.top)/rect.height*(h+2*m)-m;
-  return [x,y];
-}
-function mapBuilderUpdateCoordReadout(x,y){
-  const el=document.getElementById('mbCoord');if(!el||!adminMapBuilderData)return;
-  el.textContent=`X: ${deployInches(x)}"  Y: ${deployInches(y)}"`;
-}
-function mapBuilderItemDown(evt,i){
-  if(mapBuilderTool!=='select')return; // let it bubble to the canvas so a new shape can be drawn on top
-  evt.stopPropagation();
-  mapBuilderSelectedIndex=i;
-  const it=adminMapBuilderData.shapes.items[i];
-  const [x,y]=mapBuilderLocalXY(evt);
-  if(it.type==='tri'){render('admin');return} // anchored to its corner — resize only, no move
-  if(it.type==='line'){mapBuilderDrag={mode:'move-line',index:i,ox:x-it.x1,oy:y-it.y1,dx:it.x2-it.x1,dy:it.y2-it.y1};}
-  else if(it.cx!=null){mapBuilderDrag={mode:'move-point',index:i,ox:x-it.cx,oy:y-it.cy};}
-  else if(it.x!=null){mapBuilderDrag={mode:'move-rect',index:i,ox:x-it.x,oy:y-it.y};}
-  render('admin');
-}
-function mapBuilderHandleDown(evt,handle){
-  mapBuilderDrag={mode:'resize',handle,index:mapBuilderSelectedIndex};
-}
-function mapBuilderCanvasDown(evt){
-  if(!adminMapBuilderData)return;
-  const [x,y]=mapBuilderLocalXY(evt);
-  const items=adminMapBuilderData.shapes.items;
-  const tool=mapBuilderTool;
-  if(tool==='select')return;
-  if(tool==='circle'){items.push({type:'circle',cx:x,cy:y,r:1,color:mapBuilderColor,label:''});mapBuilderDrag={mode:'resize',handle:'r',index:items.length-1};}
-  else if(tool==='rect'){items.push({type:'rect',x,y,w:1,h:1,color:mapBuilderColor,label:''});mapBuilderDrag={mode:'resize',handle:'se',index:items.length-1};}
-  else if(tool.startsWith('tri-')){items.push({type:'tri',corner:tool.slice(4),size:1,color:mapBuilderColor,label:''});mapBuilderDrag={mode:'resize',handle:'size',index:items.length-1};}
-  else if(tool==='line'){items.push({type:'line',x1:x,y1:y,x2:x,y2:y,color:mapBuilderColor,dash:false});mapBuilderDrag={mode:'resize',handle:'p2',index:items.length-1};}
-  else if(tool==='token'){items.push({type:'token',cx:x,cy:y,color:mapBuilderColor,label:'',number:'',icon:'dot'});mapBuilderSelectedIndex=items.length-1;mapBuilderTool='select';render('admin');return;}
-  else if(tool==='arrival1'||tool==='arrival2'){items.push({type:'circle',cx:x,cy:y,r:MAP_BUILDER_ARRIVAL_RADIUS_IN*DEPLOY_SCALE,color:mapBuilderColor,label:'',marker:tool==='arrival1'?'turn1':'turn2'});mapBuilderSelectedIndex=items.length-1;mapBuilderTool='select';render('admin');return;}
-  else if(tool==='text'){items.push({type:'text',x,y,text:'Label',color:mapBuilderColor,size:11});mapBuilderSelectedIndex=items.length-1;mapBuilderTool='select';render('admin');return;}
-  // Switch back to Select right away (the in-progress resize drag only
-  // depends on mapBuilderDrag, never on the active tool, so this is safe
-  // mid-drag) — otherwise the very next click on the canvas draws ANOTHER
-  // shape instead of grabbing the one just placed, which made a freshly
-  // drawn circle/rect/triangle/line impossible to reposition afterwards.
-  mapBuilderSelectedIndex=items.length-1;
-  mapBuilderTool='select';
-  render('admin');
-}
 let __mapBuilderMoveQueued=false;
-function mapBuilderDocMove(evt){
-  if(!adminMapBuilderData)return;
-  const [x,y]=mapBuilderLocalXY(evt);
-  mapBuilderUpdateCoordReadout(x,y);
-  if(!mapBuilderDrag)return;
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const it=adminMapBuilderData.shapes.items[mapBuilderDrag.index];if(!it)return;
-  const d=mapBuilderDrag;
-  const snapClampX=v=>mapBuilderClamp(mapBuilderSnap(v,w),w);
-  const snapClampY=v=>mapBuilderClamp(mapBuilderSnap(v,h),h);
-  if(d.mode==='move-point'){it.cx=snapClampX(x-d.ox);it.cy=snapClampY(y-d.oy);if(it.type==='circle')it.anchor=mapBuilderCircleAnchor(it.cx,it.cy,w,h);}
-  else if(d.mode==='move-rect'){it.x=mapBuilderClamp(mapBuilderSnap(x-d.ox,w),w-it.w);it.y=mapBuilderClamp(mapBuilderSnap(y-d.oy,h),h-it.h);}
-  else if(d.mode==='move-line'){const nx1=snapClampX(x-d.ox),ny1=snapClampY(y-d.oy);it.x1=nx1;it.y1=ny1;it.x2=mapBuilderClamp(nx1+d.dx,w);it.y2=mapBuilderClamp(ny1+d.dy,h);}
-  else if(d.mode==='resize'){
-    if(d.handle==='r'&&!it.marker)it.r=Math.max(4,Math.round(Math.hypot(snapClampX(x)-it.cx,snapClampY(y)-it.cy)));
-    else if(d.handle==='se'){it.w=Math.max(4,snapClampX(x)-it.x);it.h=Math.max(4,snapClampY(y)-it.y);}
-    else if(d.handle==='size'){const dx=it.corner==='nw'||it.corner==='sw'?snapClampX(x):w-snapClampX(x),dy=it.corner==='nw'||it.corner==='ne'?snapClampY(y):h-snapClampY(y);it.size=Math.max(4,Math.round(Math.max(dx,dy)));}
-    else if(d.handle==='p1'){it.x1=snapClampX(x);it.y1=snapClampY(y);}
-    else if(d.handle==='p2'){it.x2=snapClampX(x);it.y2=snapClampY(y);}
-  }
-  if(__mapBuilderMoveQueued)return;
-  __mapBuilderMoveQueued=true;
-  requestAnimationFrame(()=>{__mapBuilderMoveQueued=false;if(mapBuilderDrag)render('admin')});
-}
-function mapBuilderDocUp(){if(mapBuilderDrag){mapBuilderDrag=null;render('admin')}}
-function mapBuilderSelectItem(i){mapBuilderSelectedIndex=i;mapBuilderTool='select';render('admin')}
-function mapBuilderDeleteSelected(){
-  if(!adminMapBuilderData||mapBuilderSelectedIndex<0)return;
-  mapBuilderDeleteItem(mapBuilderSelectedIndex);
-}
-function mapBuilderDeleteItem(i){
-  if(!adminMapBuilderData)return;
-  adminMapBuilderData.shapes.items.splice(i,1);
-  if(mapBuilderSelectedIndex===i)mapBuilderSelectedIndex=-1;
-  else if(mapBuilderSelectedIndex>i)mapBuilderSelectedIndex--;
-  render('admin');
-}
-function mapBuilderUpdateSelected(field,value){
-  const it=adminMapBuilderData?.shapes?.items?.[mapBuilderSelectedIndex];if(!it)return;
-  it[field]=value;render('admin');
-}
-// The inches value shown next to each "Wall distance shown" toggle, mirroring
-// exactly what mapBuilderDimensionsMarkup would draw for that axis — same
-// flush-wall branching — so typing a number there moves/resizes the shape
-// consistently with what the dimension arrow on the canvas represents.
-function mapBuilderCurrentDistIn(it,axis,w,h){
-  const EPS=2;
-  if(it.type==='circle'){
-    if(axis==='x'){const nearX=(it.cx<=w/2)?0:w;return Math.abs(it.cx-nearX)/DEPLOY_SCALE;}
-    const nearY=(it.cy<=h/2)?0:h;return Math.abs(it.cy-nearY)/DEPLOY_SCALE;
-  }
-  if(it.type==='rect'){
-    if(axis==='x'){
-      const flushL=it.x<=EPS,flushR=(w-(it.x+it.w))<=EPS;
-      if(flushL)return (it.x+it.w)/DEPLOY_SCALE;
-      if(flushR)return (w-it.x)/DEPLOY_SCALE;
-      const cx=it.x+it.w/2,nearX=(cx<=w/2)?0:w;return Math.abs(cx-nearX)/DEPLOY_SCALE;
-    }
-    const flushT=it.y<=EPS,flushB=(h-(it.y+it.h))<=EPS;
-    if(flushT)return (it.y+it.h)/DEPLOY_SCALE;
-    if(flushB)return (h-it.y)/DEPLOY_SCALE;
-    const cy=it.y+it.h/2,nearY=(cy<=h/2)?0:h;return Math.abs(cy-nearY)/DEPLOY_SCALE;
-  }
-  return 0;
-}
-// Typing a distance moves (free-floating shape) or resizes (wall-flush
-// strip) the selected shape so the reading matches what was typed — the
-// inverse of mapBuilderCurrentDistIn's branching.
-function mapBuilderSetDist(axis,v){
-  const it=adminMapBuilderData?.shapes?.items?.[mapBuilderSelectedIndex];if(!it)return;
-  const inches=Number(v);if(!Number.isFinite(inches)||inches<0)return;
-  const d=inches*DEPLOY_SCALE,EPS=2;
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  if(it.type==='circle'){
-    // Typing an explicit distance is a deliberate switch back to "fixed wall
-    // distance" mode for THIS AXIS ONLY — otherwise the next table-size
-    // change would snap it back to an old anchor instead of honoring the
-    // distance just typed. The other axis's anchor (e.g. a 50% X lock) must
-    // survive untouched, so this only ever clears fx or fy individually,
-    // never the whole anchor object outright.
-    if(axis==='x'){
-      const nearX=(it.cx<=w/2)?0:w;it.cx=nearX===0?d:w-d;
-      if(it.anchor){const fy=it.anchor.fy;it.anchor=fy==null?null:{fx:null,fy};}
-    } else {
-      const nearY=(it.cy<=h/2)?0:h;it.cy=nearY===0?d:h-d;
-      if(it.anchor){const fx=it.anchor.fx;it.anchor=fx==null?null:{fx,fy:null};}
-    }
-  } else if(it.type==='rect'){
-    if(axis==='x'){
-      const flushL=it.x<=EPS,flushR=(w-(it.x+it.w))<=EPS;
-      if(flushL&&!flushR)it.w=Math.max(DEPLOY_SCALE,d-it.x);
-      else if(flushR&&!flushL){it.x=w-d;it.w=d;}
-      else{const cx=it.x+it.w/2,nearX=(cx<=w/2)?0:w,newCx=nearX===0?d:w-d;it.x=newCx-it.w/2;}
-    } else {
-      const flushT=it.y<=EPS,flushB=(h-(it.y+it.h))<=EPS;
-      if(flushT&&!flushB)it.h=Math.max(DEPLOY_SCALE,d-it.y);
-      else if(flushB&&!flushT){it.y=h-d;it.h=d;}
-      else{const cy=it.y+it.h/2,nearY=(cy<=h/2)?0:h,newCy=nearY===0?d:h-d;it.y=newCy-it.h/2;}
-    }
-  }
-  render('admin');
-}
-// Quick presets: a full table-edge rectangle ("Half" / "Edge strip") or a
-// full-span divider line — the fast path for "bords de rectangle entier
-// comme Zone, [ou] la ligne" instead of hand-dragging to the exact edge.
-function mapBuilderSetEdgeStrip(v){
-  const n=Math.max(1,Math.min(48,Number(v)||12));
-  mapBuilderEdgeStripIn=n;
-}
-function mapBuilderQuickZone(kind){
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const items=adminMapBuilderData.shapes.items;
-  const strip=(mapBuilderEdgeStripIn||12)*DEPLOY_SCALE;
-  const presets={
-    'half-top':{x:0,y:0,w,h:h/2},'half-bottom':{x:0,y:h/2,w,h:h/2},
-    'half-left':{x:0,y:0,w:w/2,h},'half-right':{x:w/2,y:0,w:w/2,h},
-    'edge-n':{x:0,y:0,w,h:strip},'edge-s':{x:0,y:h-strip,w,h:strip},
-    'edge-w':{x:0,y:0,w:strip,h},'edge-e':{x:w-strip,y:0,w:strip,h}
-  };
-  const p=presets[kind];if(!p)return;
-  items.push({type:'rect',...p,color:mapBuilderColor,label:''});
-  mapBuilderSelectedIndex=items.length-1;mapBuilderTool='select';render('admin');
-}
-function mapBuilderQuickDivider(axis){
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const items=adminMapBuilderData.shapes.items;
-  const it=axis==='h'?{type:'line',x1:0,y1:h/2,x2:w,y2:h/2,color:mapBuilderColor,dash:false}:{type:'line',x1:w/2,y1:0,x2:w/2,y2:h,color:mapBuilderColor,dash:false};
-  items.push(it);
-  mapBuilderSelectedIndex=items.length-1;mapBuilderTool='select';render('admin');
-}
-// A whole table edge turned straight into a Zone line, inset by a small
-// margin so it sits just inside the frame instead of exactly on top of
-// it (otherwise it's hard to see and hard to click/select afterwards).
-function mapBuilderQuickEdgeLine(side){
-  const {w,h}=deploymentMapPx(adminMapBuilderData.shapes);
-  const items=adminMapBuilderData.shapes.items;
-  const m=1*DEPLOY_SCALE; // 1" inward margin
-  const presets={
-    top:{x1:m,y1:m,x2:w-m,y2:m},
-    bottom:{x1:m,y1:h-m,x2:w-m,y2:h-m},
-    left:{x1:m,y1:m,x2:m,y2:h-m},
-    right:{x1:w-m,y1:m,x2:w-m,y2:h-m}
-  };
-  const p=presets[side];if(!p)return;
-  items.push({type:'line',...p,color:mapBuilderColor,dash:false});
-  mapBuilderSelectedIndex=items.length-1;mapBuilderTool='select';render('admin');
-}
-async function saveMapBuilder(){
-  const en=siteLanguage==='en';
-  const name=(adminMapBuilderData.name||document.getElementById('mbName')?.value||'').trim();
-  if(!name){toast(en?'Give the map a name':'Donne un nom à la carte');return}
-  if(!adminMapBuilderData.shapes.items.length){toast(en?'Add at least one shape':'Ajoute au moins une forme');return}
-  const body={name,shapes:adminMapBuilderData.shapes};
-  try{
-    if(adminMapBuilderId)await window.MordheimundaAPI.adminUpdateDeploymentMap(adminMapBuilderId,body);
-    else await window.MordheimundaAPI.adminCreateDeploymentMap(body);
-    toast(en?'Map saved':'Carte enregistrée');
-    await loadDeploymentMaps();
-    closeMapBuilder();
-  }catch(e){toast(en?'Save failed':'Échec de l’enregistrement');}
-}
-function bindMapBuilderStage(){
-  // Bound once, at document level, for the lifetime of the page — not just
-  // on the canvas element — so a drag keeps tracking the mouse (and a
-  // zone/line can be pulled exactly to the table edge) even when the
-  // cursor briefly leaves the SVG while moving fast, and so the release
-  // always ends the drag no matter where the mouse is at the time.
-  if(window.__mapBuilderDocBound)return;
-  window.__mapBuilderDocBound=true;
-  document.addEventListener('mousemove',mapBuilderDocMove);
-  document.addEventListener('mouseup',mapBuilderDocUp);
-}
 const MAP_BUILDER_TOOLS=[
   {id:'select',icon:'⟲',label:{en:'Select / Move',fr:'Sélection / Déplacer'}},
   {id:'circle',icon:'◯',label:{en:'Round zone',fr:'Zone ronde'}},
@@ -10285,113 +8871,10 @@ const MAP_BUILDER_TOOLS=[
 // the marker can never drift off-center when the circle is later dragged or
 // resized, with zero extra drag-sync code needed.
 const MAP_BUILDER_ARRIVAL_RADIUS_IN=3;
-function mapBuilderPanel(){
-  const en=siteLanguage==='en';
-  const sh=adminMapBuilderData.shapes;
-  const {w:pxW0,h:pxH0}=deploymentMapPx(sh);
-  const rot=deploymentMapRotated(sh);
-  const pxW=rot?pxH0:pxW0,pxH=rot?pxW0:pxH0;
-  const sel=mapBuilderSelectedIndex>=0?sh.items[mapBuilderSelectedIndex]:null;
-  // V-BUILDERCOMPACT: "je dois remonter souvent" — at the old 760px width
-  // the columns (toolbar+canvas on the left, selected-shape/all-shapes panel
-  // on the right) almost never fit side by side on an ordinary window, so
-  // the right column wrapped below the canvas and every trip to a toolbar
-  // button meant scrolling back up past the whole canvas. position:sticky
-  // was tried first but glitched (overlaid other content while scrolling),
-  // so instead the toolbar+palette moved into their own narrow sidebar
-  // column (to the LEFT of the canvas, not stacked above it) — using the
-  // screen's width instead of its height — which is what actually frees up
-  // the vertical room for the canvas and the right panel to sit side by
-  // side without wrapping.
-  const dispW=680,dispH=Math.round(dispW*(pxH+2*MAP_BUILDER_MARGIN_PX)/(pxW+2*MAP_BUILDER_MARGIN_PX));
-  return `<div class="admin-page">
-   <div class="page-intro"><div><div class="eyebrow">ADMIN / DEPLOYMENT MAPS</div><h2>${adminMapBuilderId?(en?'Edit map':'Modifier la carte'):(en?'New map':'Nouvelle carte')}</h2></div>
-     <div style="display:flex;gap:8px"><button type="button" class="button secondary" onclick="closeMapBuilder()">${en?'Cancel':'Annuler'}</button><button type="button" class="dash-btn-primary" onclick="saveMapBuilder()">✓ ${en?'Save':'Enregistrer'}</button></div>
-   </div>
-   <div class="scn-row2" style="max-width:600px">
-     <div class="scn-field"><label>${en?'Map name':'Nom de la carte'}</label><input id="mbName" value="${esc(adminMapBuilderData.name)}" placeholder="${en?'e.g. Opposite Corners':'ex. Coins opposés'}" oninput="if(adminMapBuilderData)adminMapBuilderData.name=this.value"></div>
-     <div class="scn-field"><label>${en?'Table size':'Taille de la table'}</label><div style="display:flex;gap:6px">${DEPLOY_TABLE_SIZES.map(t=>`<button type="button" class="button secondary ${sh.tableInches.w===t.w&&sh.tableInches.h===t.h?'active':''}" style="${sh.tableInches.w===t.w&&sh.tableInches.h===t.h?'border-color:var(--accent);color:var(--accent)':''}" onclick="mapBuilderSetTableSize(${t.w},${t.h})">${t.w}"×${t.h}"</button>`).join('')}</div></div>
-   </div>
-   <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-     <div style="flex:0 0 auto;width:84px">
-       <div class="map-builder-toolbar" style="max-width:none">${MAP_BUILDER_TOOLS.map(t=>`<button type="button" class="map-builder-tool ${mapBuilderTool===t.id?'active':''}" title="${esc(en?t.label.en:t.label.fr)}" onclick="mapBuilderSetTool('${t.id}')">${t.icon}</button>`).join('')}</div>
-       <div class="map-builder-palette" style="max-width:none">${DEPLOY_PALETTE_KEYS.map(k=>`<button type="button" class="map-builder-swatch ${mapBuilderColor===k?'active':''}" style="background:${DEPLOY_PALETTE[k]}" title="${k}" onclick="mapBuilderSetColor('${k}')"></button>`).join('')}</div>
-     </div>
-     <div style="flex:0 0 auto">
-       <div class="map-builder-quickrow">
-         <span class="map-builder-quicklabel">${en?'Quick zones:':'Zones rapides :'}</span>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('half-top')">${en?'Top half':'Moitié haut'}</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('half-bottom')">${en?'Bottom half':'Moitié bas'}</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('half-left')">${en?'Left half':'Moitié gauche'}</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('half-right')">${en?'Right half':'Moitié droite'}</button>
-       </div>
-       <div class="map-builder-quickrow">
-         <span class="map-builder-quicklabel">${en?'Edge strips, depth:':'Bandes de bord, profondeur :'}</span>
-         <input type="number" min="1" max="48" step="1" value="${mapBuilderEdgeStripIn}" oninput="mapBuilderSetEdgeStrip(this.value)" style="width:48px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:5px 6px;font-size:12px;font-family:'IBM Plex Mono',monospace">
-         <span class="map-builder-quicklabel">"</span>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('edge-n')">N</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('edge-s')">S</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('edge-w')">W</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickZone('edge-e')">E</button>
-         <span class="map-builder-quicklabel" style="margin-left:10px">${en?'Divider:':'Ligne de partage :'}</span>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickDivider('h')">↔</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickDivider('v')">↕</button>
-       </div>
-       <div class="map-builder-quickrow">
-         <span class="map-builder-quicklabel">${en?'Edge as line (zone border):':'Bord en ligne (zone) :'}</span>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickEdgeLine('top')">${en?'Top':'Haut'}</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickEdgeLine('bottom')">${en?'Bottom':'Bas'}</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickEdgeLine('left')">${en?'Left':'Gauche'}</button>
-         <button type="button" class="button secondary" onclick="mapBuilderQuickEdgeLine('right')">${en?'Right':'Droite'}</button>
-       </div>
-       <div class="map-builder-quickrow map-builder-mp" style="flex-direction:column;align-items:stretch;gap:7px">
-         <div style="display:flex;align-items:center;gap:8px">
-           <span class="map-builder-quicklabel">${en?'Multiplayer setup:':'Config. multijoueur :'}</span>
-           <select onchange="mapBuilderSetMPCount(Number(this.value))" style="background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:5px 7px;font-size:11.5px">
-             ${[2,3,4].map(n=>`<option value="${n}" ${mapBuilderMPPlayers.length===n?'selected':''}>${n} ${en?'players':'joueurs'}</option>`).join('')}
-           </select>
-         </div>
-         ${mapBuilderMPPlayers.map((p,i)=>`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-           <span style="font:800 10px 'IBM Plex Sans';color:${DEPLOY_PALETTE[p.color]};min-width:22px">P${i+1}</span>
-           <select onchange="mapBuilderMPUpdate(${i},'edge',this.value)" style="background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:4px 6px;font-size:11px">
-             ${['top','bottom','left','right'].map(e=>`<option value="${e}" ${p.edge===e?'selected':''}>${en?e:{top:'Haut',bottom:'Bas',left:'Gauche',right:'Droite'}[e]}</option>`).join('')}
-           </select>
-           <div class="map-builder-palette">${DEPLOY_PALETTE_KEYS.map(k=>`<button type="button" class="map-builder-swatch ${p.color===k?'active':''}" style="background:${DEPLOY_PALETTE[k]}" title="${k}" onclick="mapBuilderMPUpdate(${i},'color','${k}')"></button>`).join('')}</div>
-           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted2)">① <input type="number" min="0" max="2" value="${p.c1}" style="width:40px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:4px" oninput="mapBuilderMPUpdate(${i},'c1',Math.max(0,Math.min(2,Number(this.value)||0)))"></label>
-           <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted2)">② <input type="number" min="0" max="2" value="${p.c2}" style="width:40px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:4px" oninput="mapBuilderMPUpdate(${i},'c2',Math.max(0,Math.min(2,Number(this.value)||0)))"></label>
-         </div>`).join('')}
-         <div><button type="button" class="button primary" onclick="mapBuilderGenerateMultiplayer()">⚡ ${en?'Generate':'Générer'}</button> <span class="muted" style="font-size:10.5px">${en?'Adds each player\'s edge line + arrival circles, in their color — run it again any time.':'Ajoute la ligne de bord + les cercles d’arrivée de chaque joueur, dans sa couleur — à relancer à volonté.'}</span></div>
-       </div>
-       <div class="map-builder-canvas-wrap" style="width:${dispW}px;height:${dispH}px">${deploymentMapCardSVG(sh,{id:'mapBuilderCanvas',interactive:true,selectedIndex:mapBuilderSelectedIndex})}</div>
-       <div id="mbCoord" class="map-builder-coord">X: —  Y: —</div>
-       <p class="muted" style="font-size:11.5px;margin-top:4px">${en?'Pick a tool, click (or click-drag) on the table. In Select, drag a shape to move it, or drag its white handle to resize. Shapes snap to the center/quarter lines and the table edges.':'Choisis un outil, clique (ou clique-glisse) sur la table. En Sélection, glisse une forme pour la déplacer, ou sa poignée blanche pour la redimensionner. Les formes s’accrochent au centre, aux quarts et aux bords.'}</p>
-     </div>
-     <div style="flex:1;min-width:260px">
-       ${sel?`<div class="card admin-card">
-         <div class="eyebrow">${en?'SELECTED SHAPE':'FORME SÉLECTIONNÉE'} · ${sel.type.toUpperCase()}${deploymentMapItemSizeLabel(sel)?` · ${esc(deploymentMapItemSizeLabel(sel))}`:''}</div>
-         <div class="scn-field"><label>${en?'Label':'Libellé'}</label><input value="${esc(sel.label||sel.text||'')}" oninput="mapBuilderUpdateSelected('${sel.type==='text'?'text':'label'}',this.value)"></div>
-         ${sel.type==='token'?`<div class="scn-field"><label>${en?'Icon':'Icône'}</label><div class="map-builder-icons">${DEPLOY_TOKEN_ICONS.map(ic=>`<button type="button" class="map-builder-icon-btn ${sel.icon===ic.key?'active':''}" onclick="mapBuilderUpdateSelected('icon','${ic.key}')">${ic.glyph}</button>`).join('')}</div></div><div class="scn-field"><label>${en?'Number':'Numéro'}</label><input value="${esc(sel.number||'')}" oninput="mapBuilderUpdateSelected('number',this.value)"></div>`:''}
-         ${sel.type==='circle'?`<div class="scn-field"><label>${en?'Arrival marker':'Marqueur d’arrivée'}</label><div class="map-builder-icons"><button type="button" class="map-builder-icon-btn ${!sel.marker?'active':''}" title="${en?'None':'Aucun'}" onclick="mapBuilderUpdateSelected('marker','')">—</button><button type="button" class="map-builder-icon-btn ${sel.marker==='turn1'?'active':''}" onclick="mapBuilderUpdateSelected('marker','turn1')">①</button><button type="button" class="map-builder-icon-btn ${sel.marker==='turn2'?'active':''}" onclick="mapBuilderUpdateSelected('marker','turn2')">②</button></div></div>`:''}
-         ${sel.type==='circle'?`<div class="scn-field"><label>${en?'Border anchor':'Point d’ancrage'}</label><p class="muted" style="margin:0 0 6px;font-size:10.5px">${en?'Lock either axis independently — e.g. just the vertical center line — and it stays exactly there (proportionally upscaled) on any table-size change. A free axis keeps a fixed wall distance.':'Verrouille chaque axe indépendamment — par ex. juste l’axe vertical du centre — il y reste exactement (upscalé proportionnellement) à tout changement de format. Un axe libre garde une distance fixe au mur.'}</p><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="${sel.anchor?'chip':'muted'}" style="font-size:10.5px">${sel.anchor?'📍 '+mapBuilderAnchorLabel(sel.anchor,en):(en?'Not anchored — fixed wall distance':'Non ancré — distance fixe au mur')}</span>${!(sel.anchor&&sel.anchor.fx!=null&&sel.anchor.fy!=null)?`<button type="button" class="button secondary" style="padding:4px 10px;font-size:10.5px" onclick="mapBuilderAnchorSelected()">📍 ${en?'Anchor to nearest point':'Ancrer au point le plus proche'}</button>`:''}${sel.anchor?`<button type="button" class="button secondary" style="padding:4px 10px;font-size:10.5px" onclick="mapBuilderUpdateSelected('anchor',null)">${en?'Unpin all':'Tout libérer'}</button>`:''}</div><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:10.5px;width:14px">X</span>${mapBuilderAxisAnchorButtons(sel,'x',en)}</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="muted" style="font-size:10.5px;width:14px">Y</span>${mapBuilderAxisAnchorButtons(sel,'y',en)}</div></div></div>`:''}
-         ${sel.type==='text'?`<div class="scn-field"><label>${en?'Size':'Taille'}</label><input type="number" min="8" max="28" value="${sel.size||11}" oninput="mapBuilderUpdateSelected('size',Number(this.value)||11)"></div>`:''}
-         ${sel.type==='line'?`<label class="theme-toggle-row"><span>${en?'Dashed':'Pointillés'}</span><span class="theme-switch"><input type="checkbox" ${sel.dash?'checked':''} onchange="mapBuilderUpdateSelected('dash',this.checked)"><i>╌</i></span></label>`:''}
-         ${(sel.type==='circle'||sel.type==='rect')?`<div class="scn-field"><label>${en?'Wall distance shown':'Distance au bord affichée'}</label><p class="muted" style="margin:0 0 6px;font-size:10.5px">${en?'Turn off an axis when a zone is placed dead-center on it, so the number (which depends on the table size) isn\'t shown at all. Type a value to move (or resize, for an edge strip) the shape to that exact distance.':'Désactive un axe quand la zone est placée pile au centre sur cet axe, pour que le chiffre (qui dépend de la taille de table) ne s’affiche pas du tout. Tape une valeur pour déplacer (ou redimensionner, pour une bande de bord) la forme à cette distance exacte.'}</p><div class="theme-toggle-row" style="cursor:default"><span>X</span><input type="number" min="0" step="0.5" id="mbDistX" value="${mapBuilderCurrentDistIn(sel,'x',pxW0,pxH0).toFixed(1).replace(/\.0$/,'')}" style="width:56px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:4px 6px;font-size:11.5px;margin-right:8px" oninput="mapBuilderSetDist('x',this.value)"><label class="theme-switch"><input type="checkbox" ${sel.noDimX?'':'checked'} onchange="mapBuilderUpdateSelected('noDimX',!this.checked)"><i></i></label></div><div class="theme-toggle-row" style="cursor:default"><span>Y</span><input type="number" min="0" step="0.5" id="mbDistY" value="${mapBuilderCurrentDistIn(sel,'y',pxW0,pxH0).toFixed(1).replace(/\.0$/,'')}" style="width:56px;background:var(--bg);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:4px 6px;font-size:11.5px;margin-right:8px" oninput="mapBuilderSetDist('y',this.value)"><label class="theme-switch"><input type="checkbox" ${sel.noDimY?'':'checked'} onchange="mapBuilderUpdateSelected('noDimY',!this.checked)"><i></i></label></div></div>`:''}
-         ${sel.type==='circle'?`<label class="theme-toggle-row"><span>${en?'Show circle':'Afficher le cercle'}</span><span class="theme-switch"><input type="checkbox" ${sel.noCircle?'':'checked'} onchange="mapBuilderUpdateSelected('noCircle',!this.checked)"><i></i></span></label><p class="muted" style="margin:0 0 10px;font-size:10.5px">${en?'Turn off to show just the arrival marker, with no circle outline — e.g. for a marker without a drawn zone.':'Désactive pour n’afficher que le marqueur d’arrivée, sans le contour du cercle — par ex. pour un marqueur sans zone dessinée.'}</p>`:''}
-         <div class="scn-field"><label>${en?'Color':'Couleur'}</label><div class="map-builder-palette">${DEPLOY_PALETTE_KEYS.map(k=>`<button type="button" class="map-builder-swatch ${sel.color===k?'active':''}" style="background:${DEPLOY_PALETTE[k]}" title="${k}" onclick="mapBuilderUpdateSelected('color','${k}')"></button>`).join('')}</div></div>
-         <button type="button" class="equipment-action remove" onclick="mapBuilderDeleteSelected()">🗑 ${en?'Delete this shape':'Supprimer cette forme'}</button>
-       </div>`:`<div class="empty compact">${en?'Nothing selected. Draw a shape with the tools on the left, or switch to Select and click one.':'Rien de sélectionné. Dessine une forme avec les outils à gauche, ou passe en Sélection et clique sur l’une d’elles.'}</div>`}
-       <div class="card admin-card" style="margin-top:12px">
-         <div class="eyebrow">${en?'ALL SHAPES':'TOUTES LES FORMES'} (${sh.items.length})</div>
-         ${sh.items.length?`<div class="custom-item-list">${sh.items.map((it,i)=>`<article class="custom-item-row ${i===mapBuilderSelectedIndex?'is-active':''}" style="cursor:pointer" onclick="mapBuilderSelectItem(${i})"><div class="custom-item-main"><div><strong>${esc(it.type)}</strong><small>${esc(it.label||it.text||'')} · ${esc(deploymentMapItemSizeLabel(it))}</small></div></div><div class="custom-item-actions"><button type="button" class="equipment-action remove" onclick="event.stopPropagation();mapBuilderDeleteItem(${i})">🗑</button></div></article>`).join('')}</div>`:''}
-       </div>
-     </div>
-   </div>
-  </div>`;
-}
 function scenarioCardMarkup(s,en){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   return `<a href="/rules/scenarios/${encodeURIComponent(s.id)}" data-app-route="1" class="scn-card">
-    <div class="scn-card-banner">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="">`:'🗺'}<div style="display:flex;gap:4px;flex-wrap:wrap;position:absolute;top:8px;right:8px">${scenarioCategoryTagsMarkup(s,en,true)}</div></div>
+    <div class="scn-card-banner">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async">`:'🗺'}<div style="display:flex;gap:4px;flex-wrap:wrap;position:absolute;top:8px;right:8px">${scenarioCategoryTagsMarkup(s,en,true)}</div></div>
     <div class="scn-card-body"><h4>${esc(s.name)}</h4><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">👥 ${bandsCount}</span>${s.campaignSeries?.seriesName?`<span class="chip">${esc(s.campaignSeries.seriesName)} ${esc(s.campaignSeries.position||'')}</span>`:''}</div></div>
   </a>`;
 }
@@ -10523,16 +9006,6 @@ function blankScenarioDraft(){
     thumbnail:'',thumbnailFocus:null};
 }
 let adminScenarioEditId=null,adminScenarioEditData=null;
-async function openScenarioEditor(id){
-  if(!id){adminScenarioEditId=null;adminScenarioEditData=blankScenarioDraft();render('admin');return}
-  const en=siteLanguage==='en';
-  try{
-    const {scenario}=await window.MordheimundaAPI.adminGetScenario(id);
-    adminScenarioEditId=id;adminScenarioEditData=scenario;
-    render('admin');
-  }catch(e){toast(en?'Could not load this scenario':'Impossible de charger ce scénario');}
-}
-function closeScenarioEditor(){adminScenarioEditId=null;adminScenarioEditData=null;render('admin')}
 function toggleScenarioMapSelection(mapId){
   const d=adminScenarioEditData;if(!d)return;
   d.deployment=d.deployment||{tableEdgeRule:'',zones:[],mapIds:[]};
@@ -10552,7 +9025,6 @@ function toggleScenarioMapSelection(mapId){
 // editor opens (initScenarioEditorAutoGrow) so already-saved long text shows
 // in full immediately rather than only after the admin types into it.
 function autoGrowTextarea(el){if(!el)return;el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px';}
-function initScenarioEditorAutoGrow(){document.querySelectorAll('.scn-autogrow').forEach(autoGrowTextarea);}
 // Special Scenario Rules used to be a "one per line: Name | Text" list of
 // discrete rule chips — but it's meant for a plain explanatory paragraph
 // about the scenario, not a rules list, and splitting a pasted paragraph
@@ -10638,54 +9110,6 @@ function updateScenarioFormulaMode(mode){
   d.bandsFormula.mode=mode;
   render('admin');
 }
-// V-SCNKEEP: every field of the open scenario editor, read from the form.
-// Used by Save, and before any re-render of the editor (a ticked table size,
-// a formula mode, a deployment map…) so text typed since the last render is
-// kept in the draft instead of being wiped by the redraw.
-function scenarioEditorCollect(){
-  const v=id=>document.getElementById(id)?.value||'';
-  syncScenarioFormulaFieldsToDraft();
-  const categories=Array.from(document.querySelectorAll('.seCategoryCb:checked')).map(cb=>cb.value);
-  const bf=adminScenarioEditData?.bandsFormula||{};
-  return {
-    name:v('seName').trim(),categories:categories.length?categories:['1v1'],summary:v('seSummary'),
-    tableSizes:(Array.isArray(adminScenarioEditData?.tableSizes)&&adminScenarioEditData.tableSizes.length)?adminScenarioEditData.tableSizes:['48x48'],
-    bandsMin:Number(v('seBandsMin'))||1,bandsMax:Number(v('seBandsMax'))||1,
-    battlefield:{terrainType:v('seTerrain'),setupInstructions:v('seSetup')},
-    roles:{attacker:v('seAttacker'),defender:v('seDefender')},
-    preparation:{enabled:!!document.getElementById('sePrepEnabled')?.checked,text:v('sePrepText')},
-    specialRules:v('seSpecialRules').trim(),
-    bandsFormula:{mode:bf.mode||'custom',customText:bf.customText||'',adjacentText:bf.adjacentText||'',randomDiceCount:bf.randomDiceCount||1,randomDiceFaces:bf.randomDiceFaces||6,hybridBase:bf.hybridBase||0,hybridDieFaces:bf.hybridDieFaces||6},
-    underdogBonus:v('seUnderdog').trim(),
-    deployment:{tableEdgeRule:v('seTableEdge'),zones:linesToList(v('seZones')),mapIds:(adminScenarioEditData?.deployment?.mapIds)||[]},
-    experience:linesToPairs(v('seExperience')).map(p=>({name:p.a,text:p.b})),
-    objectives:{primary:v('seObjPrimary'),secondary:v('seObjSecondary')},
-    endCondition:v('seEndCondition'),
-    victory:{major:v('seVictoryMajor'),minor:v('seVictoryMinor'),draw:v('seVictoryDraw')},
-    rewards:(t=>scenarioTextIsRich(t)?[t.trim()]:linesToList(t))(v('seRewards')),
-    campaignSeries:{seriesId:'',seriesName:v('seSeriesName'),position:v('seSeriesPosition')},
-    eventWindow:{start:v('seEventStart'),end:v('seEventEnd')},
-    thumbnail:adminScenarioEditData?.thumbnail||'',
-    thumbnailFocus:adminScenarioEditData?.thumbnailFocus||null
-  };
-}
-function syncScenarioEditorFormToDraft(){if(!adminScenarioEditData||!document.getElementById('seName'))return;const {tableSizes,thumbnail,thumbnailFocus,...rest}=scenarioEditorCollect();rest.deployment.mapIds=adminScenarioEditData.deployment?.mapIds||[];Object.assign(adminScenarioEditData,rest)}
-async function saveScenarioEditor(){
-  const en=siteLanguage==='en';
-  const v=id=>document.getElementById(id)?.value||'';
-  const name=v('seName').trim();
-  if(!name){toast(en?'Give the scenario a name':'Donne un nom au scénario');return}
-  const body=scenarioEditorCollect();
-  try{
-    if(adminScenarioEditId)await window.MordheimundaAPI.adminUpdateScenario(adminScenarioEditId,body);
-    else await window.MordheimundaAPI.adminCreateScenario(body);
-    toast(en?'Scenario saved':'Scénario enregistré');
-    adminScenariosCache=null;
-    closeScenarioEditor();
-    await loadAdminScenariosData();
-    loadScenarios();
-  }catch(e){toast(en?'Save failed':'Échec de l’enregistrement');}
-}
 async function setScenarioStatus(id,status){
   const en=siteLanguage==='en';
   try{await window.MordheimundaAPI.adminSetScenarioStatus(id,status);adminScenariosCache=null;await loadAdminScenariosData();loadScenarios();}
@@ -10740,131 +9164,6 @@ function scenarioThumbFieldInner(d){
   return `<div class="scn-thumb-preview">${has?`<img src="${esc(d.thumbnail)}"${imageFocusStyle(d.thumbnailFocus)} alt="">`:'<span>🗺</span>'}</div><div class="scn-thumb-actions"><button type="button" class="button secondary" onclick="pickImage('scenario',0)">${has?(en?'Change image':'Changer l’image'):(en?'Choose an image':'Choisir une image')}</button>${has?`<button type="button" class="button secondary" onclick="openImageCropModal('scenario',0,adminScenarioEditData.thumbnail)">${en?'Reframe':'Recadrer'}</button><button type="button" class="button danger-outline" onclick="removeImage('scenario',0)">${en?'Remove':'Retirer'}</button>`:''}<small class="muted">${en?'Shown at the top of the scenario card. Any image; you pick the centre point. Saved with the scenario.':'Affichée en haut de la carte du scénario. N’importe quelle image ; tu choisis le point central. Enregistrée avec le scénario.'}</small></div>`;
 }
 function refreshScenarioThumbField(){const el=document.getElementById('seThumbField');if(el)el.innerHTML=scenarioThumbFieldInner(adminScenarioEditData)}
-function scenarioEditorPanel(){
-  const en=siteLanguage==='en';
-  const d=adminScenarioEditData||blankScenarioDraft();
-  // V-MAPSIZEAGNOSTIC: a deployment map is available regardless of the
-  // table size it was originally drawn at — deploymentMapResizeShapes
-  // rescales its zones proportionally to whichever table size the scenario
-  // (or the Play Mode session) actually uses, so a map drawn at 48x72
-  // works fine attached to a 48x48-only scenario and vice versa. Used to
-  // filter maps out here by their native size, which hid perfectly usable
-  // maps from the picker for no real reason.
-  const maps=DEPLOYMENT_MAPS_CACHE||[];
-  const selectedMapIds=new Set(d.deployment?.mapIds||[]);
-  const curTableSizes=(Array.isArray(d.tableSizes)&&d.tableSizes.length)?d.tableSizes:['48x48'];
-  return `<div class="admin-page" onfocusin="scenarioFormatFocus(event)">
-   <div class="page-intro"><div><div class="eyebrow">ADMIN / SCENARIOS</div><h2>${adminScenarioEditId?(en?'Edit scenario':'Modifier le scénario'):(en?'New scenario':'Nouveau scénario')}</h2></div>
-     <div style="display:flex;gap:8px"><button type="button" class="button secondary" onclick="closeScenarioEditor()">${en?'Cancel':'Annuler'}</button><button type="button" class="dash-btn-primary" onclick="saveScenarioEditor()">✓ ${en?'Save':'Enregistrer'}</button></div>
-   </div>
-
-   <div class="scn-format-bar">${ruleEditToolbarMarkup('',en?'Same formatting as the rules: click in a text field, then use the buttons.':'Même mise en forme que les règles : clique dans un champ de texte, puis utilise les boutons.')}<div class="scn-format-target" id="scnFormatTarget">${en?'Click in a text field to format it':'Clique dans un champ de texte pour le mettre en forme'}</div></div>
-
-   <section class="scn-sec"><div class="scn-sectitle">${en?'Identity & Category':'Identité & Catégorie'}</div>
-     <div class="scn-row2">
-       <div class="scn-field"><label>${en?'Scenario name':'Nom du scénario'}</label><input id="seName" value="${esc(d.name)}"></div>
-       <div class="scn-row2" style="margin:0"><div class="scn-field"><label>${en?'Bands min':'Bandes min'}</label><input id="seBandsMin" type="number" min="1" max="10" value="${d.bandsMin}"></div><div class="scn-field"><label>${en?'Bands max':'Bandes max'}</label><input id="seBandsMax" type="number" min="1" max="10" value="${d.bandsMax}"></div></div>
-     </div>
-     <div class="scn-field"><label>${en?'Summary (shown on the list)':'Résumé (affiché sur la liste)'}</label><textarea id="seSummary" rows="2">${esc(d.summary)}</textarea></div>
-     <div class="scn-field"><label>${en?'Card image':'Image de la carte'}</label><div class="scn-thumb-field" id="seThumbField">${scenarioThumbFieldInner(d)}</div></div>
-     <div class="scn-field"><label>${en?'Categories (pick any that apply)':'Catégories (coche celles qui s’appliquent)'}</label><div class="scn-cat-checks">${['1v1','multiplayers','campaign','event','history'].map(c=>`<label class="scn-cat-check"><input type="checkbox" value="${c}" class="seCategoryCb" ${(d.categories||[d.category]).includes(c)?'checked':''}> ${scenarioCategoryLabel(c,en)}</label>`).join('')}</div></div>
-     <div class="scn-field"><label>${en?'Allowed table size(s)':'Taille(s) de table autorisée(s)'}</label><p class="muted" style="margin:0 0 6px;font-size:10.5px">${en?'Check every size this scenario can be played on — the deployment map picker and Play mode\'s random generator only ever offer a size checked here.':'Coche chaque taille sur laquelle ce scénario peut se jouer — le sélecteur de carte et le générateur aléatoire de Jouer ne proposent que les tailles cochées ici.'}</p><div class="scn-cat-checks"><label class="scn-cat-check"><input type="checkbox" value="48x48" class="seTableSizeCb" ${curTableSizes.includes('48x48')?'checked':''} onchange="syncScenarioTableSizesToDraft()"> 48" × 48"</label><label class="scn-cat-check"><input type="checkbox" value="48x72" class="seTableSizeCb" ${curTableSizes.includes('48x72')?'checked':''} onchange="syncScenarioTableSizesToDraft()"> 48" × 72"</label></div></div>
-     <div class="scn-row2">
-       <div class="scn-field"><label>${en?'Campaign series name (if Campaign/History)':'Nom de la suite (si Campaign/History)'}</label><input id="seSeriesName" value="${esc(d.campaignSeries?.seriesName||'')}"></div>
-       <div class="scn-field"><label>${en?'Position in series (e.g. 3/5)':'Position dans la suite (ex. 3/5)'}</label><input id="seSeriesPosition" value="${esc(d.campaignSeries?.position||'')}"></div>
-     </div>
-     <div class="scn-row2">
-       <div class="scn-field"><label>${en?'Event window start (if Event)':'Début (si Event)'}</label><input id="seEventStart" value="${esc(d.eventWindow?.start||'')}" placeholder="2026-10-20"></div>
-       <div class="scn-field"><label>${en?'Event window end':'Fin'}</label><input id="seEventEnd" value="${esc(d.eventWindow?.end||'')}" placeholder="2026-10-31"></div>
-     </div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">01 · ${en?'Battlefield':'Champ de Bataille'}</div>
-     <div class="scn-field"><label>${en?'Terrain type':'Type de terrain'}</label><input id="seTerrain" value="${esc(d.battlefield?.terrainType||'')}"></div>
-     <div class="scn-field"><label>${en?'Setup instructions':'Instructions de mise en place'}</label><textarea id="seSetup" rows="3">${esc(d.battlefield?.setupInstructions||'')}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">02 · ${en?'Attacker & Defender':'Attaquant & Défenseur'}</div>
-     <div class="scn-row2">
-       <div class="scn-field"><label>${en?'Attacker rule':'Règle — Attaquant'}</label><textarea id="seAttacker" rows="2">${esc(d.roles?.attacker||'')}</textarea></div>
-       <div class="scn-field"><label>${en?'Defender rule':'Règle — Défenseur'}</label><textarea id="seDefender" rows="2">${esc(d.roles?.defender||'')}</textarea></div>
-     </div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">03 · ${en?'Preparation':'Préparation'}</div>
-     <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted2);margin-bottom:10px"><input id="sePrepEnabled" type="checkbox" ${d.preparation?.enabled?'checked':''}> ${en?'Section enabled for this scenario':'Section activée pour ce scénario'}</label>
-     <div class="scn-field"><label>${en?'Preparation text':'Texte de préparation'}</label><textarea id="sePrepText" rows="2">${esc(d.preparation?.text||'')}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">04 · ${en?'Special Scenario Rules':'Règles Spéciales de Scénario'}</div>
-     <p class="muted" style="font-size:12px;margin:0 0 8px">${en?'Plain text explaining the scenario’s special rules — not a list, just write it out (as long as you need).':'Texte libre expliquant les règles spéciales du scénario — pas une liste, écris-le simplement (aussi long que nécessaire).'}</p>
-     <div class="scn-field"><label>${en?'Special rules text':'Texte des règles spéciales'}</label><textarea id="seSpecialRules" class="scn-autogrow" rows="4" oninput="autoGrowTextarea(this)" placeholder="${en?'e.g. Once you have placed the terrain, put some Wyrdstone counters on the tabletop...':'ex. Une fois le terrain placé, dispose des jetons de Pierre-de-Sorcier...'}">${esc(scenarioSpecialRulesText(d))}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">05 · ${en?'Warbands — fighters per band':'Bandes — combattants par bande'}</div>
-     <p class="muted" style="font-size:12px;margin:0 0 8px">${en?'How many fighters EACH warband fields in this scenario, decided per band.':'Combien de combattants CHAQUE bande engage dans ce scénario, décidé bande par bande.'}</p>
-     <div class="scn-field"><label>${en?'Mode':'Mode'}</label><select id="seFormulaMode" onchange="updateScenarioFormulaMode(this.value)">
-       <option value="custom" ${(d.bandsFormula?.mode||'custom')==='custom'?'selected':''}>${en?'Custom (you choose)':'Custom (tu choisis)'}</option>
-       <option value="random" ${d.bandsFormula?.mode==='random'?'selected':''}>${en?'Random (dice formula)':'Random (formule de dé)'}</option>
-       <option value="hybrid" ${d.bandsFormula?.mode==='hybrid'?'selected':''}>Hybrid</option>
-     </select></div>
-     ${(d.bandsFormula?.mode||'custom')==='custom'?`<div class="scn-field"><label>${en?'Value shown to players':'Valeur affichée aux joueurs'}</label>${customTextToolbarMarkup('seFormulaCustomText')}<textarea id="seFormulaCustomText" class="scn-autogrow" rows="2" oninput="autoGrowTextarea(this)" placeholder="${en?'e.g. 5 fighters / All of your warband':'ex. 5 combattants / Toute la bande'}">${esc(d.bandsFormula?.customText||'')}</textarea><small class="muted">${en?'Shown exactly as typed — never calculated. The house convention: select a fixed/custom-chosen part and color it green; select a random/dice part and color it yellow.':'Affiché tel que saisi — jamais calculé. Convention maison : sélectionne une partie fixe/choisie et mets-la en vert ; sélectionne une partie random/dé et mets-la en jaune.'}</small></div>`:''}
-     ${d.bandsFormula?.mode==='random'?`<div class="scn-row2">
-       <p class="muted" style="font-size:11.5px;margin:0 0 4px;width:100%">${en?'Shown to players with the dice notation colored yellow automatically.':'Affiché aux joueurs avec la notation de dé colorée en jaune automatiquement.'}</p>
-       <div class="scn-field"><label>${en?'Number of dice':'Nombre de dés'}</label><input id="seFormulaDiceCount" type="number" min="1" max="10" value="${d.bandsFormula?.randomDiceCount??1}"></div>
-       <div class="scn-field"><label>${en?'Die faces (D?)':'Faces du dé (D?)'}</label><input id="seFormulaDiceFaces" type="number" min="2" max="100" value="${d.bandsFormula?.randomDiceFaces??6}"></div>
-     </div>`:''}
-     ${d.bandsFormula?.mode==='hybrid'?`<div class="scn-row2">
-       <div class="scn-field"><label>${en?'Fixed base (X)':'Chiffre fixe (X)'}</label><input id="seFormulaHybridBase" type="number" min="0" max="50" value="${d.bandsFormula?.hybridBase??0}"></div>
-       <div class="scn-field"><label>${en?'+1 roll of (DY faces)':'+1 jet de (DY faces)'}</label><input id="seFormulaHybridDie" type="number" min="2" max="100" value="${d.bandsFormula?.hybridDieFaces??6}"></div>
-     </div><p class="muted" style="font-size:11.5px;margin:4px 0 0">${en?'Plus half of that warband’s total fighters, automatically. Shown to players with the fixed base in green and the die roll in yellow, automatically.':'Plus la moitié du total de combattants de cette bande, automatiquement. Affiché aux joueurs avec le chiffre fixe en vert et le jet de dé en jaune, automatiquement.'}</p>`:''}
-     <div class="scn-field"><label>${en?'Adjacent text (shown next to the box, not inside it)':'Texte adjacent (affiché à côté de l’encart, pas dedans)'}</label>${customTextToolbarMarkup('seFormulaAdjacentText')}<textarea id="seFormulaAdjacentText" class="scn-autogrow" rows="2" oninput="autoGrowTextarea(this)" placeholder="${en?'Optional — extra explanation or exceptions, e.g. \'The Lance may include 1 additional warrior for every 2 warriors in its warband size.\'':'Facultatif — explication ou exception supplémentaire, ex. « La Lance peut inclure 1 guerrier de plus pour 2 guerriers dans sa bande. »'}">${esc(d.bandsFormula?.adjacentText||'')}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">06 · ${en?'Underdog Bonus':'Underdogs Bonus'}</div>
-     <p class="muted" style="font-size:12px;margin:0 0 8px">${en?'Plain text explaining the Underdog Bonus — not a list, just write it out (as long as you need).':'Texte libre expliquant l’Underdog Bonus — pas une liste, écris-le simplement (aussi long que nécessaire).'}</p>
-     <div class="scn-field"><label>${en?'Underdog Bonus text':'Texte de l’Underdog Bonus'}</label><textarea id="seUnderdog" class="scn-autogrow" rows="3" oninput="autoGrowTextarea(this)" placeholder="${en?'e.g. Above 100 Rating in difference, use the Underdog Table...':'ex. Au-dessus de 100 points de différence, utilise la Table Underdog...'}">${esc(scenarioUnderdogBonusText(d))}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">07 · ${en?'Deployment':'Déploiement'}</div>
-     <div class="scn-row2">
-       <div class="scn-field"><label>${en?'Table edge rule':'Règle des bords de table'}</label><textarea id="seTableEdge" rows="2">${esc(d.deployment?.tableEdgeRule||'')}</textarea></div>
-       <div class="scn-field"><label>${en?'Zones (one per line)':'Zones (une par ligne)'}</label><textarea id="seZones" rows="2">${esc(listToLines(d.deployment?.zones))}</textarea></div>
-     </div>
-     <div class="scn-field"><label>${en?'Deployment maps allowed for this scenario':'Cartes de déploiement autorisées'}</label>
-       ${maps.length?`<div class="scn-maps-grid">${maps.map(m=>`<div class="scn-map-tile ${selectedMapIds.has(m.id)?'checked':''}" id="seMapTile-${esc(m.id)}" onclick="toggleScenarioMapSelection('${esc(m.id)}')">${deploymentMapPreviewMarkup(m)}<span class="scn-map-num">#${m.number}</span><span class="scn-map-cb ${selectedMapIds.has(m.id)?'on':''}" id="seMapCb-${esc(m.id)}">✓</span><div class="scn-map-name">${esc(m.name||'')}</div></div>`).join('')}</div>`:`<div class="empty compact">${en?'No deployment maps yet — add some from the Scenarios admin category.':'Aucune carte de déploiement — ajoutes-en depuis la catégorie admin Scénarios.'}</div>`}
-     </div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">08 · ${en?'Experience — Obtention':'Expérience — Obtention'}</div>
-     <div class="scn-field"><label>${en?'One per line: Name | Text':'Une par ligne : Nom | Texte'}</label><textarea id="seExperience" class="scn-autogrow" rows="3" oninput="autoGrowTextarea(this)">${esc(pairsToLines(d.experience,'name','text'))}</textarea><small class="muted">${en?'Add as many lines as you need — the box grows to fit, and the player page lays them out in a flexible grid.':'Ajoute autant de lignes que nécessaire — la zone s’agrandit, et la page joueur les affiche dans une grille flexible.'}</small></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">09 · ${en?'Objectives':'Objectifs'}</div>
-     <div class="scn-field"><label>${en?'Primary objective':'Objectif principal'}</label><textarea id="seObjPrimary" rows="2">${esc(d.objectives?.primary||'')}</textarea></div>
-     <div class="scn-field"><label>${en?'Secondary objective':'Objectif secondaire'}</label><textarea id="seObjSecondary" rows="2">${esc(d.objectives?.secondary||'')}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">10 · ${en?'End of Game':'Fin de Partie'}</div>
-     <div class="scn-field"><label>${en?'End condition':'Condition de fin'}</label><textarea id="seEndCondition" rows="2">${esc(d.endCondition||'')}</textarea></div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">11 · ${en?'Victory':'Victoire'}</div>
-     <div class="scn-row3">
-       <div class="scn-field"><label>${en?'Major':'Majeure'}</label><textarea id="seVictoryMajor" rows="2">${esc(d.victory?.major||'')}</textarea></div>
-       <div class="scn-field"><label>${en?'Minor':'Mineure'}</label><textarea id="seVictoryMinor" rows="2">${esc(d.victory?.minor||'')}</textarea></div>
-       <div class="scn-field"><label>${en?'Draw':'Match nul'}</label><textarea id="seVictoryDraw" rows="2">${esc(d.victory?.draw||'')}</textarea></div>
-     </div>
-   </section>
-
-   <section class="scn-sec"><div class="scn-sectitle">12 · ${en?'Rewards':'Récompenses'}</div>
-     <div class="scn-field"><label>${en?'One per line':'Une par ligne'}</label><textarea id="seRewards" rows="3">${esc(listToLines(d.rewards))}</textarea></div>
-   </section>
-
-   ${adminScenarioEditId&&adminScenarioEditData?.status?`<section class="scn-sec"><div class="scn-sectitle">${en?'Publishing':'Publication'}</div><div style="display:flex;gap:8px;align-items:center"><span class="chip">${adminScenarioEditData.status==='draft'?(en?'DRAFT':'BROUILLON'):(en?'PUBLISHED':'PUBLIÉ')}</span><button type="button" class="button secondary" onclick="setScenarioStatus('${esc(adminScenarioEditId)}','${adminScenarioEditData.status==='draft'?'published':'draft'}')">${adminScenarioEditData.status==='draft'?(en?'Publish':'Publier'):(en?'Unpublish':'Dépublier')}</button>${adminScenarioEditData.status==='draft'?`<button type="button" class="equipment-action remove" onclick="confirmDeleteScenario('${esc(adminScenarioEditId)}')">🗑 ${en?'Delete':'Supprimer'}</button>`:''}</div></section>`:''}
-
-  </div>`;
-}
 function warbandsDirectoryPaneMarkup(en){
   // V-WBINTROLINK: a discreet link instead of the big intro box.
   return `<div class="wb-intro-link"><span>📖 ${en?'First game, or just want the warband-building rules?':'Première partie, ou envie de lire les règles de création ?'} <a href="#" onclick="event.preventDefault();setWarbandsRulesCategory('starting')">${en?'Starting a Warband':'Créer une bande (règles)'}</a></span>${isAdminEditUI()?`<button type="button" class="button secondary small" style="white-space:nowrap" onclick="openFactionCategoryEditor()">✎ ${en?'Manage categories':'Gérer les catégories'}</button>`:''}</div>
@@ -11289,6 +9588,20 @@ let createSelectedRace=null;
 function selectCreateRace(race){createSelectedRace=race;render('create')}
 function backToRacePicker(){createSelectedRace=null;render('create')}
 function openCustomCreatePicker(fid){createSelectedRace='__customs__';render('create');setTimeout(()=>{const el=$(`[data-faction="${fid}"]`);if(el)selectFaction(fid,el)},0)}
+// ============ V-RACELOOK: race banners on "Create a warband" ============
+// Each race has a colour, a motif and a tagline (defaults below, changed in
+// 🎨 by an admin) and may have an emblem picture; a warband or a supplement
+// may have its own logo. A warband without a logo shows its race's emblem.
+const RACE_LOOK_DEFAULTS={'Humain':['#d9493f','stripes','Empire, mercenaries, hunters','Empire, mercenaires, chasseurs'],'Dwarf':['#d39b3c','forge','Clans, miners, slayers','Clans, mineurs, tueurs'],'Elves':['#5aa8e6','lines','Asur, Druchii, Asrai','Asur, Druchii, Asrai'],'Orcs and Goblin':['#7fbf3f','hatch','Greenskins on the prowl','Peaux-vertes en maraude'],'Chaos':['#c0392b','glow','Cults and the possessed','Cultes et possédés'],'Undead':['#a58ae0','mist','Vampires, necromancers, ghouls','Vampires, nécromanciens, goules'],'Skaven':['#8fd14f','rings','Clans Eshin, Pestilens, Skryre','Clans Eshin, Pestilens, Skryre'],'Unique':['#d9b45a','scales','Warbands apart','Bandes à part']};
+const RACE_LOOK_MOTIFS=[['stripes','Stripes','Rayures'],['forge','Forge (bars)','Forge (barres)'],['lines','Fine lines','Lignes fines'],['hatch','Hatching','Hachures'],['glow','Glow','Lueur'],['mist','Mist','Brume'],['rings','Rings','Cercles'],['scales','Scales','Écailles'],['plain','Plain','Uni']];
+let raceLooks={races:{},factions:{},packs:{}},raceLooksLoaded=false,raceLooksLoading=false;
+function loadRaceLooks(force){if((raceLooksLoaded&&!force)||raceLooksLoading||!window.MordheimundaAPI?.raceLooks)return;raceLooksLoading=true;
+  window.MordheimundaAPI.raceLooks().then(r=>{if(r?.looks)raceLooks={races:r.looks.races||{},factions:r.looks.factions||{},packs:r.looks.packs||{}}}).catch(()=>{}).finally(()=>{raceLooksLoaded=true;raceLooksLoading=false;if(currentViewName()==='create')render('create',{history:false})})}
+function raceLook(r){const d=RACE_LOOK_DEFAULTS[r]||['#9dfa3c','plain','',''];const o=raceLooks.races?.[r]||{};const en=siteLanguage==='en';return {color:o.color||d[0],motif:o.motif||d[1],tagline:o.tagline!=null?o.tagline:d[en?2:3],image:o.image||''}}
+function hexMixWhite(hex,t){const m=String(hex||'').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(!m)return hex;return '#'+[1,2,3].map(i=>Math.round(parseInt(m[i],16)+(255-parseInt(m[i],16))*t).toString(16).padStart(2,'0')).join('')}
+function hexDarken(hex,t){const m=String(hex||'').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(!m)return hex;return '#'+[1,2,3].map(i=>Math.round(parseInt(m[i],16)*(1-t)).toString(16).padStart(2,'0')).join('')}
+function raceBannerStyle(r){const c=raceLook(r).color;return `--rc:${c};--rc2:${hexMixWhite(c,.55)};--rcd:${hexDarken(c,.72)}`}
+function looksEmblem(img,fallback){return img?`<img src="${esc(img)}" alt="" loading="lazy" decoding="async">`:`<span class="choice-sigil">${fallback}</span>`}
 function createRacePickerMarkup(){
   const en=siteLanguage==='en';
   const official=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f));
@@ -11300,14 +9613,14 @@ function createRacePickerMarkup(){
 <div class="mu-create-head"><h1>${en?'Create a warband':'Créer une bande'}</h1><p>${en?'Pick a race, then a faction/warband.':'Choisis une race, puis une faction/warband.'}</p></div>
 <div class="panel">
 <div class="step-head"><span class="step-num">01</span><b>${en?'Race':'Race'}</b></div>
-<div class="faction-grid">${RACE_CATEGORIES.map(r=>`<button class="faction-choice" onclick="selectCreateRace('${esc(r)}')"><span class="choice-img-wrap"><span class="choice-sigil">${raceIcon(r)}</span></span><span class="fname">${esc(r)}</span><span class="fcount">${counts[r]} warband${counts[r]!==1?'s':''}</span></button>`).join('')}</div>
+${isAdminEditUI()?`<div class="mu-create-actions" style="justify-content:flex-start;margin:0 0 10px"><button type="button" class="button secondary" onclick="openRaceLooksEditor()">🎨 ${en?'Races: colours, motifs, emblems':'Races : couleurs, motifs, emblèmes'}</button></div>`:''}<div class="faction-grid bn">${RACE_CATEGORIES.map(r=>{const l=raceLook(r);return `<button class="faction-choice bn motif-${l.motif}" style="${raceBannerStyle(r)}" onclick="selectCreateRace('${esc(r)}')"><span class="choice-img-wrap">${looksEmblem(l.image,raceIcon(r))}</span><span class="bn-tx">${l.tagline?`<span class="bn-kick">${esc(l.tagline)}</span>`:''}<span class="fname">${esc(r)}</span><span class="fcount">${counts[r]} warband${counts[r]!==1?'s':''}</span></span></button>`}).join('')}</div>
 ${unassigned.length&&isAdminEditUI()?`<p class="custom-field-help">${unassigned.length} warband${unassigned.length!==1?'s':''} ${en?'not assigned to a race yet':'pas encore assignée(s) à une race'}${isAdminEditUI()?(en?' — open a race tile and use “Edit” to place them.':' — ouvre une case de race et utilise « Éditer » pour les y placer.'):'.'}</p>`:''}
 </div>
 ${customs.length?`<div class="panel"><div class="step-head"><span class="step-num">·</span><b>${en?'Your custom warbands':'Tes warbands custom'}</b></div><div class="faction-grid">${customs.map(cw=>{const fid=`custom-warband-${cw.id}`;const count=(cw.fighterIds||[]).length;const sigil=cw.icon?`<span class="choice-sigil has-icon">${imageMarkup(cw.icon,'custom-warband',esc(cw.name),cw.iconFocus)}</span>`:`<span class="choice-sigil">⚔</span>`;return `<button class="faction-choice custom-warband" onclick="openCustomCreatePicker('${esc(fid)}')"><span class="choice-img-wrap">${sigil}</span><span class="fname">${esc(cw.name)}</span><span class="fcount">${count} profil${count!==1?'s':''} custom</span><span class="custom-badge">CUSTOM</span></button>`}).join('')}</div></div>`:''}
 <div class="mu-create-actions"><button class="mu-btn-cancel" onclick="render('rosters')">${en?'Cancel':'Annuler'}</button></div>
 </div>`;
 }
-function create(){
+function create(){loadRaceLooks();
   if(!createSelectedRace){$('#content').innerHTML=createRacePickerMarkup();return}
   const en=siteLanguage==='en';
   const isCustomsPicker=createSelectedRace==='__customs__';
@@ -11321,10 +9634,10 @@ function create(){
   const defaultId=official[0]?.id||(customs[0]?`custom-warband-${customs[0].id}`:'');
   $('#content').innerHTML=`<div class="mu-create-page">
 <div class="mu-create-head"><button type="button" class="button secondary" style="margin-bottom:10px" onclick="backToRacePicker()">← ${en?'Races':'Races'}</button><h1>${en?'Create a warband':'Créer une bande'}${isCustomsPicker?'':' — '+esc(createSelectedRace)}</h1><p>${en?"Pick a faction, any active supplements, then name your warband. Recruiting fighters happens next, in the Recruitment tab.":"Choisis une faction, les suppléments actifs, puis nomme ta bande. Le recrutement des combattants se fait ensuite dans l'onglet Recrutement."}</p></div>
-${!isCustomsPicker&&isAdminEditUI()?`<div class="mu-create-actions" style="justify-content:flex-start;margin:0 0 10px"><button type="button" class="button secondary" onclick="openRaceTagEditor('${esc(createSelectedRace)}')">✎ ${en?'Edit this category’s warbands':'Éditer les warbands de cette catégorie'}</button></div>`:''}
+${!isCustomsPicker&&isAdminEditUI()?`<div class="mu-create-actions" style="justify-content:flex-start;margin:0 0 10px"><button type="button" class="button secondary" onclick="openRaceTagEditor('${esc(createSelectedRace)}')">✎ ${en?'Edit this category’s warbands':'Éditer les warbands de cette catégorie'}</button><button type="button" class="button secondary" onclick="openFactionLogosEditor('${esc(createSelectedRace)}')">🎨 ${en?'Warband & supplement logos':'Logos des warbands et suppléments'}</button></div>`:''}
 <div class="panel">
 <div class="step-head"><span class="step-num">01</span><b>${en?'Faction':'Faction'}</b><span class="aux">1000 GC ${en?'starting':'de départ'}</span></div>
-${official.length||customs.length?`<div class="faction-grid">${official.map((f,i)=>`<button class="faction-choice ${i===0&&!customs.length?'selected':''}" data-faction="${f.id}" onclick="selectFaction('${f.id}',this)"><span class="choice-img-wrap"><span class="choice-sigil">${factionSigils[f.id]||'◆'}</span></span><span class="fname">${esc(f.displayName)}</span><span class="fcount">${f.warriors.length} ${en?'profiles':'profils structurés'}</span></button>`).join('')}${customs.map(cw=>customWarbandCreateTile(cw)).join('')}</div>`:`<div class="empty compact">${en?'No warband in this category yet.':'Aucune warband dans cette catégorie pour l’instant.'}${isAdminEditUI()?(en?' Use “Edit” above to add one.':' Utilise « Éditer » ci-dessus pour en ajouter.'):''}</div>`}
+${official.length||customs.length?`<div class="faction-grid${official.length?' bn':''}">${official.map((f,i)=>{const l=raceLook(createSelectedRace);const img=raceLooks.factions?.[f.id]?.image||l.image;return `<button class="faction-choice bn motif-${l.motif} ${i===0&&!customs.length?'selected':''}" style="${raceBannerStyle(createSelectedRace)}" data-faction="${f.id}" onclick="selectFaction('${f.id}',this)"><span class="choice-img-wrap">${looksEmblem(img,factionSigils[f.id]||raceIcon(createSelectedRace))}</span><span class="bn-tx"><span class="bn-kick">${esc(createSelectedRace)}</span><span class="fname">${esc(f.displayName)}</span><span class="fcount">${f.warriors.length} ${en?'profiles':'profils structurés'}</span></span></button>`}).join('')}${customs.map(cw=>customWarbandCreateTile(cw)).join('')}</div>`:`<div class="empty compact">${en?'No warband in this category yet.':'Aucune warband dans cette catégorie pour l’instant.'}${isAdminEditUI()?(en?' Use “Edit” above to add one.':' Utilise « Éditer » ci-dessus pour en ajouter.'):''}</div>`}
 </div>
 <div id="supplementStep"></div>
 <div class="panel">
@@ -11356,7 +9669,7 @@ function renderSupplementChoices(){
 <div class="step-head"><span class="step-num">02</span><b>Suppléments</b><span class="aux">Compatibles avec ${esc(faction?.displayName||'')}</span></div>
 <p class="supp-hint">Seuls les suppléments liés à la faction choisie à l'étape 01 apparaissent ici. <b>Un seul supplément optionnel peut être actif à la fois, ou aucun</b> : coche une option pour l'activer, reclique dessus pour la désactiver — certains réécrivent entièrement les profils, l'équipement ou l'arbre de compétences de la bande de base.</p>
 <div class="supp-choice locked"><input type="checkbox" checked disabled><div><span class="sn">Livre de base (M17)</span><div class="sd">Toujours actif — commun à toutes les factions</div></div></div>
-${packs.map((p)=>`<div class="supp-choice"><input type="checkbox" class="supplement-check" data-supp="${esc(p.id)}" onclick="handleSupplementToggle(this)"><div><span class="sn">${esc(p.name)}</span><div class="sd">${esc(p.description||'Supplément compatible avec cette faction.')}</div></div></div>`).join('')}
+${packs.map((p)=>`<div class="supp-choice"><input type="checkbox" class="supplement-check" data-supp="${esc(p.id)}" onclick="handleSupplementToggle(this)">${raceLooks.packs?.[p.id]?.image?`<img class="supp-logo" src="${esc(raceLooks.packs[p.id].image)}" alt="" loading="lazy" decoding="async">`:''}<div><span class="sn">${esc(p.name)}</span><div class="sd">${esc(p.description||'Supplément compatible avec cette faction.')}</div></div></div>`).join('')}
 </div>`;
 }
 function handleSupplementToggle(el){if(el.checked){document.querySelectorAll('#supplementStep input.supplement-check').forEach(o=>{if(o!==el)o.checked=false})}}
@@ -11376,8 +9689,6 @@ function openRoster(id){const r0=Array.isArray(state?.rosters)?state.rosters.fin
 function duplicateRoster(id){const r=state.rosters.find(x=>x.id===id),copy=JSON.parse(JSON.stringify(r));copy.id=crypto.randomUUID();copy.name=r.name+' — copie';copy.fighters.forEach(x=>x.instance=crypto.randomUUID());(copy.reserve||[]).forEach(x=>x.reserveId=crypto.randomUUID());state.rosters.push(copy);state.active=copy.id;save();navigateApp(warbandPath(copy.id))}
 function builder(){const en=siteLanguage==='en';const r=activeRoster();if(!r){render('create');return}try{notifyTransitArrivals(r)}catch(e){}if(gangTab==='recruit'){gangTab='roster';recruitPanelOpen=true}if(gangTab==='history'){gangTab='roster';historyDrawerOpen=true}const f=faction(r)||{id:'unknown-faction',displayName:r.factionName||r.factionId||(en?'Unknown faction':'Faction inconnue'),group:'RECOVERED',budget:1000,warriors:[],equipment:[]},value=total(r),isRecruit=gangTab==='recruit',isPostBattle=gangTab==='postbattle',isHistory=gangTab==='history',isCampaign=gangTab==='campaign',isRulesTab=gangTab==='rules';if(!Number.isFinite(r.reputation))r.reputation=1;const activeSupplements=Array.isArray(r.activeSupplements)?r.activeSupplements:[];const activePackNames=activeSupplements.map(id=>(window.NECROHEIM_PACKS||[]).find(p=>p.id===id)?.name||D.factions.find(fx=>fx.packId===id)?.displayName).filter(Boolean);const custom=Array.isArray(r.customValues)?r.customValues:[];$('#content').innerHTML=`<div class="warroom" style="--wb:${warbandColor(r)}"><div class="warroom-topbar"><a href="#" onclick="event.preventDefault();navigateApp('${APP_ROUTES.rosters}')">← ${en?'My warbands':'Mes bandes'}</a><div class="warroom-topbar-icons"><button type="button" class="mu-icon-btn" title="${en?'Print the warband sheet':'Imprimer la feuille de bande'}" onclick="openPrintChooser()">⎙</button></div></div><div class="warroom-head"><div class="warroom-brand-block"><button type="button" class="gang-icon gang-icon-editable" title="${en?'Import / replace the warband icon':'Importer / remplacer l’icône de la bande'}" onclick="event.stopPropagation();pickImage('gang')">${imageMarkup(r.icon,'gang',en?`Icon for ${r.name}`:`Icône de ${r.name}`,r.iconFocus)}<span class="image-edit-badge">✎</span></button><div><div class="faction-line"><span class="faction-sigil small">${factionSigils[f.id]||'◆'}</span><span>${esc(f.displayName)}</span>${activePackNames.map(n=>`<span class="supplement-active">PACK · ${esc(n)}</span>`).join('')}</div>${warbandRulesMarkup(r)}<h2>${esc(r.name)}</h2><div class="roster-meta"><span>${r.fighters.length} ${en?'fighter':'guerrier'}${r.fighters.length!==1?'s':''}</span><span>${en?'Value':'Valeur'} ${value} GC</span></div></div></div><div class="warroom-head-right"><div class="warband-overview"><div class="warband-stat rating-stat"><span class="stat-icon">◈</span><div><small>${en?'WARBAND VALUE':'VALEUR DE BANDE'}</small><strong>${value}<em>GC</em></strong></div></div><div class="warband-stat gold-stat resource-clickable" onclick="openResourceAdjust('gold')"><span class="stat-icon">◈</span><div><small>${en?'TREASURY':'TRÉSOR'}</small><strong>${r.gold}<em>GC</em></strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div><div class="warband-stat wyrdstone-stat resource-clickable" onclick="openResourceAdjust('wyrdstone')"><span class="stat-icon">◆</span><div>${campaignUsesTreasure(r)?`<small class="gold">TREASURE</small><strong class="gold">${r.wyrdstone||0}</strong><span>${en?'Treasures in stock · click to edit':'Treasures en réserve · cliquer pour modifier'}</span>`:`<small>WYRDSTONE</small><strong>${r.wyrdstone||0}</strong><span>${en?'Shards in stock · click to edit':'Shards en réserve · cliquer pour modifier'}</span>`}</div></div><div class="warband-stat reputation-stat resource-clickable" onclick="openResourceAdjust('reputation')"><span class="stat-icon">★</span><div><small>${en?'REPUTATION':'RÉPUTATION'}</small><strong>${r.reputation}</strong><span>${en?'Click to add or subtract':'Cliquer pour ajouter ou soustraire'}</span></div></div>${custom.map((c,i)=>`<div class="warband-stat custom-stat resource-clickable" onclick="openCustomValue(${i})"><span class="stat-icon">◆</span><div><small>${esc(c.label||(en?'CUSTOM VALUE':'VALEUR PERSONNALISÉE'))}</small><strong>${esc(String(c.value??0))}</strong><span>${en?'Click to edit':'Cliquer pour modifier'}</span></div></div>`).join('')}${warbandLegalityBadgeMarkup(r)}<button class="warband-stat custom-stat custom-add" type="button" onclick="openCustomValue()"><span class="stat-icon">＋</span><div><small>${en?'ADD A VALUE':'AJOUTER UNE VALEUR'}</small><strong>+</strong><span>${en?'Create a new custom value':'Créer une nouvelle valeur personnalisée'}</span></div></button></div><div class="warroom-head-btns"><button class="button secondary warroom-history-btn" type="button" onclick="openHistoryDrawer()">◷ ${en?'History':'Historique'}</button><button class="button secondary warroom-versions-btn" type="button" title="${en?'Earlier versions of this warband — restore one':'Versions précédentes de cette bande — en restaurer une'}" onclick="openWarbandVersions()">⟲ ${en?'Versions':'Versions'}</button>${sharedViewToken?'':`<button class="button secondary warroom-share-btn" type="button" title="${en?'Share a read-only link to this warband':'Partager un lien en lecture seule vers cette bande'}" onclick="openWarbandShare()">🔗 ${en?'Share':'Partager'}</button>`}<button class="button primary warroom-edit-btn" onclick="openEditWarband()">✎ ${en?'Edit':'Modifier'}</button><button class="button secondary warroom-more-btn" type="button" aria-label="${en?'More actions':'Plus d’actions'}" onclick="openWarroomMore()">⋯</button></div></div></div><div class="gang-tabs"><button class="gang-tab ${gangTab==='roster'?'active':''}" onclick="setGangTab('roster')"><i class="gt-ic">⚔</i><span class="gt-lbl">${en?'Warband':'Bande'}</span> <span class="gt-count">${r.fighters.length}</span></button><button class="gang-tab ${isRulesTab?'active':''}" onclick="setGangTab('rules')"><i class="gt-ic">☰</i><span class="gt-lbl">${en?'Warband rules':'Règles de bande'}</span></button><button class="gang-tab ${gangTab==='reserve'?'active':''}" onclick="setGangTab('reserve')"><i class="gt-ic">▣</i><span class="gt-lbl">${en?'Stash':'Réserve'}</span> <span class="gt-count">${(r.reserve||[]).length}</span>${(r.reserve||[]).some(e=>reserveInTransit(r,e))?`<span class="gt-transit" title="${en?'Equipment on its way':'Équipement en route'}">🚚 ${(r.reserve||[]).filter(e=>reserveInTransit(r,e)).length}</span>`:''}</button><button class="gang-tab ${isPostBattle?'active':''}" onclick="setGangTab('postbattle')"><i class="gt-ic">◈</i><span class="gt-lbl">${en?'Post-battle':'Post-bataille'}</span></button><button class="gang-tab ${isCampaign?'active':''}" onclick="setGangTab('campaign')"><i class="gt-ic">⚑</i><span class="gt-lbl">${en?'Campaign':'Campagne'}</span></button><button class="gang-tab ${gangTab==='stats'?'active':''}" onclick="setGangTab('stats')"><i class="gt-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-7"/></svg></i><span class="gt-lbl">Stats</span></button></div><section class="warroom-main warroom-main-full">${isRecruit?recruitmentView(f):gangTab==='reserve'?reserveView(r,f):isPostBattle?postBattleView(r,f):isHistory?historyView(r):isCampaign?campaignView(r):isRulesTab?warbandRulesView(r):gangTab==='stats'?warbandStatsView(r,f):rosterView(r,f)}</section></div>`;syncHistoryDrawer(r)}
 function setGangTab(tab){const prev=gangTab;gangTab=tab;if(tab==='postbattle')postBattleSubtab='income';render('builder');try{gangTabSlide(prev,tab)}catch(e){}}
-function adjustGold(amount){const r=activeRoster();if(!r)return;const n=Number(amount);if(!Number.isFinite(n)||n===0)return;r.gold=Math.max(0,Math.round(r.gold+n));save(true);render('builder');toast(`${n>0?'+':''}${n} GC`)}
-function adjustReputation(amount){const r=activeRoster();if(!r)return;const n=Number(amount);if(!Number.isFinite(n)||n===0)return;r.reputation=Math.max(0,Math.round(Number(r.reputation||0)+n));save(true);render('builder');toast(siteLanguage==='en'?`Reputation ${r.reputation}`:`Réputation ${r.reputation}`)}
 function openResourceAdjust(type){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const cfg={gold:{label:en?'Treasury':'Trésor',unit:'GC',current:r.gold||0},wyrdstone:{label:campaignUsesTreasure(r)?'Treasure':'Wyrdstone',unit:campaignUsesTreasure(r)?'Treasures':'shards',current:r.wyrdstone||0},reputation:{label:en?'Reputation':'Réputation',unit:'points',current:r.reputation||0}}[type]||null;if(!cfg)return;openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'WARBAND MANAGEMENT':'GESTION DE BANDE'}</div><h2>${cfg.label}</h2><p>${en?'Choose the operation then enter the amount to apply. The current value is':'Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est'} <strong>${cfg.current}</strong>.</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">${cfg.unit}</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyResourceAdjust('${type}')">${en?'Apply':'Appliquer'}</button></div></div>`)}
 function selectResourceMode(btn){document.querySelectorAll('.resource-mode-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}
 function applyResourceAdjust(type){const r=activeRoster(),input=$('#resourceAmount');if(!r||!input)return;const n=Math.round(Number(input.value));if(!Number.isFinite(n)||n<=0){toast(siteLanguage==='en'?'Enter a positive value':'Entre une valeur positive');return}const sub=document.querySelector('.resource-mode-btn.active')?.dataset.mode==='sub';const delta=sub?-n:n;if(type==='gold'){r.gold=Math.max(0,Math.round(Number(r.gold||0)+delta));logHistory(r,'treasury',siteLanguage==='en'?`Warband treasury: <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta} GC</b>`:`Trésorerie de la bande : <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta} GC</b>`)}else if(type==='wyrdstone'){r.wyrdstone=Math.max(0,Math.round(Number(r.wyrdstone||0)+delta));logHistory(r,'treasury',siteLanguage==='en'?`Warband wyrdstone: <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (stock ${r.wyrdstone})`:`Wyrdstone de la bande : <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (réserve ${r.wyrdstone})`)}else{r.reputation=Math.max(0,Math.round(Number(r.reputation||0)+delta));logHistory(r,'settings',siteLanguage==='en'?`Warband reputation: <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (new value ${r.reputation})`:`Réputation de la bande : <b style="color:${delta>0?'var(--accent)':'#e0895a'}">${delta>0?'+':''}${delta}</b> (nouvelle valeur ${r.reputation})`)}save(true);closeModal();render('builder');toast(`${type==='gold'?(siteLanguage==='en'?'Treasury':'Trésor'):type==='wyrdstone'?'Wyrdstone':(siteLanguage==='en'?'Reputation':'Réputation')} ${delta>0?'+':''}${delta}`)}
@@ -11432,8 +9743,6 @@ function postBattleIncomeMatrix(warriors,shards){const rows=['1-3','4-6','7-9','
 function resetPostBattle(){const r=activeRoster();if(!r)return;const old=ensurePostBattleData(r);delete r.underdogExplore;if(old.shardsCashed)r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)-Number(old.shards||0));r.postBattle={heroCount:0,extraDice:0,winner:false,dice:[],bonusDice:[],shards:0,shardsCashed:false,soldShards:0,income:0,incomeApplied:false,survivingHeroIds:[],exploration:{resolved:false,rewards:[],notes:[],rolls:[],bonuses:[],history:[]},explorationBonuses:old.explorationBonuses||[]};save(true);render('builder');toast(siteLanguage==='en'?'Post-battle sequence reset':'Séquence post-bataille réinitialisée')}
 function postBattleMarkDirty(p,resetCash=true){p.incomeApplied=false;p.income=0;/* Les shards déjà mis en réserve restent dans le Wyrdstone de la bande. Ils ne sont retirés qu'au moment de la vente à l'étape suivante. */}
 
-function rollAllPostBattleDice(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows().forEach(d=>{if(!Number.isInteger(Number(d.value)))d.value=postBattleRoll()});postBattleMarkDirty(p);save(true);render('builder');toast(siteLanguage==='en'?'All dice have been rolled':'Tous les dés ont été lancés')}
-function postBattleUpdateDice(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleMarkDirty(p);postBattleDieRows();save(true);render('builder')}
 // V-STEPPER: big − / + buttons around a number field (phone thumbs), with
 // the numeric keyboard on the field itself. `call` contains %v for the value.
 function numStepperMarkup(v,call,min=0,max=999){const n=Number(v)||0;const c=x=>call.replace('%v',x);return `<span class="num-stepper"><button type="button" aria-label="−" onclick="${c(Math.max(min,n-1))}"${n<=min?' disabled':''}>−</button><input type="number" inputmode="numeric" pattern="[0-9]*" min="${min}" max="${max}" value="${n}" onchange="${c('this.value')}"><button type="button" aria-label="+" onclick="${c(Math.min(max,n+1))}"${n>=max?' disabled':''}>+</button></span>`}
@@ -11455,11 +9764,9 @@ function setPostBattleResult(res){
   logHistory(r,'battle',next?(en?`Battle: <b>${label[next]}</b>`:`Bataille : <b>${label[next]}</b>`):(en?'Battle result cleared':'Résultat de bataille retiré'));
   postBattleMarkDirty(p);postBattleDieRows();save(true);render('builder');
 }
-function setPostBattleWinner(value){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);p.winner=!!value;postBattleMarkDirty(p);postBattleDieRows();save(true);render('builder')}
 function rollPostBattleDie(i){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();if(!p.dice[i])return;p.dice[i].value=postBattleRoll();postBattleMarkDirty(p);save(true);render('builder')}
 function editPostBattleDie(i,value){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();const n=Math.floor(Number(value));if(Number.isInteger(n)&&n>=1&&n<=6)p.dice[i].value=n;else if(value==='')p.dice[i].value=null;postBattleMarkDirty(p);save(true);render('builder')}
 function togglePostBattleDie(i){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);postBattleDieRows();if(!p.dice[i])return;const selected=p.dice.filter(d=>d.selected).length;if(!p.dice[i].selected&&selected>=6){toast(siteLanguage==='en'?'Maximum of 6 dice kept':'Maximum de 6 dés retenus');return}p.dice[i].selected=!p.dice[i].selected;postBattleMarkDirty(p);save(true);render('builder')}
-function applyPostBattleIncome(){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);const dice=postBattleSelectedDice(p),sum=dice.reduce((a,b)=>a+b,0),shards=dice.length?postBattleShards(sum):0,sold=Math.min(Math.max(0,Number(p.soldShards||0)),shards);if(!dice.length){toast(siteLanguage==='en'?'Select at least one die':'Renseigne au moins un dé');return}const income= sold>0?postBattleIncomeMatrix(Math.max(1,postBattleWarriorCount(r)),sold).value:0;if(p.incomeApplied){toast(siteLanguage==='en'?'Income has already been applied for this result':'Le revenu a déjà été appliqué pour ce résultat');return}r.wyrdstone=Math.max(0,Number(r.wyrdstone||0)+(shards-sold));r.gold=Math.max(0,Number(r.gold||0)+income);p.shards=shards;p.soldShards=sold;p.income=income;p.incomeApplied=true;save(true);render('builder');toast(siteLanguage==='en'?`Income applied: +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} kept`:`Income appliqué : +${income} GC · ${shards-sold} shard${shards-sold!==1?'s':''} conservé${shards-sold!==1?'s':''}`)}
 const EXPLORATION_LORE={
  doubles:{
   1:'The public wells, of which there were several in Mordheim, were covered by rooves raised up on pillars and adorned with carvings and fountains. The city was proud of its water system. Unfortunately, like all the other wells, this one is in a parlous state and undoubtedly polluted with wyrdstone.',
@@ -11581,7 +9888,6 @@ function explorationEquipmentDefinition(name){
   if(!base)return {name,category:'Récompense d’exploration',price:a.price??0,value:a.price??0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true};
   return {name,category:base.category,subcategory:base.subcategory||base.category,price:a.price??base.price??0,value:a.price??base.price??0,rarity:base.rarity||'',availability:base.availability||base.rarity||'—',profile:base.profile?{...base.profile}:null,profile2:base.profile2?{...base.profile2}:null,traits:Array.isArray(base.traits)?base.traits.slice():base.traits?[base.traits]:[],rulesText:base.rulesText||'',weaponSlotCost:weaponSlots(base),equipmentAccessGroups:['ALL'],explorationReward:true,sourceEquipment:base.name};
 }
-function explorationFactionLabel(r){return String(faction(r)?.displayName||faction(r)?.name||'')}
 function explorationBonusList(r){return Array.isArray(r?.postBattle?.explorationBonuses)?r.postBattle.explorationBonuses:[]}
 function addExplorationBonus(r,id,label,icon,description){const p=ensurePostBattleData(r);p.explorationBonuses=Array.isArray(p.explorationBonuses)?p.explorationBonuses:[];if(!p.explorationBonuses.some(b=>b.id===id))p.explorationBonuses.push({id,label,icon,description});}
 function removeExplorationBonus(id){const r=activeRoster();if(!r)return;const p=ensurePostBattleData(r);p.explorationBonuses=(p.explorationBonuses||[]).filter(b=>b.id!==id);save(true);render('builder');toast(siteLanguage==='en'?'Exploration Bonus removed':'Bonus d’Exploration supprimé')}
@@ -11812,16 +10118,8 @@ function hubArtifactsFoundMarkup(c,members){const en=siteLanguage==='en';const l
 function hubBattleLine(b){const en=siteLanguage==='en';const sides=b.sides||[];const win=sides.filter(s=>s.result==='win');return `<div class="hub-battle-line"><span class="hub-date">${esc(String(b.playedOn||b.createdAt||'').slice(0,10))}</span><span>${sides.map(s=>`<b>${esc(s.rosterName)}</b>`).join(` <span class="muted">vs</span> `)}${b.scenario?` <span class="muted">· ${esc(b.scenario)}</span>`:''}</span><span class="hub-res">${win.length?esc(win.map(s=>s.rosterName).join(', '))+(en?' won':' gagne'):(en?'Draw':'Égalité')}</span></div>`}
 function hubPlayScenario(sid){const c=campaignDetailCache.get(currentHubId);const r=c&&hubRoster(c);if(r)state.active=r.id;playCampaignScenario(sid)}
 function hubRollScenario(kind){const c=campaignDetailCache.get(currentHubId);const r=c&&hubRoster(c);if(!r)return;state.active=r.id;const t=c.definition?.scenarioTable?.[kind];if(!t)return;const d=[postBattleRoll(),postBattleRoll()];r.campaignScenarioRoll={kind,dice:d,total:d[0]+d[1],name:t[d[0]+d[1]]||'—'};save(true);render('campaignHub')}
-function openHubEventEditor(cid,eid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const e=(c.definition?.events||[]).find(x=>x.id===eid)||{title:'',when:'',text:''};
-  openModal(`<div class="wc-dialog"><div class="eyebrow">${esc(c.name)} · ${en?'EVENT':'ÉVÉNEMENT'}</div><h2>${eid?esc(e.title):(en?'New event':'Nouvel événement')}</h2><label class="custom-field"><span>${en?'Title':'Titre'}</span><input id="evTitle" value="${esc(e.title)}"></label><label class="custom-field"><span>${en?'When (e.g. this round, until 12/11)':'Quand (ex. ce tour, jusqu’au 12/11)'}</span><input id="evWhen" value="${esc(e.when||'')}"></label><label class="custom-field"><span>${en?'What changes':'Ce qui change'}</span><textarea id="evText" rows="5">${esc(e.text||'')}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveHubEvent('${esc(cid)}','${esc(eid||'')}')">${en?'Save':'Enregistrer'}</button>${eid?`<button type="button" class="button danger" onclick="deleteHubEvent('${esc(cid)}','${esc(eid)}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveHubEvent(cid,eid){const en=siteLanguage==='en';const title=($('#evTitle').value||'').trim();if(!title){toast(en?'Give it a title':'Donne-lui un titre');return}const ev={id:eid||crypto.randomUUID().slice(0,8),title,when:($('#evWhen').value||'').trim(),text:$('#evText').value||''};if(await saveCampaignDefinition(cid,def=>{def.events=Array.isArray(def.events)?def.events:[];const i=def.events.findIndex(x=>x.id===ev.id);if(i>=0)def.events[i]=ev;else def.events.unshift(ev)})){closeModal();render('campaignHub')}}
 async function deleteHubEvent(cid,eid){const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this event?':'Supprimer cet événement ?'))return;if(await saveCampaignDefinition(cid,def=>{def.events=(def.events||[]).filter(x=>x.id!==eid)})){closeModal();render('campaignHub')}}
-function openHubFavoredEditor(cid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const f=c.definition?.favoredScenario||{};
-  openModal(`<div class="wc-dialog"><div class="eyebrow">${esc(c.name)}</div><h2>${en?'Favoured scenario':'Scénario favori'}</h2><label class="custom-field"><span>${en?'Scenario':'Scénario'}</span><select id="favId"><option value="">${en?'— none —':'— aucun —'}</option>${(SCENARIOS_CACHE||[]).map(s=>`<option value="${esc(s.id)}" ${s.id===f.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label><label class="custom-field"><span>${en?'Note (bonus, why…)':'Note (bonus, pourquoi…)'}</span><input id="favNote" value="${esc(f.note||'')}"></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveHubFavored('${esc(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveHubFavored(cid){const id=$('#favId').value;const s=(SCENARIOS_CACHE||[]).find(x=>x.id===id);if(await saveCampaignDefinition(cid,def=>{if(!id)delete def.favoredScenario;else def.favoredScenario={id,name:s?.name||'',note:($('#favNote').value||'').trim()}})){closeModal();render('campaignHub')}}
 // --- locations: the campaign's settlements; a warband picks where it resides
 // and that settlement's bonuses apply (market, tithe, Hired Sword upkeep).
@@ -11867,69 +10165,12 @@ function campMapPinTap(cid,pid){const c=campaignDetailCache.get(cid);const m=cam
   toast(p.note?`${p.name} — ${p.note}`:p.name)}
 // --- admin editor
 let campMapEd=null;
-function openCampMapEditor(cid){const c=campaignDetailCache.get(cid);if(!c)return;const m=campMapOf(c);
-  campMapEd={cid,map:m?JSON.parse(JSON.stringify({image:m.image,w:m.w,h:m.h,pins:m.pins||[],paths:m.paths||[]})):{image:'',w:4,h:3,pins:[],paths:[]},mode:'pins',sel:null,from:null,busy:false};
-  openModal(`<div class="wc-dialog cmap-editor" id="cmapEd"></div>`);modalSticky=true;campMapEdRender()}
-function campMapEdRender(){const box=document.getElementById('cmapEd');if(!box||!campMapEd)return;const en=siteLanguage==='en';const E=campMapEd;const c=campaignDetailCache.get(E.cid);if(!c)return;const m=E.map;
-  const sts=c.definition?.settlements||[];const placed=new Map((m.pins||[]).filter(p=>p.sid).map(p=>[p.sid,p]));
-  const head=`<div class="eyebrow">${esc(c.name)} · ${en?'MAP':'CARTE'}</div><div class="cmap-ed-bar"><label class="button secondary small cmap-file">🖼 ${m.image?(en?'Change the picture':'Changer l’image'):(en?'Choose the picture':'Choisir l’image')}<input type="file" accept="image/*" onchange="campMapEdImage(this)" hidden></label>${m.image?`<div class="cmap-modes"><button type="button" class="button ${E.mode==='pins'?'primary':'secondary'} small" onclick="campMapEdMode('pins')">📍 ${en?'Places':'Lieux'}</button><button type="button" class="button ${E.mode==='paths'?'primary':'secondary'} small" onclick="campMapEdMode('paths')">〰 ${en?'Paths':'Chemins'}</button></div>`:''}${E.busy?`<span class="muted">${en?'Preparing the picture…':'Préparation de l’image…'}</span>`:''}</div>`;
-  if(!m.image){box.innerHTML=`${head}<div class="cmap-empty">${en?'Choose a picture of the map (JPG, PNG or WebP). It is resized and compressed automatically.':'Choisis une image de la carte (JPG, PNG ou WebP). Elle est redimensionnée et compressée automatiquement.'}</div><div class="custom-actions"><button type="button" class="button secondary" onclick="campMapEdClose()">${en?'Cancel':'Annuler'}</button></div>`;return}
-  const pin=E.sel&&(m.pins||[]).find(p=>p.id===E.sel);const path=E.sel&&(m.paths||[]).find(p=>p.id===E.sel);
-  const pinName=p=>p.sid?(sts.find(s=>s.id===p.sid)?.name||'?'):(p.name||'?');
-  let side='';
-  if(E.mode==='pins'){
-    const help=E.sel&&!pin?`<p class="cmap-help on">${en?'Tap the map where this place goes.':'Touche la carte à l’endroit de ce lieu.'}</p>`:`<p class="cmap-help">${en?'Pick a place, then tap the map. Drag a pin to move it.':'Choisis un lieu, puis touche la carte. Fais glisser un repère pour le déplacer.'}</p>`;
-    const rows=sts.map(s=>{const p=placed.get(s.id);const on=E.sel===(p?p.id:'new:'+s.id);return `<button type="button" class="cmap-row${on?' sel':''}" onclick="campMapEdSelect('${p?esc(p.id):'new:'+esc(s.id)}')"><span>🏘 ${esc(s.name)}</span><small>${p?(en?'placed ✓':'placé ✓'):(en?'to place':'à placer')}</small></button>`}).join('');
-    const free=(m.pins||[]).filter(p=>!p.sid).map(p=>`<button type="button" class="cmap-row${E.sel===p.id?' sel':''}" onclick="campMapEdSelect('${esc(p.id)}')"><span>📍 ${esc(p.name||'?')}</span><small>${en?'other place':'autre lieu'}</small></button>`).join('');
-    const pend=E.sel&&E.sel.startsWith('free:')?`<button type="button" class="cmap-row sel"><span>📍 ${esc(E.sel.slice(5))}</span><small>${en?'to place':'à placer'}</small></button>`:'';
-    const detail=pin?`<div class="cmap-detail">${pin.sid?'':`<label class="custom-field"><span>${en?'Name':'Nom'}</span><input value="${esc(pin.name||'')}" oninput="campMapEdPinField('name',this.value)"></label>`}<label class="custom-field"><span>${en?'Note shown on tap (optional)':'Note affichée au toucher (optionnel)'}</span><input value="${esc(pin.note||'')}" oninput="campMapEdPinField('note',this.value)"></label><button type="button" class="button secondary small" onclick="campMapEdRemovePin()">${en?'Remove from the map':'Retirer de la carte'}</button></div>`:'';
-    side=`${help}<div class="micro-label">${en?'SETTLEMENTS':'COLONIES'}</div>${rows||`<p class="muted">${en?'No settlement in this campaign yet.':'Aucune colonie dans cette campagne.'}</p>`}<div class="micro-label" style="margin-top:10px">${en?'OTHER PLACES':'AUTRES LIEUX'}</div>${free}${pend}<button type="button" class="button secondary small" onclick="campMapEdAddFree()">＋ ${en?'Other place (ruin, temple…)':'Autre lieu (ruine, temple…)'}</button>${detail}`;
-  }else{
-    const help=`<p class="cmap-help${E.from?' on':''}">${E.from?(en?`From ${esc(pinName((m.pins||[]).find(p=>p.id===E.from)||{}))}: tap the place to link it to.`:`Depuis ${esc(pinName((m.pins||[]).find(p=>p.id===E.from)||{}))} : touche le lieu à relier.`):(en?'Tap a place, then another one to draw a path between them.':'Touche un lieu, puis un autre pour tracer un chemin entre eux.')}</p>`;
-    const rows=(m.paths||[]).map(p=>{const a=(m.pins||[]).find(x=>x.id===p.a),b=(m.pins||[]).find(x=>x.id===p.b);if(!a||!b)return '';return `<button type="button" class="cmap-row${E.sel===p.id?' sel':''}" onclick="campMapEdSelect('${esc(p.id)}')"><span>${esc(pinName(a))} — ${esc(pinName(b))}</span><small>${esc(CAMPMAP_PATH_STYLES[p.style]?.[en?0:1]||'')}${p.label?' · '+esc(p.label):''}</small></button>`}).join('');
-    const detail=path?`<div class="cmap-detail"><label class="custom-field"><span>${en?'Kind':'Type'}</span><select onchange="campMapEdPathField('style',this.value)">${Object.entries(CAMPMAP_PATH_STYLES).map(([k,l])=>`<option value="${k}" ${path.style===k?'selected':''}>${l[en?0:1]}</option>`).join('')}</select></label><label class="custom-field"><span>${en?'Label (e.g. 2 days)':'Étiquette (ex. 2 jours)'}</span><input value="${esc(path.label||'')}" oninput="campMapEdPathField('label',this.value)"></label><label class="custom-field"><span>${en?'Curve':'Courbure'}</span><input type="range" min="-1" max="1" step="0.1" value="${Number(path.bend)||0}" oninput="campMapEdPathField('bend',Number(this.value))"></label><button type="button" class="button secondary small" onclick="campMapEdRemovePath()">${en?'Delete this path':'Supprimer ce chemin'}</button></div>`:'';
-    side=`${help}<div class="micro-label">${en?'PATHS':'CHEMINS'}</div>${rows||`<p class="muted">${en?'No path yet.':'Aucun chemin pour l’instant.'}</p>`}${detail}`;
-  }
-  box.innerHTML=`${head}<div class="cmap-ed-body"><div class="cmap-ed-stage">${campMapMarkup(c,m,{edit:true,sel:E.sel,from:E.from})}</div><aside class="cmap-ed-side">${side}</aside></div><div class="custom-actions"><button type="button" class="button primary" onclick="campMapEdSave()">${en?'Save the map':'Enregistrer la carte'}</button>${campMapOf(c)?`<button type="button" class="button danger" onclick="campMapEdDelete()">${en?'Delete the map':'Supprimer la carte'}</button>`:''}<button type="button" class="button secondary" onclick="campMapEdClose()">${en?'Cancel':'Annuler'}</button></div>`;
-  campMapEdBind()}
-function campMapEdMode(k){if(!campMapEd)return;campMapEd.mode=k;campMapEd.sel=null;campMapEd.from=null;campMapEdRender()}
-function campMapEdSelect(id){if(!campMapEd)return;campMapEd.sel=campMapEd.sel===id?null:id;campMapEdRender()}
-async function campMapEdAddFree(){const en=siteLanguage==='en';const n=await sitePrompt(en?'Name of the place':'Nom du lieu','');const name=String(n||'').trim().slice(0,60);if(!name||!campMapEd)return;campMapEd.mode='pins';campMapEd.sel='free:'+name;campMapEdRender()}
-function campMapEdPinField(k,v){const p=campMapEd&&(campMapEd.map.pins||[]).find(x=>x.id===campMapEd.sel);if(!p)return;p[k]=String(v).slice(0,k==='note'?200:60);const el=document.querySelector(`#cmapStage [data-pin="${CSS.escape(p.id)}"] .cmap-name`);if(el&&k==='name')el.textContent=p[k]}
-function campMapEdPathField(k,v){const p=campMapEd&&(campMapEd.map.paths||[]).find(x=>x.id===campMapEd.sel);if(!p)return;p[k]=k==='label'?String(v).slice(0,40):v;if(k==='label'){clearTimeout(campMapEdPathField.t);campMapEdPathField.t=setTimeout(campMapEdRender,500)}else campMapEdRender()}
-function campMapEdRemovePin(){const E=campMapEd;if(!E)return;const id=E.sel;E.map.pins=(E.map.pins||[]).filter(p=>p.id!==id);E.map.paths=(E.map.paths||[]).filter(p=>p.a!==id&&p.b!==id);E.sel=null;campMapEdRender()}
-function campMapEdRemovePath(){const E=campMapEd;if(!E)return;E.map.paths=(E.map.paths||[]).filter(p=>p.id!==E.sel);E.sel=null;campMapEdRender()}
 function campMapPct(stage,ev){const r=stage.getBoundingClientRect();const cl=v=>Math.round(Math.max(0,Math.min(100,v))*100)/100;return {x:cl((ev.clientX-r.left)/r.width*100),y:cl((ev.clientY-r.top)/r.height*100)}}
-function campMapEdBind(){const stage=document.getElementById('cmapStage');if(!stage||!campMapEd)return;let drag=null;
-  stage.addEventListener('pointerdown',ev=>{const E=campMapEd;if(!E)return;const pinEl=ev.target.closest('[data-pin]');
-    if(E.mode==='paths'){if(!pinEl)return;ev.preventDefault();const id=pinEl.dataset.pin;if(!E.from||E.from===id){E.from=E.from===id?null:id;E.sel=null;campMapEdRender();return}
-      const a=E.from,b=id;const ex=(E.map.paths||[]).find(p=>(p.a===a&&p.b===b)||(p.a===b&&p.b===a));if(ex){E.sel=ex.id}else{const np={id:'w'+Math.random().toString(36).slice(2,8),a,b,style:'road',label:'',bend:0};E.map.paths=[...(E.map.paths||[]),np];E.sel=np.id}E.from=null;campMapEdRender();return}
-    if(pinEl){ev.preventDefault();const id=pinEl.dataset.pin;drag={id,el:pinEl,moved:false};E.sel=id;try{stage.setPointerCapture(ev.pointerId)}catch(e){}return}
-    const s=E.sel;if(!s)return;const pos=campMapPct(stage,ev);
-    if(s.startsWith('new:')){const sid=s.slice(4);const np={id:'s'+sid,sid,x:pos.x,y:pos.y};E.map.pins=[...(E.map.pins||[]).filter(p=>p.sid!==sid),np];E.sel=np.id}
-    else if(s.startsWith('free:')){const np={id:'p'+Math.random().toString(36).slice(2,8),name:s.slice(5),note:'',x:pos.x,y:pos.y};E.map.pins=[...(E.map.pins||[]),np];E.sel=np.id}
-    else{const p=(E.map.pins||[]).find(x=>x.id===s);if(p){p.x=pos.x;p.y=pos.y}}
-    campMapEdRender()});
-  stage.addEventListener('pointermove',ev=>{if(!drag||!campMapEd)return;const pos=campMapPct(stage,ev);const p=(campMapEd.map.pins||[]).find(x=>x.id===drag.id);if(!p)return;p.x=pos.x;p.y=pos.y;drag.moved=true;drag.el.style.left=pos.x+'%';drag.el.style.top=pos.y+'%'});
-  const end=()=>{if(!drag)return;drag=null;campMapEdRender()};stage.addEventListener('pointerup',end);stage.addEventListener('pointercancel',end)}
 function campMapReadFile(file){return new Promise((ok,ko)=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result||''));fr.onerror=()=>ko(fr.error);fr.readAsDataURL(file)})}
 function campMapImgSize(src){return new Promise(ok=>{const i=new Image();i.onload=()=>ok({w:i.naturalWidth,h:i.naturalHeight});i.onerror=()=>ok(null);i.src=src})}
-async function campMapEdImage(input){const en=siteLanguage==='en';const f=input?.files?.[0];if(!f||!campMapEd)return;campMapEd.busy=true;campMapEdRender();
-  try{const raw=await campMapReadFile(f);let best=raw.length<=1400000&&/^data:image\/(webp|jpeg|png)/.test(raw)?raw:null;
-    for(const [max,q] of [[2400,0.82],[2000,0.78],[1600,0.74],[1300,0.7]]){if(best&&best.length<=1400000&&best!==raw)break;const out=await imgShrink(best&&best!==raw?best:raw,max,q);if(out&&(!best||out.length<best.length))best=out;if(best&&best.length<=1400000)break}
-    if(!best||best.length>1400000){toast(en?'This picture is too big even once compressed':'Cette image reste trop lourde une fois compressée');return}
-    const sz=await campMapImgSize(best);if(!sz){toast(en?'Could not read this picture':'Impossible de lire cette image');return}
-    campMapEd.map.image=best;campMapEd.map.w=sz.w;campMapEd.map.h=sz.h}
-  catch(e){toast(en?'Could not read this picture':'Impossible de lire cette image')}
-  finally{if(campMapEd){campMapEd.busy=false;campMapEdRender()}}}
-function campMapEdClose(){campMapEd=null;modalSticky=false;closeModal()}
 async function campMapSaveDef(cid,mutate){const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c||c.missing)return false;const def=JSON.parse(JSON.stringify(c.definition||{}));mutate(def);
   try{const res=await window.MordheimundaAPI.adminUpdateCampaign(cid,{name:c.name,color:c.color,definition:def});campaignDetailCache.set(cid,{...c,...(res?.campaign||{}),definition:res?.campaign?.definition||def,members:c.members});campaignsCache=null;campaignListStale=true;return true}
   catch(e){toast(authError(e,en));return false}}
-async function campMapEdSave(){const en=siteLanguage==='en';const E=campMapEd;if(!E||!E.map.image)return;const cid=E.cid;
-  const map={image:E.map.image,w:Number(E.map.w)||4,h:Number(E.map.h)||3,pins:(E.map.pins||[]).map(p=>p.sid?{id:p.id,sid:p.sid,x:p.x,y:p.y,...(p.note?{note:p.note}:{})}:{id:p.id,name:p.name||'?',x:p.x,y:p.y,...(p.note?{note:p.note}:{})}),paths:(E.map.paths||[]).map(p=>({id:p.id,a:p.a,b:p.b,style:CAMPMAP_PATH_STYLES[p.style]?p.style:'road',...(p.label?{label:p.label}:{}),...(Number(p.bend)?{bend:Number(p.bend)}:{})}))};
-  if(await campMapSaveDef(cid,def=>{def.map=map})){campMapEdClose();toast(en?'Map saved':'Carte enregistrée');renderCurrentRoute()}}
-async function campMapEdDelete(){const en=siteLanguage==='en';const E=campMapEd;if(!E)return;if(!await siteConfirm(en?'Delete the map of this campaign?':'Supprimer la carte de cette campagne ?'))return;if(await campMapSaveDef(E.cid,def=>{delete def.map})){campMapEdClose();renderCurrentRoute()}}
 // --- market
 function setHubMarketCat(c){hubMarketCat=c;render('campaignHub')}
 function filterHubMarket(q){hubMarketSearch=q;const t=normName(q||'');document.querySelectorAll('.hub-market-row').forEach(el=>{el.hidden=!!t&&!normName(el.dataset.name||'').includes(t)})}
@@ -11976,7 +10217,6 @@ async function hubSaveBattle(){
 }
 async function hubConfirmBattle(bid,agree){const en=siteLanguage==='en';try{await window.MordheimundaAPI.campaignBattleConfirm(currentHubId,bid,agree);campaignBattlesCache.delete(currentHubId);render('campaignHub')}catch(e){toast(authError(e,en))}}
 async function hubDeleteBattle(bid){const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this battle?':'Supprimer cette bataille ?'))return;try{await window.MordheimundaAPI.campaignBattleDelete(currentHubId,bid);campaignBattlesCache.delete(currentHubId);render('campaignHub')}catch(e){toast(authError(e,en))}}
-async function hubAdminConfirm(bid){const en=siteLanguage==='en';const b=(campaignBattlesCache.get(currentHubId)||[]).find(x=>x.id===bid);if(!b)return;try{await window.MordheimundaAPI.adminCampaignBattleSave(currentHubId,bid,{...b,status:'confirmed'});campaignBattlesCache.delete(currentHubId);render('campaignHub')}catch(e){toast(authError(e,en))}}
 function hubBattlesMarkup(c){
   const en=siteLanguage==='en';const admin=isAdminEditUI();const r=hubRoster(c);const members=(c.members||[]).filter(m=>!m.leftAt);const mineIds=new Set(hubMyRosters(c).map(x=>x.id));
   const scnNames=[...new Set([...(c.definition?.scenarioTable?Object.values(c.definition.scenarioTable.two||{}):[]),...(c.definition?.scenarioTable?Object.values(c.definition.scenarioTable.multi||{}):[]),...(SCENARIOS_CACHE||[]).map(s=>s.name)].filter(n=>n&&!/lower rating/i.test(n)))];
@@ -12394,8 +10634,6 @@ function playFightersMarkup(ps){
   const inGame=playEngAllLocked(ps)&&groups.length;
   return `<div class="eng-page${inGame?' eng-ingame':''}">${inGame?`${playRoutMarkup(ps)}${cardsBox}${playNoteMarkup(ps)}<div class="eng-setup-folded">${selBlock}${ud}</div>`:`${selBlock}${ud}${cardsBox}`}${endNotes}</div>`;
 }
-// Folded blocks of the Fighters tab (per device, kept with the game).
-function playEngFolded(k){return (state.playSession?.engFold||[]).includes(k)}
 // A block's open state: what the player chose last, else the default given.
 // V-ROUTBAR: when to take the Rout test. Starting crew = engaged fighters
 // (+ temporary ones); the player counts Seriously Injured / Out of Action
@@ -12487,7 +10725,6 @@ const LUSTRIA_SCENARIO_TABLE={
  two:{2:'The warband with the lower rating picks the scenario',3:'The Hunters Become the Hunted',4:'The Secrets Of The Beujuntae',5:'Skirmish',6:'Jungle Skirmish / The Fog Of War',7:'Dem\'s My Gubbinz!',8:'Island Hopping',9:'Defend the Find',10:'Hidden Treasure',11:'Chance Encounter',12:'The warband with the lower rating picks the scenario'},
  multi:{2:'The warband with the lower rating picks the scenario',3:'The Hunters Become the Hunted',4:'The Secrets Of The Beujuntae',5:'Lost Temple of Slann',6:'Jungle Skirmish / The Fog Of War',7:'Treasure Hunt',8:'Street Brawl',9:'Island Hopping',10:'The Pool',11:'Ambush',12:'The warband with the lower rating picks the scenario'}
 };
-async function importLustriaConditions(cid){const en=siteLanguage==='en';if(await saveCampaignDefinition(cid,def=>{const cd=ensureConditionsData(def);cd.enabled=true;if(!def.scenarioTable)def.scenarioTable={...JSON.parse(JSON.stringify(LUSTRIA_SCENARIO_TABLE)),enabled:true}}))toast(en?'Play conditions on':'Conditions en Play activées')}
 async function disableCampaignConditions(cid){const en=siteLanguage==='en';if(!await siteConfirm(en?'Turn off the conditions in Play? Your tables are kept.':'Désactiver les conditions en Play ? Tes tables sont conservées.'))return;await saveCampaignDefinition(cid,def=>{if(def.conditions)def.conditions.enabled=false})}
 // --- which campaign a Play game belongs to
 function playSlotRoster(sl){return sl?.source==='own'?(state.rosters||[]).find(x=>String(x.id)===String(sl.rosterId))||null:null}
@@ -12793,8 +11030,6 @@ function campaignArtifactPanel(r,c){
   return `<div class="cpb-artifacts">${credits?`<div class="cpb-art-credit">🎁 <b>${en?`You have ${credits} artifact roll${credits>1?'s':''} to make`:`Tu as ${credits} jet${credits>1?'s':''} d’artefact à lancer`}</b> <small>${en?'won in exploration':'gagné en exploration'}</small></div>`:''}<div class="cpb-art-head"><div><span class="micro-label">${en?'ARTIFACTS':'ARTEFACTS'}</span><small>${en?'Roll when a scenario or a result gives you an artifact. Unique in the campaign: one already held gives nothing.':'Lance quand un scénario ou un résultat te donne un artefact. Unique dans la campagne : un artefact déjà détenu ne donne rien.'}</small></div><button type="button" class="button secondary" onclick="rollCampaignArtifact()"${Number(s.artifactCredits)>0?' style="border-color:var(--gold,#f2c94c);color:var(--gold,#f2c94c)"':''}>🎲 ${en?'Roll 4D6 for an artifact':'Lancer 4D6 pour un artefact'}</button></div>
    ${list.map(res=>`<div class="cpb-art-roll">${res.rolls.map((row,i)=>`<div class="cpb-art-row"><div><span class="cpb-art-dice">${row.dice.map(v=>`<i>${v}</i>`).join('')}</span><span class="cpb-art-tier">${row.table==='major'?(en?'MAJOR':'MAJEUR'):(en?'MINOR':'MINEUR')} · ${row.total}</span><b>${row.name?esc(row.name):(en?'No artifact at this total':'Aucun artefact à ce total')}</b>${row.heldBy?`<small class="cpb-held">${en?`Held by ${esc(row.heldBy)} — nothing found`:`Détenu par ${esc(row.heldBy)} — rien trouvé`}</small>`:''}</div>${row.name&&!row.heldBy?(row.taken?`<span class="cpb-taken">✓ ${en?'In the Stash':'Dans la réserve'}</span>`:`<button type="button" class="button primary small" onclick="takeCampaignArtifact('${res.id}',${i})">${en?'Add to Stash':'Ajouter à la réserve'}</button>`):''}${campaignArtifactEffectMarkup(c,row.name)}</div>`).join('')}<button type="button" class="cpb-art-x" title="${en?'Remove this roll':'Retirer ce jet'}" onclick="discardCampaignArtifactRoll('${res.id}')">✕</button></div>`).join('')}</div>`;
 }
-// Admin: enable the Lustria chart on a campaign.
-async function importLustriaExploration(cid){const en=siteLanguage==='en';if(await saveCampaignDefinition(cid,def=>{const ex=ensureExplorationData(def);ex.enabled=true}))toast(en?'Campaign post-battle on: Wyrdstone becomes Treasure for this campaign':'Post-bataille de campagne active : le Wyrdstone devient Treasure pour cette campagne')}
 async function disableCampaignExploration(cid){const en=siteLanguage==='en';if(!await siteConfirm(en?'Use the book post-battle again for this campaign? Your chart is kept.':'Revenir à la post-bataille du livre pour cette campagne ? Ta table est conservée.'))return;await saveCampaignDefinition(cid,def=>{if(def.exploration)def.exploration.enabled=false})}
 function campaignTithePct(r){const m=rosterCampaignMarket(r);return m?.st?Number(m.st.tithe||0):0}
 function campaignHsReduction(r,x){const m=rosterCampaignMarket(r);const h=m?.st?.hsUpkeep;if(!h?.reduction||!(h.names||[]).length)return null;const src=normName(hiredSwordSourceWarrior(x)?.name||x.typeName||x.name);return h.names.some(n=>normName(n)===src||src.includes(normName(n)))?h.reduction:null}
@@ -13487,7 +11722,6 @@ function applyLustriaRulePages(def,overwrite){
     (def.conditions?.weather||[]).forEach(w=>{const t=LUSTRIA_TEXTS.weather[String(w.min)];if(t)w.text=t});
   }
 }
-async function importLustriaRulePages(cid){const en=siteLanguage==='en';if(!await siteConfirm(en?'Load the Lustria rule pages? Pages with the same number are replaced by the Lustria text; your other pages are kept.':'Charger les pages de règles de Lustria ? Les pages de même numéro sont remplacées par le texte de Lustria ; tes autres pages sont conservées.'))return;if(await saveCampaignDefinition(cid,def=>applyLustriaRulePages(def,true)))toast(en?'Rule pages loaded':'Pages de règles chargées')}
 const LUSTRIA_TEXTS={"exploration": {"2-1": "The hero has found a metal axe, a rare item among the Lizardmen but not very impressive to anyone else. The axe is decorated with Lizardmen glyphs and its handle is clad in Salamander skin and inlaid with a few valuable gems.\n• An Axe worth 20 gc, which can be sold for half this price.", "2-2": "The hero has found an obsidian mace, slightly damaged on one side. It looks to have been put to good use. The mace head is shaped in the form of a bird with emeralds for eyes.\n• The mace can be sold for 2D6 gc.", "2-3": "This is one of the dreaded sacrificial daggers that the Lizardmen priests use to sacrifice captured enemies. The blade is dark brown in colour and the handle is inlaid with blood-red gems. It will fetch a good price for the gems, but wizards might be able to use the blood or life-force absorbed by the blade for their own uses.\n• It can be sold for 2D6 gc.", "2-4": "This is a spear with an onyx tip and strips of exotic animal skin or fur tied around the haft.\n• A Spear worth 20 gc, which can be sold for half this price.", "2-5": "This is a round shield made from obsidian with gem and gold insets. It might have been made to fit a Saurus.\n• A Shield, which can be sold for 4D6 gc.", "2-6": "This is a small round shield made from obsidian with gem and gold insets. It might be a shield for the small Skinks, but it will fit a human as a buckler.\n• A Buckler, which can be sold for 4D6 gc.", "3-1": "The hero finds a niche with a beautiful gold statuette. As he grabs it, a dart trap is set off.\n• D6 Strength 1 darts fly at him and hit on a 3+. On a to hit roll of 6, the dart automatically wounds.\n• If the hero has the Dodge skill, he may try to save against each dart that hits.\n• The statuette can be sold for 4D6+10 gc.", "3-2": "The hero finds a suit of armour made from a Stegadon skeleton, accompanied by a Stegadon bone helmet.\n• The armour counts as Heavy armour.\n• The bones weigh so much that it may only be worn by a model with Strength 4 or more, and it gives the wearer -1 Movement.", "3-3": "This is a helmet made from the cranium of a large beast, often worn by Saurus Totem Warriors or Skink Priests.\n• It counts as a Helmet, but can be sold for 4D6 gc.", "3-4": "Your hero chances upon a Skink hunter cleaning and preparing the fur of an exotic animal. The Skink is swiftly dispatched.\n• The fur can be sold for 4D6+10 gc.", "3-5": "You find a string of exotic beads.\n• They are worth 4D6 gc.", "3-6": "The hero finds what looks to be a Skink marketplace, and among the broken tables you find:\n[TABLE]\nD6|Result\n1-2|D3 Short bows\n3|D3 Daggers\n4|Blowpipe\n5|Spear\n6|Hunting arrows\n[/TABLE]", "4-1": "The hero finds an ornate suit of armour inlaid with gold.\n• It counts as Heavy armour, but can also be sold for 4D6+20 gc.", "4-2": "The hero finds the body of a long dead Skink.\n• You take possession of a Short bow and D3 doses of Dark venom.", "4-3": "You find a heavy cloak decorated with colourful feathers and gold threads. It was most likely worn by a Skink High Priest.\n• It counts as a Fur cloak, and can be sold for 3D6+10 gc.", "4-4": "You find a Skink artisan's workshop.\n• Uncut gemstones worth D6×10 gc.", "4-5": "The hero finds the body of a long dead human mercenary. Roll to see what is still usable:\n[TABLE]\nD6|Result\n1|A Duelling Pistol\n2-3|A brace (pair) of Pistols\n4|A Handgun\n5|A Blunderbuss\n6|A brace (pair) of Duelling Pistols\n[/TABLE]", "4-6": "You have found a tunnel that leads to the top level of one of the temple ruins. You can use it in the next game you play:\n• You may position up to three warriors (no large warriors such as a Rat Ogre or Ogre) anywhere on the battlefield, as long as they are placed on the top floor of a temple ruin.\n• Place them at the end of your first turn, not within 8\" of any enemy model. This represents the warriors sneaking forward and shooting the enemy from their elevated position.", "5-1": "The hero enters an oval room with a very high ceiling, set with gems that form a star constellation.\n• The hero manages to pluck the lower gems for a total value of D6×20 gc, added to your treasury.", "5-2": "As the hero makes his way around a hole in the floor, he notices it is a nest of venomous snakes — obviously a Lizardmen sacrificial pit. Several corpses lie in the pit, some still with their equipment. Roll for each item separately (apart from the gold crowns) to see if you find it:\n[TABLE]\nItem|D6 needed\nA purse with 2D6 gc|Auto\nA Duelling Pistol|5+\nA Sword|4+\nD3 Treasure|4+\n[/TABLE]", "5-3": "As the hero prises a carved jade statue from its place in a temple wall, he realises he has triggered a trap. A giant boulder comes rolling down the tunnel he's standing in!\n• The hero must roll under his Movement on a D6 to escape, or suffer D3 rolls for Lasting Injuries. A roll of 6 always fails, whatever his Movement.\n• If the hero has the Sprint skill, he may roll two dice and choose one.\n• If the hero survives, he keeps the jade statue, which sells for 50 gc.", "5-4": "On the way into the ruined temple the tunnel seemed fairly straightforward — now the hero is well and truly lost. The hero misses the next game, and possibly more. He finds 1 item for each game he misses.\n[TABLE]\nGame|Result\n1st game|Must miss it\n2nd game|Comes back on a 5+\n3rd game|Comes back on a 4+\n4th game|Comes back on a 3+\n5th game|Never comes back\n[/TABLE]", "5-5": "The hero stumbles upon a nest and finds a baby Cold One. Unfortunately, the mother has just returned, and it is not happy to see the intruder. The hero must fight the beast to escape:\n• Place the hero and the Cold One 6\" apart. The Cold One automatically gets the first turn and charges.\n• If the hero wins the fight, the baby Cold One attaches itself to him: treat it as a Wardog and note it on the hero's equipment.\n• The hero earns +1 XP for the fight, and +1 XP more if he kills the Cold One.\n[TABLE]\nM|WS|BS|S|T|W|I|A|Ld|Cl|Wil|Int\n8|3|0|4|4|2|5|2|6|6|6|6\n[/TABLE]\n• Causes Fear. The mother is also subject to Frenzy.", "5-6": "You stumble upon a hidden door, and learn how to recognise these in the tunnels.\n• You may always re-roll one die when making Exploration rolls. Note it on your warband's roster.\n• Further Hidden Doors grant no additional re-rolls, but you may find re-rolls from other sources.", "6-1": "The hero enters a room with a pool set in the floor. Its surface moves slightly, like clouds in a spring breeze. As the hero gazes into the pool, the clouds fade away and he is shown images from the future. The insight is not always beneficial: a decade of remembering haunting images of the death and destruction of your friends is likely to drive the hero insane.\n• The hero gains +D6 XP, but also gains the Old Battle Wound injury.\n• Roll a D6 before each battle: on a 1, the hero recognises this battle from the pool and refuses to take part, afraid he will be killed.\n• The hero can now learn from the Academic skill tree, and may learn Lesser Magic if he is already a wizard or later learns the Arcane Lore skill.", "6-2": "The hero stumbles upon one of the Lizardmen's sacred plaques, still on the body of a Tilean explorer caught in a vicious trap.\n• The plaque is worth 100+D6×10 gc.\n• Word of the plaque reaches the Lizardmen, who will hate this warband for eternity.\n• If a Lizardmen warband finds the plaque, the high priests reward them with 200 gc.", "6-3": "The hero enters a room whose walls are lined with rat skulls and severed rat tails. A dagger rests on a podium surrounded by rat skulls. The hilt is shaped like a twin-tongued snake and the blade is serrated.\n• The dagger always wounds Skaven on a 2+ and causes critical hits on a 5+. Giant Rats and Rat Ogres count as Skaven.\n• Its wielder is immune to Panic tests caused by Skaven.\n• A Skaven hero can wield the dagger — a potent weapon in fighting for higher positions in Skaven society — but on a to wound roll of 1, the Skaven hero takes a wound himself.", "6-4": "You find the remains of an entire warband. Bodies lie scattered among the ruins, killed by stone-tipped spears and poison-tipped arrows. Roll for each item separately (apart from the gold crowns and daggers) to see if you find it:\n[TABLE]\nItem|D6 needed\n3D6×5 gc|Auto\nD6 Daggers|Auto\nD3 Helmets|2+\nD3 Swords|3+\nD3 Light armour|4+\nD6 Pistols|4+\nHeavy armour|5+\nD3 Halberds|5+\nD3 Handguns|5+\n[/TABLE]", "6-5": "Deep under the temple you are exploring, you find the body of a long dead Elven explorer. Roll for each item separately (apart from the gold crowns and sword) to see if you find it:\n[TABLE]\nItem|D6 needed\n3D6×5 gc|Auto\nA Sword|Auto\nIthilmar armour|4+\nAn Elven cloak|4+\nAn Elf bow|4+\nA Sacred relic|5+\n[/TABLE]", "6-6": "The hero finds a small room with a large egg placed on a pillow, left there for some unknown purpose.\n• It can be sold for 3D6×10 gc to a wizard or collector."}, "hazards": {"3": "The unfortunate warband member has fallen into a tar pit, and will sink until completely submerged.\n• He must be rescued by another model within D3 rounds, or he drowns and is removed from the roster.\n• Any rescuer must pass a Strength check to pull the model free.", "4": "A deadly nest of vipers or lizards has been awoken by the warrior's careless misstep. Roll D6+2 for the number of cold-blooded menaces.", "5": "Stumbling into the rope-like strands of web has alerted the deadly occupant. The giant arachnid attacks any models within 3\" of its lair as well as the initial offender.\n• Causes Fear.\n• Natural armour save 4+.\n• Venomous – Any wound roll of 5 or 6 is treated as critical.", "6": "The warrior has surprised one of Lustria's most enigmatic inhabitants, the Coatl. Possessing a snake-like body measuring up to ten feet in length and brightly coloured feathery wings, Coatl are often worshipped by the Lizardmen as a living embodiment of Sotek.\n• Causes Fear.\n• Venomous – Any wound roll of 5 or 6 is treated as critical.\n• Fly.\n• Magic Aura – Being part magical, the Coatl has a natural 4+ save against hostile magic.", "7": "A dreadful pair of the reptilian beasts have set their bloodthirsty sights on the warriors.\n• Scaly Skin – Natural armour save 5+.\n• Causes Fear.", "8": "Attracted by the promise of fresh meat, a loathsome Troll has attacked the hapless warrior. The Troll counts as having charged for the purpose of combat.\n• Causes Fear.\n• Regeneration (4+).\n• Vomit Attack – A single Strength 5 hit may be used in place of the Troll's other attacks. It hits automatically.\n• Stupidity.", "9": "The jungle floor is full of surprises, but none as subtle as quicksand. The same rules apply as for the Tar Pit, except that the model has D6 rounds in which to be saved.", "10": "Tales of snakes reaching gargantuan proportions have not been exaggerated! This predator also attacks any models within 2\" of the victim, using its constricting coils.\n• Causes Fear.\n• Constricting Coils – The snake may give up its normal attacks to engulf its prey within its massive coils. This attack suffers -1 to hit but gains +1 Strength, and may wrap up to 3 models in turn. A model held by the snake cannot move and suffers -2 to hit in close combat.", "11": "A most unusual carnivorous predator, the giant frog possesses razor-sharp teeth and can grow as long as five feet.\n• Causes Fear.\n• Tongue Strike – The Giant Frog may lash out at a model up to 6\" away with its tongue for a single Strength 3 hit.", "12": "A cloud of Lustria's most common inhabitants has found its mark. The unfortunate warrior cannot move for one round, and suffers -1 to all combat and Initiative rolls for the rest of the game.", "13": "The diminutive jungle tribesmen have taken a sudden and unhealthy interest in the warriors! Roll D3+1 for their number.\n• Equipment: Blowpipe, spear, dagger and shield.", "14": "The warband has regrettably disturbed the nest of a giant Salamander, which sees every model within 8\" as a potential meal.\n• Causes Fear.\n• Venom Spray – The creature may breathe a cone of poison mist up to 6\" away, hitting all models within 2\" of the target point at Strength 4.", "15": "A swarm of ravenous bats has set upon the warrior out of nowhere. D6+2 bats attack.\n• Fly.\n• Erratic – Due to their strange pattern of flight, bats are a challenging target. All rolls to hit them suffer -1.", "16": "As the warband stalks the jungle, so too does the jungle stalk the warband. The primeval predator has found its prey! The sabre-tooth counts as having charged for the purpose of combat.\n• Causes Fear.\n• Ferocious Bite – One of its attacks is a flesh-rending bite, which adds +1 to the injury roll and allows no armour save.", "17": "Lithe, athletic and mesmerisingly beautiful, Amazons do not take kindly to intruders – especially male ones! D3+1 scouts are encountered.\n• Equipment: Spear, dagger, sling or bow, and light armour.", "18": "The jungle does indeed come alive, often in the strangest of forms! Place D3+3 additional Carnivorous Plants on the battlefield (see 1. Special Rules – Carnivorous Plants)."}, "weather": {"7": "The mystical jungle has thrown up a howling gale, making it difficult to shoot and to leap across buildings and terrain features. Roll a D6:\n• 1-3 – -1 to hit with ranged weapons and -1 to leap across buildings.\n• 4-6 – -2 to hit with ranged weapons and -2 to leap across buildings.", "8": "Rain is very common in the lush rain forest of Lustria.\n• All ranged weapons are at -1 to hit.\n• A model wishing to fire a weapon with the Blackpowder trait must first roll a 4+ on a D6, otherwise the powder is too wet to fire.", "10": "The tropical monsoon beats down upon the warriors, making movement through the jungle slow and hazardous.\n• -1 to all movement.\n• All ranged weapon ranges are halved.\n• Weapons with the Blackpowder trait may not fire at all.", "11": "A thick mist has rolled in from the coast. Roll a D6:\n• 1-5 – All shooting is reduced to half range due to poor visibility.\n• 6 – Warriors can't see where they are going and are disoriented. At the start of each of its activations, roll a scatter dice for each model: it must move at least half its movement in that direction. If it runs into another warrior it may attack them; if that warrior is friendly, roll a D6 — on a 5+ it attacks, thinking it is the enemy.", "12": "Part of the reason Lustria remains largely unexplored is the extreme heat of its tropical climate.\n• All warriors except Undead suffer -1 to WS, BS and I for the duration of the game."}};
 // ===== V-LIVECHARTS: rule pages show the campaign's own tables =====
 // A rule page can hold [CHART exploration|hazards|weather|scenarios|settlements].
@@ -13539,24 +11773,6 @@ function campaignPageTextMarkup(text,c,admin){
 function chartItemsToLines(items){return (items||[]).map(i=>[i.n,i.b||'',i.sell||'',i.q||'',i.note||''].join(' | ').replace(/( \| )+$/,'')).join('\n')}
 function chartLineToItem(l){const [n,b,sell,q,note]=l.split('|').map(x=>(x||'').trim());if(!n)return null;const o={n};if(b)o.b=b;if(sell)o.sell=sell;if(q)o.q=q;if(note)o.note=note;return o}
 function chartLinesToItems(t){return String(t||'').split('\n').map(l=>l.trim()).filter(Boolean).map(chartLineToItem).filter(Boolean)}
-function openExplorationEntryEditor(cid,k){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const list=campaignExplorationData(c)||lustriaExplorationDefaults();const e=list.find(x=>x.k===k)||{k:'',name:'',text:'',items:[]};const [t,f]=(e.k||'2-1').split('-');
-  const sel=(idv,opts,v)=>`<select id="${idv}">${opts.map(([val,l])=>`<option value="${val}" ${String(val)===String(v)?'selected':''}>${l}</option>`).join('')}</select>`;
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)} · ${en?'EXPLORATION CHART':'TABLE D’EXPLORATION'}</div><h2>${k?esc(e.name):(en?'New result':'Nouveau résultat')}</h2>
-   <div class="form-grid"><label class="custom-field"><span>${en?'Multiple':'Multiple'}</span>${sel('exTier',CHART_TIERS.map(x=>[x[0],en?x[1]:x[2]]),t)}</label><label class="custom-field"><span>${en?'Face':'Face'}</span>${sel('exFace',[1,2,3,4,5,6].map(v=>[v,v]),f)}</label></div>
-   <label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="exName" value="${esc(e.name)}"></label>
-   <label class="custom-field"><span>${en?'Rules text (what players read)':'Texte de règle (ce que lisent les joueurs)'}</span><textarea id="exText" rows="6">${esc(e.text||'')}</textarea></label>
-   <div class="micro-label" style="margin:10px 0 4px">${en?'WHAT THE APP GIVES WHEN RESOLVED':'CE QUE L’APPLI DONNE À LA RÉSOLUTION'}</div>
-   <label class="custom-field"><span>${en?'Items — one per line: Name | Base catalogue item | resale | quantity | note':'Objets — un par ligne : Nom | Objet de base du catalogue | revente | quantité | note'}</span><textarea id="exItems" rows="3" placeholder="Obsidian Shield | Shield | 4D6">${esc(chartItemsToLines(e.items))}</textarea></label>
-   <label class="custom-field"><span>${en?'D6 table — one row per line: 1-2: Name | Base | resale | qty ; Name | …':'Table D6 — une ligne par résultat : 1-2: Nom | Base | revente | qté ; Nom | …'}</span><textarea id="exTable" rows="3" placeholder="1-2: Short bow | Short bow | | D3">${esc((e.table||[]).map(r=>`${r[0]===r[1]?r[0]:r[0]+'-'+r[1]}: ${(r[2]||[]).map(i=>chartItemsToLines([i])).join(' ; ')}`).join('\n'))}</textarea></label>
-   <label class="custom-field"><span>${en?'Rolls needed — one per line: 4+: Name | Base | resale | qty   or   4+: Treasure D3':'Jets à réussir — un par ligne : 4+: Nom | Base | revente | qté   ou   4+: Treasure D3'}</span><textarea id="exChecks" rows="3" placeholder="5+: Duelling Pistol | Duelling Pistol">${esc((e.checks||[]).map(ch=>`${ch.need}+: ${ch.treasure?`Treasure ${ch.treasure}`:(ch.items||[]).map(i=>chartItemsToLines([i])).join(' ; ')}`).join('\n'))}</textarea></label>
-   <div class="form-grid"><label class="custom-field"><span>${en?'Gold (formula, e.g. D6x10)':'Or (formule, ex. D6x10)'}</span><input id="exGold" value="${esc(e.gold||'')}"></label><label class="custom-field"><span>${en?'Treasure (formula, e.g. D3)':'Treasure (formule, ex. D3)'}</span><input id="exTreasure" value="${esc(e.treasure||'')}"></label></div>
-   <div class="form-grid"><label class="custom-field"><span>${en?'Bonus kept by the warband (name)':'Bonus gardé par la bande (nom)'}</span><input id="exBonusLabel" value="${esc(e.bonus?.label||'')}"></label><label class="custom-field"><span>${en?'Bonus description':'Description du bonus'}</span><input id="exBonusText" value="${esc(e.bonus?.description||'')}"></label></div>
-   <label class="custom-field"><span>${en?'Artifact rolls given by this result (0 = none)':'Jets d’artefact donnés par ce résultat (0 = aucun)'}</span><input id="exArtifacts" type="number" min="0" max="5" step="1" value="${Number(e.artifacts||0)}"></label>
-   <label class="custom-check"><input type="checkbox" id="exTrap" ${e.trap?'checked':''}><span>${en?'Danger for the leading Hero (needs a leading Hero)':'Danger pour le Héros meneur (demande un Héros meneur)'}</span></label>
-   <label class="custom-check"><input type="checkbox" id="exPool" ${e.pool?'checked':''}><span>${en?'Pool of Insight effect (+D6 XP once, Old Battle Wound, refusal roll next battle)':'Effet Pool of Insight (+D6 XP une fois, Old Battle Wound, jet de refus à la prochaine bataille)'}</span></label>
-   <div class="custom-actions"><button type="button" class="button primary" onclick="saveExplorationEntry('${esc(cid)}','${esc(k||'')}')">${en?'Save':'Enregistrer'}</button>${k?`<button type="button" class="button danger" onclick="deleteExplorationEntry('${esc(cid)}','${esc(k)}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 function ensureExplorationData(def){if(!def.exploration)def.exploration={chart:'custom',entries:lustriaExplorationDefaults(),enabled:false};if(!Array.isArray(def.exploration.entries)||!def.exploration.entries.length)def.exploration.entries=lustriaExplorationDefaults();return def.exploration}
 async function saveExplorationEntry(cid,oldK){
   const en=siteLanguage==='en';const name=($('#exName').value||'').trim();if(!name){toast(en?'Give it a name':'Donne-lui un nom');return}
@@ -13574,14 +11790,6 @@ async function saveExplorationEntry(cid,oldK){
 }
 async function deleteExplorationEntry(cid,k){const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this result?':'Supprimer ce résultat ?'))return;if(await saveCampaignDefinition(cid,def=>{const ex=ensureExplorationData(def);ex.entries=ex.entries.filter(x=>x.k!==k)}))closeModal()}
 function ensureConditionsData(def){if(!def.conditions)def.conditions={weather:lustriaWeatherDefaults(),hazards:lustriaHazardDefaults(),enabled:false};def.conditions.weather=def.conditions.weather||lustriaWeatherDefaults();def.conditions.hazards=def.conditions.hazards||lustriaHazardDefaults();return def.conditions}
-function openHazardEditor(cid,roll){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const list=campaignConditionsData(c)?.hazards||lustriaHazardDefaults();const h=list.find(x=>String(x.roll)===String(roll))||{roll:'',name:'',text:''};
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)} · ${en?'HAZARDS':'DANGERS'}</div><h2>${roll?esc(h.name):(en?'New hazard':'Nouveau danger')}</h2>
-   <div class="form-grid"><label class="custom-field"><span>3D6</span><input id="hzRoll" type="number" min="3" max="18" value="${esc(h.roll)}"></label><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="hzName" value="${esc(h.name)}"></label><label class="custom-field"><span>${en?'Number of creatures (formula, e.g. D3+1)':'Nombre de créatures (formule, ex. D3+1)'}</span><input id="hzCount" value="${esc(h.count||'')}"></label></div>
-   <label class="custom-field"><span>${en?'Rules text':'Texte de règle'}</span><textarea id="hzText" rows="6">${esc(h.text||'')}</textarea></label>
-   <label class="custom-field"><span>${en?'Profile M WS BS S T W I A Ld (Cl/Wil/Int = Ld) — empty if none':'Profil M WS BS S T W I A Ld (Cl/Wil/Int = Ld) — vide si aucun'}</span><input id="hzProfile" value="${esc((h.profile||[]).join(' '))}" placeholder="5 2 0 2 2 1 5 1 4"></label>
-   <div class="custom-actions"><button type="button" class="button primary" onclick="saveHazard('${esc(cid)}','${esc(String(roll||''))}')">${en?'Save':'Enregistrer'}</button>${roll?`<button type="button" class="button danger" onclick="deleteHazard('${esc(cid)}','${esc(String(roll))}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveHazard(cid,oldRoll){
   const en=siteLanguage==='en';const roll=Math.round(Number($('#hzRoll').value));const name=($('#hzName').value||'').trim();if(!(roll>=3&&roll<=18)||!name){toast(en?'A 3D6 result (3–18) and a name are needed':'Il faut un résultat 3D6 (3–18) et un nom');return}
   const prof=String($('#hzProfile').value||'').trim().split(/[\s,;|]+/).filter(Boolean).map(Number);if(prof.length&&prof.length!==9){toast(en?'The profile needs 9 numbers':'Le profil doit avoir 9 nombres');return}
@@ -13589,14 +11797,6 @@ async function saveHazard(cid,oldRoll){
   if(await saveCampaignDefinition(cid,def=>{const cd=ensureConditionsData(def);cd.hazards=cd.hazards.filter(x=>String(x.roll)!==String(oldRoll)&&x.roll!==roll);cd.hazards.push(h)})){closeModal();toast(en?'Saved — the app now uses this hazard':'Enregistré — l’appli utilise maintenant ce danger')}
 }
 async function deleteHazard(cid,roll){const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this hazard?':'Supprimer ce danger ?'))return;if(await saveCampaignDefinition(cid,def=>{const cd=ensureConditionsData(def);cd.hazards=cd.hazards.filter(x=>String(x.roll)!==String(roll))}))closeModal()}
-function openWeatherEditor(cid,min){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const list=campaignConditionsData(c)?.weather||lustriaWeatherDefaults();const w=list.find(x=>String(x.min)===String(min))||{min:'',max:'',name:'',text:''};
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)} · ${en?'WEATHER':'MÉTÉO'}</div><h2>${min?esc(w.name):(en?'New result':'Nouveau résultat')}</h2>
-   <div class="form-grid"><label class="custom-field"><span>2D6 ${en?'from':'de'}</span><input id="wMin" type="number" min="2" max="12" value="${esc(w.min)}"></label><label class="custom-field"><span>${en?'to':'à'}</span><input id="wMax" type="number" min="2" max="12" value="${esc(w.max)}"></label><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="wName" value="${esc(w.name)}"></label></div>
-   <label class="custom-field"><span>${en?'Rules text':'Texte de règle'}</span><textarea id="wText" rows="5">${esc(w.text||'')}</textarea></label>
-   <label class="custom-field"><span>${en?'Extra D6 rolled by the app — one per line: 1-3: effect (empty if none)':'D6 supplémentaire lancé par l’appli — un par ligne : 1-3: effet (vide si aucun)'}</span><textarea id="wSub" rows="3">${esc((w.sub||[]).map(s=>`${s[0]===s[1]?s[0]:s[0]+'-'+s[1]}: ${s[2]}`).join('\n'))}</textarea></label>
-   <div class="custom-actions"><button type="button" class="button primary" onclick="saveWeather('${esc(cid)}','${esc(String(min||''))}')">${en?'Save':'Enregistrer'}</button>${min?`<button type="button" class="button danger" onclick="deleteWeather('${esc(cid)}','${esc(String(min))}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveWeather(cid,oldMin){
   const en=siteLanguage==='en';const mn=Math.round(Number($('#wMin').value)),mx=Math.round(Number($('#wMax').value||$('#wMin').value));const name=($('#wName').value||'').trim();if(!(mn>=2&&mx<=12&&mn<=mx)||!name){toast(en?'A 2D6 range (2–12) and a name are needed':'Il faut une plage 2D6 (2–12) et un nom');return}
   const sub=String($('#wSub').value||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(\d)\s*(?:[-–]\s*(\d))?\s*:\s*(.+)$/);return m?[Number(m[1]),Number(m[2]||m[1]),m[3].trim()]:null}).filter(Boolean);
@@ -13604,12 +11804,6 @@ async function saveWeather(cid,oldMin){
   if(await saveCampaignDefinition(cid,def=>{const cd=ensureConditionsData(def);cd.weather=cd.weather.filter(x=>String(x.min)!==String(oldMin)&&x.min!==mn);cd.weather.push(w)})){closeModal();toast(en?'Saved — the app now uses this weather':'Enregistré — l’appli utilise maintenant cette météo')}
 }
 async function deleteWeather(cid,min){const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this result?':'Supprimer ce résultat ?'))return;if(await saveCampaignDefinition(cid,def=>{const cd=ensureConditionsData(def);cd.weather=cd.weather.filter(x=>String(x.min)!==String(min))}))closeModal()}
-function openScenarioTableEditor(cid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const t=c.definition?.scenarioTable||LUSTRIA_SCENARIO_TABLE;const rows=Array.from({length:11},(_,i)=>i+2);
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)} · ${en?'SCENARIO TABLES':'TABLES DE SCÉNARIOS'}</div><h2>${en?'Scenario tables (2D6)':'Tables de scénarios (2D6)'}</h2><p class="sheet-help">${en?'Write the exact name of a published scenario to link it (use " / " for a choice of two).':'Écris le nom exact d’un scénario publié pour le lier (« / » pour un choix entre deux).'}</p>
-   <div class="rule-table-wrap"><table class="rule-table"><tr><th>2D6</th><th>${en?'Two players':'Deux joueurs'}</th><th>${en?'Multiplayer':'Multijoueur'}</th></tr>${rows.map(n=>`<tr><td>${n}</td><td><input class="sct-two" data-n="${n}" value="${esc(t.two?.[n]||'')}"></td><td><input class="sct-multi" data-n="${n}" value="${esc(t.multi?.[n]||'')}"></td></tr>`).join('')}</table></div>
-   <div class="custom-actions"><button type="button" class="button primary" onclick="saveScenarioTable('${esc(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveScenarioTable(cid){const two={},multi={};document.querySelectorAll('.sct-two').forEach(i=>{two[i.dataset.n]=i.value.trim()});document.querySelectorAll('.sct-multi').forEach(i=>{multi[i.dataset.n]=i.value.trim()});if(await saveCampaignDefinition(cid,def=>{const old=def.scenarioTable;def.scenarioTable={two,multi,enabled:old?old.enabled!==false:false}})){closeModal();toast(siteLanguage==='en'?'Scenario tables saved':'Tables de scénarios enregistrées')}}
 // V-SETUP: admin panel on the "In the app" page — every campaign feature with
 // its state and the button that turns it on (or imports its Lustria data).
@@ -13630,7 +11824,6 @@ async function enableAllLustria(cid){
   if(ok)toast(en?'Lustria features turned on — now stock the shared market':'Fonctions de Lustria activées — approvisionne maintenant le marché partagé',5000);
 }
 async function disableCampaignScenarioTable(cid){await saveCampaignDefinition(cid,def=>{if(def.scenarioTable)def.scenarioTable.enabled=false})}
-async function importLustriaScenarioTable(cid){await saveCampaignDefinition(cid,def=>{if(def.scenarioTable)def.scenarioTable.enabled=true;else def.scenarioTable={...JSON.parse(JSON.stringify(LUSTRIA_SCENARIO_TABLE)),enabled:true}})}
 function campaignSetupMarkup(c){
   const en=siteLanguage==='en';const d=c.definition||{};const id=esc(c.id);const m=campaignMarketCache.get(c.id);if(!m)loadCampaignMarket(c.id,'campaignDetail');
   const row=(on,icon,title,detail,btn)=>`<div class="setup-row${on?' on':''}"><span class="setup-dot">${on?'✓':'○'}</span><div><b>${icon} ${esc(title)}</b><small>${detail}</small></div><div class="setup-btns">${btn}</div></div>`;
@@ -13679,18 +11872,6 @@ function campaignArtifactsMarkup(c,admin){
   };
   return `<div class="rules-article-body campaign-text"><h2 class="campaign-page-title">${en?'Artifacts':'Artefacts'}</h2>${bar}${intro?ruleTextMarkup(intro,{noTitle:true}):''}${section('minor',en?'Minor artifacts':'Artefacts mineurs')}${section('major',en?'Major artifacts':'Artefacts majeurs')}</div>`;
 }
-// V-CAMPAIGNPAGEEDIT: edit the presentation or one rule page in place.
-function openCampaignPageEditor(cid,pid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
-  const isOverview=pid==='overview';const pg=isOverview?null:(c.definition?.pages||[]).find(p=>(p.id||'')===pid);
-  if(!isOverview&&!pg)return;
-  const text=isOverview?(c.definition?.description||''):(pg.text||'');
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)}</div><h2>${isOverview?(en?'Presentation':'Présentation'):(en?'Edit page':'Modifier la page')}</h2>${isOverview?'':`<label class="custom-field"><span>${en?'Page title':'Titre de la page'}</span><input id="cpTitle" value="${esc(pg.title||'')}"></label>`}<label class="custom-field"><span>${en?'Text (same formatting as the rules: • bullets, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)':'Texte (même mise en forme que les règles : • puces, [SUBHEAD]…, [TABLE]…, [ITEMS]…, [IMG]…)'}</span><p class="sheet-help">${en?'Tables used by the app are inserted with [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] or [CHART settlements]. Edit their entries with the ✎ next to each one on the page: what you change there is what the app applies.':'Les tables utilisées par l’appli s’insèrent avec [CHART exploration], [CHART hazards], [CHART weather], [CHART scenarios] ou [CHART settlements]. Modifie leurs entrées avec le ✎ à côté de chacune sur la page : ce que tu changes là est ce que l’appli applique.'}</p>${ruleEditToolbarMarkup('',en?'Same tools as the rules editor. A line like 1. MAKE A WOUND ROLL becomes a numbered step title.':'Mêmes outils que l’éditeur de règles. Une ligne comme 1. MAKE A WOUND ROLL devient un titre d’étape numéroté.')}<textarea id="ruleEditTextarea" rows="18" style="width:100%;font-family:ui-monospace,monospace;font-size:12.5px">${esc(text)}</textarea></label><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignPageEditor('${esc(cid)}','${esc(pid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
-async function saveCampaignPageEditor(cid,pid){
-  const text=$('#ruleEditTextarea')?.value||'';const title=($('#cpTitle')?.value||'').trim();
-  if(await saveCampaignDefinition(cid,def=>{if(pid==='overview'){def.description=text;return}def.pages=(def.pages||[]).map(p=>(p.id||'')===pid?{...p,title:title||p.title,text}:p)}))closeModal();
-}
 async function saveCampaignDefinition(id,mutate){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(id);if(!c||c.missing)return false;
   const def=JSON.parse(JSON.stringify(c.definition||{}));mutate(def);
@@ -13703,22 +11884,6 @@ function campaignArtifactBaseNames(){
   (D.factions||[]).forEach(f=>(f.equipment||[]).forEach(e=>e&&typeof e==='object'&&e.name&&!isCovering(e)&&names.add(e.name)));
   return [...names].sort((a,b)=>a.localeCompare(b));
 }
-function openCampaignArtifactEditor(cid,aid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
-  const a=(c.definition?.artifacts||[]).find(x=>x.id===aid)||{table:'minor',roll:'',name:'',base:'',lore:'',rules:''};
-  openModal(`<div class="wc-dialog"><div class="eyebrow">${en?'ARTIFACT':'ARTEFACT'}</div><h2>${aid?esc(a.name):(en?'New artifact':'Nouvel artefact')}</h2>
-   <div class="form-grid"><label class="custom-field"><span>${en?'Table':'Table'}</span><select id="artTable"><option value="minor" ${a.table!=='major'?'selected':''}>${en?'Minor':'Mineur'}</option><option value="major" ${a.table==='major'?'selected':''}>${en?'Major':'Majeur'}</option></select></label><label class="custom-field"><span>4D6</span><input id="artRoll" value="${esc(a.roll||'')}" placeholder="10-11"></label></div>
-   <label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="artName" value="${esc(a.name||'')}"></label>
-   <label class="custom-field"><span>${en?'Counts as (catalogue item — empty for a special item)':'Compte comme (objet du catalogue — vide pour un objet spécial)'}</span><input id="artBase" list="artBaseNames" value="${esc(a.base||'')}" placeholder="Sword, Heavy armour…"><datalist id="artBaseNames">${campaignArtifactBaseNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></label>
-   <label class="custom-field"><span>${en?'Story':'Histoire'}</span><textarea id="artLore" rows="3">${esc(a.lore||'')}</textarea></label>
-   <label class="custom-field"><span>${en?'Rules (same formatting as rules text: • bullets, [TABLE]…)':'Règles (même mise en forme que les règles : • puces, [TABLE]…)'}</span><textarea id="artRules" rows="6">${esc(a.rules||'')}</textarea></label>
-   <div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignArtifact('${esc(cid)}','${esc(aid||'')}')">${en?'Save':'Enregistrer'}</button>${aid?`<button type="button" class="button danger" onclick="deleteCampaignArtifact('${esc(cid)}','${esc(aid)}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
-async function saveCampaignArtifact(cid,aid){
-  const en=siteLanguage==='en';const name=($('#artName')?.value||'').trim();if(!name){toast(en?'Give the artifact a name':'Donne un nom à l’artefact');return}
-  const item={id:aid||crypto.randomUUID().slice(0,8),table:$('#artTable').value==='major'?'major':'minor',roll:($('#artRoll').value||'').trim(),name,base:($('#artBase').value||'').trim(),lore:$('#artLore').value||'',rules:$('#artRules').value||''};
-  if(await saveCampaignDefinition(cid,def=>{def.artifacts=Array.isArray(def.artifacts)?def.artifacts:[];const i=def.artifacts.findIndex(x=>x.id===item.id);if(i>=0)def.artifacts[i]=item;else def.artifacts.push(item)})){closeModal();toast(en?'Artifact saved':'Artefact enregistré')}
-}
 async function deleteCampaignArtifact(cid,aid){
   const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this artifact?':'Supprimer cet artefact ?'))return;
   if(await saveCampaignDefinition(cid,def=>{def.artifacts=(def.artifacts||[]).filter(x=>x.id!==aid)}))closeModal();
@@ -13726,14 +11891,6 @@ async function deleteCampaignArtifact(cid,aid){
 function editCampaignArtifactsIntro(cid){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
   openModal(`<div class="wc-dialog"><div class="eyebrow">${en?'ARTIFACTS':'ARTEFACTS'}</div><h2>${en?'Intro text':'Texte d’intro'}</h2><textarea id="artIntro" rows="8" style="width:100%">${esc(c.definition?.artifactsIntro||'')}</textarea><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignArtifactsIntro('${esc(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
-async function saveCampaignArtifactsIntro(cid){const v=$('#artIntro')?.value||'';if(await saveCampaignDefinition(cid,def=>{def.artifactsIntro=v}))closeModal()}
-async function importLustriaArtifacts(cid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
-  const have=new Set((c.definition?.artifacts||[]).map(a=>normName(a.name)));const todo=LUSTRIA_ARTIFACTS.filter(a=>!have.has(normName(a.name)));
-  if(!todo.length){toast(en?'Every Lustria artifact is already here':'Tous les artefacts de Lustria sont déjà là');return}
-  if(!await siteConfirm(en?`Add ${todo.length} Lustria artifacts to this campaign? You can edit each one afterwards.`:`Ajouter ${todo.length} artefacts de Lustria à cette campagne ? Tu pourras modifier chacun ensuite.`))return;
-  if(await saveCampaignDefinition(cid,def=>{def.artifacts=[...(def.artifacts||[]),...todo.map(a=>({...a,id:crypto.randomUUID().slice(0,8)}))];if(!def.artifactsIntro)def.artifactsIntro=LUSTRIA_ARTIFACTS_INTRO}))toast(en?`${todo.length} artifacts imported`:`${todo.length} artefacts importés`);
 }
 /* V-SETTLEMENTS: places a warband can reside in during a campaign
    (definition.settlements). One shared campaign market; each warband buys
@@ -13775,42 +11932,7 @@ function campaignSettlementsMarkup(c,admin,embedded){
   if(!list.length)return `<div class="rules-article-body campaign-text">${head}<p class="muted">${en?'No settlement yet.':'Aucune colonie pour l’instant.'}</p></div>`;
   return `<div class="rules-article-body campaign-text">${head}<div class="settle-grid">${list.map(st=>{const ex=(st.excluded||[]).map(fid=>opts.find(o=>o.id===fid)?.name||fid);return `<article class="settle-card"><div class="artifact-head"><h3>${esc(st.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openSettlementEditor('${id}','${esc(st.id)}')">✎</button>`:''}</div>${settlementEffectsMarkup(st,en)}${st.notes?`<div class="artifact-rules">${ruleTextMarkup(st.notes,{noTitle:true})}</div>`:''}<div class="settle-excluded"><b>${en?'Cannot reside here':'Ne peuvent pas résider ici'}:</b> ${ex.length?ex.map(esc).join(', '):(en?'nobody':'personne')}${st.newAllowed===false?` · <i>${en?'new warbands excluded by default':'nouvelles warbands exclues par défaut'}</i>`:''}</div></article>`}).join('')}</div></div>`;
 }
-function openSettlementEditor(cid,sid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
-  const st=(c.definition?.settlements||[]).find(x=>x.id===sid)||{name:'',excluded:[],newAllowed:true,tithe:0,market:{},hsUpkeep:{reduction:'',names:[]},notes:''};const m=st.market||{};const ex=new Set(st.excluded||[]);
-  const num=(idv,label,v)=>`<label class="custom-field"><span>${label}</span><input id="${idv}" type="number" step="1" value="${Number(v||0)}"></label>`;
-  const txt=(idv,label,v,ph)=>`<label class="custom-field"><span>${label}</span><input id="${idv}" value="${esc(v||'')}" placeholder="${esc(ph||'')}"></label>`;
-  openModal(`<div class="wc-dialog campaign-page-editor"><div class="eyebrow">${esc(c.name)} · ${en?'SETTLEMENT':'COLONIE'}</div><h2>${sid?esc(st.name):(en?'New settlement':'Nouvelle colonie')}</h2>
-   ${txt('stName',en?'Name':'Nom',st.name,'')}
-   <div class="micro-label" style="margin:10px 0 6px">${en?'WHO MAY RESIDE HERE — unticked = excluded':'QUI PEUT RÉSIDER ICI — décoché = exclu'}</div>
-   <div class="settle-checks">${campaignFactionOptions().map(o=>`<label class="custom-check"><input type="checkbox" class="stAllow" data-fid="${esc(o.id)}" ${ex.has(o.id)?'':'checked'}><span>${esc(o.name)}</span></label>`).join('')}</div>
-   <label class="custom-check" style="margin-top:8px"><input type="checkbox" id="stNewAllowed" ${st.newAllowed===false?'':'checked'}><span>${en?'Warbands created later are allowed by default':'Les warbands créées plus tard sont autorisées par défaut'}</span></label>
-   <div class="micro-label" style="margin:12px 0 6px">${en?'RESIDENTS\' MARKET':'MARCHÉ DES RÉSIDENTS'}</div>
-   <div class="form-grid">${txt('stCommonPrice',en?'Common: price (e.g. -1D6)':'Common : prix (ex. -1D6)',m.commonPrice,'-1D6')}${num('stCommonFind',en?'Common: to find (roll modifier)':'Common : pour trouver (modif. du jet)',m.commonFind)}${txt('stRarePrice',en?'Rare: price (e.g. +D6x10)':'Rare : prix (ex. +D6x10)',m.rarePrice,'+D6x10')}${num('stRareFind',en?'Rare: to find (roll modifier)':'Rare : pour trouver (modif. du jet)',m.rareFind)}${num('stAllFind',en?'All items: to find':'Tous les objets : pour trouver',m.allFind)}${num('stTithe',en?'Tithe on each game\'s income (%)':'Dîme sur les revenus (%)',st.tithe)}</div>
-   <div class="form-grid">${txt('stHsRed',en?'Hired Sword upkeep reduction (e.g. 1D6)':'Réduction d’entretien Hired Sword (ex. 1D6)',st.hsUpkeep?.reduction,'1D6')}${txt('stHsNames',en?'…for these Hired Swords (comma separated)':'…pour ces Hired Swords (séparés par des virgules)',(st.hsUpkeep?.names||[]).join(', '),'Pit Fighter, Ogre Bodyguard')}</div>
-   <label class="custom-field"><span>${en?'Other rules (text)':'Autres règles (texte)'}</span><textarea id="stNotes" rows="4">${esc(st.notes||'')}</textarea></label>
-   <div class="custom-actions"><button type="button" class="button primary" onclick="saveSettlement('${esc(cid)}','${esc(sid||'')}')">${en?'Save':'Enregistrer'}</button>${sid?`<button type="button" class="button danger" onclick="deleteSettlement('${esc(cid)}','${esc(sid)}')">${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
-async function saveSettlement(cid,sid){
-  const en=siteLanguage==='en';const name=($('#stName')?.value||'').trim();if(!name){toast(en?'Give the settlement a name':'Donne un nom à la colonie');return}
-  const boxes=[...document.querySelectorAll('.stAllow')];const n=v=>Math.round(Number(v)||0);
-  const item={id:sid||crypto.randomUUID().slice(0,8),name,excluded:boxes.filter(b=>!b.checked).map(b=>b.dataset.fid),known:boxes.map(b=>b.dataset.fid),newAllowed:!!$('#stNewAllowed')?.checked,tithe:Math.max(0,n($('#stTithe').value)),market:{commonPrice:($('#stCommonPrice').value||'').trim(),commonFind:n($('#stCommonFind').value),rarePrice:($('#stRarePrice').value||'').trim(),rareFind:n($('#stRareFind').value),allFind:n($('#stAllFind').value)},hsUpkeep:{reduction:($('#stHsRed').value||'').trim(),names:($('#stHsNames').value||'').split(',').map(x=>x.trim()).filter(Boolean)},notes:$('#stNotes').value||''};
-  if(await saveCampaignDefinition(cid,def=>{def.settlements=Array.isArray(def.settlements)?def.settlements:[];const i=def.settlements.findIndex(x=>x.id===item.id);if(i>=0)def.settlements[i]=item;else def.settlements.push(item)})){closeModal();toast(en?'Settlement saved':'Colonie enregistrée')}
-}
-async function deleteSettlement(cid,sid){const en=siteLanguage==='en';if(!await siteConfirm(en?'Delete this settlement?':'Supprimer cette colonie ?'))return;if(await saveCampaignDefinition(cid,def=>{def.settlements=(def.settlements||[]).filter(x=>x.id!==sid)}))closeModal()}
-function openOutsiderPenaltyEditor(cid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;const p=campaignOutsiderPenalty(c);
-  openModal(`<div class="wc-dialog"><div class="eyebrow">${esc(c.name)}</div><h2>${en?'Warbands with no residence':'Bandes sans résidence'}</h2><p class="sheet-help">${en?'Applied to a warband that may reside in no settlement, when it buys from the campaign market. Common items count as Rare 4.':'Appliqué à une bande qui ne peut résider dans aucune colonie, quand elle achète au marché de la campagne. Les objets Common comptent comme Rare 4.'}</p><div class="form-grid"><label class="custom-field"><span>${en?'Availability penalty':'Pénalité de rareté'}</span><input id="penRarity" type="number" step="1" value="${p.rarity}"></label><label class="custom-field"><span>${en?'Price on purchases (%)':'Prix à l’achat (%)'}</span><input id="penPrice" type="number" step="1" value="${p.pricePct}"></label></div><div class="custom-actions"><button type="button" class="button primary" onclick="saveOutsiderPenalty('${esc(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
-}
 async function saveOutsiderPenalty(cid){const r=Math.round(Number($('#penRarity').value)||0),p=Math.round(Number($('#penPrice').value)||0);if(await saveCampaignDefinition(cid,def=>{def.outsiderPenalty={rarity:r,pricePct:p}}))closeModal()}
-async function importLustriaSettlements(cid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
-  const have=new Set((c.definition?.settlements||[]).map(x=>normName(x.name)));const todo=LUSTRIA_SETTLEMENTS.filter(x=>!have.has(normName(x.name)));
-  if(!todo.length){toast(en?'Every Lustria settlement is already here':'Toutes les colonies de Lustria sont déjà là');return}
-  const opts=campaignFactionOptions();
-  const items=todo.map(t=>({id:crypto.randomUUID().slice(0,8),name:t.name,excluded:opts.filter(o=>t.excludeNames.some(k=>String(o.name).toLowerCase().includes(k))).map(o=>o.id),known:opts.map(o=>o.id),newAllowed:true,tithe:t.tithe,market:{...t.market},hsUpkeep:{reduction:t.hsUpkeep.reduction,names:t.hsUpkeep.names.slice()},notes:t.notes}));
-  if(await saveCampaignDefinition(cid,def=>{def.settlements=[...(def.settlements||[]),...items];if(!def.outsiderPenalty)def.outsiderPenalty={rarity:4,pricePct:20}}))toast(en?`${items.length} settlements imported — check who may reside in each`:`${items.length} colonies importées — vérifie qui peut résider dans chacune`);
-}
 // Warband side: the residence card in the Campaign tab.
 function campaignResidenceMarkup(r,c){
   const en=siteLanguage==='en';const list=c?.definition?.settlements||[];if(!list.length)return '';
@@ -13920,25 +12042,6 @@ function myCampaigns(){
 }
 // --- admin editor
 let campaignEditorDraft=null;
-async function openCampaignEditor(id){
-  const en=siteLanguage==='en';let c=null;
-  if(id){try{c=(await window.MordheimundaAPI.adminCampaign(id))?.campaign}catch(e){toast(authError(e,en));return}}
-  campaignEditorDraft={id:c?.id||null,pages:JSON.parse(JSON.stringify(Array.isArray(c?.definition?.pages)?c.definition.pages:[])),definition:c?.definition||{}};
-  openModal(`<div class="admin-live-editor campaign-editor"><div class="eyebrow">${id?(en?'EDIT CAMPAIGN':'MODIFIER LA CAMPAGNE'):(en?'NEW CAMPAIGN':'NOUVELLE CAMPAGNE')}</div>
-   <div class="custom-form-grid"><label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="ceName" value="${esc(c?.name||'')}"></label><label class="custom-field"><span>${en?'Campaign colour':'Couleur de campagne'}</span><input id="ceColor" type="color" value="${esc(campaignColor(c))}"></label></div>
-   <div class="camp-cover-edit"><div class="camp-cover-preview" id="ceCoverPreview">${campaignCoverEditPreview()}</div><div class="camp-cover-tools"><span class="micro-label">${en?'CAMPAIGN PICTURE · shown on Rules: Campaign':'IMAGE DE LA CAMPAGNE · affichée dans Règles : Campagne'}</span><div class="custom-actions" style="justify-content:flex-start"><button type="button" class="button secondary" onclick="pickCampaignCover()">🖼 ${en?'Choose a picture':'Choisir une image'}</button><button type="button" class="button secondary" onclick="clearCampaignCover()">${en?'Remove':'Retirer'}</button></div><label class="custom-field"><span>${en?'Part of the picture shown (top ↔ bottom)':'Partie de l’image affichée (haut ↔ bas)'}</span><input id="ceCoverPos" type="range" min="0" max="100" value="${Number(c?.definition?.cover?.pos??50)}" oninput="campaignCoverSetPos(this.value)"></label><label class="custom-check"><input type="checkbox" id="ceFeatured" ${c?.definition?.featured?'checked':''}><span>${en?'Feature it as the big card on Rules: Campaign':'La mettre en avant en grande carte dans Règles : Campagne'}</span></label></div></div>
-   <label class="custom-field wide"><span>${en?'Presentation (overview page)':'Présentation (page d’accueil)'}</span><textarea id="ceDesc" class="wide-textarea" rows="5">${esc(c?.definition?.description||'')}</textarea></label>
-   <div class="eyebrow" style="margin-top:12px">${en?'1 · OPTIONAL RULES — one page each':'1 · RÈGLES OPTIONNELLES — une page chacune'}</div><div id="cePages">${campaignEditorPagesMarkup()}</div>
-   <button type="button" class="button secondary" onclick="campaignEditorAddPage()">＋ ${en?'Add a page':'Ajouter une page'}</button>
-   <p class="sheet-help">${en?'Same formatting as Rules: The Game (ALL-CAPS lines become headings, [TABLE]…[/TABLE] blocks, etc.).':'Même mise en forme que Règles : Le Jeu (lignes EN MAJUSCULES = titres, blocs [TABLE]…[/TABLE], etc.).'}</p>
-   <div class="custom-actions">${id&&c?.status==='draft'?`<button type="button" class="button danger-outline" onclick="deleteCampaign('${esc(id)}')">🗑 ${en?'Delete':'Supprimer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveCampaignEditor()">${en?'Save':'Enregistrer'}</button></div></div>`);
-}
-function campaignEditorPagesMarkup(){const en=siteLanguage==='en';const pages=campaignEditorDraft?.pages||[];return pages.map((p,i)=>`<div class="campaign-editor-page" data-i="${i}"><div class="campaign-editor-page-head"><input class="cePageTitle" value="${esc(p.title||'')}" placeholder="${en?'Page title':'Titre de la page'}"><button type="button" class="equipment-action" title="${en?'Up':'Monter'}" onclick="campaignEditorMovePage(${i},-1)" ${i?'':'disabled'}>↑</button><button type="button" class="equipment-action" title="${en?'Down':'Descendre'}" onclick="campaignEditorMovePage(${i},1)" ${i<pages.length-1?'':'disabled'}>↓</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Retirer'}" onclick="campaignEditorRemovePage(${i})">🗑</button></div><textarea class="cePageText wide-textarea" rows="6">${esc(p.text||'')}</textarea></div>`).join('')||`<p class="muted">${en?'No optional rule page yet.':'Aucune page de règle optionnelle.'}</p>`}
-function campaignEditorSync(){if(!campaignEditorDraft)return;document.querySelectorAll('.campaign-editor-page').forEach(el=>{const p=campaignEditorDraft.pages[Number(el.dataset.i)];if(p){p.title=el.querySelector('.cePageTitle').value;p.text=el.querySelector('.cePageText').value}})}
-function campaignEditorRefresh(){const box=$('#cePages');if(box)box.innerHTML=campaignEditorPagesMarkup()}
-function campaignEditorAddPage(){campaignEditorSync();campaignEditorDraft.pages.push({id:crypto.randomUUID().slice(0,8),title:'',text:''});campaignEditorRefresh()}
-function campaignEditorRemovePage(i){campaignEditorSync();campaignEditorDraft.pages.splice(i,1);campaignEditorRefresh()}
-function campaignEditorMovePage(i,d){campaignEditorSync();const a=campaignEditorDraft.pages,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];campaignEditorRefresh()}
 function campaignCoverEditPreview(){const cv=campaignEditorDraft?.definition?.cover;return cv?.id?`<img src="/api/rule-images/${encodeURIComponent(cv.id)}" alt="" style="object-position:50% ${Number(cv.pos??50)}%">`:`<span>${siteLanguage==='en'?'No picture':'Pas d’image'}</span>`}
 function refreshCampaignCoverPreview(){const el=$('#ceCoverPreview');if(el)el.innerHTML=campaignCoverEditPreview()}
 function campaignCoverSetPos(v){const d=campaignEditorDraft;if(!d?.definition?.cover)return;d.definition.cover.pos=Math.max(0,Math.min(100,Number(v)||0));const img=document.querySelector('#ceCoverPreview img');if(img)img.style.objectPosition=`50% ${d.definition.cover.pos}%`}
@@ -13947,13 +12050,6 @@ function pickCampaignCover(){
   const en=siteLanguage==='en';const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';
   input.onchange=async()=>{const file=input.files&&input.files[0];if(!file)return;try{toast(en?'Uploading the picture…':'Envoi de l’image…');const dataUrl=await ruleImageDataUrl(file);const r=await window.MordheimundaAPI.adminUploadRuleImage(dataUrl);if(!r?.id)throw new Error('UPLOAD_FAILED');const d=campaignEditorDraft;d.definition={...(d.definition||{}),cover:{id:r.id,pos:Number($('#ceCoverPos')?.value??50)}};refreshCampaignCoverPreview();toast(en?'Picture ready — save the campaign to keep it':'Image prête — enregistre la campagne pour la garder')}catch(e){toast((en?'Picture not uploaded: ':'Image non envoyée : ')+(e?.message==='IMAGE_TOO_LARGE'?(en?'too large':'trop lourde'):(e?.message||e)))}};
   input.click();
-}
-async function saveCampaignEditor(){
-  const en=siteLanguage==='en';campaignEditorSync();const d=campaignEditorDraft;if(!d)return;
-  const name=($('#ceName')?.value||'').trim();if(!name){toast(en?'Give the campaign a name':'Donne un nom à la campagne');return}
-  const definition={...(d.definition||{}),featured:!!$('#ceFeatured')?.checked,description:$('#ceDesc')?.value||'',pages:d.pages.filter(p=>(p.title||'').trim()||(p.text||'').trim()).map(p=>({id:p.id||crypto.randomUUID().slice(0,8),title:(p.title||'').trim(),text:p.text||''}))};
-  const payload={name,color:$('#ceColor')?.value||'#ff8a3d',definition};
-  try{const res=d.id?await window.MordheimundaAPI.adminUpdateCampaign(d.id,payload):await window.MordheimundaAPI.adminCreateCampaign(payload);const c=res?.campaign;closeModal();campaignsCache=null;campaignListStale=true;adminCampaignsCache=null;if(c){campaignDetailCache.delete(c.id);navigateApp('/rules/campaign/'+encodeURIComponent(c.id))}toast(en?'Campaign saved':'Campagne enregistrée')}catch(e){toast(authError(e,en))}
 }
 async function setCampaignStatus(id,status){const en=siteLanguage==='en';try{await window.MordheimundaAPI.adminSetCampaignStatus(id,status);campaignDetailCache.delete(id);campaignsCache=null;campaignListStale=true;renderCurrentRoute();toast(status==='published'?(en?'Campaign published':'Campagne publiée'):(en?'Campaign back to draft':'Campagne repassée en brouillon'))}catch(e){toast(authError(e,en))}}
 async function newCampaignCode(id){const en=siteLanguage==='en';if(!await siteConfirm(en?'Make a new join code? The old one stops working.':'Créer un nouveau code ? L’ancien ne marchera plus.'))return;try{await window.MordheimundaAPI.adminNewCampaignCode(id);campaignDetailCache.delete(id);renderCurrentRoute()}catch(e){toast(authError(e,en))}}
@@ -14287,13 +12383,15 @@ function recruitPanelMarkup(r,f){
   const en=siteLanguage==='en';const open=recruitPanelOpen;
   return `<section class="recruit-panel${open?' open':''}"><button type="button" class="recruit-panel-head" aria-expanded="${open}" onclick="toggleRecruitPanel()"><span>＋ ${en?'RECRUIT A FIGHTER':'RECRUTER UN COMBATTANT'}</span><small>${en?'Treasury':'Trésor'} ${Number(r.gold||0)} GC${(()=>{const m=warbandSizeLimitFor(f);return m?` · ${warbandSizeCount(r)}/${m} ${en?'fighters':'combattants'}`:''})()} · ${open?(en?'▾ fold':'▾ replier'):(en?'▸ unfold':'▸ déplier')}</small></button>${open?`<div class="recruit-panel-body">${recruitmentCompositionNotice(r)}${hiredSwordRecruitTabsMarkup(r,f)}${recruitPoolTab==='hs'?hiredSwordPoolMarkup(r,f):`<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option><option>Animal</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label><button type="button" class="button secondary recruit-compact-btn${recruitCompact?' active':''}" aria-pressed="${recruitCompact}" onclick="toggleRecruitCompact()">▤ ${en?'Compact':'Compacte'}</button></div><div class="fighter-pool${recruitCompact?' compact':''}" id="fighterPool">${fighterPool(f,{compact:recruitCompact})}</div>`}</div>`:''}</section>`;
 }
+// V-RATINGPREVIEW: what a recruit adds to the warband rating — its cost
+// (half of it for a Hired Sword, as in the rating itself).
+function recruitRatingDelta(w,r,rc){const cost=Number(rc)||0;return isHiredSword(w)?Math.floor(cost/2):cost}
 function fighterPoolCompactRow(w,f,r){
   const en=siteLanguage==='en';const owned=(r?.fighters||[]).filter(x=>x.wid===w.id).length;const maxed=w.max!==null&&owned>=w.max;const rc=fighterRecruitCost(w,r?faction(r):f);
   const prof=effectiveFighterProfile(w,f)||[];const stats=P.slice(0,9).map((n,i)=>`<span><small>${esc(n)}</small>${esc(prof[i]??'—')}</span>`).join('');
-  return `<article class="fighter-row pool-row${maxed?' maxed':''}" data-name="${esc(w.name.toLowerCase())}" data-type="${esc(w.type)}"><div class="pool-row-main"><button type="button" class="pool-row-name" onclick="this.closest('.pool-row').classList.toggle('open')" aria-label="${esc(w.name)}"><b>${esc(w.name)}</b><small>${esc(w.type)} · ${w.max!==null?(en?'max ':'max ')+w.max:(en?'no limit':'sans limite')} · ${owned} ${en?'recruited':'recruté(s)'}</small></button><div class="pool-row-stats">${stats}</div><button class="button primary recruit-btn" type="button" data-recruit-fighter="${esc(w.id)}" ${maxed?'disabled':''}>${maxed?(en?'Limit reached':'Limite atteinte'):(en?`Recruit — ${rc} GC`:`Recruter — ${rc} GC`)}</button></div>${recruitOptionsPoolMarkup(w)}<div class="pool-row-card">${profileMarkup(prof,0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">${en?'RULES / ACCESS':'RÈGLES / ACCÈS'}</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')||'—'}</p></div></div></div></article>`;
+  return `<article class="fighter-row pool-row${maxed?' maxed':''}" data-name="${esc(w.name.toLowerCase())}" data-type="${esc(w.type)}"><div class="pool-row-main"><button type="button" class="pool-row-name" onclick="this.closest('.pool-row').classList.toggle('open')" aria-label="${esc(w.name)}"><b>${esc(w.name)}</b><small>${esc(w.type)} · ${w.max!==null?(en?'max ':'max ')+w.max:(en?'no limit':'sans limite')} · ${owned} ${en?'recruited':'recruté(s)'}</small>${r&&!maxed?(()=>{const d=recruitRatingDelta(w,r,rc);const t=total(r);return `<small class="rating-delta">${en?'Rating':'Valeur'} ${t} → <b>${t+d}</b> (+${d})</small>`})():''}</button><div class="pool-row-stats">${stats}</div><button class="button primary recruit-btn" type="button" data-recruit-fighter="${esc(w.id)}" ${maxed?'disabled':''}>${maxed?(en?'Limit reached':'Limite atteinte'):(en?`Recruit — ${rc} GC`:`Recruter — ${rc} GC`)}</button></div>${recruitOptionsPoolMarkup(w)}<div class="pool-row-card">${profileMarkup(prof,0,{equipmentSelected:[],name:w.name,sourceName:w.name,type:w.type,ruleNames:w.ruleNames,rules:w.rules},{rosterCard:true,poolPreview:true})}${w.description?`<div class="fighter-description">${customTextMarkup(w.description)}</div>`:''}<div class="fighter-bottom"><div><span class="micro-label">${en?'RULES / ACCESS':'RÈGLES / ACCÈS'}</span><p>${fighterRuleNames(w,f).map(n=>refLink('special',n,n)).join(' · ')||'—'}</p></div></div></div></article>`;
 }
 function recruitmentView(f){const en=siteLanguage==='en';const r=activeRoster();return `<div class="recruit-head"><div><div class="eyebrow">${en?'RECRUITMENT':'RECRUTEMENT'} / ${esc(f.displayName)}</div><h3>${en?'Recruit a fighter':'Recruter un combattant'}</h3><p>${en?'Recruiting adds the fighter to the warband without opening their sheet. Open their card afterward from the roster.':'Le recrutement ajoute le combattant à la bande sans ouvrir sa fiche. Ouvre ensuite sa carte depuis le roster.'}</p></div></div>${recruitmentCompositionNotice(r)}${hiredSwordRecruitTabsMarkup(r,f)}${recruitPoolTab==='hs'?hiredSwordPoolMarkup(r,f):`<div class="recruit-select-row"><label>${en?'Fighter type':'Type de combattant'}<select id="typeFilter" class="select" onchange="filterFighters()"><option value="">${en?'All types':'Tous les types'}</option><option>Leader</option><option>Champion</option><option>Raw Recruit</option><option>Henchman</option></select></label><label class="grow">${en?'Search':'Rechercher'}<input id="fighterSearch" class="search" placeholder="${en?'Profile name…':'Nom du profil…'}" oninput="filterFighters()"></label><button type="button" class="button secondary recruit-compact-btn${recruitCompact?' active':''}" aria-pressed="${recruitCompact}" onclick="toggleRecruitCompact()">▤ ${en?'Compact':'Compacte'}</button></div><div class="fighter-pool${recruitCompact?' compact':''}" id="fighterPool">${fighterPool(f,{compact:recruitCompact})}</div>`}`}
-function chosenRow(x,i){return `<button class="chosen-v4" onclick="openFighterCard(${i})"><span class="chosen-sigil">${factionSigils[faction(activeRoster()).id]||'◆'}</span><span class="chosen-info"><b>${esc(x.name)}</b><small>${esc(fighterTypeLabel(x))} · ${fighterValue(x,faction(activeRoster()))} GC</small></span><span class="chosen-open">›</span></button>`}
 var ARMOUR_SUITS=['Light armour','Light armor','Heavy armour','Heavy armor','Full plate armour','Full plate armor','Gromril plate','Gromril plate armour','Gromril plate armor','Ithilmar','Ithilmar mail','Ithilmar armour','Ithilmar armor','Sigmarite armour','Sigmarite armor','Chaos armour','Chaos armor'];
 var FUR_CLOAKS=['Fur cloak','Wolf cloak'];
 var OFFHAND_DEFENCE=['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'];
@@ -14388,7 +12486,6 @@ function addFighterExtraRule(){if(!isAdminSession())return;const en=siteLanguage
 function removeFighterExtraRule(name){if(!isAdminSession())return;const x=activeRoster()?.fighters?.[editingIndex];if(!x)return;x.extraRuleNames=(x.extraRuleNames||[]).filter(n=>normName(n)!==normName(name));save(true);render('fighter')}
 function openStatsEditor(){const x=activeRoster()?.fighters?.[editingIndex];if(!x)return;const en=siteLanguage==='en';const original=Array.isArray(x.baseProfile)?x.baseProfile:(Array.isArray(x.profile)?x.profile:[]);const current=Array.isArray(x.profile)?x.profile:original;const max=maxProfileFor(x);
   openModal(`<div class="admin-live-editor stats-editor-modal"><div class="eyebrow">${en?'EDIT CHARACTERISTICS':'MODIFIER LES CARACTÉRISTIQUES'}</div><h2>${esc(x.name)}</h2><div class="stats-inline-list">${D.profileNames.map((name,i)=>`<div class="stats-inline-row"><span class="stats-inline-name">${esc(name)}</span><span class="stats-inline-original" title="${en?'Original value':'Valeur d\'origine'}">${esc(original[i]??'—')}</span><span class="stats-inline-arrow">→</span><input class="stat-current-inline ${Number(current[i]??original[i]??0)>Number(max?.[i]??Infinity)?'stat-input-overstat':''}" type="number" step="1" value="${esc(current[i]??original[i]??'')}" onchange="updateFighterStat(${i},this.value);this.value=activeRoster()?.fighters?.[editingIndex]?.profile?.[${i}]??this.value;this.classList.toggle('stat-input-overstat',Number(this.value)>Number(maxProfileFor(activeRoster()?.fighters?.[editingIndex])?.[${i}]??Infinity))" aria-label="${esc(name)} ${en?'current':'actuelle'}"><small>${en?'original':'origine'} ${esc(original[i]??'—')}</small></div>`).join('')}</div><p class="stats-inline-help">${en?'The value on the left is the original profile\'s. Only the current value is editable.':'La valeur de gauche est celle du profil d\'origine. Modifie uniquement la valeur actuelle.'}</p><div class="custom-actions"><button type="button" class="button primary" onclick="closeModal()">${en?'Done':'Terminé'}</button></div></div>`)}
-function statsTabMarkup(x){const en=siteLanguage==='en';const original=Array.isArray(x.baseProfile)?x.baseProfile:(Array.isArray(x.profile)?x.profile:[]);const current=Array.isArray(x.profile)?x.profile:original;return `<section class="sheet-block stats-collapse-block ${statsOpen?'is-open':'is-collapsed'}"><button type="button" class="equipment-collapse-head stats-collapse-head" onclick="toggleStatsPanel()"><span><span class="equipment-collapse-icon">${statsOpen?'−':'＋'}</span><strong>${en?'Edit characteristics':'Modifier les caractéristiques'}</strong></span><span>${statsOpen?(en?'Collapse':'Réduire'):(en?'Show':'Afficher')} · ${D.profileNames.length} ${en?'characteristics':'caractéristiques'}</span></button>${statsOpen?`<div class="stats-collapse-body"><div class="stats-inline-list">${D.profileNames.map((name,i)=>`<div class="stats-inline-row"><span class="stats-inline-name">${esc(name)}</span><span class="stats-inline-original" title="${en?'Original value':'Valeur d\'origine'}">${esc(original[i]??'—')}</span><span class="stats-inline-arrow">→</span><input class="stat-current-inline ${Number(current[i]??original[i]??0)>Number(maxProfileFor(x)?.[i]??Infinity)?'stat-input-overstat':''}" type="number" step="1" value="${esc(current[i]??original[i]??'')}" onchange="updateFighterStat(${i},this.value)" aria-label="${esc(name)} ${en?'current':'actuelle'}"><small>${en?'original':'origine'} ${esc(original[i]??'—')}</small></div>`).join('')}</div><p class="stats-inline-help">${en?'The value on the left is the original profile\'s. Only the current value is editable.':'La valeur de gauche est celle du profil d\'origine. Modifie uniquement la valeur actuelle.'}</p></div>`:''}</section>`}
 
 const ADVANCEMENT_MAIN=[
  {id:'wil-int',xp:3,value:5,label:'Volonté ou Intelligence +1',kind:'stat',stats:[10,11]},
@@ -14521,7 +12618,6 @@ function maxProfileFor(x){
   mods.forEach(m=>{const i=P.indexOf(m.stat);if(i>=0)max[i]=Number(max[i]||0)+Number(m.amount||0);});
   return max;
 }
-function statUpgradeCount(x,i,id){return (x.advancements||[]).filter(a=>a.kind==='stat'&&a.statIndex===i&&a.sourceId===id).length}
 // V-ADVESCALATE: buying the same characteristic again costs +2 XP for each
 // earlier purchase of it (a 2nd WS costs base +2, a 3rd base +4, while BS
 // keeps its own count). Skill advancements always cost their base XP. Raw Recruits and non-Veteran Henchmen
@@ -14688,10 +12784,8 @@ var ARMOUR_SUITS=['Light armour','Light armor','Heavy armour','Heavy armor','Ful
 var FUR_CLOAKS=['Fur cloak','Wolf cloak'];
 var OFFHAND_DEFENCE=['Shield','Buckler','Main Gauche','Left hand dagger','Sword breaker'];
 function normName(n){return String(n||'').trim().toLowerCase();}
-function isArmourSuit(w){return !!w?.customArmor || (isCustomEquipment(w)&&['armure','armures'].includes(normName(w?.category))) || ARMOUR_SUITS.map(normName).includes(normName(w?.name));}
 function isFurCloak(w){return FUR_CLOAKS.map(normName).includes(normName(w?.name));}
 function isShield(w){return normName(w?.name)==='shield';}
-function isOffhandDefence(w){return OFFHAND_DEFENCE.map(normName).includes(normName(w?.name));}
 function fighterNormalProfile(x,f=faction(activeRoster()),fallbackProfile=[]){
   // V-BASESTAT: "normal" is the fighter's BASE stat exactly as shown in the
   // recruitment pool (fighterOriginalProfile(x), which now stores/reconstructs
@@ -14911,27 +13005,6 @@ async function loadSpellWeaponProfileOverrides(){
 }
 function spellWeaponProfileStore(){if(!state.spellWeaponProfiles||typeof state.spellWeaponProfiles!=='object'||Array.isArray(state.spellWeaponProfiles))state.spellWeaponProfiles={};return state.spellWeaponProfiles}
 function spellWeaponProfileFor(entryId){return spellWeaponProfileOverrideMap.get(entryId)||spellWeaponProfileStore()[entryId]||null}
-function openSpellWeaponProfileEditor(entryId,name){
-  const p=spellWeaponProfileFor(entryId)||{};
-  spellBookTraitDraft=Array.isArray(p.traits)?p.traits.slice():String(p.traits||'').split(',').map(x=>x.trim()).filter(Boolean);
-  openModal(`<div class="custom-form-head"><div><div class="eyebrow">PROFIL D’ARME (ADMIN)</div><h3>${esc(name)}</h3></div></div>
-    <p class="custom-field-help">Ce sort apparaîtra comme une arme sur la fiche de tout combattant qui le connaît.</p>
-    <div class="custom-weapon-grid"><label class="custom-field"><span>Portée</span><input id="swpRange" value="${esc(p.range||'')}" placeholder="Melee 2 / 12\""></label><label class="custom-field"><span>Force</span><input id="swpStrength" value="${esc(p.strength||'')}" placeholder="S / S+1 / 2D6…"></label><label class="custom-field"><span>AP</span><input id="swpAp" value="${esc(p.ap||'')}" placeholder="- / -1 / +1…"></label><label class="custom-field"><span>Dégâts</span><input id="swpDamage" value="${esc(p.damage||'')}" placeholder="1 / 2 / D3…"></label></div>
-    ${traitPickerMarkup('spellBook')}
-    <div class="custom-actions">${spellWeaponProfileFor(entryId)?`<button type="button" class="button danger-outline" onclick="removeSpellWeaponProfile('${esc(entryId)}')">Retirer le profil</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">Annuler</button><button type="button" class="button primary" onclick="saveSpellWeaponProfileEditor('${esc(entryId)}')">Enregistrer</button></div>`);
-}
-async function saveSpellWeaponProfileEditor(entryId){
-  const range=($('#swpRange')?.value||'').trim(),strength=($('#swpStrength')?.value||'').trim(),ap=($('#swpAp')?.value||'').trim(),damage=($('#swpDamage')?.value||'').trim(),traits=spellBookTraitDraft.join(', ');
-  if(!range&&!strength&&!ap&&!damage){toast(siteLanguage==='en'?'Fill in at least one profile field':'Renseigne au moins un champ du profil');return}
-  const profile={range,strength,ap,damage,traits};
-  try{
-    await window.MordheimundaAPI.adminSaveSpellWeaponProfile(entryId,profile);
-    spellWeaponProfileOverrideMap.set(entryId,profile);
-    // Clean up any pre-fix local-only copy now that the shared version wins.
-    delete spellWeaponProfileStore()[entryId];save(true);
-    closeModal();renderCurrentRoute();toast(siteLanguage==='en'?'Weapon profile saved — visible to all accounts':'Profil d’arme enregistré — visible pour tous les comptes');
-  }catch(e){toast(authError(e,siteLanguage==='en'));}
-}
 async function removeSpellWeaponProfile(entryId){
   try{
     await window.MordheimundaAPI.adminDeleteSpellWeaponProfile(entryId);
@@ -15001,13 +13074,6 @@ function fighterBaseName(x,f){
   return String(source?.name||x?.sourceName||'').trim();
 }
 
-function sourceOrderedNames(list, sourceMap){
- const src=Array.isArray(sourceMap)?sourceMap:[];
- const rank=new Map(src.map((name,i)=>[name,i+1]));
- const known=list.filter(name=>rank.has(name)).sort((a,b)=>rank.get(a)-rank.get(b));
- const unknown=list.filter(name=>!rank.has(name)).sort((a,b)=>String(a).localeCompare(String(b),'fr',{sensitivity:'base'}));
- return [...known.map(name=>({name,number:rank.get(name)})),...unknown.map(name=>({name,number:null}))];
-}
 // The label shown for a skill/spell in a picker: its renamed title when an
 // admin renamed the entry (Référentiel ✎ title), numbered 1–6 by its place in
 // the tree. The stored value stays the original name.
@@ -15068,7 +13134,6 @@ function bannedCategoriesOf(w){return (Array.isArray(w?.bannedCategories)?w.bann
 function fighterBanSource(x){if(!x)return null;let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}
   if(!src||!Array.isArray(src.bannedCategories)){const c=x.customFighterId?customFighterById(x.customFighterId):null;if(c&&Array.isArray(c.bannedCategories))src=c}
   return src&&Array.isArray(src.bannedCategories)?src:x}
-function fighterBannedCategories(x){return bannedCategoriesOf(fighterBanSource(x))}
 // Exceptions: item names still allowed inside a forbidden category
 // (e.g. no Ranged Weapons except Throwing axe).
 function bannedExceptionsOf(w){return (Array.isArray(w?.bannedExceptions)?w.bannedExceptions:[]).map(normName).filter(Boolean)}
@@ -15560,10 +13625,7 @@ function skillAccessGrid(x){const f=faction(activeRoster()),mergedSets=customMer
 function openSkillModal(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;skillCategory='all';const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),cats=[...new Set([...Object.keys(mergedSets).filter(c=>allowed[c]),...Object.keys(personal).filter(c=>personal[c])])];const catRows=cats.map(c=>`<button type="button" class="skill-modal-category" data-cat="${esc(c)}" onclick="chooseSkillModalCategory('${encodeURIComponent(c)}')"><span>${esc(skillTreeDisplayName(c))}</span><small>${skillAccessLabel(personal[c])}</small></button>`).join('');const magicRows=magicAccessFor(x).map(d=>`<button type="button" class="skill-modal-category magic-category" onclick="openMagicModal('${encodeURIComponent(d)}')"><span>${esc(domainDisplayName(d))}</span><small>${en?'Primary · magic domain':'Primary · domaine de magie'}</small></button>`).join('');openModal(`<div class="skill-dialog"><div class="eyebrow">${en?'ADD A SKILL':'AJOUT D’UNE COMPÉTENCE'}</div><h2>${en?'Choose a skill':'Choisir une compétence'}</h2><p>${en?'Normal skills are free. The magic domain available to this fighter is treated as a Primary tree; its spells remain recorded under Magic.':'Les compétences normales sont gratuites. Le domaine de magie accessible à ce combattant est traité comme un arbre Primary ; ses sorts restent enregistrés dans Magie.'}</p><div class="skill-modal-grid">${catRows}${magicRows}</div><div id="skillModalChoices" class="skill-modal-choices"><div class="empty compact">${en?'Choose a category.':'Choisis une catégorie.'}</div></div><div class="purchase-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
 function chooseSkillModalCategory(encoded){const en=siteLanguage==='en';skillCategory=decodeURIComponent(encoded);const x=activeRoster()?.fighters[editingIndex];if(!x)return;const mergedSets=customMergedSkillSets(faction(activeRoster())),personal=skillAccessFor(x),allowed=gangSkillTrees(),owned=new Set(x.skills||[]),available=(mergedSets[skillCategory]||[]).filter(s=>!owned.has(s));const box=$('#skillModalChoices');if(!box)return;box.innerHTML=`<div class="skill-modal-choice-head"><strong>${esc(skillTreeDisplayName(skillCategory))}</strong><span>${skillAccessLabel(personal[skillCategory])}</span></div><div class="skill-modal-list">${available.length?orderedChoiceNames(available,mergedSets[skillCategory]).map(s=>`<button type="button" class="skill-modal-skill" onclick="addSkillFromModal('${encodeURIComponent(s)}')"><span>${refLink('skills',s,numberedSkillName(s,mergedSets[skillCategory]))}</span><small>${en?'Add':'Ajouter'}</small></button>`).join(''):`<div class="empty compact">${en?'All skills in this tree have already been acquired.':'Toutes les compétences de cet arbre sont déjà acquises.'}</div>`}</div>`;document.querySelectorAll('.skill-modal-category').forEach(b=>b.classList.toggle('active',b.dataset.cat===skillCategory))}
 function addSkillFromModal(encoded){const x=activeRoster()?.fighters[editingIndex],v=decodeURIComponent(encoded);if(!x||!v)return;x.skills=x.skills||[];if(!x.skills.includes(v)){x.skills.push(v);save(true);toast(siteLanguage==='en'?`${v} added`:`${v} ajoutée`)}closeModal();render('fighter')}
-function setSkillCategory(c){skillCategory=c;render('fighter')}
-function toggleStatsPanel(){statsOpen=!statsOpen;render('fighter')}
 function setFighterTab(tab){fighterTab=tab;if(tab!=='magic'){magicDomainAddOpen=false;magicDomainAddSearch='';}render('fighter')}
-function addSelectedSkill(){const x=activeRoster()?.fighters[editingIndex],v=decodeURIComponent($('#skillChoiceSelect')?.value||'');if(!x||!v)return;x.skills=x.skills||[];if(!x.skills.includes(v)){x.skills.push(v);save(true)}skillPickerOpen=true;render('fighter')}
 // V-FIGHTERMORE: on a phone the sheet's top actions sit behind a ⋯ button.
 function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
   openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${esc(x.name)}</div><div class="warroom-more-list">${(r.fighters||[]).length>1?btn('⇄ '+(en?'Other fighters':'Autres combattants'),'openFighterSwitcher()'):''}${btn('✎ '+(en?'Edit characteristics':'Modifier les caractéristiques'),'openStatsEditor()')}${fighterRecruitOptionsSource(x).length||(x.recruitPicks||[]).length?btn('⚙ Options','openFighterOptionsModal()'):''}${isHiredSword(x)?'':btn('✦ '+(en?'Duplicate':'Dupliquer'),'openDuplicateFighterConfirm()')}${btn('⎙ '+(en?'Print':'Imprimer'),'window.print()')}</div></div>`)}
@@ -15574,7 +13636,6 @@ function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();c
 })();
 function backToGang(){save(true);render('builder')}
 function updateFighterField(key,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x[key]=key==='xp'?Math.max(0,Number(val)||0):val;save(true);if(key!=='xp')render('fighter');else toast(siteLanguage==='en'?'XP updated':'XP mis à jour')}
-function adjustFighterXP(delta){const x=activeRoster()?.fighters[editingIndex];if(!x)return;const next=Math.max(0,Number(x.xp||0)+Number(delta||0));x.xp=next;save(true);render('fighter')}
 function openFighterXPAdjust(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;const current=Number(x.xp||0);openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'}</div><h2>${en?'Experience (XP)':'Expérience (XP)'}</h2><p>${en?`Choose the operation then enter the amount to apply. The current value is <strong>${current} XP</strong>.`:`Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est <strong>${current} XP</strong>.`}</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">XP</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyFighterXPAdjust()">${en?'Apply':'Appliquer'}</button></div></div>`)}
 function applyFighterXPAdjust(){const x=activeRoster()?.fighters[editingIndex],input=$('#resourceAmount');if(!x||!input)return;const n=Math.round(Number(input.value));if(!Number.isFinite(n)||n<=0){toast(siteLanguage==='en'?'Enter a positive value':'Entre une valeur positive');return}const sub=document.querySelector('.resource-mode-btn.active')?.dataset.mode==='sub';const delta=sub?-n:n;x.xp=Math.max(0,Math.round(Number(x.xp||0)+delta));save(true);closeModal();render('fighter');toast(`XP ${delta>0?'+':''}${delta}`)}
 function removeSkill(i){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x.skills.splice(i,1);save(true);render('fighter')}
@@ -15593,7 +13654,6 @@ const LASTING_INJURIES=[
   {roll:'66',name:'Memorable Death',desc:'Le combattant est tué instantanément.',mods:[]}
 ];
 function lastingInjuryByRoll(roll){const n=Number(roll);return LASTING_INJURIES.find(i=>{const m=String(i.roll).match(/^(\d+)(?:[–-](\d+))?$/);if(!m)return false;const a=Number(m[1]),b=Number(m[2]||m[1]);return n>=a&&n<=b})||null}
-function lastingInjuryIndexByName(name){return LASTING_INJURIES.findIndex(i=>refNorm(i.name)===refNorm(name))}
 function injuryObjectFromResult(result){return {roll:result.roll,name:result.name,desc:result.desc,statMods:(result.mods||[]).map(m=>({index:m.index,amount:m.amount,label:m.label}))}}
 function applyInjuryStatMods(x,injury,sign=1){(injury?.statMods||[]).forEach(m=>{if(Number.isInteger(m.index)&&Number.isFinite(m.amount))x.profile[m.index]=(Number(x.profile[m.index])||0)+Number(m.amount)*sign;})}
 function normalizeInjuries(x){if(!x)return;const arr=Array.isArray(x.injuries)?x.injuries:[];x.injuries=arr.map(v=>{if(v&&typeof v==='object')return v;const found=LASTING_INJURIES.find(i=>refNorm(i.name)===refNorm(v));if(found){const injury=injuryObjectFromResult(found);if(Array.isArray(x.profile))applyInjuryStatMods(x,injury,1);return injury}return {roll:'',name:String(v||''),desc:'',statMods:[]};});}
@@ -15605,7 +13665,6 @@ function rollLastingInjury(){const tens=Math.ceil(Math.random()*6),ones=Math.cei
 function addRolledLastingInjury(){if(!lastInjuryRoll?.result)return;addInjuryResult(lastInjuryRoll.roll);lastInjuryRoll=null}
 function addInjury(){const input=$('#injuryInput');const v=(input?.value||'').trim();if(!v)return;const found=LASTING_INJURIES.find(i=>refNorm(i.name)===refNorm(v));if(found)addInjuryResult(found.roll.split(/[–-]/)[0]);else{const x=activeRoster()?.fighters[editingIndex];if(!x)return;normalizeInjuries(x);x.injuries.push({roll:'',name:v,desc:siteLanguage==='en'?'Custom scar':'Séquelle personnalisée',statMods:[]});save(true);render('fighter');toast(siteLanguage==='en'?'Custom scar added':'Séquelle personnalisée ajoutée')}}
 function removeInjury(i){const x=activeRoster()?.fighters[editingIndex];if(!x)return;normalizeInjuries(x);const injury=x.injuries[i];if(!injury)return;applyInjuryStatMods(x,injury,-1);x.injuries.splice(i,1);save(true);render('fighter')}
-function saveFighterCard(){save(true);toast(siteLanguage==='en'?'Sheet saved automatically':'Fiche enregistrée automatiquement')}
 // V-DELETESTASH: equipment a fighter owns (for Leaders/Champions, their
 // personal stash that feeds their loadouts) — everything that can go to the
 // warband Stash when they're removed. Chaos Armour (fused) never moves;
@@ -15951,7 +14010,6 @@ function saveCustomEquipment(){
   if(returnToWarbandEditor('equipment')){toast(idx>=0?(en?'Exclusive equipment updated':'Équipement exclusif modifié'):(en?'Exclusive equipment created — checked for this warband':'Équipement exclusif créé — coché pour cette warband'));return;}
   render('custom');toast(idx>=0?(en?'Custom equipment updated':'Équipement custom modifié'):(en?'Custom equipment created':'Équipement custom créé'));
 }
-function setCustomEquipmentSearch(v){customEquipmentSearch=v;render('custom')}
 function toggleCustomEquipmentArchive(id){const en=siteLanguage==='en';const w=customEquipmentList().find(x=>x.customEquipmentId===id);if(!w)return;w.archived=!w.archived;save(true);render('custom');toast(w.archived?(en?'Equipment archived':'Équipement archivé'):(en?'Equipment unarchived':'Équipement désarchivé'))}
 function customEquipmentRow(w){
   const en=siteLanguage==='en';
@@ -15972,11 +14030,6 @@ function customSaveFromRulesText(w){
   // also the book's own wording: "grants a 4+ save", "a 3+ armour save"
   const m=text.match(/(?:sauvegarde|save|sv)\s*(?:de|:)?\s*(\d+)\s*\+/i)||text.match(/\b(\d)\s*\+\s*(?:armou?r\s+)?(?:save|sauvegarde)/i);
   return m ? `${m[1]}+` : null;
-}
-function customRuleStatIndex(name){
-  const n=normName(name);
-  const map={mouvement:0,m:0,ws:1,cc:1,'capacitédecombat':1,bs:2,'capacitédetir':2,force:3,s:3,endurance:4,t:4,blessures:5,w:5,initiative:6,i:6,attaques:7,a:7,leadership:8,ld:8,commandement:8,calme:9,cl:9,wil:10,volonté:10,intelligence:11,int:11};
-  return map[n];
 }
 function customEquipmentEffects(w,x){
   if(!isCustomEquipment(w))return {stats:[],skills:[]};
@@ -16513,7 +14566,6 @@ let exportBusy=false;
 // mode (they keep working and send their changes once sync is back on).
 // V-ERRREPORT: admin list of the errors players sent.
 let adminErrorsData=null,adminErrorsLoading=false;
-async function adminDeleteError(id){const en=siteLanguage==='en';if(id==='all'&&!confirm(en?'Remove every error received?':'Retirer toutes les erreurs reçues ?'))return;try{await window.MordheimundaAPI.adminDeleteError(id);adminErrorsData=null;render('admin')}catch(e){toast(authError(e,en))}}
 let trafficAdminData=null,trafficAdminLoading=false;
 async function loadTrafficAdmin(){if(trafficAdminLoading)return;trafficAdminLoading=true;try{trafficAdminData=await window.MordheimundaAPI.adminTraffic();trafficAdminData.at=Date.now()}catch(e){trafficAdminData={error:authError(e,siteLanguage==='en'),at:Date.now()}}finally{trafficAdminLoading=false;if(currentViewName()==='admin')render('admin')}}
 const fmtBytes=n=>{n=Number(n)||0;return n>=1024**3?(n/1024**3).toFixed(2)+' Go':n>=1024**2?(n/1024**2).toFixed(1)+' Mo':Math.round(n/1024)+' Ko'};
@@ -16585,10 +14637,6 @@ const LIGHT_EXPORT_SKIP=new Set(['users','rule_images','friendships','campaign_m
 const LIGHT_EXPORT_DROP=/^(email|username|user_?id|owner(_?id)?|created_?by|updated_?by|author(_?id)?|password.*|token.*|member_?ids?|invited_?by)$/i;
 function lightExportScrub(v){if(Array.isArray(v))return v.map(lightExportScrub);if(v&&typeof v==='object'){if(typeof v.base64==='string'&&Object.keys(v).length===1)return '[binary]';const o={};for(const [k,x] of Object.entries(v)){if(LIGHT_EXPORT_DROP.test(k))continue;o[k]=lightExportScrub(x)}return o}if(typeof v==='string'&&v.length>1000&&/^data:/.test(v))return '[image]';return v}
 let mediaConvertBusy=false;
-async function adminConvertMedia(){const en=siteLanguage==='en';if(mediaConvertBusy)return;mediaConvertBusy=true;render('admin');let total=0,rows=0,rounds=0;const show=t=>{const el=document.getElementById('mediaProgress');if(el)el.textContent=t};
-  try{for(;;){const r=await window.MordheimundaAPI.adminConvertMedia();total+=r.images||0;rows+=Object.values(r.updated||{}).reduce((a,b)=>a+b,0);rounds++;show(en?`${total} picture(s) moved, ${rows} item(s) updated…`:`${total} image(s) rangée(s), ${rows} élément(s) mis à jour…`);if(!r.more||rounds>200)break}
-    toast(en?`Done — ${total} picture(s) moved to the store`:`Terminé — ${total} image(s) rangée(s)`)}
-  catch(e){toast(authError(e,en))}finally{mediaConvertBusy=false;render('admin');setTimeout(()=>show(en?`${total} picture(s) moved, ${rows} item(s) updated.`:`${total} image(s) rangée(s), ${rows} élément(s) mis à jour.`),50)}}
 // V-GREATQUEST: a warband's Great Quests — campaign objectives agreed with
 // its player. Completing one (every step ticked) means the warband has
 // achieved its campaign. Written/edited by an admin only (from the player's
@@ -16624,21 +14672,6 @@ function greatQuestsMarkup(r){
 }
 function greatQuestToggleStep(qi,si){const r=activeRoster();const q=greatQuestList(r)[qi];const st=q?.steps?.[si];if(!st)return;st.done=!st.done;greatQuestSync(q);save(true);render('builder')}
 function greatQuestCount(qi,si,d){const r=activeRoster();const q=greatQuestList(r)[qi];const st=q?.steps?.[si];if(!st)return;st.count=Math.max(0,Math.min(999,Number(st.count||0)+d));greatQuestSync(q);save(true);render('builder')}
-// Admin editor — steps one per line; "| 20" at the end makes a counted step.
-function openGreatQuestEditor(qi,asMain){
-  if(!isAdminSession())return;const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const q=qi>=0?greatQuestList(r)[qi]:null;
-  const isMain=q?!!q.main:(asMain===undefined?!greatQuestMain(r):!!asMain);
-  gqTrophyPick=q?.trophy||'';
-  const steps=(q?.steps||[]).map(st=>Number(st.target)>0?`${st.text} | ${st.target}`:st.text).join('\n');
-  openModal(`<div class="admin-live-editor"><div class="eyebrow">${en?'GREAT QUEST':'GRANDE QUÊTE'} · ${esc(r.name||'')}</div><h2>${q?(en?'Edit the Great Quest':'Modifier la Grande Quête'):(en?'New Great Quest':'Nouvelle Grande Quête')}</h2>
-  <label class="custom-check"><input type="checkbox" id="gqMain" ${isMain?'checked':''}> <span><b>${en?'Main Great Quest — win condition':'Grande Quête principale — condition de victoire'}</b><small>${en?'Only one per warband: ticking it here makes any other main quest secondary.':'Une seule par bande : la cocher ici rend secondaire l’ancienne principale.'}</small></span></label>
-  <label class="custom-field wide"><span>${en?'Name':'Nom'}</span><input id="gqName" value="${esc(q?.name||'')}"></label>
-  <label class="custom-field wide"><span>${en?'Story / description':'Histoire / description'}</span><textarea id="gqText" rows="3">${esc(q?.text||'')}</textarea></label>
-  <label class="custom-field wide"><span>${en?'Steps — one per line. End a line with “| 20” to count it (0 / 20)':'Étapes — une par ligne. Termine une ligne par « | 20 » pour la compter (0 / 20)'}</span><textarea id="gqSteps" rows="5">${esc(steps)}</textarea></label>
-  ${gqTrophyPickerMarkup(q?.trophy||'')}
-  <label class="custom-field gq-color-field"><span>${en?'Border colour in the Standings':'Couleur de la bordure dans le Classement'}</span><span class="gq-color-row"><input type="color" id="gqColor" value="${esc(gqColor(q?.color))}"><button type="button" class="button secondary small" onclick="document.getElementById('gqColor').value='#e8c25a'">${en?'Gold (default)':'Or (défaut)'}</button></span></label>
-  <label class="custom-field wide"><span>${en?'Rewards — one per line (applied by hand)':'Récompenses — une par ligne (à appliquer à la main)'}</span><textarea id="gqRewards" rows="3">${esc(q?.rewards||'')}</textarea></label>
-  <div class="custom-actions">${q?`<button type="button" class="button danger-outline" onclick="deleteGreatQuest(${qi})">🗑 ${en?'Delete':'Supprimer'}</button>`:''}<span style="flex:1"></span><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveGreatQuest(${qi})">${en?'Save':'Enregistrer'}</button></div></div>`)}
 function saveGreatQuest(qi){
   if(!isAdminSession())return;const en=siteLanguage==='en';const r=activeRoster();if(!r)return;const v=id=>document.getElementById(id)?.value||'';
   const name=v('gqName').trim();if(!name)return toast(en?'Give it a name':'Donne-lui un nom');
@@ -17303,18 +15336,6 @@ function fighterDetectedStatBonuses(x,f){
     if(__arCacheActive&&x)__statBonusCache.set(x,out);
     return out;
   }catch(e){console.warn('fighterDetectedStatBonuses failed',e);return [];}
-}
-function fighterDetectedPermanentStatDeltas(x,f){
-  const deltas=new Array(12).fill(0);
-  try{
-    fighterDetectedStatBonuses(x,f).forEach(b=>{
-      if(b.conditional)return;
-      if(b.mode==='set')return; // an absolute set isn't a delta — see syncSkillTraitStatBonuses
-      if(!Number.isInteger(b.index)||b.index<0||b.index>=12)return;
-      deltas[b.index]+=Number(b.delta||0);
-    });
-  }catch(e){console.warn('fighterDetectedPermanentStatDeltas failed',e);}
-  return deltas;
 }
 // V-CONDEQUIP: conditional bonuses of the fighter's equipment and of its
 // weapons' traits (a Fur cloak's +1 save against shooting, Paired's +1
@@ -18123,7 +16144,7 @@ function equipmentPicker(x,equip){
   // at purchase time regardless, so hiding it here only blocked legitimate
   // purchases without adding any actual protection.
   const ws=equipmentPool(equipmentTab,x);
-  return `${bandOnly?`<p class="sheet-help">${en?'Henchmen can only buy and equip items from their warband’s Band List. Once they become Veterans, they equip like Heroes.':'Les Henchmen ne peuvent acheter et équiper que des objets de la Band List de leur bande. Une fois Veterans, ils s’équipent comme les Heroes.'}</p>`:''}<div class="equipment-picker"><div class="equipment-tabs">${tabs.map(([id,label])=>`<button type="button" class="equipment-tab ${equipmentTab===id?'active':''}" onclick="setEquipmentTab('${id}')">${label}<span>${equipmentPool(id,x).filter(w=>!w.coveredVariant).length}</span></button>`).join('')}</div><div class="equipment-search-row"><input class="search equipment-search" id="equipmentSearch" value="${esc(equipmentSearch)}" placeholder="Rechercher rapidement…" oninput="setEquipmentSearch(this.value)"></div><div class="equipment-rule-note">Armure : plusieurs pièces d’armure peuvent se cumuler, seule la meilleure sauvegarde de base compte. Un bouclier peut se cumuler avec une armure. Une fourrure/cape de fourrure peut se cumuler avec une armure, mais pas avec un bouclier. Buckler, Main Gauche et Sword Breaker utilisent des emplacements d’armes.</div><div class="equipment-categories">${cats.map(c=>`<button type="button" class="equipment-cat ${equipmentCategoryFilter===c?'active':''}" onclick="setEquipmentCategory('${esc(c)}')">${esc(catLabel(c))}</button>`).join('')}</div>${buyDraftBarMarkup(x)}<div class="equipment-market-list">${ws.length?ws.filter(v=>coveringShownAsRow(ws,v)).map(w=>{const price=equipmentPrice(w,f,equipmentTab,x);const enc=encodeURIComponent(w.name);const gold=Number(activeRoster()?.gold||0);const pr=w.profile&&(w.profile.range||w.profile.strength)?w.profile:null;return `<div class="equipment-choice eq-row rar-${rarityTier(w)}" role="button" tabindex="0" onclick="if(!event.target.closest('.eq-actions,.equipment-choice-name,.covering-chip'))confirmEquipment('${enc}')"><span class="equipment-choice-main"><span class="equipment-choice-name" data-equipment-name="${esc(encodeURIComponent(w.name))}" onmouseenter="showEquipmentPeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showEquipmentPeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleEquipmentPeek(this,event)">${esc(w.name)}</span><small>${rarityGemMarkup(w)}${esc(catLabel(canonEquipmentCategory(equipmentCategory(w))))}${w.availability&&w.availability!=='—'?' · '+esc(w.availability):''}${w.rarity?' · '+esc(w.rarity):''}</small>${pr?`<span class="eq-prof">${esc(pr.range||'—')} · F ${esc(pr.strength||'—')} · PA ${esc(pr.ap||'—')} · D ${esc(pr.damage||'—')}${pr.traits?` · ${refTraitList(pr.traits)}`:''}</span>`:''}${equipmentCoveringChips(ws,w,f,x)}</span><span class="eq-actions">${w.bandOnlyIntrinsic?`<button type="button" class="button primary small" onclick="confirmEquipment('${enc}')">${en?'Add':'Ajouter'}</button>`:price==null?`<strong>—</strong><button type="button" class="button secondary small" onclick="quickEquipment('${enc}',true)">＋ ${en?'Free':'Gratuit'}</button>`:`<button type="button" class="button primary small eq-buy" ${gold<price?'disabled title="'+(en?'Not enough gold':'Pas assez d’or')+'"':''} onclick="quickEquipment('${enc}',false)">${en?'Buy':'Acheter'} · ${price} GC</button><button type="button" class="button secondary small eq-free" onclick="quickEquipment('${enc}',true)">＋ ${en?'Free':'Gratuit'}</button><button type="button" class="button secondary small eq-cart" title="${en?'Add to the shopping list':'Ajouter à la liste d’achats'}" aria-label="${en?'Add to the shopping list':'Ajouter à la liste d’achats'}" onclick="buyDraftAdd('${enc}')">🛒</button>`}</span></div>`}).join(''):'<div class="empty compact">Aucun équipement accessible dans cette liste.</div>'}</div></div>`;
+  return `${bandOnly?`<p class="sheet-help">${en?'Henchmen can only buy and equip items from their warband’s Band List. Once they become Veterans, they equip like Heroes.':'Les Henchmen ne peuvent acheter et équiper que des objets de la Band List de leur bande. Une fois Veterans, ils s’équipent comme les Heroes.'}</p>`:''}<div class="equipment-picker"><div class="equipment-tabs">${tabs.map(([id,label])=>`<button type="button" class="equipment-tab ${equipmentTab===id?'active':''}" onclick="setEquipmentTab('${id}')">${label}<span>${equipmentPool(id,x).filter(w=>!w.coveredVariant).length}</span></button>`).join('')}</div><div class="equipment-search-row"><input class="search equipment-search" id="equipmentSearch" value="${esc(equipmentSearch)}" placeholder="${siteLanguage==='en'?'Name or effect (parry, +1 strength…)':'Nom ou effet (parade, +1 force…)'}" oninput="setEquipmentSearch(this.value)"></div><div class="equipment-rule-note">Armure : plusieurs pièces d’armure peuvent se cumuler, seule la meilleure sauvegarde de base compte. Un bouclier peut se cumuler avec une armure. Une fourrure/cape de fourrure peut se cumuler avec une armure, mais pas avec un bouclier. Buckler, Main Gauche et Sword Breaker utilisent des emplacements d’armes.</div><div class="equipment-categories">${cats.map(c=>`<button type="button" class="equipment-cat ${equipmentCategoryFilter===c?'active':''}" onclick="setEquipmentCategory('${esc(c)}')">${esc(catLabel(c))}</button>`).join('')}</div>${buyDraftBarMarkup(x)}<div class="equipment-market-list">${ws.length?ws.filter(v=>coveringShownAsRow(ws,v)).map(w=>{const price=equipmentPrice(w,f,equipmentTab,x);const enc=encodeURIComponent(w.name);const gold=Number(activeRoster()?.gold||0);const pr=w.profile&&(w.profile.range||w.profile.strength)?w.profile:null;return `<div class="equipment-choice eq-row rar-${rarityTier(w)}" role="button" tabindex="0" onclick="if(!event.target.closest('.eq-actions,.equipment-choice-name,.covering-chip'))confirmEquipment('${enc}')"><span class="equipment-choice-main"><span class="equipment-choice-name" data-equipment-name="${esc(encodeURIComponent(w.name))}" onmouseenter="showEquipmentPeek(this)" onmouseleave="scheduleHideRulePeek()" onfocus="showEquipmentPeek(this)" onblur="scheduleHideRulePeek()" onclick="toggleEquipmentPeek(this,event)">${esc(w.name)}</span><small>${rarityGemMarkup(w)}${esc(catLabel(canonEquipmentCategory(equipmentCategory(w))))}${w.availability&&w.availability!=='—'?' · '+esc(w.availability):''}${w.rarity?' · '+esc(w.rarity):''}</small>${pr?`<span class="eq-prof">${esc(pr.range||'—')} · F ${esc(pr.strength||'—')} · PA ${esc(pr.ap||'—')} · D ${esc(pr.damage||'—')}${pr.traits?` · ${refTraitList(pr.traits)}`:''}</span>`:''}${equipmentCoveringChips(ws,w,f,x)}</span><span class="eq-actions">${w.bandOnlyIntrinsic?`<button type="button" class="button primary small" onclick="confirmEquipment('${enc}')">${en?'Add':'Ajouter'}</button>`:price==null?`<strong>—</strong><button type="button" class="button secondary small" onclick="quickEquipment('${enc}',true)">＋ ${en?'Free':'Gratuit'}</button>`:`<button type="button" class="button primary small eq-buy" ${gold<price?'disabled title="'+(en?'Not enough gold':'Pas assez d’or')+'"':''} onclick="quickEquipment('${enc}',false)">${en?'Buy':'Acheter'} · ${price} GC</button><button type="button" class="button secondary small eq-free" onclick="quickEquipment('${enc}',true)">＋ ${en?'Free':'Gratuit'}</button><button type="button" class="button secondary small eq-cart" title="${en?'Add to the shopping list':'Ajouter à la liste d’achats'}" aria-label="${en?'Add to the shopping list':'Ajouter à la liste d’achats'}" onclick="buyDraftAdd('${enc}')">🛒</button>`}</span></div>`}).join(''):'<div class="empty compact">Aucun équipement accessible dans cette liste.</div>'}</div></div>`;
 }
 // V-COVERINGS: one ◆ chip per covering on the weapon's row (price × mult);
 // it opens the same purchase window for the covered version.
@@ -18174,7 +16195,6 @@ function codex(){const en=siteLanguage==='en';if(!isAdminEditUI()){render('refer
 function bookPages(ps){return ps.map(p=>`<article class="book-page"><h4>Page source ${p.page}</h4><pre>${esc(p.text)}</pre></article>`).join('')}
 function searchBook(){const en=siteLanguage==='en';const q=$('#bookSearch').value.trim().toLowerCase();if(!q){$('#codexBody').innerHTML=bookPages(D.pages.slice(0,5));return}const hits=D.pages.filter(p=>p.text.toLowerCase().includes(q));$('#codexBody').innerHTML=hits.length?bookPages(hits.slice(0,40)):`<div class="empty">${en?`No results for "${esc(q)}".`:`Aucun résultat pour « ${esc(q)} ».`}</div>`}
 function showCodex(key,btn){document.querySelectorAll('.codex-nav button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(key==='factions'){$('#codexBody').innerHTML=D.factions.map(f=>`<article class="book-page"><h4>${esc(f.displayName)} · source p.${f.startPage||'—'}</h4><pre>${esc(f.text)}</pre></article>`).join('');return}if(key==='all'){$('#codexBody').innerHTML=bookPages(D.pages.slice(0,5))+'<div class="notice">Utilise la recherche pour parcourir le livre complet.</div>';return}const [name,desc]=D.rulesMeta[key];const hits=D.pages.filter(p=>p.text.toLowerCase().includes(name.toLowerCase())||p.text.toLowerCase().includes(desc.split(',')[0].toLowerCase()));$('#codexBody').innerHTML=`<div class="notice"><strong>${esc(name)}</strong> — ${esc(desc)}</div>`+bookPages(hits.slice(0,40))}
-function exportRoster(){const en=siteLanguage==='en';const r=activeRoster();if(!r){toast(en?'No active warband':'Aucune bande active');return}const f=faction(r),lines=[`${PROJECT_NAME.toUpperCase()} — ${r.name}`,`Faction: ${f.displayName}`,`Pack: ${f.packId||'Core M17'}`,`${en?'Starting budget':'Budget initial'}: ${f.budget} GC`,`${en?'Reputation':'Réputation'}: ${r.reputation}`,'',en?'FIGHTERS':'GUERRIERS'];r.fighters.forEach(x=>lines.push(`${x.name} — ${x.type} — ${fighterCost(x,f)} GC — ${x.profile.join('/')}`));if(r.reserve?.length){lines.push('',en?'RESERVE':'RÉSERVE');r.reserve.forEach(e=>lines.push(`${e.name} — ${Number(e.value??e.price??0)} GC`));}lines.push('',`${en?'Total':'Total'}: ${total(r)} GC`,`${en?'Remaining':'Restant'}: ${f.budget-total(r)} GC`);const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=r.name.replace(/[^a-z0-9-_]+/gi,'_')+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('#modalClose').onclick=closeModal;$('#modal').onclick=e=>{if(e.target.id==='modal'&&!modalSticky)closeModal()};// V-TABBAR: "Reset data" lives in Account now, behind a typed confirmation.
 function openResetData(){
   const en=siteLanguage==='en';
@@ -18355,34 +16375,6 @@ function refreshAdminWarriorRuleTags(){
   const details=el.closest('details');const small=details?.querySelector('summary small');
   if(small)small.textContent=`${adminRuleDraft.length} ${siteLanguage==='en'?'linked':(adminRuleDraft.length!==1?'liées':'liée')}`;
 }
-function addAdminWarriorRule(){
-  const input=$('#awRuleInput'),v=(input?.value||'').trim();if(!v)return;
-  // V-ORPHANRULETAG: a name typed here used to be accepted completely
-  // verbatim when it matched no reference entry — creating a tag that shows
-  // on the fighter card forever with no hover/text anywhere (a typo like
-  // "Assasin" instead of "Assassin", or a rule just added under this same
-  // editor's own RULES tab — d.specialRules — but not yet merged into
-  // RULES.categories.special, which only happens after Save+reload). Also
-  // matching against the in-session draft's own d.specialRules (by name)
-  // catches the "just defined it, haven't saved yet" case and reuses its
-  // exact spelling instead of free-typing it again; a true non-match now
-  // warns instead of silently creating a dead tag.
-  const d=activeAdminEditData();
-  const draftMatch=(Array.isArray(d?.specialRules)?d.specialRules:[]).find(s=>normName(s?.name)===normName(v));
-  const found=preferParamTemplate('special',referenceFind('special',v));
-  const canonical=found?.name||draftMatch?.name||v;
-  if(/^Race\s*\(/i.test(canonical)){if(input)input.value='';return}
-  if(isTraitParamTemplate(canonical)){if(input)input.value='';openTraitParamPrompt('adminFighter',null,canonical);return}
-  if(!found&&!draftMatch){
-    const en=siteLanguage==='en';
-    toast(en?`"${canonical}" matches no defined rule — it will show with no hover text until you add it under the RULES tab (Special Rules).`:`« ${canonical} » ne correspond à aucune règle définie — elle n’affichera aucun texte au survol tant qu’elle n’est pas ajoutée dans l’onglet RÈGLES (Règles spéciales).`);
-  }
-  if(!adminRuleDraft.some(x=>normName(x)===normName(canonical)))adminRuleDraft.push(canonical);
-  if(input)input.value='';refreshAdminWarriorRuleTags();setTimeout(()=>$('#awRuleInput')?.focus(),20);
-}
-function handleAdminWarriorRuleKey(e){if(e.key==='Enter'){e.preventDefault();addAdminWarriorRule()}}
-function removeAdminWarriorRule(i){adminRuleDraft.splice(i,1);refreshAdminWarriorRuleTags()}
-function addCustomFighterSkill(v){v=(v||'').trim();if(!v)return;if(!customFighterSkillDraft.some(x=>normName(x)===normName(v)))customFighterSkillDraft.push(v);const select=$('#cfSkillSelect');if(select)select.value='';refreshCustomFighterTags('skill')}
 function removeCustomFighterSkill(i){customFighterSkillDraft.splice(i,1);refreshCustomFighterTags('skill');cfSkillSyncButtons()}
 // V-SKILLPICKER: default skills are ticked from a list grouped by skill tree
 // (with a search box) instead of one long drop-down.
@@ -18962,10 +16954,25 @@ function equipmentPool(tab,x){
   ws=withCoveredVariants(ws.filter(w=>bookItemFactionAllowed(w,f)&&!isCovering(w)),tab,f,x);
   {const src=fighterBanSource(x);if(bannedCategoriesOf(src).length)ws=ws.filter(w=>!categoryBanned(x,w,src))}
   if(equipmentCategoryFilter!=='all')ws=ws.filter(w=>canonEquipmentCategory(equipmentCategory(w))===equipmentCategoryFilter);
-  const q=(equipmentSearch||'').trim().toLowerCase();if(q)ws=ws.filter(w=>(w.name||'').toLowerCase().includes(q)||(equipmentCategory(w)||'').toLowerCase().includes(q)||(w.rulesText||'').toLowerCase().includes(q));
+  const q=searchNorm((equipmentSearch||'').trim().replace(/\+\s*(\d)/g,' plus$1 ').replace(/(^|\s)-\s*(\d)/g,' minus$2 '));if(q){const words=q.split(/\s+/).filter(Boolean);ws=ws.filter(w=>{const h=equipmentSearchHay(w);return words.every(t=>h.includes(t))})}
   return ws;
 }
 
+// V-EQUIPEFFECT: the equipment search also finds an item by what it does —
+// its traits (Parry, Concussion…), its Strength (S+1 / "Force +1"), its
+// rules text — in English and in French, accents ignored, all words needed.
+const equipmentSearchHayCache=new Map();
+// French words players may type for trait names the book keeps in English.
+const EQUIP_SEARCH_FR={parry:'parade parer',concussion:'commotion assommer',concussive:'commotion assommer','two handed':'deux mains a deux mains',cumbersome:'encombrant',unwieldy:'peu maniable',backstab:'dans le dos',sidearm:'arme secondaire',shield:'bouclier',reach:'allonge',knockback:'repousser recul',disarm:'desarmer',entangle:'entraver',toxin:'toxine poison',poison:'poison',flaming:'enflamme feu',fire:'feu',pistol:'pistolet',blast:'explosion gabarit',template:'gabarit',rapid:'tir rapide',critical:'critique',shred:'dechiqueter',heavy:'lourd',light:'leger',armour:'armure',armor:'armure',helmet:'casque',mount:'monture',limited:'limite',scarce:'rare'};
+function equipmentSearchHay(w){const k=(siteLanguage||'')+'|'+(w?.name||'')+'|'+(w?.customEquipmentId||'');const hit=equipmentSearchHayCache.get(k);if(hit!=null)return hit;
+  const tr=v=>{const t=String(v||'');let fr='';try{fr=translateSiteText(t)}catch(e){}return fr&&fr!==t?t+' '+fr:t};
+  const p=w?.profile||{};const parts=[tr(w?.name),tr(equipmentCategory(w)),w?.rulesText||'',w?.availability||''];
+  String(p.traits||'').split(/[,;]/).map(x=>x.trim()).filter(x=>x&&x!=='-').forEach(t=>parts.push(tr(t),tr(t.replace(/\s*\(.*\)$/,''))));
+  const st=String(p.strength||'').replace(/\s+/g,'');const m=st.match(/^S([+-]\d+)$/i);if(m){const sg=(m[1][0]==='+'?'plus':'minus')+m[1].slice(1);parts.push(`${sg} strength force`)}else if(st&&st!=='-')parts.push('strength '+st+' force '+st);
+  if(p.range&&!/melee/i.test(p.range))parts.push(tr(p.range)+' ranged tir distance');else if(p.range)parts.push('melee mêlée corps à corps');
+  if(p.ap&&p.ap!=='-')parts.push('ap '+p.ap+' pa '+p.ap);
+  {const base=searchNorm(parts.join(' '));Object.entries(EQUIP_SEARCH_FR).forEach(([en,fr])=>{if(base.includes(en))parts.push(fr)})}
+  const out=searchNorm(parts.join(' · '));equipmentSearchHayCache.set(k,out);return out}
 function customFighterEquipmentChooser(id,selected,mode){
   const list=customFighterAllEquipment();const set=new Set((selected||[]).map(normName));const groups={};
   // V-EQUIPCATSOURCE3: same raw-category drift as equipmentPicker (fixed
@@ -19340,8 +17347,6 @@ function confirmRenameSkillTree(id){
 function deleteCustomMagicDomain(id){openDeleteCustomParent('spells',id)}
 function customFighterSkillNames(){return [...new Set(Object.values(customMergedSkillSets()).flat())].sort((a,b)=>a.localeCompare(b))}
 function customContentTypeLabel(k){const en=siteLanguage==='en';return (en?{traits:'Weapon trait',skills:'Skill',spells:'Spell',special:'Special rule'}:{traits:'Trait d’arme',skills:'Compétence',spells:'Sort',special:'Règle spéciale'})[k]||k}
-function removeCustomContentDraft(i){customContentDraftItems.splice(i,1);render('custom')}
-function customContentDraftItemMarkup(kind,x,i){return `<span class="custom-trait-tag">${refLink(kind,x.name,x.name)}<button type="button" onclick="removeCustomContentDraft(${i})">×</button></span>`}
 function customContentForm(kind,w){
   const en=siteLanguage==='en';
   const draft=customContentDraftItems;
@@ -19460,12 +17465,10 @@ function customContentLibraryRow(kind,w,isOfficial){const en=siteLanguage==='en'
    Kept separate from the legacy content editor so the existing V68 data model remains compatible. */
 let customTreeComposer={kind:null,parentId:null,itemId:null};
 function customBuilderParentList(kind){return kind==='skills'?customSkillTreeList():customMagicDomainList()}
-function customBuilderParentName(kind,p){return p?.name||''}
 function customBuilderItems(kind,parent){
   const field=kind==='skills'?'tree':'domain';
   return customContentList(kind).filter(x=>normName(x[field]||'')===normName(parent?.name||''));
 }
-function customBuilderParentId(kind,p){return p?.id||''}
 function customBuilderItemById(kind,id){return customContentById(kind,id)}
 function customBuilderResetComposer(){customTreeComposer={kind:null,parentId:null,itemId:null}}
 function customBuilderOpenNew(kind,parentId){customTreeComposer={kind,parentId,itemId:null};if(kind==='spells')customEquipmentTraitDraft=[];render('custom')}
@@ -20760,7 +18763,6 @@ function saveCustomWarbandInfo(id){
 }
 function filterCustomWarbandChoices(input,selector){const q=(input.value||'').trim().toLowerCase();document.querySelectorAll(selector).forEach(el=>{el.style.display=!q||(el.dataset.search||'').includes(q)?'':'none'})}
 function customWarbandCreateForm(){const en=siteLanguage==='en';return `<section class="card custom-warband-create-form"><div class="eyebrow">${en?'NEW WARBAND':'NOUVELLE WARBAND'}</div><h3>${en?'Create a custom Warband':'Créer une Warband custom'}</h3><label class="custom-field"><span>${en?'Name':'Nom'}</span><input id="cwName" placeholder="${en?'Warband name':'Nom de la Warband'}"></label><label class="custom-field"><span>${en?'Maximum fighters (optional, Hired Swords not counted)':'Combattants max (facultatif, Hired Swords non compris)'}</span><input id="cwMaxWarriors" type="number" min="1" max="200" step="1" placeholder="—"></label><label class="custom-field"><span>${en?'Description (optional)':'Description (facultatif)'}</span>${customTextToolbarMarkup('cwDescription')}<textarea id="cwDescription" class="wide-textarea" rows="4" placeholder="${en?'Band description…':'Description de la bande…'}"></textarea></label><div class="custom-actions"><button type="button" class="button secondary" onclick="customWarbandCreating=false;render('custom')">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveCustomWarbandMeta()">${en?'Save':'Sauvegarder'}</button></div></section>`}
-function customWarbandPage(){const en=siteLanguage==='en';const list=customWarbandList();if(customWarbandCreating)return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${en?'Custom warbands':'Warbands personnalisées'}</h2><p>${en?'Create the warband first, then click Edit to open its configuration.':'Crée d’abord la Warband, puis clique sur Modifier pour ouvrir sa configuration.'}</p></div></div>${customWarbandCreateForm()}</div>`;if(customWarbandEditId){const cw=customWarbandById(customWarbandEditId);if(cw)return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT / WARBAND</div><h2>${esc(cw.name)}</h2><p>${cw.description?customTextMarkup(cw.description):esc(en?'Custom warband':'Warband personnalisée')}</p></div><button type="button" class="button secondary" onclick="customWarbandEditId=null;render('custom')">${en?'← Library':'← Bibliothèque'}</button></div>${customWarbandEditor(cw)}</div>`}return `<div class="custom-page"><div class="page-intro"><div><div class="eyebrow">FORGE / CUSTOM CONTENT</div><h2>${en?'Custom warbands':'Warbands personnalisées'}</h2><p>${en?'Create and configure your own warbands without touching the official content.':'Crée et configure tes propres Warbands sans toucher au contenu officiel.'}</p></div><button type="button" class="button primary" onclick="newCustomWarband()">＋ ${en?'New warband':'Nouvelle Warband'}</button></div><div class="custom-workspace"><section class="card custom-editor"><div class="custom-library-head"><div><div class="eyebrow">${en?'LIBRARY':'BIBLIOTHÈQUE'}</div><h3>${en?'Custom warbands':'Warbands custom'}</h3></div><span>${list.length}</span></div><div class="custom-item-list">${list.length?list.map(customWarbandSummaryRow).join(''):`<div class="empty large"><strong>${en?'No custom warbands.':'Aucune Warband custom.'}</strong><span>${en?'Create the first one with the button above.':'Crée la première avec le bouton ci-dessus.'}</span></div>`}</div></section></div></div>`}
 
 // Boot sequence: run only after every top-level `let`/`const`/function
 // declaration in this file has been evaluated. Calling this earlier (it used
@@ -21129,7 +19131,7 @@ function buyDraftAdd(encoded){const en=siteLanguage==='en';const r=activeRoster(
 function buyDraftDrop(i){buyDraft.items.splice(i,1);render('fighter')}
 function buyDraftClear(){buyDraft={inst:null,items:[]};render('fighter')}
 function buyDraftBarMarkup(x){const en=siteLanguage==='en';const items=buyDraftItems(x);if(!items.length)return '';const gold=Math.round(Number(activeRoster()?.gold||0));const sum=items.reduce((n,i)=>n+i.price,0);const left=gold-sum;
-  return `<div class="buy-draft${left<0?' over':''}"><div class="buy-draft-head"><b>🛒 ${en?'Shopping list':'Liste d’achats'}</b><span>${items.length} · ${sum} GC</span><span class="buy-draft-left">${en?'Treasury after':'Trésor après'} : <b>${left}</b> GC</span></div><div class="buy-draft-items">${items.map((it,i)=>`<span class="buy-draft-chip">${esc(it.name)} · ${it.price}<button type="button" aria-label="${en?'Remove':'Retirer'}" onclick="buyDraftDrop(${i})">×</button></span>`).join('')}</div><div class="buy-draft-actions"><button type="button" class="button primary small" ${left<0?'disabled':''} onclick="buyDraftCommit()">${en?'Buy all':'Tout acheter'} · ${sum} GC</button><button type="button" class="button secondary small" onclick="buyDraftClear()">${en?'Clear':'Vider'}</button></div>${left<0?`<small class="buy-draft-warn">${en?`${-left} GC short`:`Il manque ${-left} GC`}</small>`:''}</div>`}
+  return `<div class="buy-draft${left<0?' over':''}"><div class="buy-draft-head"><b>🛒 ${en?'Shopping list':'Liste d’achats'}</b><span>${items.length} · ${sum} GC</span><span class="buy-draft-left">${en?'Treasury after':'Trésor après'} : <b>${left}</b> GC</span>${(()=>{const r=activeRoster();if(!r)return '';const d=Math.round(items.reduce((n,i)=>n+(Number(i.val)||0),0));const t=total(r);return `<span class="rating-delta">${en?'Rating':'Valeur'} ${t} → <b>${t+d}</b> (+${d})</span>`})()}</div><div class="buy-draft-items">${items.map((it,i)=>`<span class="buy-draft-chip">${esc(it.name)} · ${it.price}<button type="button" aria-label="${en?'Remove':'Retirer'}" onclick="buyDraftDrop(${i})">×</button></span>`).join('')}</div><div class="buy-draft-actions"><button type="button" class="button primary small" ${left<0?'disabled':''} onclick="buyDraftCommit()">${en?'Buy all':'Tout acheter'} · ${sum} GC</button><button type="button" class="button secondary small" onclick="buyDraftClear()">${en?'Clear':'Vider'}</button></div>${left<0?`<small class="buy-draft-warn">${en?`${-left} GC short`:`Il manque ${-left} GC`}</small>`:''}</div>`}
 function buyDraftCommit(){const en=siteLanguage==='en';const r=activeRoster(),x=r?.fighters[editingIndex];if(!r||!x)return;const items=buyDraftItems(x).slice();if(!items.length)return;const sum=items.reduce((n,i)=>n+i.price,0);if(Number(r.gold||0)<sum){toast(en?'Not enough gold':'Pas assez d’or');return}
   const tab0=equipmentTab;let done=0,stop='';
   undoRun(en?`${items.length} items bought — ${sum} GC`:`${items.length} objets achetés — ${sum} GC`,()=>{for(const it of items){const rr=activeRoster(),xx=rr?.fighters[editingIndex];const w=D.weapons.find(a=>a.name===it.name)||customEquipmentByName(it.name)||equipmentPool(it.tab,xx).find(a=>a.name===it.name);if(!w){stop=it.name;break}
@@ -21469,3 +19471,47 @@ async function pullRefreshRun(){const en=siteLanguage==='en';try{if(cloudIsSigne
 // V-RAWACTIVE: post-render passes only read the open warband, so they use the
 // stored one instead of activeRoster(), which re-normalizes it on each call.
 function rawActiveRoster(){return Array.isArray(state?.rosters)?state.rosters.find(r=>r&&r.id===state.active)||null:null}
+// ============ V-PERFSAMPLE: how fast the site is for real players ============
+// One visit in four sends three timings (no account, no IP, nothing typed):
+// time to the first screen, full page load, and the slowest screen change in
+// the first 30 seconds. Admins read them in Admin › Speed for players.
+let perfFirstMs=null,perfSlowestView=0;const perfStart=performance.now();
+(function(){const o=window.render;if(typeof o!=='function')return;window.render=function(...a){const t=performance.now();try{return o.apply(this,a)}finally{const d=performance.now()-t;if(perfFirstMs==null)requestAnimationFrame(()=>{if(perfFirstMs==null)perfFirstMs=Math.round(performance.now())});else if(performance.now()-perfStart<30000&&d>perfSlowestView)perfSlowestView=d}};if(document.getElementById('content')?.children.length)perfFirstMs=Math.round(performance.now())})();
+function perfDevice(){const w=window.innerWidth||1200;return w<760?'phone':w<1100?'tablet':'desktop'}
+function perfSend(){try{if(sessionStorage.getItem('mu_perf_done'))return;sessionStorage.setItem('mu_perf_done','1');if(Math.random()>0.25||!/^https?:$/.test(location.protocol)||navigator.onLine===false)return;
+  const nav=performance.getEntriesByType('navigation')[0];const load=nav&&nav.loadEventEnd>0?Math.round(nav.loadEventEnd):null;
+  window.MordheimundaAPI?.sendPerf?.({build:APP_BUILD,device:perfDevice(),first:perfFirstMs,load,view:Math.round(perfSlowestView)||null}).catch(()=>{})}catch(e){}}
+setTimeout(perfSend,30000);
+
+// ============ V-SHAREIMG: the warband as a picture to post ============
+// Draws the active warband (name, faction, rating, treasury, every fighter
+// with type, XP and characteristics) on a canvas, then opens the phone's
+// share sheet (Discord, WhatsApp…) or downloads the PNG on a computer.
+function shareImgFit(g,text,max){let t=String(text||'');if(g.measureText(t).width<=max)return t;while(t.length>1&&g.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'}
+async function shareWarbandImage(){const en=siteLanguage==='en';const r=activeRoster();if(!r){toast(en?'Open a warband first':'Ouvre d’abord une bande');return}
+  try{await document.fonts?.ready}catch(e){}
+  const f=faction(r);const col=warbandColor(r);const fighters=(r.fighters||[]).slice();const names=P.slice(0,9);
+  const W=1080,pad=56,headH=300,rowH=104,footH=96;const H=headH+Math.max(1,fighters.length)*rowH+footH;
+  const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+  const bg=g.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#16140f');bg.addColorStop(1,'#0a0a09');g.fillStyle=bg;g.fillRect(0,0,W,H);
+  g.fillStyle=col;g.fillRect(0,0,W,12);g.globalAlpha=.08;g.fillRect(0,12,W,headH-12);g.globalAlpha=1;
+  const serif="'Cinzel', Georgia, serif",sans="'IBM Plex Sans', system-ui, sans-serif";
+  g.fillStyle='#f2efe6';g.textBaseline='alphabetic';{let fs=64;g.font=`800 ${fs}px ${serif}`;while(fs>40&&g.measureText(r.name||'—').width>W-pad*2){fs-=2;g.font=`800 ${fs}px ${serif}`}g.fillText(shareImgFit(g,r.name||'—',W-pad*2),pad,120)}
+  g.fillStyle=col;g.font=`600 30px ${sans}`;g.fillText(shareImgFit(g,translateSiteText(f?.displayName||''),W-pad*2),pad,168);
+  const chips=[[en?'Rating':'Valeur',total(r)],[en?'Treasury':'Trésor',Math.round(Number(r.gold||0))+' GC'],[en?'Fighters':'Combattants',fighters.length],[en?'Reputation':'Réputation',Number(r.reputation||0)]];
+  let cx=pad;chips.forEach(([k,v])=>{g.font=`700 34px ${serif}`;const vw=g.measureText(String(v)).width;g.font=`600 18px ${sans}`;const kw=g.measureText(k.toUpperCase()).width;const w=Math.max(vw,kw)+40;
+    g.strokeStyle='rgba(255,255,255,.18)';g.lineWidth=2;g.beginPath();g.roundRect?g.roundRect(cx,198,w,78,10):g.rect(cx,198,w,78);g.stroke();
+    g.fillStyle='#a8a49a';g.fillText(k.toUpperCase(),cx+20,226);g.fillStyle='#f2efe6';g.font=`700 34px ${serif}`;g.fillText(String(v),cx+20,264);cx+=w+14});
+  const statX=W-pad-names.length*52;
+  fighters.forEach((x,i)=>{const y=headH+i*rowH;const st=fighterStatus(x);const out=st.dead||st.captured;
+    g.fillStyle=i%2?'rgba(255,255,255,.025)':'rgba(255,255,255,.055)';g.fillRect(pad-16,y+6,W-pad*2+32,rowH-12);
+    g.globalAlpha=out?.45:1;
+    g.fillStyle='#f2efe6';g.font=`700 32px ${serif}`;g.fillText(shareImgFit(g,(st.dead?'† ':'')+(x.name||'—'),statX-pad-24),pad,y+50);
+    g.fillStyle='#a8a49a';g.font=`500 20px ${sans}`;const sub=[translateSiteText(x.type||''),x.sourceName&&x.sourceName!==x.name?translateSiteText(x.sourceName):'',`${Number(x.xp||0)} XP`,st.captured?(en?'captured':'capturé'):''].filter(Boolean).join(' · ');g.fillText(shareImgFit(g,sub,statX-pad-24),pad,y+82);
+    const prof=Array.isArray(x.profile)?x.profile:[];names.forEach((n,j)=>{const sx=statX+j*52+26;g.textAlign='center';g.fillStyle='#8f8b81';g.font=`600 16px ${sans}`;g.fillText(String(n),sx,y+38);g.fillStyle='#f2efe6';g.font=`700 28px ${serif}`;g.fillText(String(prof[j]??'—'),sx,y+74);g.textAlign='left'});
+    g.globalAlpha=1});
+  g.fillStyle='#6f6b62';g.font=`600 20px ${sans}`;g.fillText('MORDHEIMUNDA',pad,H-40);g.textAlign='right';g.fillText(new Date().toLocaleDateString(en?'en-GB':'fr-FR'),W-pad,H-40);g.textAlign='left';
+  const blob=await new Promise(res=>c.toBlob(res,'image/png'));if(!blob){toast(en?'Could not draw the picture':'Impossible de créer l’image');return}
+  const fname=(String(r.name||'warband').replace(/[^\w\-]+/g,'_').slice(0,40)||'warband')+'.png';
+  try{const file=new File([blob],fname,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:r.name||''});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast(en?'Picture downloaded':'Image téléchargée')}

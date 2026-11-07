@@ -17,6 +17,8 @@ async function session(viewport){
   page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|net::ERR|HTTP_404|API_NOT_CONFIGURED|unavailable/i.test(m.text()))errors.push('console: '+m.text())});
   await page.goto(base+'/',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>typeof D!=='undefined'&&Array.isArray(D.factions)&&D.factions.length>0&&typeof render==='function',null,{timeout:20000});
+  // the rulebook text loads just after the first screen (V-RULESLAZY)
+  await page.evaluate(()=>typeof ensureRulesBook==='function'?ensureRulesBook():null).catch(()=>{});
   await page.waitForTimeout(800);
   return {ctx,page,errors};
 }
@@ -190,6 +192,7 @@ await test('[desktop] weapon-scoped bonus: Oversized Jaws improves the Bite Atta
   expect(out.s2===5,'a plain "+1 Strength" item should still raise the profile: '+out.s2);
 });
 await test('[desktop] scenario editor: rule toolbar writes into the focused field, tables render',null,async page=>{
+  await page.evaluate(()=>ensureAdminCode());
   const out=await page.evaluate(()=>{
     adminScenarioEditId=null;adminScenarioEditData=blankScenarioDraft();
     document.querySelector('#content').innerHTML=scenarioEditorPanel();
@@ -603,6 +606,7 @@ await test('[desktop] Play Mode fighter cards keep the rule hover peek (no need 
   expect(out.shown,'the rule peek should show: '+JSON.stringify(out));
 });
 await test('[desktop] Underdog starts at a 100-point gap; decided rulings patch published texts',null,async page=>{
+  await page.evaluate(()=>ensureRulesBook());
   const out=await page.evaluate(()=>({b99:playUdGapBudget(99),b100:playUdGapBudget(100),b160:playUdGapBudget(160),
     sell:patchRuleText('The item is deleted from the Stash, and the warband gains its value in gold crowns, minus D6x10 (to a minimum of five).'),
     ud:patchRuleText('You can use the Underdog bonus for each 100 points in difference above the first 100 points of difference.'),
@@ -1001,9 +1005,10 @@ await test('[desktop] error reports sent only when turned on, big uploads compre
   await page.evaluate(d=>window.MordheimundaAPI.saveData(d,1),big);
   expect(put&&put.enc==='gzip'&&put.len<JSON.stringify(big).length/4,'a big account upload is sent gzip-compressed: '+JSON.stringify(put));
 });
-await test('[desktop] admin panel code is loaded only when the panel opens',null,async page=>{
-  const before=await page.evaluate(()=>({real:typeof adminReal,tag:!!document.querySelector('script[src*="admin.min.js"]')}));
-  expect(before.real==='undefined'&&!before.tag,'a player never downloads the admin code: '+JSON.stringify(before));
+await test('[desktop] admin code is not part of the page and loads for the admin panel',null,async page=>{
+  // (the test server counts as an admin session, which preloads the code after 1.5 s; players never do)
+  const before=await page.evaluate(async()=>{const html=await (await fetch('/')).text();return {inPage:/admin(\.min)?\.js/.test(html)}});
+  expect(!before.inPage,'the page itself never loads the admin code: '+JSON.stringify(before));
   await page.evaluate(()=>navigateApp('/admin')); // localhost counts as an admin session
   await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});await page.waitForTimeout(400);
   const t=await page.textContent('#content');
@@ -1015,6 +1020,7 @@ await test('[desktop] campaign map: admin places settlements and paths, players 
     window.MordheimundaAPI.adminUpdateCampaign=async(id,p)=>({campaign:{...campaignDetailCache.get(id),definition:p.definition}});window.MordheimundaAPI.adminCampaign=async()=>({campaign:campaignDetailCache.get('mapc')});
     navigateApp('/campaigns/mapc/locations')});
   await page.waitForTimeout(600);
+  await page.evaluate(()=>ensureAdminCode());
   await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=800;c.height=500;const g=c.getContext('2d');g.fillStyle='#2a6';g.fillRect(0,0,800,500);openCampMapEditor('mapc');campMapEd.map.image=c.toDataURL('image/png');campMapEd.map.w=800;campMapEd.map.h=500;campMapEdRender()});
   const bb=await (await page.$('#cmapStage')).boundingBox();
   await page.click('.cmap-row:has-text("Port A")');await page.mouse.click(bb.x+bb.width*.25,bb.y+bb.height*.5);
@@ -1025,6 +1031,17 @@ await test('[desktop] campaign map: admin places settlements and paths, players 
   const r=await page.evaluate(()=>{const m=campaignDetailCache.get('mapc').definition.map;return {pins:m?.pins?.length,paths:m?.paths?.length,x:m?.pins?.[0]?.x,shown:!!document.querySelector('.cmap-panel .cmap'),bands:document.querySelectorAll('.cmap-pin.mine .cmap-bands b').length}});
   expect(r.pins===2&&r.paths===1&&Math.abs(r.x-25)<2,'pins and the path are saved in % of the picture: '+JSON.stringify(r));
   expect(r.shown&&r.bands===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
+});
+await test('[desktop] create warband: race banners with colour, motif, emblem; warband logo falls back to the race emblem',null,async page=>{
+  await page.evaluate(()=>{siteLanguage='en';const R=RACE_CATEGORIES;D.factions.filter(f=>!f.packId).slice(0,2).forEach(f=>raceTagMap.set(f.id,R[0]));
+    raceLooks={races:{[R[0]]:{color:'#3a7bd5',motif:'scales',tagline:'Test tagline',image:'data:image/png;base64,iVBORw0KGgo='}},factions:{},packs:{}};raceLooksLoaded=true;createSelectedRace=null;render('create')});
+  await page.waitForTimeout(300);
+  const r=await page.evaluate(()=>{const t=document.querySelector('.faction-choice.bn');return {cls:t?.className,style:t?.getAttribute('style'),kick:t?.querySelector('.bn-kick')?.textContent,img:!!t?.querySelector('img'),n:document.querySelectorAll('.faction-choice.bn').length}});
+  expect(r.n===8&&/motif-scales/.test(r.cls)&&/--rc:#3a7bd5/.test(r.style)&&r.kick==='Test tagline'&&r.img,'race tiles use the colour, motif, tagline and emblem: '+JSON.stringify(r));
+  await page.evaluate(()=>selectCreateRace(RACE_CATEGORIES[0]));await page.waitForTimeout(300);
+  const f=await page.evaluate(()=>[...document.querySelectorAll('.faction-choice.bn')].map(t=>!!t.querySelector('img')));
+  expect(f.length===2&&f.every(Boolean),'a warband without a logo shows its race emblem: '+JSON.stringify(f));
+  await page.evaluate(()=>{raceLooks={races:{},factions:{},packs:{}};createSelectedRace=null});
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
