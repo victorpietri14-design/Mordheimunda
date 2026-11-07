@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0783.0';
+const APP_BUILD='110.0784.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -493,8 +493,8 @@ let rulesOpen=restoreUiState('rulesOpen','prebattle');
 // the client just keeps using this baked-in default, so nothing changes for
 // anyone until an admin actually edits it.
 const RULES_NAV_GROUPS_DEFAULT=[
-  {id:'g-firstprinciples',fr:'0. Principes de base',en:'0. First Principles',ids:['firstprinciples','measurement','lineofsight','rollingdice','fighterstatus','conditions','houserules'],icon:'📖'},
-  {id:'g-prebattle',fr:'1. Séquence de pré-bataille',en:'1. Pre-Battle Sequence',ids:['prebattle','underdogbonus'],icon:'⚔'},
+  {id:'g-firstprinciples',fr:'0. Principes de base',en:'0. First Principles',ids:['firstprinciples','measurement','lineofsight','rollingdice','fighterstatus','conditions','houserules','characteristics'],icon:'📖'},
+  {id:'g-prebattle',fr:'1. Séquence de pré-bataille',en:'1. Pre-Battle Sequence',ids:['prebattle','underdogbonus','scenariorules'],icon:'⚔'},
   {id:'g-structure',fr:'2.1 – 2.3 Structure de partie',en:'2.1 – 2.3 Game Structure',ids:['structure','priority','actionphase','types','actions','movement','endphase'],icon:'☷'},
   {id:'g-combat',fr:'2.2.4 – 2.2.7 Tir & Corps à corps',en:'2.2.4 – 2.2.7 Shooting & Close Combat',ids:['terrain','shooting','combat','resolve'],icon:'🎯'},
   {id:'g-psychology',fr:'2.2.8 Psychologie',en:'2.2.8 Psychology',ids:['psychology'],icon:'◎'},
@@ -6722,7 +6722,7 @@ const I18N_EN_FRAGMENTS={'Armes de corps à corps':'Close Combat Weapons','Armes
 const I18N_EN_FRAGMENT_RE=new RegExp(Object.keys(I18N_EN_FRAGMENTS).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
 const I18N_FR={'Home':'Accueil','My Warbands':'Mes bandes','Create Warband':'Créer une bande','Rules':'Règles','Reference':'Référentiel','Save':'Sauvegarder','Export':'Exporter','Reset Data':'Réinitialiser les données','New Warband':'Nouvelle bande','Create a New Warband':'Créer une nouvelle bande','View My Warbands →':'Voir mes bandes →','No warbands.':'Aucune bande.','Choose a warband':'Choisis une bande','Edit':'Modifier','Delete':'Supprimer','Save Changes':'Enregistrer les modifications','Cancel':'Annuler','Add':'Ajouter','Equipment':'Équipement','Skills':'Compétences','Skill':'Compétence','Special Rules':'Règles spéciales','Spells & Prayers':'Sorts & prières','Spell':'Sort','Magic Domain':'Domaine de magie','Skill Tree':'Arbre de compétences','Skill Trees':'Arbres de compétences','Fighter Profiles':'Profils de combattants','Custom Warbands':'Warbands personnalisées','Custom Equipment':'Équipements personnalisés','Custom Skills':'Compétences personnalisées','Custom Spells':'Sorts personnalisés','Reputation':'Réputation','Treasury':'Trésor','Willpower':'Volonté','Weapon Skill':'Capacité de combat','Ballistic Skill':'Capacité de tir','Movement':'Mouvement','Strength':'Force','Toughness':'Endurance','Wounds':'Blessures','Initiative':'Initiative','Attacks':'Attaques','Leadership':'Commandement','Cool':'Calme','Rating':'Valeur','Stash':'Réserve','After Battle':'Après la bataille','Post-Battle':'Post-bataille','Search':'Rechercher','Warband':'Bande','Warbands':'Bandes','Fighter':'Combattant','Fighters':'Combattants','Faction':'Faction','Factions':'Factions','Campaign':'Campagne','Campaigns':'Campagnes','Custom Warband':'Warband personnalisée','Custom Warband deleted':'Warband custom supprimée','Account':'Compte','Sign in':'Se connecter','Sign up':'Créer un compte','Log in':'Se connecter','Log out':'Se déconnecter','Username':'Nom d’utilisateur','Password':'Mot de passe','Email':'E-mail','Forgot password?':'Mot de passe oublié ?','Forgot username?':'Nom d’utilisateur oublié ?','Account settings':'Paramètres du compte','Cloud sync':'Synchronisation cloud','Local data':'Données locales','Not signed in':'Non connecté','Reference pages':'pages de référence','local warbands':'bandes locales','available factions':'factions disponibles','loaded packs':'packs chargés','starting GC':'GC de départ','Core M17':'M17 de base','No results':'Aucun résultat','Create':'Créer','Rename':'Renommer','Transfer':'Transférer','Remove':'Supprimer','Buy':'Acheter','Roll':'Lancer','Reroll':'Relancer','Sign-in and cloud storage will be added in the next account step.':'La connexion et le stockage cloud seront ajoutés lors de la prochaine étape du système de compte.'};
 Object.assign(I18N_FR,{'✚ Send to Recovery':'✚ Envoyer en convalescence','☠ Resurrect Warrior':'☠ Ressusciter le guerrier','⛓ Mark as Captured':'⛓ Marquer capturé','⛓ Release Warrior':'⛓ Libérer le guerrier','Mark as Captured':'Marquer capturé','Release Warrior':'Libérer le guerrier','Warhouse / Archives':'Archives','ACTIVE ROSTER':'BANDE ACTIVE','Income & Exploration':'Revenus et exploration','Income / Exploration':'Revenus / exploration','POST-BATTLE / STEP 3':'APRÈS-BATAILLE / ÉTAPE 3','Play Mode':'Mode de jeu'});
-Object.assign(I18N_FR,{'0.6 House Rules':'0.6 Règles maison','3.1 Exploration and Income':'3.1 Exploration et revenus','4. Experience and Advancement':'4. Expérience et avancement','House Rules':'Règles maison','Exploration and Income':'Exploration et revenus','Experience and Advancement':'Expérience et avancement'});
+Object.assign(I18N_FR,{'0.7 Characteristics and Weapon Profiles':'0.7 Caractéristiques et profils d’armes','1.2 Scenario Rules':'1.2 Règles de scénario','Characteristics and Weapon Profiles':'Caractéristiques et profils d’armes','Founding a Warband':'Fonder une bande','Scenario Rules':'Règles de scénario','0.6 House Rules':'0.6 Règles maison','3.1 Exploration and Income':'3.1 Exploration et revenus','4. Experience and Advancement':'4. Expérience et avancement','House Rules':'Règles maison','Exploration and Income':'Exploration et revenus','Experience and Advancement':'Expérience et avancement'});
 // English text that has no French branch in the code: many such labels are
 // already listed in I18N_EN as "French original → English", so French mode
 // reads that table backwards first, then the explicit entries below.
@@ -6875,7 +6875,7 @@ function siteSearchKey(e){
 function siteSearchGo(n){const it=siteSearchFlat[n];if(!it)return;try{searchRecentAdd(siteSearchQuery)}catch(e){}closeSiteSearch();try{it.go()}catch(e){console.warn(e)}}
 function searchOpenRef(cat,id){navigateApp(APP_ROUTES.references);openReference(cat,id)}
 function searchOpenRule(i){
-  const h=searchRulesIndex()[i];if(!h)return;navigateApp(APP_ROUTES.rules);openRuleSection(h.sec);
+  const h=searchRulesIndex()[i];if(!h)return;if(h.sec==='founding'){warbandsRulesCategory='starting';persistUiState('wbRulesCat','starting');navigateApp(APP_ROUTES.rulesWarbands);return}navigateApp(APP_ROUTES.rules);openRuleSection(h.sec);
   setTimeout(()=>{const body=document.querySelector('.rules-article-body');if(!body)return;let el=null;
     if(h.label!==h.section){const want=searchNorm(h.label);el=[...body.querySelectorAll('[id^="rh-"]')].find(x=>searchNorm(x.textContent)===want)||[...body.querySelectorAll('h1,h2,h3,h4,h5,strong,b,div,span')].find(x=>x.children.length<=2&&searchNorm(x.textContent)===want)||null}
     if(!el&&h.page)el=document.getElementById('rule-page-'+h.page);
@@ -9261,6 +9261,10 @@ In the case of Undead warbands, the death of the Vampire means that the warband'
 OTHER LEADER TYPES
 
 If the leader of a Sisters of Sigmar, Possessed or Carnival of Chaos warband dies then their successor will be entitled to learn to use magic in their stead. The new leader gains the Wizard special rule and rolls for a prayer/spell from the appropriate list.`;
+// V-RULESMORE: book p.127 (campaign founding attributes), shown under the
+// "Starting a Warband" text on the Warbands rules page (editable with ✎).
+function warbandsFoundingPaneMarkup(en){const sec=RULES_BOOK.find(x=>x.id==='founding');if(!sec){ensureRulesBook().then(()=>{if(currentViewName()==='rulesWarbands')render('rulesWarbands',{history:false})}).catch(()=>{});return `<div class="empty large">${en?'Loading…':'Chargement…'}</div>`}
+  return `<div class="rules-article-body wb-founding-extra">${sec.content.map(p=>rulePageMarkup(p,'founding',[])).join('')}</div>`}
 function warbandsStartingPaneMarkup(en){
   const sectionId='wb-starting';
   const override=ruleEffectiveText(sectionId,0);
@@ -9283,7 +9287,7 @@ function rulesWarbands(){
 <div class="ref-page-body">
 ${warbandsSidebarMarkup()}
 <div class="ref-main">
-${cat==='starting'?warbandsStartingPaneMarkup(en):warbandsDirectoryPaneMarkup(en)}
+${cat==='starting'?warbandsStartingPaneMarkup(en)+warbandsFoundingPaneMarkup(en):warbandsDirectoryPaneMarkup(en)}
 </div>
 </div>
 <button type="button" class="rules-pages-nav-fab${warbandsNavOpen?' open':''}" id="warbandsNavFab" onclick="toggleWarbandsNav()" aria-label="${en?'Browse categories':'Parcourir les catégories'}">▤</button>
