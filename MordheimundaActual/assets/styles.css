@@ -5671,3 +5671,6 @@ html[data-theme="light"] #ambientFx{display:none}
 .cmap-help{font-size:12.5px;color:var(--muted);margin:0 0 4px}.cmap-help.on{color:var(--accent);font-weight:600}
 .cmap-detail{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:6px}
 @media (max-width:860px){.cmap-ed-body{grid-template-columns:1fr}.cmap-ed-side{max-height:none}}
+/* V-RATINGPREVIEW */
+.rating-delta{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}.rating-delta b{color:var(--accent)}
+.buy-draft-head .rating-delta{display:inline;margin:0 0 0 10px}
