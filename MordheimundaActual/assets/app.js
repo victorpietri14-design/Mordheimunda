@@ -6875,7 +6875,7 @@ function siteSearchKey(e){
 function siteSearchGo(n){const it=siteSearchFlat[n];if(!it)return;try{searchRecentAdd(siteSearchQuery)}catch(e){}closeSiteSearch();try{it.go()}catch(e){console.warn(e)}}
 function searchOpenRef(cat,id){navigateApp(APP_ROUTES.references);openReference(cat,id)}
 function searchOpenRule(i){
-  const h=searchRulesIndex()[i];if(!h)return;if(h.sec==='founding'){warbandsRulesCategory='founding';persistUiState('wbRulesCat','founding');navigateApp(APP_ROUTES.rulesWarbands);return}navigateApp(APP_ROUTES.rules);openRuleSection(h.sec);
+  const h=searchRulesIndex()[i];if(!h)return;if(h.sec==='founding'){warbandsRulesCategory='starting';persistUiState('wbRulesCat','starting');navigateApp(APP_ROUTES.rulesWarbands);return}navigateApp(APP_ROUTES.rules);openRuleSection(h.sec);
   setTimeout(()=>{const body=document.querySelector('.rules-article-body');if(!body)return;let el=null;
     if(h.label!==h.section){const want=searchNorm(h.label);el=[...body.querySelectorAll('[id^="rh-"]')].find(x=>searchNorm(x.textContent)===want)||[...body.querySelectorAll('h1,h2,h3,h4,h5,strong,b,div,span')].find(x=>x.children.length<=2&&searchNorm(x.textContent)===want)||null}
     if(!el&&h.page)el=document.getElementById('rule-page-'+h.page);
@@ -7457,7 +7457,6 @@ function customWarbandFaction(cw){return {id:`custom-warband-${cw.id}`,displayNa
 // the popup, AND a link in the directory's intro text. New categories can
 // be added later just by adding an entry to WARBAND_RULES_CATEGORIES.
 const WARBAND_RULES_CATEGORIES={
-  founding:{en:'Founding a Warband',fr:'Fonder une bande',icon:'⚑'},
   directory:{en:'Warband Directory',fr:'Répertoire des warbands',icon:'▤'},
   starting:{en:'Starting a Warband',fr:'Créer une bande (règles)',icon:'▶'}
 };
@@ -9262,10 +9261,10 @@ In the case of Undead warbands, the death of the Vampire means that the warband'
 OTHER LEADER TYPES
 
 If the leader of a Sisters of Sigmar, Possessed or Carnival of Chaos warband dies then their successor will be entitled to learn to use magic in their stead. The new leader gains the Wizard special rule and rolls for a prayer/spell from the appropriate list.`;
-// V-RULESMORE: the book's "Founding a Warband" pages, shown first on the
-// Warbands rules page (editable with ✎ like any rule page).
+// V-RULESMORE: book p.127 (campaign founding attributes), shown under the
+// "Starting a Warband" text on the Warbands rules page (editable with ✎).
 function warbandsFoundingPaneMarkup(en){const sec=RULES_BOOK.find(x=>x.id==='founding');if(!sec){ensureRulesBook().then(()=>{if(currentViewName()==='rulesWarbands')render('rulesWarbands',{history:false})}).catch(()=>{});return `<div class="empty large">${en?'Loading…':'Chargement…'}</div>`}
-  return `<div class="rules-article-body">${sec.content.map(p=>rulePageMarkup(p,'founding',[])).join('')}</div>`}
+  return `<div class="rules-article-body wb-founding-extra">${sec.content.map(p=>rulePageMarkup(p,'founding',[])).join('')}</div>`}
 function warbandsStartingPaneMarkup(en){
   const sectionId='wb-starting';
   const override=ruleEffectiveText(sectionId,0);
@@ -9279,8 +9278,8 @@ function rulesWarbands(){
   if(ruleOverridesCache===null)loadRuleOverrides();
   const en=siteLanguage==='en';
   const cat=WARBAND_RULES_CATEGORIES[warbandsRulesCategory]?warbandsRulesCategory:'directory';
-  const title=cat==='starting'?(en?'Starting a Warband':'Créer une bande (règles)'):cat==='founding'?(en?'Founding a Warband':'Fonder une bande'):(en?'Rules: Warbands':'Règles : Warbands');
-  const subtitle=cat==='founding'?(en?'The book’s rules for founding a warband: budget, composition, equipment, warrior cards, campaign attributes.':'Les règles du livre pour fonder une bande : budget, composition, équipement, cartes de guerrier, attributs de campagne.'):cat==='starting'
+  const title=cat==='starting'?(en?'Starting a Warband':'Créer une bande (règles)'):(en?'Rules: Warbands':'Règles : Warbands');
+  const subtitle=cat==='starting'
     ?(en?'How to build your first warband — race, starting budget, first recruits.':'Comment créer ta première bande — race, budget de départ, premiers recrutements.')
     :(en?'Every warband, grouped by race — updates automatically as soon as one is created or officialized.':'Toutes les warbands, classées par race — se met à jour automatiquement dès qu’une warband ou un supplément est créé ou officialisé.');
   $('#content').innerHTML=`<div class="ref-page">
@@ -9288,7 +9287,7 @@ function rulesWarbands(){
 <div class="ref-page-body">
 ${warbandsSidebarMarkup()}
 <div class="ref-main">
-${cat==='starting'?warbandsStartingPaneMarkup(en):cat==='founding'?warbandsFoundingPaneMarkup(en):warbandsDirectoryPaneMarkup(en)}
+${cat==='starting'?warbandsStartingPaneMarkup(en)+warbandsFoundingPaneMarkup(en):warbandsDirectoryPaneMarkup(en)}
 </div>
 </div>
 <button type="button" class="rules-pages-nav-fab${warbandsNavOpen?' open':''}" id="warbandsNavFab" onclick="toggleWarbandsNav()" aria-label="${en?'Browse categories':'Parcourir les catégories'}">▤</button>

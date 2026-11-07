@@ -1066,10 +1066,10 @@ await test('[desktop] parchment version of a fighter sheet (optional view, print
   expect(r.ok&&/Parch/.test(r.txt)&&/7 XP/.test(r.txt)&&r.print,'the parchment sheet opens with the fighter and a print button: '+JSON.stringify(r).slice(0,200));
   await page.evaluate(()=>closeModal());
 });
-await test('[desktop] book pages added: characteristics and scenario rules in Rules, founding a warband in Rules: Warbands',null,async page=>{
+await test('[desktop] book pages added: characteristics and scenario rules in Rules, campaign founding (p.127) under Starting a Warband',null,async page=>{
   const r=await page.evaluate(async()=>{await ensureRulesBook();const ids=RULES_BOOK.map(s=>s.id);const grp=RULES_NAV_GROUPS.flatMap(g=>g.ids);
-    siteLanguage='en';navigateApp('/rules/warbands');setWarbandsRulesCategory('founding');await new Promise(z=>setTimeout(z,300));
-    return {has:['characteristics','founding','scenariorules'].every(i=>ids.includes(i)),nav:grp.includes('characteristics')&&grp.includes('scenariorules')&&!grp.includes('founding'),wb:/Starting a warband/i.test(document.getElementById('content').textContent),side:/Founding a Warband/.test(document.getElementById('content').textContent)}});
+    siteLanguage='en';navigateApp('/rules/warbands');setWarbandsRulesCategory('starting');await new Promise(z=>setTimeout(z,300));
+    return {has:['characteristics','founding','scenariorules'].every(i=>ids.includes(i)),nav:grp.includes('characteristics')&&grp.includes('scenariorules')&&!grp.includes('founding'),wb:/Starting gold crowns/i.test(document.getElementById('content').textContent),side:document.querySelectorAll('.wb-founding-extra').length===1&&!/Fonder une bande|Founding a Warband</.test(document.querySelector('.ref-page')?.innerHTML||'')}});
   expect(r.has&&r.nav&&r.wb&&r.side,'new book pages are in place: '+JSON.stringify(r));
   await page.evaluate(()=>setWarbandsRulesCategory('directory'));
 });
