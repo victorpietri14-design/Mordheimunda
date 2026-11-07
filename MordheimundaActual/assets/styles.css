@@ -5723,3 +5723,25 @@ html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
 @media(max-width:600px){.name-emblem{width:26px;height:26px;margin-right:6px}.name-emblem .fighter-emblem svg{width:14px;height:14px}}
 /* V-PARCHMENT */
 .modal-card:has(.parch-wrap){width:min(700px,calc(100vw - 28px));background:#16120e}
+/* V-SCNGROUPS: scenario sections in three folding parts */
+.scn-groups{display:flex;flex-direction:column;gap:10px}
+.scn-grp{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.scn-grp-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--panel2);cursor:pointer;list-style:none;user-select:none}
+.scn-grp-head::-webkit-details-marker{display:none}
+.scn-grp-head b{font:800 16px Cinzel,serif;flex:1;color:var(--text)}
+.scn-grp-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 12px 'IBM Plex Sans',sans-serif;color:var(--chip-bg,#132007);background:var(--accent);flex:none}
+.scn-grp-count{font-size:11.5px;color:var(--muted)}
+.scn-grp-chev{color:var(--muted);transition:transform .15s}.scn-grp:not([open]) .scn-grp-chev{transform:rotate(-90deg)}
+.scn-sub{padding:12px 16px;border-top:1px solid var(--line)}
+.scn-subtitle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px;font:700 11px 'IBM Plex Sans',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent)}
+.scn-subtitle a{color:inherit}
+.scn-sub .scn-text p:first-child{margin-top:0}.scn-sub .scn-text p:last-child{margin-bottom:0}
+@media(max-width:760px){.scn-sub{padding:10px 12px}}
+.scn-hero{position:relative;height:clamp(170px,26vw,280px);margin:-4px 0 0;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.scn-hero img{width:100%;height:100%;object-fit:cover;display:block}
+.scn-hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,10,0) 30%,rgba(10,10,10,.9))}
+.scn-hero-text{position:absolute;left:18px;right:18px;bottom:14px;z-index:1}
+.scn-hero-text h2{margin:2px 0 0;font:800 clamp(24px,3.4vw,38px)/1.08 Cinzel,serif;color:#f6f3ea;text-shadow:0 2px 6px rgba(0,0,0,.75)}
+.scn-hero-text .site-crumbs,.scn-hero-text .site-crumbs a,.scn-hero-text .site-crumbs span{color:#e4e1da}
+.scn-head.under-hero{margin-top:10px}
+@media(max-width:760px){.scn-hero{margin:0 -4px;border-radius:10px}.scn-hero-text{left:12px;right:12px;bottom:10px}}

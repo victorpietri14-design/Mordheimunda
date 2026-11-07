@@ -8389,7 +8389,7 @@ function playSessionMarkupBase(){
   return `<div class="rules-shell-wrap scn-detail">
    <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div><h2 style="margin-top:6px">${esc(s.name)}</h2><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
-   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)))}
+   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:['j']})}
   </div>`;
 }
 function playMode(){
@@ -8957,7 +8957,19 @@ function scenarioSections(s,en,deployBody){
   try{const used=scenarioRulesUsed(s);if(used.length)secs.unshift({title:en?'Rules used':'Règles utilisées',body:`<p class="scn-used-hint">${en?'Tap a rule to read it.':'Touche une règle pour la lire.'}</p><div class="scn-used">${used.map(t=>`<span class="rule-ref scn-used-chip" tabindex="0" data-ref-category="${t.cat}" data-ref-id="${esc(t.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(t.name)}</span>`).join('')}</div>`})}catch(e){}
   return secs;
 }
-function scenarioSectionsMarkup(secs){return secs.map((c,i)=>`<section class="scn-sec"><span class="scn-secnum">${String(i+1).padStart(2,'0')}</span>${c.head?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="scn-sectitle" style="margin:0">${c.title}</div>${c.head}</div>`:`<div class="scn-sectitle">${c.title}</div>`}${c.body}</section>`).join('')}
+// V-SCNGROUPS: the scenario's sections grouped in three folding parts —
+// Preparation · Play · Ending — with a thin line between sections instead of
+// one big spaced box each. opts.open: which parts start open (default all).
+function scenarioSectionGroup(title){const t=String(title||'').replace(/<[^>]*>/g,'');
+  if(/Special|Spéciale|Objective|Objectif/i.test(t))return 'j';
+  if(/End of Game|Fin de Partie|Victory|Victoire|Experience|Expérience|Reward|Récompense/i.test(t))return 'f';
+  return 'p'}
+const SCN_GROUP_ORDER=[/End of Game|Fin de Partie/i,/Victory|Victoire/i,/Experience|Expérience/i,/Reward|Récompense/i];
+function scenarioGroupRank(c){const t=String(c.title||'').replace(/<[^>]*>/g,'');const i=SCN_GROUP_ORDER.findIndex(r=>r.test(t));return i<0?-1:i}
+function scenarioSectionsMarkup(secs,opts={}){const en=siteLanguage==='en';const open=new Set(opts.open||['p','j','f']);
+  const G=[['p',en?'Preparation':'Préparation'],['j',en?'Play':'Jeu'],['f',en?'Ending':'Fin']];let n=0;
+  return `<div class="scn-groups">${G.map(([k,label])=>{const list=secs.filter(c=>scenarioSectionGroup(c.title)===k).map((c,i)=>({c,i})).sort((a,b)=>(k==='f'?scenarioGroupRank(a.c)-scenarioGroupRank(b.c):0)||a.i-b.i).map(x=>x.c);if(!list.length)return '';n++;
+    return `<details class="scn-grp"${open.has(k)?' open':''}><summary class="scn-grp-head"><span class="scn-grp-num">${n}</span><b>${label}</b><span class="scn-grp-count">${list.length} ${en?(list.length>1?'sections':'section'):(list.length>1?'sections':'section')}</span><span class="scn-grp-chev" aria-hidden="true">▾</span></summary>${list.map(c=>`<section class="scn-sub"><div class="scn-subtitle">${c.title}${c.head||''}</div>${c.body}</section>`).join('')}</details>`}).join('')}</div>`}
 function scenarioDetail(){
   const en=siteLanguage==='en';
   const s=SCENARIOS_CACHE.find(x=>x.id===currentScenarioId);
@@ -8978,7 +8990,8 @@ function scenarioDetail(){
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:(s.tableSize?[s.tableSize]:[]);
   const facts=[has(bf.terrainType)?`🏚 ${esc(bf.terrainType)}`:'',sizes.length?`📐 ${sizes.map(esc).join(' / ')}`:'',`👥 ${bandsCount} ${en?'warbands':'bandes'}`].filter(Boolean);
   $('#content').innerHTML=`<div class="rules-shell-wrap scn-detail">
-   <div class="page-intro scn-head"><div>${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2 style="margin-top:2px">${esc(s.name)}</h2>${has(s.summary)?`<p class="scn-summary">${esc(s.summary)}</p>`:''}<div class="scn-facts">${scenarioCategoryTagsMarkup(s,en,true)}${facts.map(t=>`<span class="chip">${t}</span>`).join('')}</div></div>${isAdminEditUI()?`<button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
+   ${s.thumbnail?`<div class="scn-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text">${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2>${esc(s.name)}</h2></div></div>`:''}
+   <div class="page-intro scn-head${s.thumbnail?' under-hero':''}"><div>${s.thumbnail?'':`${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2 style="margin-top:2px">${esc(s.name)}</h2>`}${has(s.summary)?`<p class="scn-summary">${esc(s.summary)}</p>`:''}<div class="scn-facts">${scenarioCategoryTagsMarkup(s,en,true)}${facts.map(t=>`<span class="chip">${t}</span>`).join('')}</div></div>${isAdminEditUI()?`<button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
    ${scenarioSectionsMarkup(secs)}
   </div>`;
 }
