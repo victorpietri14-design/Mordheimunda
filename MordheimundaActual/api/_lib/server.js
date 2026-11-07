@@ -1896,11 +1896,13 @@ const RACE_LOOK_MOTIFS=new Set(['stripes','forge','lines','hatch','glow','mist',
 const looksImg=v=>{const t=String(v||'');return /^\/api\/rule-images\/[0-9a-f-]{36}$/i.test(t)||(/^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t)&&t.length<=160000)?t:''};
 const looksKey=k=>String(k||'').slice(0,80);
 const looksFocus=f=>{if(!f||typeof f!=='object')return null;const c=(v,lo,hi,d)=>{const n=Number(v);return Number.isFinite(n)?Math.round(Math.max(lo,Math.min(hi,n))*1000)/1000:d};return {x:c(f.x,0,1,.5),y:c(f.y,0,1,.5),zoom:c(f.zoom,1,2.5,1)}};
-function sanitizeRaceLooks(v){const out={races:{},factions:{},packs:{}};const src=v&&typeof v==='object'?v:{};
+function sanitizeRaceLooks(v){const out={races:{},factions:{},packs:{},cats:{}};const src=v&&typeof v==='object'?v:{};
   for(const [k,r] of Object.entries(src.races||{}).slice(0,40)){if(!r||typeof r!=='object')continue;const o={};
     if(/^#[0-9a-f]{6}$/i.test(String(r.color||'')))o.color=String(r.color);if(RACE_LOOK_MOTIFS.has(r.motif))o.motif=r.motif;
     const tl=String(r.tagline||'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,90);if(tl)o.tagline=tl;const im=looksImg(r.image);if(im){o.image=im;const fo=looksFocus(r.focus);if(fo)o.focus=fo}
     if(Object.keys(o).length)out.races[looksKey(k)]=o}
+  // V-WBCATS: the three categories apart (Dramatis Personae, Hired Swords, neutral creatures)
+  for(const [k,r] of Object.entries(src.cats||{})){if(!['dramatis','hired','neutral'].includes(k)||!r||typeof r!=='object')continue;const o={};if(/^#[0-9a-f]{6}$/i.test(String(r.color||'')))o.color=String(r.color);const tl=String(r.tagline||'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,90);if(tl)o.tagline=tl;const im=looksImg(r.image);if(im){o.image=im;const fo=looksFocus(r.focus);if(fo)o.focus=fo}if(Object.keys(o).length)out.cats[k]=o}
   for(const kind of ['factions','packs'])for(const [k,r] of Object.entries(src[kind]||{}).slice(0,400)){const im=looksImg(r?.image);if(im){const fo=looksFocus(r?.focus);out[kind][looksKey(k)]=fo?{image:im,focus:fo}:{image:im}}}
   return out}
 app.get('/api/catalog/race-looks',requireDb,async(req,res,next)=>{

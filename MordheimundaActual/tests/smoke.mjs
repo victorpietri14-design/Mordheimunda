@@ -1109,6 +1109,20 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
   expect(out.statRows===8&&out.notes===1&&out.starts===3&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
   expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu===6,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
 });
+await test('[desktop] rules warbands: race banners, sub-factions, categories apart (Dramatis, agents, neutral creatures)',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const f=D.factions.find(x=>/reikland/i.test(x.displayName||''));raceTagMap.set(f.id,'Humain');
+    const mk=(name,extra)=>({id:crypto.randomUUID(),name,type:'Hired Sword',hiredSword:true,cost:50,upkeep:10,profile:[4,3,3,3,3,1,3,1,7,7,7,7],...extra});
+    state.customFighters=[mk('Smoke DP',{dramatis:true}),mk('Smoke HS',{}),mk('Smoke Rat',{neutral:true})];save(true);
+    navigateApp('/rules/warbands');await new Promise(z=>setTimeout(z,300));
+    const head=!!document.querySelector('.wbx-race .wbx-head');const tile=!!document.querySelector(`.wbx .faction-choice.bn[href="/rules/warbands/${f.id}"]`);
+    const cats=[...document.querySelectorAll('#wbrace-apart .faction-choice')].map(a=>a.getAttribute('href'));
+    navigateApp('/rules/warbands/neutral-creatures');await new Promise(z=>setTimeout(z,300));const neutralPage=document.body.textContent.includes('Smoke Rat')&&!document.body.textContent.includes('Smoke HS');
+    navigateApp('/rules/warbands/hired-swords');await new Promise(z=>setTimeout(z,300));const hsPage=document.body.textContent.includes('Smoke HS')&&!document.body.textContent.includes('Smoke Rat');
+    const hire=hiredSwordAvailableFor(state.customFighters[2],f,null);
+    return {head,tile,cats,neutralPage,hsPage,hire}});
+  expect(out.head&&out.tile&&out.cats.length===3&&out.neutralPage&&out.hsPage&&out.hire===false,'rules warbands rework: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
