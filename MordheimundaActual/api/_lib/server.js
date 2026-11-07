@@ -81,7 +81,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // repeat visits no longer run the server or count against its transfer
 // quota. Admins always get the live version (their requests carry a unique
 // ?_t=, which the CDN never has in cache). Only successful answers are kept.
-const PUBLIC_CACHED_GETS=new Set(['/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+const PUBLIC_CACHED_GETS=new Set(['/api/catalog/race-looks','/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
 app.use((req,res,next)=>{
   if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
   const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
@@ -1887,6 +1887,28 @@ app.put('/api/admin/price-rules',requireDb,requireSameOrigin,auth,requireAdmin,a
 // Swords not counted), one map for every faction (book, packs, official
 // warbands, supplements), keyed by faction id. Empty / 0 = no limit.
 const sanitizeSizeLimits=obj=>{const out={};if(obj&&typeof obj==='object'&&!Array.isArray(obj)){Object.entries(obj).slice(0,500).forEach(([k,v])=>{const id=String(k||'').slice(0,120);const n=Math.round(Number(v));if(id&&Number.isFinite(n)&&n>=1&&n<=200)out[id]=n})}return out};
+// V-RACELOOK: how each race, warband and supplement looks on the
+// "Create a warband" screen — colour, motif, tagline and an optional image
+// (small WebP data URL) per race; an optional image per warband / supplement.
+const RACE_LOOK_MOTIFS=new Set(['stripes','forge','lines','hatch','glow','mist','scales','rings','plain']);
+// (pictures sent by an admin are stored as /api/rule-images/<id> links by the
+// media middleware before they reach this route)
+const looksImg=v=>{const t=String(v||'');return /^\/api\/rule-images\/[0-9a-f-]{36}$/i.test(t)||(/^data:image\/(webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(t)&&t.length<=160000)?t:''};
+const looksKey=k=>String(k||'').slice(0,80);
+function sanitizeRaceLooks(v){const out={races:{},factions:{},packs:{}};const src=v&&typeof v==='object'?v:{};
+  for(const [k,r] of Object.entries(src.races||{}).slice(0,40)){if(!r||typeof r!=='object')continue;const o={};
+    if(/^#[0-9a-f]{6}$/i.test(String(r.color||'')))o.color=String(r.color);if(RACE_LOOK_MOTIFS.has(r.motif))o.motif=r.motif;
+    const tl=String(r.tagline||'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,90);if(tl)o.tagline=tl;const im=looksImg(r.image);if(im)o.image=im;
+    if(Object.keys(o).length)out.races[looksKey(k)]=o}
+  for(const kind of ['factions','packs'])for(const [k,r] of Object.entries(src[kind]||{}).slice(0,400)){const im=looksImg(r?.image);if(im)out[kind][looksKey(k)]={image:im}}
+  return out}
+app.get('/api/catalog/race-looks',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='raceLooks'");res.json({looks:sanitizeRaceLooks(q.rows[0]?.value)})}catch(e){next(e)}
+});
+app.put('/api/admin/race-looks',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const looks=sanitizeRaceLooks(req.body?.looks);const json=JSON.stringify(looks);if(Buffer.byteLength(json)>4*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
+    await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('raceLooks',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[json]);res.json({looks})}catch(e){next(e)}
+});
 app.get('/api/catalog/warband-size-limits',requireDb,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value FROM site_settings WHERE key='warbandSizeLimits'");res.json({limits:sanitizeSizeLimits(q.rows[0]?.value?.limits)})}catch(e){next(e)}
 });

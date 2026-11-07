@@ -5091,6 +5091,9 @@ const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].include
 // rule tables, catalog…) live in assets/admin.js. Buttons that call them
 // from shared pages go through these stand-ins, which load that file first.
 // Admin sessions load it in the background shortly after start.
+function openRaceLooksEditor(...a){return adminLazyCall('openRaceLooksEditor',this,a)}
+function openFactionLogosEditor(...a){return adminLazyCall('openFactionLogosEditor',this,a)}
+try{openRaceLooksEditor.__adminStub=true;openFactionLogosEditor.__adminStub=true}catch(e){}
 function adminLazyCall(name,self,args){return ensureAdminCode().then(()=>{const f=window[name];if(typeof f!=='function'||f.__adminStub)throw new Error('ADMIN_FN '+name);return f.apply(self,args)}).catch(e=>{console.warn(e);toast(siteLanguage==='en'?'Could not load the admin tools':'Impossible de charger les outils admin')})}
 function openAdminWeaponEditFromRef(...a){return adminLazyCall('openAdminWeaponEditFromRef',this,a)}
 function openRuleTableEditor(...a){return adminLazyCall('openRuleTableEditor',this,a)}
@@ -9585,6 +9588,20 @@ let createSelectedRace=null;
 function selectCreateRace(race){createSelectedRace=race;render('create')}
 function backToRacePicker(){createSelectedRace=null;render('create')}
 function openCustomCreatePicker(fid){createSelectedRace='__customs__';render('create');setTimeout(()=>{const el=$(`[data-faction="${fid}"]`);if(el)selectFaction(fid,el)},0)}
+// ============ V-RACELOOK: race banners on "Create a warband" ============
+// Each race has a colour, a motif and a tagline (defaults below, changed in
+// 🎨 by an admin) and may have an emblem picture; a warband or a supplement
+// may have its own logo. A warband without a logo shows its race's emblem.
+const RACE_LOOK_DEFAULTS={'Humain':['#d9493f','stripes','Empire, mercenaries, hunters','Empire, mercenaires, chasseurs'],'Dwarf':['#d39b3c','forge','Clans, miners, slayers','Clans, mineurs, tueurs'],'Elves':['#5aa8e6','lines','Asur, Druchii, Asrai','Asur, Druchii, Asrai'],'Orcs and Goblin':['#7fbf3f','hatch','Greenskins on the prowl','Peaux-vertes en maraude'],'Chaos':['#c0392b','glow','Cults and the possessed','Cultes et possédés'],'Undead':['#a58ae0','mist','Vampires, necromancers, ghouls','Vampires, nécromanciens, goules'],'Skaven':['#8fd14f','rings','Clans Eshin, Pestilens, Skryre','Clans Eshin, Pestilens, Skryre'],'Unique':['#d9b45a','scales','Warbands apart','Bandes à part']};
+const RACE_LOOK_MOTIFS=[['stripes','Stripes','Rayures'],['forge','Forge (bars)','Forge (barres)'],['lines','Fine lines','Lignes fines'],['hatch','Hatching','Hachures'],['glow','Glow','Lueur'],['mist','Mist','Brume'],['rings','Rings','Cercles'],['scales','Scales','Écailles'],['plain','Plain','Uni']];
+let raceLooks={races:{},factions:{},packs:{}},raceLooksLoaded=false,raceLooksLoading=false;
+function loadRaceLooks(force){if((raceLooksLoaded&&!force)||raceLooksLoading||!window.MordheimundaAPI?.raceLooks)return;raceLooksLoading=true;
+  window.MordheimundaAPI.raceLooks().then(r=>{if(r?.looks)raceLooks={races:r.looks.races||{},factions:r.looks.factions||{},packs:r.looks.packs||{}}}).catch(()=>{}).finally(()=>{raceLooksLoaded=true;raceLooksLoading=false;if(currentViewName()==='create')render('create',{history:false})})}
+function raceLook(r){const d=RACE_LOOK_DEFAULTS[r]||['#9dfa3c','plain','',''];const o=raceLooks.races?.[r]||{};const en=siteLanguage==='en';return {color:o.color||d[0],motif:o.motif||d[1],tagline:o.tagline!=null?o.tagline:d[en?2:3],image:o.image||''}}
+function hexMixWhite(hex,t){const m=String(hex||'').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(!m)return hex;return '#'+[1,2,3].map(i=>Math.round(parseInt(m[i],16)+(255-parseInt(m[i],16))*t).toString(16).padStart(2,'0')).join('')}
+function hexDarken(hex,t){const m=String(hex||'').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(!m)return hex;return '#'+[1,2,3].map(i=>Math.round(parseInt(m[i],16)*(1-t)).toString(16).padStart(2,'0')).join('')}
+function raceBannerStyle(r){const c=raceLook(r).color;return `--rc:${c};--rc2:${hexMixWhite(c,.55)};--rcd:${hexDarken(c,.72)}`}
+function looksEmblem(img,fallback){return img?`<img src="${esc(img)}" alt="" loading="lazy" decoding="async">`:`<span class="choice-sigil">${fallback}</span>`}
 function createRacePickerMarkup(){
   const en=siteLanguage==='en';
   const official=D.factions.filter(f=>!f.packId&&!isContentPoolFaction(f));
@@ -9596,14 +9613,14 @@ function createRacePickerMarkup(){
 <div class="mu-create-head"><h1>${en?'Create a warband':'Créer une bande'}</h1><p>${en?'Pick a race, then a faction/warband.':'Choisis une race, puis une faction/warband.'}</p></div>
 <div class="panel">
 <div class="step-head"><span class="step-num">01</span><b>${en?'Race':'Race'}</b></div>
-<div class="faction-grid">${RACE_CATEGORIES.map(r=>`<button class="faction-choice" onclick="selectCreateRace('${esc(r)}')"><span class="choice-img-wrap"><span class="choice-sigil">${raceIcon(r)}</span></span><span class="fname">${esc(r)}</span><span class="fcount">${counts[r]} warband${counts[r]!==1?'s':''}</span></button>`).join('')}</div>
+${isAdminEditUI()?`<div class="mu-create-actions" style="justify-content:flex-start;margin:0 0 10px"><button type="button" class="button secondary" onclick="openRaceLooksEditor()">🎨 ${en?'Races: colours, motifs, emblems':'Races : couleurs, motifs, emblèmes'}</button></div>`:''}<div class="faction-grid bn">${RACE_CATEGORIES.map(r=>{const l=raceLook(r);return `<button class="faction-choice bn motif-${l.motif}" style="${raceBannerStyle(r)}" onclick="selectCreateRace('${esc(r)}')"><span class="choice-img-wrap">${looksEmblem(l.image,raceIcon(r))}</span><span class="bn-tx">${l.tagline?`<span class="bn-kick">${esc(l.tagline)}</span>`:''}<span class="fname">${esc(r)}</span><span class="fcount">${counts[r]} warband${counts[r]!==1?'s':''}</span></span></button>`}).join('')}</div>
 ${unassigned.length&&isAdminEditUI()?`<p class="custom-field-help">${unassigned.length} warband${unassigned.length!==1?'s':''} ${en?'not assigned to a race yet':'pas encore assignée(s) à une race'}${isAdminEditUI()?(en?' — open a race tile and use “Edit” to place them.':' — ouvre une case de race et utilise « Éditer » pour les y placer.'):'.'}</p>`:''}
 </div>
 ${customs.length?`<div class="panel"><div class="step-head"><span class="step-num">·</span><b>${en?'Your custom warbands':'Tes warbands custom'}</b></div><div class="faction-grid">${customs.map(cw=>{const fid=`custom-warband-${cw.id}`;const count=(cw.fighterIds||[]).length;const sigil=cw.icon?`<span class="choice-sigil has-icon">${imageMarkup(cw.icon,'custom-warband',esc(cw.name),cw.iconFocus)}</span>`:`<span class="choice-sigil">⚔</span>`;return `<button class="faction-choice custom-warband" onclick="openCustomCreatePicker('${esc(fid)}')"><span class="choice-img-wrap">${sigil}</span><span class="fname">${esc(cw.name)}</span><span class="fcount">${count} profil${count!==1?'s':''} custom</span><span class="custom-badge">CUSTOM</span></button>`}).join('')}</div></div>`:''}
 <div class="mu-create-actions"><button class="mu-btn-cancel" onclick="render('rosters')">${en?'Cancel':'Annuler'}</button></div>
 </div>`;
 }
-function create(){
+function create(){loadRaceLooks();
   if(!createSelectedRace){$('#content').innerHTML=createRacePickerMarkup();return}
   const en=siteLanguage==='en';
   const isCustomsPicker=createSelectedRace==='__customs__';
@@ -9617,10 +9634,10 @@ function create(){
   const defaultId=official[0]?.id||(customs[0]?`custom-warband-${customs[0].id}`:'');
   $('#content').innerHTML=`<div class="mu-create-page">
 <div class="mu-create-head"><button type="button" class="button secondary" style="margin-bottom:10px" onclick="backToRacePicker()">← ${en?'Races':'Races'}</button><h1>${en?'Create a warband':'Créer une bande'}${isCustomsPicker?'':' — '+esc(createSelectedRace)}</h1><p>${en?"Pick a faction, any active supplements, then name your warband. Recruiting fighters happens next, in the Recruitment tab.":"Choisis une faction, les suppléments actifs, puis nomme ta bande. Le recrutement des combattants se fait ensuite dans l'onglet Recrutement."}</p></div>
-${!isCustomsPicker&&isAdminEditUI()?`<div class="mu-create-actions" style="justify-content:flex-start;margin:0 0 10px"><button type="button" class="button secondary" onclick="openRaceTagEditor('${esc(createSelectedRace)}')">✎ ${en?'Edit this category’s warbands':'Éditer les warbands de cette catégorie'}</button></div>`:''}
+${!isCustomsPicker&&isAdminEditUI()?`<div class="mu-create-actions" style="justify-content:flex-start;margin:0 0 10px"><button type="button" class="button secondary" onclick="openRaceTagEditor('${esc(createSelectedRace)}')">✎ ${en?'Edit this category’s warbands':'Éditer les warbands de cette catégorie'}</button><button type="button" class="button secondary" onclick="openFactionLogosEditor('${esc(createSelectedRace)}')">🎨 ${en?'Warband & supplement logos':'Logos des warbands et suppléments'}</button></div>`:''}
 <div class="panel">
 <div class="step-head"><span class="step-num">01</span><b>${en?'Faction':'Faction'}</b><span class="aux">1000 GC ${en?'starting':'de départ'}</span></div>
-${official.length||customs.length?`<div class="faction-grid">${official.map((f,i)=>`<button class="faction-choice ${i===0&&!customs.length?'selected':''}" data-faction="${f.id}" onclick="selectFaction('${f.id}',this)"><span class="choice-img-wrap"><span class="choice-sigil">${factionSigils[f.id]||'◆'}</span></span><span class="fname">${esc(f.displayName)}</span><span class="fcount">${f.warriors.length} ${en?'profiles':'profils structurés'}</span></button>`).join('')}${customs.map(cw=>customWarbandCreateTile(cw)).join('')}</div>`:`<div class="empty compact">${en?'No warband in this category yet.':'Aucune warband dans cette catégorie pour l’instant.'}${isAdminEditUI()?(en?' Use “Edit” above to add one.':' Utilise « Éditer » ci-dessus pour en ajouter.'):''}</div>`}
+${official.length||customs.length?`<div class="faction-grid${official.length?' bn':''}">${official.map((f,i)=>{const l=raceLook(createSelectedRace);const img=raceLooks.factions?.[f.id]?.image||l.image;return `<button class="faction-choice bn motif-${l.motif} ${i===0&&!customs.length?'selected':''}" style="${raceBannerStyle(createSelectedRace)}" data-faction="${f.id}" onclick="selectFaction('${f.id}',this)"><span class="choice-img-wrap">${looksEmblem(img,factionSigils[f.id]||raceIcon(createSelectedRace))}</span><span class="bn-tx"><span class="bn-kick">${esc(createSelectedRace)}</span><span class="fname">${esc(f.displayName)}</span><span class="fcount">${f.warriors.length} ${en?'profiles':'profils structurés'}</span></span></button>`}).join('')}${customs.map(cw=>customWarbandCreateTile(cw)).join('')}</div>`:`<div class="empty compact">${en?'No warband in this category yet.':'Aucune warband dans cette catégorie pour l’instant.'}${isAdminEditUI()?(en?' Use “Edit” above to add one.':' Utilise « Éditer » ci-dessus pour en ajouter.'):''}</div>`}
 </div>
 <div id="supplementStep"></div>
 <div class="panel">
@@ -9652,7 +9669,7 @@ function renderSupplementChoices(){
 <div class="step-head"><span class="step-num">02</span><b>Suppléments</b><span class="aux">Compatibles avec ${esc(faction?.displayName||'')}</span></div>
 <p class="supp-hint">Seuls les suppléments liés à la faction choisie à l'étape 01 apparaissent ici. <b>Un seul supplément optionnel peut être actif à la fois, ou aucun</b> : coche une option pour l'activer, reclique dessus pour la désactiver — certains réécrivent entièrement les profils, l'équipement ou l'arbre de compétences de la bande de base.</p>
 <div class="supp-choice locked"><input type="checkbox" checked disabled><div><span class="sn">Livre de base (M17)</span><div class="sd">Toujours actif — commun à toutes les factions</div></div></div>
-${packs.map((p)=>`<div class="supp-choice"><input type="checkbox" class="supplement-check" data-supp="${esc(p.id)}" onclick="handleSupplementToggle(this)"><div><span class="sn">${esc(p.name)}</span><div class="sd">${esc(p.description||'Supplément compatible avec cette faction.')}</div></div></div>`).join('')}
+${packs.map((p)=>`<div class="supp-choice"><input type="checkbox" class="supplement-check" data-supp="${esc(p.id)}" onclick="handleSupplementToggle(this)">${raceLooks.packs?.[p.id]?.image?`<img class="supp-logo" src="${esc(raceLooks.packs[p.id].image)}" alt="" loading="lazy" decoding="async">`:''}<div><span class="sn">${esc(p.name)}</span><div class="sd">${esc(p.description||'Supplément compatible avec cette faction.')}</div></div></div>`).join('')}
 </div>`;
 }
 function handleSupplementToggle(el){if(el.checked){document.querySelectorAll('#supplementStep input.supplement-check').forEach(o=>{if(o!==el)o.checked=false})}}

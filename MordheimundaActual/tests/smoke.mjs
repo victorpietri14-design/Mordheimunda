@@ -1032,6 +1032,17 @@ await test('[desktop] campaign map: admin places settlements and paths, players 
   expect(r.pins===2&&r.paths===1&&Math.abs(r.x-25)<2,'pins and the path are saved in % of the picture: '+JSON.stringify(r));
   expect(r.shown&&r.bands===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
 });
+await test('[desktop] create warband: race banners with colour, motif, emblem; warband logo falls back to the race emblem',null,async page=>{
+  await page.evaluate(()=>{siteLanguage='en';const R=RACE_CATEGORIES;D.factions.filter(f=>!f.packId).slice(0,2).forEach(f=>raceTagMap.set(f.id,R[0]));
+    raceLooks={races:{[R[0]]:{color:'#3a7bd5',motif:'scales',tagline:'Test tagline',image:'data:image/png;base64,iVBORw0KGgo='}},factions:{},packs:{}};raceLooksLoaded=true;createSelectedRace=null;render('create')});
+  await page.waitForTimeout(300);
+  const r=await page.evaluate(()=>{const t=document.querySelector('.faction-choice.bn');return {cls:t?.className,style:t?.getAttribute('style'),kick:t?.querySelector('.bn-kick')?.textContent,img:!!t?.querySelector('img'),n:document.querySelectorAll('.faction-choice.bn').length}});
+  expect(r.n===8&&/motif-scales/.test(r.cls)&&/--rc:#3a7bd5/.test(r.style)&&r.kick==='Test tagline'&&r.img,'race tiles use the colour, motif, tagline and emblem: '+JSON.stringify(r));
+  await page.evaluate(()=>selectCreateRace(RACE_CATEGORIES[0]));await page.waitForTimeout(300);
+  const f=await page.evaluate(()=>[...document.querySelectorAll('.faction-choice.bn')].map(t=>!!t.querySelector('img')));
+  expect(f.length===2&&f.every(Boolean),'a warband without a logo shows its race emblem: '+JSON.stringify(f));
+  await page.evaluate(()=>{raceLooks={races:{},factions:{},packs:{}};createSelectedRace=null});
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
