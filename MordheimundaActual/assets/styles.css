@@ -5745,3 +5745,5 @@ html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
 .scn-hero-text .site-crumbs,.scn-hero-text .site-crumbs a,.scn-hero-text .site-crumbs span{color:#e4e1da}
 .scn-head.under-hero{margin-top:10px}
 @media(max-width:760px){.scn-hero{margin:0 -4px;border-radius:10px}.scn-hero-text{left:12px;right:12px;bottom:10px}}
+.play-scn-title{display:flex;align-items:center;gap:12px}.play-scn-title img{width:84px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:none;margin-top:6px}
+@media(max-width:600px){.play-scn-title img{width:64px;height:44px}}

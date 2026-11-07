@@ -8344,6 +8344,8 @@ function applyQuestScope(){if(adminQuestDraft)adminQuestDraft.__dirty=true;const
 // Expand all. playSessionMarkup's output is post-processed so the existing
 // section markup stays untouched.
 function playCollapseKey(n){return (playCondTab||'scenario')+':'+n}
+// where the scenario's own content starts in the play page (V-SCNGROUPS)
+function playScnCut(html){const a=html.indexOf('<div class="scn-groups"');const b=html.indexOf('<section class="scn-sec">');return a<0?b:b<0?a:Math.min(a,b)}
 function playSectionsCollapsible(html){
   const ps=state.playSession;const set=new Set(ps?.collapsedSecs||[]);const en=siteLanguage==='en';
   let any=false;
@@ -8358,7 +8360,7 @@ document.addEventListener('click',e=>{const head=e.target.closest('.scn-collapsi
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const head=e.target.closest?.('.scn-collapsible > :nth-child(2)');if(!head||e.target!==head)return;e.preventDefault();playToggleSection(head.closest('.scn-collapsible'))});
 function playSessionMarkup(){
   const ps=state.playSession;let html=playSessionMarkupTabs();
-  if(playIsGuest(ps)){const cut=html.indexOf('<section class="scn-sec">');const tabsAt=html.indexOf('<div class="play-cond-tabs"');
+  if(playIsGuest(ps)){const cut=playScnCut(html);const tabsAt=html.indexOf('<div class="play-cond-tabs"');
     // greys out the host's controls in the scenario / conditions tabs; the XP & quests tab stays the player's own
     if(playCondTab!=='quests'&&playCondTab!=='fighters'){const from=tabsAt>=0?html.indexOf('</div>',tabsAt)+6:cut;if(from>5)html=html.slice(0,from)+playGuestDisable(html.slice(from))}}
   const banner=playShareBannerMarkup(ps);
@@ -8369,7 +8371,7 @@ function playSessionMarkupTabs(){
   const ps=state.playSession;const html=playCampaignStripInject(playSessionMarkupBase(),ps);const camp=ps&&playConditionsCampaign(ps);
   // V-QUESTS: a Quests tab whenever one of your own warbands plays.
   const mine=ps?playQuestRosters(ps):[];
-  const en=siteLanguage==='en';const cut=html.indexOf('<section class="scn-sec">');if(cut<0)return html;
+  const en=siteLanguage==='en';const cut=playScnCut(html);if(cut<0)return html;
   let tab=playCondTab;if(tab==='conditions'&&!camp)tab='scenario';if(tab==='quests'&&!mine.length)tab='scenario';
   const qDone=ps.questKey?mine.reduce((n,r)=>n+(r.fighters||[]).reduce((m,x)=>m+(x.questRecord||[]).filter(e=>e.sessionKey===ps.questKey).length,0),0):0;
   const tabs=`<div class="play-cond-tabs" role="tablist"><button type="button" role="tab" class="${tab==='scenario'?'on':''}" onclick="setPlayCondTab('scenario')">${en?'SCENARIO':'SCÉNARIO'}</button>${camp?`<button type="button" role="tab" class="${tab==='conditions'?'on':''}" onclick="setPlayCondTab('conditions')" style="--cc:${esc(campaignColor(camp))}">${esc((camp.name||'').split(/[—-]/)[0].trim().toUpperCase())} ${en?'CONDITIONS':'CONDITIONS'}${playConditions(ps).hazards.length?` · ${playConditions(ps).hazards.length}`:''}</button>`:''}<button type="button" role="tab" class="${tab==='fighters'?'on':''}" onclick="setPlayCondTab('fighters')">⚔ ${en?'FIGHTERS':'COMBATTANTS'}${(()=>{const n=playOwnRosters(ps).reduce((k,r)=>k+(playEngagedMap(ps)[r.id]?.picks||[]).length,0);return n?` · ${n}`:''})()}</button>${mine.length?`<button type="button" role="tab" class="${tab==='quests'?'on':''}" onclick="setPlayCondTab('quests')">${en?'XP & QUESTS':'XP & QUÊTES'}${qDone?` · ${qDone}`:''}</button>`:''}</div>`;
@@ -8387,9 +8389,9 @@ function playSessionMarkupBase(){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];
   return `<div class="rules-shell-wrap scn-detail">
-   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div><h2 style="margin-top:6px">${esc(s.name)}</h2><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
+   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div><div class="play-scn-title">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async">`:''}<h2 style="margin-top:6px">${esc(s.name)}</h2></div><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
-   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:['j']})}
+   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
   </div>`;
 }
 function playMode(){
@@ -8966,10 +8968,12 @@ function scenarioSectionGroup(title){const t=String(title||'').replace(/<[^>]*>/
   return 'p'}
 const SCN_GROUP_ORDER=[/End of Game|Fin de Partie/i,/Victory|Victoire/i,/Experience|Expérience/i,/Reward|Récompense/i];
 function scenarioGroupRank(c){const t=String(c.title||'').replace(/<[^>]*>/g,'');const i=SCN_GROUP_ORDER.findIndex(r=>r.test(t));return i<0?-1:i}
+// in a game, the parts you open or close stay that way for that game
+document.addEventListener('toggle',e=>{const d=e.target;if(!d?.matches?.('details.scn-grp[data-play]'))return;const ps=state.playSession;if(!ps)return;ps.openScnGroups=[...document.querySelectorAll('details.scn-grp[data-play][open]')].map(x=>x.dataset.grp);try{save(true)}catch(err){}},true);
 function scenarioSectionsMarkup(secs,opts={}){const en=siteLanguage==='en';const open=new Set(opts.open||['p','j','f']);
   const G=[['p',en?'Preparation':'Préparation'],['j',en?'Play':'Jeu'],['f',en?'Ending':'Fin']];let n=0;
   return `<div class="scn-groups">${G.map(([k,label])=>{const list=secs.filter(c=>scenarioSectionGroup(c.title)===k).map((c,i)=>({c,i})).sort((a,b)=>(k==='f'?scenarioGroupRank(a.c)-scenarioGroupRank(b.c):0)||a.i-b.i).map(x=>x.c);if(!list.length)return '';n++;
-    return `<details class="scn-grp"${open.has(k)?' open':''}><summary class="scn-grp-head"><span class="scn-grp-num">${n}</span><b>${label}</b><span class="scn-grp-count">${list.length} ${en?(list.length>1?'sections':'section'):(list.length>1?'sections':'section')}</span><span class="scn-grp-chev" aria-hidden="true">▾</span></summary>${list.map(c=>`<section class="scn-sub"><div class="scn-subtitle">${c.title}${c.head||''}</div>${c.body}</section>`).join('')}</details>`}).join('')}</div>`}
+    return `<details class="scn-grp" data-grp="${k}"${opts.play?' data-play="1"':''}${open.has(k)?' open':''}><summary class="scn-grp-head"><span class="scn-grp-num">${n}</span><b>${label}</b><span class="scn-grp-count">${list.length} ${en?(list.length>1?'sections':'section'):(list.length>1?'sections':'section')}</span><span class="scn-grp-chev" aria-hidden="true">▾</span></summary>${list.map(c=>`<section class="scn-sub"><div class="scn-subtitle">${c.title}${c.head||''}</div>${c.body}</section>`).join('')}</details>`}).join('')}</div>`}
 function scenarioDetail(){
   const en=siteLanguage==='en';
   const s=SCENARIOS_CACHE.find(x=>x.id===currentScenarioId);
