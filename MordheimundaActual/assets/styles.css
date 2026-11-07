@@ -5697,10 +5697,22 @@ html[data-theme="light"] #ambientFx{display:none}
 .mu-create-page .faction-choice.bn.motif-scales{--motif:repeating-linear-gradient(60deg,rgba(255,255,255,.04) 0 2px,transparent 2px 16px),repeating-linear-gradient(-60deg,rgba(255,255,255,.04) 0 2px,transparent 2px 16px)}
 .mu-create-page .faction-choice.bn.motif-plain{--motif:linear-gradient(transparent,transparent)}
 html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
-.supp-logo{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--line)}
+.supp-logo{width:34px;height:34px;border-radius:50%;overflow:hidden;flex:none;border:1px solid var(--line);display:inline-block}.supp-logo img{width:100%;height:100%;object-fit:cover;display:block}
 .rl-row{display:grid;grid-template-columns:56px minmax(0,1fr);gap:10px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0}
 .rl-preview{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--rc);background:rgba(0,0,0,.45);overflow:hidden;color:var(--rc2);font-size:22px}
 .rl-preview img{width:100%;height:100%;object-fit:cover}
 .rl-fields{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rl-fields .custom-field{margin:0;flex:1 1 140px}
 .rl-fields input[type=color]{width:44px;height:36px;padding:0;border:1px solid var(--line);background:none}
 .rl-file{cursor:pointer}
+/* V-SUBFACTION: sub-faction banners, right after their mother warband */
+.mu-create-page .faction-choice.bn.sub{min-height:74px;border-style:dashed;background:var(--motif),linear-gradient(120deg,color-mix(in srgb,var(--rcd) 70%,#0c0b0a),#0c0b0a 72%)}
+.mu-create-page .faction-choice.bn.sub .choice-img-wrap{width:44px;height:44px}
+.mu-create-page .faction-choice.bn.sub .fname{font-size:15.5px}
+.mu-create-page .faction-choice.bn.sub.selected{border-style:solid}
+.rl-row.drop,.rl-sub.drop{outline:2px dashed var(--accent);outline-offset:2px}
+.rl-sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.rl-crop{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;align-items:flex-start}
+.rl-crop-stage{position:relative;flex:1 1 220px;max-width:320px;cursor:crosshair;touch-action:none;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.rl-crop-stage img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+.rl-crop-side{display:flex;flex-direction:column;gap:8px;flex:1 1 160px}
+.rl-preview.big{width:96px;height:96px}
