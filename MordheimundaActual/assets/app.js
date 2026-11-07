@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0782.0';
+const APP_BUILD='110.0783.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13639,7 +13639,7 @@ function addSkillFromModal(encoded){const x=activeRoster()?.fighters[editingInde
 function setFighterTab(tab){fighterTab=tab;if(tab!=='magic'){magicDomainAddOpen=false;magicDomainAddSearch='';}render('fighter')}
 // V-FIGHTERMORE: on a phone the sheet's top actions sit behind a ⋯ button.
 function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
-  openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${esc(x.name)}</div><div class="warroom-more-list">${(r.fighters||[]).length>1?btn('⇄ '+(en?'Other fighters':'Autres combattants'),'openFighterSwitcher()'):''}${btn('✎ '+(en?'Edit characteristics':'Modifier les caractéristiques'),'openStatsEditor()')}${fighterRecruitOptionsSource(x).length||(x.recruitPicks||[]).length?btn('⚙ Options','openFighterOptionsModal()'):''}${isHiredSword(x)?'':btn('✦ '+(en?'Duplicate':'Dupliquer'),'openDuplicateFighterConfirm()')}${btn('⎙ '+(en?'Print':'Imprimer'),'window.print()')}</div></div>`)}
+  openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${esc(x.name)}</div><div class="warroom-more-list">${(r.fighters||[]).length>1?btn('⇄ '+(en?'Other fighters':'Autres combattants'),'openFighterSwitcher()'):''}${btn('✎ '+(en?'Edit characteristics':'Modifier les caractéristiques'),'openStatsEditor()')}${fighterRecruitOptionsSource(x).length||(x.recruitPicks||[]).length?btn('⚙ Options','openFighterOptionsModal()'):''}${isHiredSword(x)?'':btn('✦ '+(en?'Duplicate':'Dupliquer'),'openDuplicateFighterConfirm()')}${btn('⎙ '+(en?'Print':'Imprimer'),'window.print()')}${btn('📜 '+(en?'Parchment version':'Version parchemin'),'closeModal();openParchmentSheet()')}</div></div>`)}
 // V-FIGHTERSWIPE: on a phone, swipe left/right on a sheet to go to the next / previous fighter (warband order).
 (()=>{let sx=0,sy=0,st=0,ok=false;
  document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='fighter'||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe],.profile,.equipped-management-list,.fighter-section-tabs'))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
@@ -19526,3 +19526,36 @@ async function shareWarbandImage(){const en=siteLanguage==='en';const r=activeRo
   const fname=(String(r.name||'warband').replace(/[^\w\-]+/g,'_').slice(0,40)||'warband')+'.png';
   try{const file=new File([blob],fname,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:r.name||''});return}}catch(e){if(e&&e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast(en?'Picture downloaded':'Image téléchargée')}
+
+// ============ V-PARCHMENT: the fighter sheet as an old parchment ============
+// An extra, optional view (the normal sheet stays the default): aged paper,
+// ink, the warband's seal. Shown full screen to screenshot or share, and
+// printable (Print / PDF) on its own page.
+const PARCH_CSS=`.parch{position:relative;max-width:620px;margin:0 auto;padding:26px 26px 22px;color:#2a1808;border-radius:6px;background:radial-gradient(ellipse at 20% 10%,rgba(255,255,255,.35),transparent 55%),radial-gradient(ellipse at 90% 95%,rgba(120,70,20,.28),transparent 50%),radial-gradient(ellipse at 5% 90%,rgba(110,60,15,.22),transparent 40%),linear-gradient(160deg,#ecdcb4,#d9c08a 60%,#c9a96a);box-shadow:inset 0 0 40px rgba(90,50,10,.45),0 10px 30px rgba(0,0,0,.6);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:Georgia,'Times New Roman',serif}
+.parch-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.parch-name{font:800 30px/1.05 Cinzel,Georgia,serif;margin:0}.parch-xp{font:700 14px Cinzel,Georgia,serif;color:#7a2a12;white-space:nowrap}
+.parch-sub{font-style:italic;font-size:16px;margin:4px 0 12px}
+.parch-st{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));border-top:1.5px solid #4a2e12;border-bottom:1.5px solid #4a2e12}.parch-st div{text-align:center;padding:5px 0;border-right:1px solid rgba(74,46,18,.35)}.parch-st div:last-child{border-right:0}.parch-st small{display:block;font:700 10px Cinzel,Georgia,serif;color:#6b4520}.parch-st b{display:block;font:800 21px Cinzel,Georgia,serif}
+.parch-sec{font:800 12px Cinzel,Georgia,serif;letter-spacing:1.5px;color:#7a2a12;margin:14px 0 4px;border-bottom:1px solid rgba(122,42,18,.4)}.parch-ln{font-size:16px;line-height:1.4}
+.parch-foot{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:10px}.parch-foot span{font-style:italic;font-size:13px;color:#6b4520}
+.parch-seal{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font:800 18px Cinzel,Georgia,serif;color:#f4e6d8;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+@media(max-width:520px){.parch{padding:18px 16px}.parch-name{font-size:24px}.parch-st b{font-size:17px}.parch-ln{font-size:15px}}`;
+function parchmentSheetInner(x,r){const en=siteLanguage==='en';const f=faction(r);const nm=v=>translateSiteText(typeof v==='string'?v:(v?.name||v?.title||v?.label||''));
+  const list=a=>(Array.isArray(a)?a:[]).map(nm).filter(Boolean);const prof=Array.isArray(x.profile)?x.profile:[];
+  const eq=list((x.equipmentSelected||[]).length?x.equipmentSelected:x.equipmentStash),sk=list(x.skills),sp=list(x.spells),inj=list(x.injuries);let games=[];try{games=fighterGamesList(x)}catch(e){}
+  const kills=games.reduce((n,g)=>n+(g.kills||0),0);const col=warbandColor(r);const ini=String(r?.name||'?').trim().charAt(0).toUpperCase();
+  const sec=(t,v)=>v?`<div class="parch-sec">${t}</div><div class="parch-ln">${v}</div>`:'';
+  return `<div class="parch"><div class="parch-head"><h2 class="parch-name">${esc(x.name||'—')}</h2><span class="parch-xp">${Number(x.xp||0)} XP</span></div>
+  <div class="parch-sub">${esc([translateSiteText(x.type||''),x.sourceName&&x.sourceName!==x.name?translateSiteText(x.sourceName):'',r?.name||''].filter(Boolean).join(' · '))}</div>
+  <div class="parch-st">${P.slice(0,9).map((n,i)=>`<div><small>${esc(n)}</small><b>${esc(prof[i]??'—')}</b></div>`).join('')}</div>
+  ${sec(en?'WEAPONS AND EQUIPMENT':'ARMES ET ÉQUIPEMENT',eq.map(esc).join(' · '))}
+  ${sec(en?'SKILLS':'COMPÉTENCES',sk.map(esc).join(' · '))}
+  ${sec(en?'SPELLS':'SORTS',sp.map(esc).join(' · '))}
+  ${sec(en?'INJURIES':'BLESSURES',inj.map(esc).join(' · '))}
+  ${games.length?sec(en?'DEEDS':'FAITS D’ARMES',en?`${games.length} battle${games.length>1?'s':''} · ${kills} put out of action`:`${games.length} bataille${games.length>1?'s':''} · ${kills} hors de combat infligé${kills>1?'s':''}`):''}
+  <div class="parch-foot"><span>${esc(translateSiteText(f?.displayName||''))} · ${new Date().toLocaleDateString(en?'en-GB':'fr-FR')}</span><span class="parch-seal" style="color:#fbefe2;text-shadow:0 1px 1px rgba(0,0,0,.6);background:radial-gradient(circle at 35% 35%,${esc(col)},${esc(hexDarken(col,.55))})">${esc(ini)}</span></div></div>`}
+function openParchmentSheet(){const en=siteLanguage==='en';const r=activeRoster(),x=r?.fighters?.[editingIndex];if(!r||!x)return;
+  openModal(`<div class="parch-wrap"><style>${PARCH_CSS}</style>${parchmentSheetInner(x,r)}<div class="custom-actions" style="justify-content:center;margin-top:14px"><button type="button" class="button primary" onclick="printParchmentSheet()">⎙ ${en?'Print / PDF':'Imprimer / PDF'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div><p class="sheet-help" style="text-align:center">${en?'Take a screenshot to share it.':'Fais une capture d’écran pour la partager.'}</p></div>`)}
+function printParchmentSheet(){const r=activeRoster(),x=r?.fighters?.[editingIndex];if(!r||!x)return;
+  let fr=document.getElementById('parchFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='parchFrame';fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';document.body.appendChild(fr);
+  const d=fr.contentDocument;d.open();d.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(x.name||'')}</title><link rel="stylesheet" href="/assets/fonts/fonts.css"><style>@page{size:A4;margin:14mm}body{margin:0;background:#fff}${PARCH_CSS}.parch{box-shadow:inset 0 0 40px rgba(90,50,10,.45)}</style></head><body>${parchmentSheetInner(x,r)}</body></html>`);d.close();
+  const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){}};try{(d.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}

@@ -1060,6 +1060,12 @@ await test('[desktop] a fighter with a portrait keeps its role emblem next to th
     return {withImg:/name-emblem/.test(a),without:/name-emblem/.test(b)}});
   expect(r.withImg&&!r.without,'emblem before the name only when a portrait replaced it: '+JSON.stringify(r));
 });
+await test('[desktop] parchment version of a fighter sheet (optional view, printable)',null,async page=>{
+  const r=await page.evaluate(()=>{siteLanguage='en';const f=D.factions[0];const w=f.warriors[f.warriors.length-1];state.rosters=[{id:'PA',name:'Ravens',factionId:f.id,gold:0,fighters:[{...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:'p1',name:'Parch',xp:7,equipmentSelected:[{name:'Sword',price:10}],skills:['Resilient'],spells:[],advancements:[],injuries:[]}]}];state.active='PA';editingIndex=0;openParchmentSheet();
+    const m=document.querySelector('#modalContent .parch');return {ok:!!m,txt:m?.textContent||'',print:!!document.querySelector('#modalContent [onclick="printParchmentSheet()"]')}});
+  expect(r.ok&&/Parch/.test(r.txt)&&/7 XP/.test(r.txt)&&r.print,'the parchment sheet opens with the fighter and a print button: '+JSON.stringify(r).slice(0,200));
+  await page.evaluate(()=>closeModal());
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

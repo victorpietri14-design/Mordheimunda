@@ -5721,3 +5721,5 @@ html[data-theme="light"] .mu-create-page .faction-choice.bn{color:#f6f3ea}
 .name-emblem .fighter-emblem svg{width:16px;height:16px}.name-emblem .fighter-emblem-race{display:none}
 .fighter-title-row .name-emblem{width:34px;height:34px;align-self:center}
 @media(max-width:600px){.name-emblem{width:26px;height:26px;margin-right:6px}.name-emblem .fighter-emblem svg{width:14px;height:14px}}
+/* V-PARCHMENT */
+.modal-card:has(.parch-wrap){width:min(700px,calc(100vw - 28px));background:#16120e}
