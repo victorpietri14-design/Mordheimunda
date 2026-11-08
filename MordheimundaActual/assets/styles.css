@@ -4320,8 +4320,6 @@ a.home-spot-cover:focus-visible,a.home-side-cover:focus-visible{outline:2px soli
 .hub-loc-head h3{margin:0;flex:1;font:700 19px 'Cinzel',serif}
 .hub-loc-tag{font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:1px;color:var(--accent)}
 .hub-loc.excluded .hub-loc-tag{color:var(--danger)}
-.hub-loc-notes summary{cursor:pointer;font-size:12px;color:var(--muted);min-height:28px}
-.hub-loc-notes{font-size:12.5px;color:var(--muted)}
 .hub-loc-res{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:8px}
 .hub-loc-res small{font:800 9px 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:1px;color:var(--muted3);text-transform:uppercase}
 .hub-loc-res span{font-size:13px}
@@ -5637,7 +5635,7 @@ html[data-theme="light"] #ambientFx{display:none}
 .cmap-scroll{overflow:auto;border-radius:10px;margin:8px 0 6px;-webkit-overflow-scrolling:touch}
 .cmap-scroll.zoomed .cmap{width:220%;max-width:none}
 .cmap{position:relative;width:100%;border-radius:10px;overflow:hidden;background:#0b0b0b;border:1px solid var(--line);user-select:none;-webkit-user-select:none}
-.cmap img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block;pointer-events:none}
+.cmap>img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:block;pointer-events:none}
 .cmap-paths{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .cmap-path{fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))}
 .cmap-path.road{stroke:#ecd9a6;stroke-width:3}
@@ -5653,9 +5651,6 @@ html[data-theme="light"] #ambientFx{display:none}
 .cmap-pin.sel i{border-color:var(--accent);transform:scale(1.25)}
 .cmap-name{font:700 12px/1.15 'Cinzel','IBM Plex Sans',serif;letter-spacing:.02em;text-shadow:0 1px 2px #000,0 0 4px #000,0 0 8px #000;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
 .cmap-pin.place .cmap-name{font:600 11px/1.15 'IBM Plex Sans',sans-serif;opacity:.9}
-.cmap-bands{display:flex;gap:2px;align-items:center;background:rgba(0,0,0,.55);padding:2px 4px;border-radius:999px}
-.cmap-bands b{width:9px;height:9px;border-radius:50%;border:1px solid rgba(255,255,255,.7)}
-.cmap-bands em{font:600 10px/1 'IBM Plex Sans',sans-serif;font-style:normal;color:#fff;margin-left:2px}
 .hub-loc.flash{animation:hubLocFlash 1.4s ease}
 @keyframes hubLocFlash{0%,60%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 @media (max-width:760px){.cmap-name{font-size:10.5px;max-width:110px}.cmap-pin i{width:15px;height:15px}}
@@ -5896,3 +5891,38 @@ html[data-theme="light"] .help-check{background:#f4f6ef}html[data-theme="light"]
 .adlog-row{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
 .adlog-row:first-of-type{border-top:0}.adlog-main{flex:1;min-width:0}.adlog-main b{display:block;font-size:13.5px}.adlog-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .adlog-row.done{opacity:.6}
+
+/* V-CMAPAV: warband pictures on the campaign map */
+.cmap-avs{position:absolute;left:calc(100% - 2px);top:50%;transform:translateY(-50%);display:flex;pointer-events:none}
+.cmap-avs.left{left:auto;right:calc(100% - 2px);flex-direction:row-reverse}
+.cmap-av{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--c,#bbb);background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c,#888) 75%,#000),#111);box-shadow:0 0 0 2px rgba(0,0,0,.75);overflow:hidden;display:grid;place-items:center;margin-left:-6px;font-style:normal}
+.cmap-avs .cmap-av:first-child{margin-left:0}.cmap-avs.left .cmap-av{margin-left:0;margin-right:-6px}.cmap-avs.left .cmap-av:first-child{margin-right:0}
+.cmap-av{position:relative}.cmap-av img{position:static;width:100%;height:100%;object-fit:cover;display:block}.cmap-av b{font-weight:400;font-size:11px;color:#fff;line-height:1}
+.cmap-av.mine{box-shadow:0 0 0 2px rgba(0,0,0,.8),0 0 0 4px var(--accent,#9dfa3c)}
+.cmap-av.more{background:#161514;border-color:#4a4945;color:#dcdad5;font:800 9px 'IBM Plex Sans',sans-serif}
+.cmap-av.big{width:34px;height:34px;margin:0}.cmap-av.big b{font-size:15px}
+.cmap-town{display:flex;flex-direction:column}.cmap-town-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.cmap-town-row:first-child{border-top:0}
+.cmap-town-row b{display:block;font-size:14px}.cmap-town-row small{display:block;color:var(--muted);font-size:12px}
+
+/* V-SETTLENOTES */
+.settle-notes{margin:10px 0 8px;border:1px solid color-mix(in srgb,#e0b04a 45%,transparent);border-left:4px solid #e0b04a;border-radius:10px;background:linear-gradient(180deg,rgba(224,176,74,.10),rgba(224,176,74,.03));padding:10px 12px}
+.settle-notes-head{font:800 11px 'IBM Plex Sans',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#f4cf7a;margin-bottom:6px}
+.settle-notes-body{font-size:14px;line-height:1.55;color:var(--text)}
+.settle-notes-body p{margin:0 0 8px}.settle-notes-body p:last-child{margin-bottom:0}
+html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light"] .settle-notes-head{color:#8a6510}
+.st-notes-field textarea{min-height:180px;font-size:14px;line-height:1.5}
+
+/* V-SETTLERACES */
+.settle-who{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.settle-who-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px}
+.settle-who-row b{font:800 11px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#e0895a}
+.settle-who-row.ok b{color:var(--accent)}
+.settle-who-row>span{display:flex;flex-wrap:wrap;gap:5px}
+.settle-race-chip{display:inline-flex;align-items:center;gap:5px;font:700 12px 'IBM Plex Sans',sans-serif;padding:3px 9px;border-radius:99px;border:1px solid color-mix(in srgb,var(--rc,#888) 60%,transparent);background:color-mix(in srgb,var(--rc,#888) 16%,transparent);color:var(--text)}
+.settle-race-chip::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--rc,#888)}
+.settle-race-checks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.settle-adv{margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:6px 10px}
+.settle-adv summary{cursor:pointer;font-size:12.5px;color:var(--muted);min-height:30px;display:flex;align-items:center}
+
+.settle-item-chip{display:inline-flex;font:600 12px 'IBM Plex Sans',sans-serif;padding:3px 9px;border-radius:99px;border:1px dashed #6a5420;background:rgba(224,176,74,.08);color:var(--text);text-decoration:line-through;text-decoration-color:rgba(224,137,90,.8)}
+#stBanItems{font:14px/1.5 'IBM Plex Sans',sans-serif}

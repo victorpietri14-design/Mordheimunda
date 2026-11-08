@@ -1028,9 +1028,9 @@ await test('[desktop] campaign map: admin places settlements and paths, players 
   await page.evaluate(()=>campMapEdMode('paths'));
   for(const id of ['ss1','ss2']){const pb=await (await page.$(`[data-pin="${id}"] i`)).boundingBox();await page.mouse.click(pb.x+pb.width/2,pb.y+pb.height/2);await page.waitForTimeout(80)}
   await page.evaluate(()=>campMapEdSave());await page.waitForTimeout(500);
-  const r=await page.evaluate(()=>{const m=campaignDetailCache.get('mapc').definition.map;return {pins:m?.pins?.length,paths:m?.paths?.length,x:m?.pins?.[0]?.x,shown:!!document.querySelector('.cmap-panel .cmap'),bands:document.querySelectorAll('.cmap-pin.mine .cmap-bands b').length}});
+  const r=await page.evaluate(()=>{const m=campaignDetailCache.get('mapc').definition.map;return {pins:m?.pins?.length,paths:m?.paths?.length,x:m?.pins?.[0]?.x,shown:!!document.querySelector('.cmap-panel .cmap'),bands:document.querySelectorAll('.cmap-pin.mine .cmap-avs .cmap-av').length,ringed:document.querySelectorAll('.cmap-pin.mine .cmap-av.mine').length,sheet:(()=>{document.querySelector('.cmap-pin.mine')?.click();const n=document.querySelectorAll('.cmap-town-row').length;helpSheetClose();return n})()}});
   expect(r.pins===2&&r.paths===1&&Math.abs(r.x-25)<2,'pins and the path are saved in % of the picture: '+JSON.stringify(r));
-  expect(r.shown&&r.bands===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
+  expect(r.shown&&r.bands===2&&r.ringed===1&&r.sheet===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
 });
 await test('[desktop] create warband: race banners with colour, motif, emblem; warband logo falls back to the race emblem',null,async page=>{
   await page.evaluate(()=>{siteLanguage='en';const R=RACE_CATEGORIES;D.factions.filter(f=>!f.packId).slice(0,2).forEach(f=>raceTagMap.set(f.id,R[0]));
@@ -1135,6 +1135,16 @@ await test('[desktop] stat origin, sync pill, new-player preview, rules without 
     siteLanguage='fr';await ensureRulesBook();const miss=frMissingRulePages().length;siteLanguage='en';
     return {adv:parts.rows.some(r=>/Advances/.test(r[0])&&r[1]===1),inj:legs.rows.some(r=>/Leg wound/.test(r[0])&&r[1]===-1),cell:!!cell,sheet,pill:pill===null||typeof pill.t==='string',miss}});
   expect(out.adv&&out.inj&&out.cell&&/4|5|6/.test(out.sheet)&&out.pill&&typeof out.miss==='number','stat origin etc: '+JSON.stringify(out));
+});
+await test('[desktop] settlements ban whole races and show them',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>/reikland/i.test(x.displayName||''));const g=D.factions.find(x=>/skaven/i.test(x.displayName||''));raceTagMap.set(f.id,'Humain');raceTagMap.set(g.id,'Skaven');
+    const st={id:'s',name:'Skeggi',bannedRaces:['Skaven'],excluded:[]};
+    const html=settlementWhoMarkup(st,false);const open=settlementWhoMarkup({id:'o',name:'X',excluded:[]},false);
+    return {human:settlementAllows(st,f.id),skaven:settlementAllows(st,g.id),shows:/Races proscrites/.test(html)&&/Skaven/.test(html),open:/Toutes les races/.test(open)}});
+  expect(out.human&&!out.skaven&&out.shows&&out.open,'race bans: '+JSON.stringify(out));
+  const it=await page.evaluate(()=>{const st={bannedItems:['Ithilmar','Elven Cloak']};return {ith:settlementBansItem(st,'Ithilmar Sword'),cloak:settlementBansItem(st,'Elven cloak'),sword:settlementBansItem(st,'Sword'),chip:/Introuvable ici/.test(settlementWhoMarkup({...st,excluded:[]},false))}});
+  expect(it.ith&&it.cloak&&!it.sword&&it.chip,'items kept off a settlement market: '+JSON.stringify(it));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
