@@ -5939,3 +5939,6 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
   .cmap-avs .cmap-av.mine{box-shadow:0 0 0 1.5px rgba(0,0,0,.8),0 0 0 3px var(--accent,#9dfa3c)}
   .cmap-avs .cmap-av b{font-size:9px}.cmap-avs .cmap-av.more{font-size:8px}
 }
+
+/* V-RESMOVE */
+.settle-move-note{margin:6px 0;font-size:12.5px;color:var(--muted)}.settle-move-note.ok{color:var(--accent)}
