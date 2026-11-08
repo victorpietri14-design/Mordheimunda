@@ -1154,6 +1154,30 @@ await test('[desktop] coverings listed in the Reference with a computed example'
     return {sec:!!sec,ex,effect:/S \+1|F \+1/.test(txt),covered:/Ithilmar Sword/.test(txt)}});
   expect(out.sec&&out.ex===2&&out.effect&&out.covered,'coverings in the reference: '+JSON.stringify(out));
 });
+await test('[desktop] campaign market opens when the residence town bans items; only the Trading Post visit hides them',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>(x.equipment||[]).length)||D.factions[0];const cid='cmkt1';
+    state.rosters=[...(state.rosters||[]),{id:'rmkt',name:'M',factionId:f.id,gold:500,fighters:[],campaignId:cid,campaignResidence:'s1'}];save(true);
+    const c={id:cid,name:'C',members:[{rosterId:'rmkt',rosterName:'M',stats:{}}],definition:{settlements:[{id:'s1',name:'Town',bannedItems:['Sword']}]}};
+    campaignDetailCache.set(cid,c);campaignDetailFresh.add(cid);campaignBattlesCache.set(cid,[]);
+    const stock={};[...campaignItemPool().keys()].forEach(k=>stock[k]=2);campaignMarketCache.set(cid,{stock,stockedAt:Date.now()});
+    try{const html=hubMarketMarkup(c);const r=state.rosters.find(x=>x.id==='rmkt');const post=tradingShopItems(r,'post',null).some(it=>normName(it.w?.name)==='sword');return {ok:true,rows:(html.match(/hub-market-row/g)||[]).length,hubSword:/data-name="Sword"/.test(html),postSword:post}}catch(e){return {ok:false,err:e.message}}});
+  expect(out.ok&&out.rows>0&&out.hubSword&&!out.postSword,'campaign market with banned items: '+JSON.stringify(out));
+});
+await test('[desktop] settlement moves: free first pick, then one per game, never mid post-battle',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const f=D.factions[0];const cid='cmove';
+    state.rosters=[...(state.rosters||[]),{id:'rmv',name:'Mv',factionId:f.id,gold:500,fighters:[],campaignId:cid}];state.active='rmv';save(true);
+    campaignDetailCache.set(cid,{id:cid,name:'C',members:[{rosterId:'rmv',rosterName:'Mv',stats:{}}],definition:{settlements:[{id:'a',name:'A'},{id:'b',name:'B'}]}});
+    const r=()=>state.rosters.find(x=>x.id==='rmv');const o={};
+    const _av=adminViewMode;adminViewMode='player';try{
+    setCampaignResidence('a');o.first=r().campaignResidence;
+    setCampaignResidence('b');o.blocked=r().campaignResidence;
+    residenceGrantMove(r());r().postBattle={dice:[3],bonusDice:[]};setCampaignResidence('b');o.midPb=r().campaignResidence;
+    r().postBattle={};setCampaignResidence('b');o.after=r().campaignResidence;
+    setCampaignResidence('a');o.again=r().campaignResidence;}finally{adminViewMode=_av}return o});
+  expect(out.first==='a'&&out.blocked==='a'&&out.midPb==='a'&&out.after==='b'&&out.again==='b','residence moves: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
