@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0794.0';
+const APP_BUILD='110.0795.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10220,7 +10220,7 @@ function hubMarketMarkup(c){
   else{
     const f=r?faction(r):null;const byKey=campaignItemPool();
     const listed=campaignListedKeys(c.id);const keys=Object.keys(m.stock).filter(k=>byKey.has(k)&&(!listed||listed.has(k)||!byKey.get(k).coveredVariant));
-    const rows=keys.map(k=>{const w=byKey.get(k);const rar=tradingRarity(w);const base=Number(equipmentPrice(w,f||{},'market')||0);let it={w,price:base,rarity:rar};if(r)it=campaignMarketApply(r,[it],'post')[0];return {k,w,rar,it,cat:canonEquipmentCategory(equipmentCategory(w)),stock:Number(m.stock[k]||0)}}).sort((a,b)=>a.cat.localeCompare(b.cat)||a.w.name.localeCompare(b.w.name));
+    const rows=keys.map(k=>{try{const w=byKey.get(k);if(!w?.name)return null;const rar=tradingRarity(w);const base=Number(equipmentPrice(w,f||{},'market')||0);let it={w,price:base,rarity:rar};if(r){it=campaignMarketApply(r,[it],'post')[0];if(!it)return null}return {k,w,rar,it,cat:String(canonEquipmentCategory(equipmentCategory(w))||''),stock:Number(m.stock[k]||0)}}catch(e){return null}}).filter(Boolean).sort((a,b)=>a.cat.localeCompare(b.cat)||a.w.name.localeCompare(b.w.name));
     const cats=[...new Set(rows.map(x=>x.cat))];const shown=rows.filter(x=>hubMarketCat==='all'||x.cat===hubMarketCat);const q=normName(hubMarketSearch);
     stockPart=`<div class="tp-chips">${['all',...cats].map(ct=>`<button type="button" class="tp-chip${hubMarketCat===ct?' on':''}" onclick="setHubMarketCat('${esc(ct).replace(/'/g,"\\'")}')">${ct==='all'?(en?'All':'Tout'):esc(tradingCatLabel(ct))}</button>`).join('')}</div><input type="search" class="search" value="${esc(hubMarketSearch)}" placeholder="${en?'Search the market…':'Rechercher dans le marché…'}" oninput="filterHubMarket(this.value)">
      <div class="rule-table-wrap"><table class="rule-table hub-table"><tr><th>${en?'Item':'Objet'}</th><th>${en?'Rarity':'Rareté'}</th><th>${r?(en?'Your price':'Ton prix'):(en?'Price':'Prix')}</th><th>${en?'In stock':'En stock'}</th>${admin?'<th></th>':''}</tr>${shown.map(x=>`<tr class="hub-market-row" data-name="${esc(x.w.name)}" ${q&&!normName(x.w.name).includes(q)?'hidden':''}><td><b>${esc(x.w.name)}</b><small>${esc(tradingCatLabel(x.cat))}</small></td><td>${x.it.rarity?`Rare ${x.it.rarity}`:'Common'}</td><td class="hub-val">${tradingPriceDuo(x.it)}</td><td class="hub-stock${x.stock===0?' out':''}">${x.stock}</td>${admin?`<td><button type="button" class="rule-edit-btn" title="${en?'Set quantity':'Régler la quantité'}" onclick="hubSetStock('${esc(c.id)}','${esc(x.k).replace(/'/g,"\\'")}',${x.stock})">✎</button></td>`:''}</tr>`).join('')}</table></div>
@@ -11275,7 +11275,6 @@ function campaignMarketApply(r,list,src){
   // V-MARKETSELL: an item a player sold into the shared market without it
   // being stocked carries a price premium (x1.5, -10 % per later sale).
   const premOf=it=>{const cp=r?.campaignId?campaignMarketPost(r):null;return Number(cp?.premium?.[normName(it.w?.name)])||1};
-  {const mm=rosterCampaignMarket(r);if(mm?.st)list=list.filter(it=>!settlementBansItem(mm.st,it.w?.name))}
   const m=rosterCampaignMarket(r);if(!m)return r?.campaignId?list.map(it=>{const pr=premOf(it);return {...it,price:pr!==1&&it.price>0?Math.round(it.price*pr):it.price,basePrice:it.price,campaignMod:pr!==1}}):list;const t=tradingData(r);const rolls=t.priceRolls||{};const mk=m.st?.market||{};
   return list.map(it=>{
     const base=it.rarity;let rarity=base;
@@ -11289,7 +11288,11 @@ function campaignMarketApply(r,list,src){
     return {...it,rarity:Math.max(0,rarity),baseRarity:base,price,minPrice,priceExpr:rolled==null&&e&&it.price>0?e:null,priceLabel:label,basePrice:it.price,campaignMod:!!(pct||e||rarity!==base||prem!==1)};
   });
 }
-function tradingShopItems(r,src,post){return campaignMarketApply(r,tradingCoveredItems(r,src,post,src==='band'?tradingBandItems(r):tradingPostItems(r,post)),src)}
+// V-SETTLEITEMS: a town's "not sold here" list only trims the warband's own
+// Trading Post visit (post-battle) while it resides there — never the shared
+// campaign market list or resale prices.
+function tradingShopItems(r,src,post){const list=tradingShopItemsAll(r,src,post);if(src==='band')return list;const mm=rosterCampaignMarket(r);return mm?.st?list.filter(it=>!settlementBansItem(mm.st,it.w?.name)):list}
+function tradingShopItemsAll(r,src,post){return campaignMarketApply(r,tradingCoveredItems(r,src,post,src==='band'?tradingBandItems(r):tradingPostItems(r,post)),src)}
 // V-COVERINGS: covered versions of the shop's weapons (Band List: coverings
 // ticked for this warband; Trading Post: Market coverings). A stocked
 // campaign market sells only what its [ITEMS] list names, covered or not.
@@ -12485,7 +12488,7 @@ function stashSaleQuote(r,e){
   const {def,base}=stashSaleBase(e);
   if(itemIsExclusiveRarity(def)||itemIsExclusiveRarity(e))return {kind:'exclusive',gold:Math.floor(base/2)};
   const k=normName(e.name);
-  if(Object.prototype.hasOwnProperty.call(cp.stock,k)){const f=faction(r)||{};const it=campaignMarketApply(r,[{w:def,price:Number(equipmentPrice(def,f,'market')??base)||0,rarity:tradingRarity(def)}],'post')[0];const cur=Number(it?.price||0);return {kind:'present',gold:Math.floor(cur/2),current:cur}}
+  if(Object.prototype.hasOwnProperty.call(cp.stock,k)){const f=faction(r)||{};const it=campaignMarketApply(r,[{w:def,price:Number(equipmentPrice(def,f,'market')??base)||0,rarity:tradingRarity(def)}],'post')[0];const cur=Number(it?it.price:base)||0;return {kind:'present',gold:Math.floor(cur/2),current:cur}}
   return {kind:'new',gold:Math.floor(base*0.75),newPrice:Math.round(base*1.5),base};
 }
 function stashSaleQuoteText(q,e,en){
