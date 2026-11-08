@@ -1185,6 +1185,13 @@ await test('[desktop] campaign menu: a section with one page is a direct link, p
     const ps={generated:null};const hidden=!playColorsShown(ps);const shown=playColorsShown({generated:{source:'random'}});return {groups,direct,hidden,shown}});
   expect(out.groups===1&&out.direct&&out.hidden&&out.shown,'campaign menu / play colours: '+JSON.stringify(out));
 });
+await test('[desktop] neutral creatures: own rules count (3+ save), own weapons, linked to a campaign hazard',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{state.customFighters=[...(state.customFighters||[]),{customFighterId:'nt1',name:'Jungle Saurus',type:'Hired Sword',hiredSword:true,neutral:true,factionId:'',cost:0,max:1,profile:[6,3,0,4,4,3,2,2,6],race:'Beast',ruleNames:[],rules:'',skillAccess:{},magicAccess:[],defaultSkills:[],defaultSpells:[],defaultEquipment:[],equipmentAccess:[],dpRules:[{name:'Thick Scales',text:'This model has a 3+ save.'}],dpWeapons:[{id:'w1',name:'Jaws',profile:{range:'Melee',strength:'S+1',ap:'-1',damage:'1',traits:''}}]}];save(true);
+    const w=neutralCreatureList().find(x=>x.name==='Jungle Saurus');const html=hazardCreatureMarkup(hazardCreatureOf({creatureId:neutralCreatureKey(w)}));const byName=!!hazardCreatureOf({creatureName:'jungle saurus'});
+    return {found:!!w,sv:/Save <b>3\+<\/b>|Sauvegarde <b>3\+<\/b>/.test(html),jaws:/Jaws/.test(html),rule:/Thick Scales/.test(html),byName}});
+  expect(out.found&&out.sv&&out.jaws&&out.rule&&out.byName,'neutral creature card: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
