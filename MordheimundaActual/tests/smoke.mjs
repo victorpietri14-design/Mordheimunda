@@ -1028,9 +1028,9 @@ await test('[desktop] campaign map: admin places settlements and paths, players 
   await page.evaluate(()=>campMapEdMode('paths'));
   for(const id of ['ss1','ss2']){const pb=await (await page.$(`[data-pin="${id}"] i`)).boundingBox();await page.mouse.click(pb.x+pb.width/2,pb.y+pb.height/2);await page.waitForTimeout(80)}
   await page.evaluate(()=>campMapEdSave());await page.waitForTimeout(500);
-  const r=await page.evaluate(()=>{const m=campaignDetailCache.get('mapc').definition.map;return {pins:m?.pins?.length,paths:m?.paths?.length,x:m?.pins?.[0]?.x,shown:!!document.querySelector('.cmap-panel .cmap'),bands:document.querySelectorAll('.cmap-pin.mine .cmap-bands b').length}});
+  const r=await page.evaluate(()=>{const m=campaignDetailCache.get('mapc').definition.map;return {pins:m?.pins?.length,paths:m?.paths?.length,x:m?.pins?.[0]?.x,shown:!!document.querySelector('.cmap-panel .cmap'),bands:document.querySelectorAll('.cmap-pin.mine .cmap-avs .cmap-av').length,ringed:document.querySelectorAll('.cmap-pin.mine .cmap-av.mine').length,sheet:(()=>{document.querySelector('.cmap-pin.mine')?.click();const n=document.querySelectorAll('.cmap-town-row').length;helpSheetClose();return n})()}});
   expect(r.pins===2&&r.paths===1&&Math.abs(r.x-25)<2,'pins and the path are saved in % of the picture: '+JSON.stringify(r));
-  expect(r.shown&&r.bands===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
+  expect(r.shown&&r.bands===2&&r.ringed===1&&r.sheet===2,'the Locations tab shows the map with both warbands at their residence, yours circled: '+JSON.stringify(r));
 });
 await test('[desktop] create warband: race banners with colour, motif, emblem; warband logo falls back to the race emblem',null,async page=>{
   await page.evaluate(()=>{siteLanguage='en';const R=RACE_CATEGORIES;D.factions.filter(f=>!f.packId).slice(0,2).forEach(f=>raceTagMap.set(f.id,R[0]));

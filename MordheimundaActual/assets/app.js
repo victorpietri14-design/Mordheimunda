@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0791.0';
+const APP_BUILD='110.0792.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10178,7 +10178,10 @@ function hubLocationsMarkup(c){
 const CAMPMAP_PATH_STYLES={road:['Road','Route'],river:['River','Fleuve'],sea:['Sea route','Voie maritime'],trail:['Trail','Piste']};
 function campMapOf(c){const m=c?.definition?.map;return m&&typeof m.image==='string'&&m.image?m:null}
 function campMapPins(c,m){const sts=c?.definition?.settlements||[];return (m.pins||[]).map(p=>{const st=p.sid?sts.find(s=>s.id===p.sid):null;if(p.sid&&!st)return null;return {...p,name:st?st.name:(p.name||'?')}}).filter(Boolean)}
-function campMapResidents(c){const out=new Map();const r=hubRoster(c);for(const m of (c.members||[]).filter(m=>!m.leftAt)){const own=(state.rosters||[]).find(x=>x.id===m.rosterId);const res=own?own.campaignResidence:m.stats?.residence;if(!res)continue;const col=own?warbandColor(own):(/^#[0-9a-f]{6}$/i.test(String(m.stats?.color||''))?m.stats.color:'#bbb');if(!out.has(res))out.set(res,[]);out.get(res).push({name:own?.name||m.rosterName||'',color:col,mine:!!(r&&own&&own.id===r.id)})}return out}
+function campMapResidents(c){const out=new Map();const r=hubRoster(c);for(const m of (c.members||[]).filter(m=>!m.leftAt)){const own=(state.rosters||[]).find(x=>x.id===m.rosterId);const res=own?own.campaignResidence:m.stats?.residence;if(!res)continue;const col=own?warbandColor(own):(/^#[0-9a-f]{6}$/i.test(String(m.stats?.color||''))?m.stats.color:'#bbb');if(!out.has(res))out.set(res,[]);
+  const icon=own?(own.icon||''):String(m.stats?.icon||'');const focus=own?(own.iconFocus||null):(m.stats?.iconFocus||null);let sigil=String(m.stats?.sigil||'◆');if(own){try{sigil=factionSigils[faction(own)?.id]||'◆'}catch(e){}}
+  out.get(res).push({name:own?.name||m.rosterName||'',color:col,mine:!!(r&&own&&own.id===r.id),icon:/^(data:image\/|\/|https:)/.test(icon)?icon:'',focus,sigil,player:m.username||''})}
+  out.forEach(list=>list.sort((a,b)=>(b.mine?1:0)-(a.mine?1:0)));return out}
 function campMapPathD(a,b,bend){const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,dx=b.x-a.x,dy=b.y-a.y;const k=Number(bend)||0;const cx=mx-dy*k*0.5,cy=my+dx*k*0.5;return {d:`M${a.x.toFixed(2)} ${a.y.toFixed(2)} Q${cx.toFixed(2)} ${cy.toFixed(2)} ${b.x.toFixed(2)} ${b.y.toFixed(2)}`,lx:(mx+cx)/2,ly:(my+cy)/2}}
 function campMapMarkup(c,m,{edit=false,sel=null,from=null}={}){
   const en=siteLanguage==='en';const pins=campMapPins(c,m);const byId=new Map(pins.map(p=>[p.id,p]));const res=edit?new Map():campMapResidents(c);const r=edit?null:hubRoster(c);
@@ -10186,17 +10189,17 @@ function campMapMarkup(c,m,{edit=false,sel=null,from=null}={}){
   const svg=`<svg class="cmap-paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${paths.map(p=>`<path class="cmap-path ${CAMPMAP_PATH_STYLES[p.style]?p.style:'road'}${edit&&sel===p.id?' sel':''}" d="${p.d}" vector-effect="non-scaling-stroke"/>`).join('')}</svg>`;
   const labels=paths.filter(p=>p.label).map(p=>`<span class="cmap-plabel" style="left:${p.lx}%;top:${p.ly}%">${esc(p.label)}</span>`).join('');
   const pinHtml=pins.map(p=>{const bands=res.get(p.sid)||[];const mine=bands.some(b=>b.mine);
-    return `<button type="button" class="cmap-pin ${p.sid?'settle':'place'}${mine?' mine':''}${edit&&(sel===p.id||from===p.id)?' sel':''}" data-pin="${esc(p.id)}" style="left:${p.x}%;top:${p.y}%" ${edit?'':`onclick="campMapPinTap('${esc(c.id)}','${esc(p.id)}')"`}><i></i><span class="cmap-name">${esc(p.name)}</span>${bands.length?`<span class="cmap-bands" title="${esc(bands.map(b=>b.name).join(', '))}">${bands.slice(0,6).map(b=>`<b style="background:${esc(b.color)}"></b>`).join('')}${bands.length>6?`<em>+${bands.length-6}</em>`:''}</span>`:''}</button>`}).join('');
+    return `<button type="button" class="cmap-pin ${p.sid?'settle':'place'}${mine?' mine':''}${edit&&(sel===p.id||from===p.id)?' sel':''}" data-pin="${esc(p.id)}" style="left:${p.x}%;top:${p.y}%" ${edit?'':`onclick="campMapPinTap('${esc(c.id)}','${esc(p.id)}')"`}><i></i><span class="cmap-name">${esc(p.name)}</span>${bands.length?`<span class="cmap-avs${p.x>70?' left':''}" title="${esc(bands.map(b=>b.name).join(', '))}">${bands.slice(0,bands.length>3?2:3).map(b=>campMapAvatar(b)).join('')}${bands.length>3?`<em class="cmap-av more">+${bands.length-2}</em>`:''}</span>`:''}</button>`}).join('');
   return `<div class="cmap${edit?' editing':''}" ${edit?'id="cmapStage"':''} style="aspect-ratio:${Number(m.w)||4}/${Number(m.h)||3}"><img src="${m.image}" alt="${esc(en?'Campaign map':'Carte de la campagne')}" draggable="false">${svg}${labels}${pinHtml}</div>`;
 }
 let campMapZoom=false;
 function campMapPanel(c,admin){const en=siteLanguage==='en';const m=campMapOf(c);
   const editBtn=admin?`<button type="button" class="button secondary small" onclick="openCampMapEditor('${esc(c.id)}')">🗺 ${m?(en?'Edit the map':'Modifier la carte'):(en?'Create the map':'Créer la carte')}</button>`:'';
   if(!m)return admin?`<section class="hub-panel cmap-panel"><div class="hub-panel-head"><h2>${en?'Map':'Carte'}</h2>${editBtn}</div><p class="muted">${en?'No map yet. Upload a picture of the region, then place the settlements and draw the paths.':'Pas encore de carte. Ajoute une image de la région, puis place les colonies et trace les chemins.'}</p></section>`:'';
-  const r=hubRoster(c);const legend=r?`<small class="muted">${en?'Coloured dots: the warbands residing there. Yours is circled.':'Points de couleur : les bandes qui y résident. La tienne est entourée.'}</small>`:'';
+  const r=hubRoster(c);const legend=r?`<small class="muted">${en?'Each warband shows its picture next to the town it resides in — yours is circled in green. Tap a town to see who lives there.':'Chaque bande apparaît avec son image près de la ville où elle réside — la tienne est entourée de vert. Touche une ville pour voir qui y vit.'}</small>`:'';
   return `<section class="hub-panel cmap-panel"><div class="hub-panel-head"><h2>${en?'Map':'Carte'}</h2><span style="flex:1"></span><button type="button" class="button secondary small" onclick="campMapZoom=!campMapZoom;render('campaignHub',{history:false})">${campMapZoom?(en?'⤡ Fit':'⤡ Ajuster'):(en?'⤢ Zoom':'⤢ Agrandir')}</button>${editBtn}</div><div class="cmap-scroll${campMapZoom?' zoomed':''}">${campMapMarkup(c,m)}</div>${legend}</section>`}
 function campMapPinTap(cid,pid){const c=campaignDetailCache.get(cid);const m=campMapOf(c);if(!m)return;const p=(m.pins||[]).find(x=>x.id===pid);if(!p)return;
-  if(p.sid){const card=document.getElementById('hubloc-'+p.sid);if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.classList.remove('flash');void card.offsetWidth;card.classList.add('flash')}return}
+  if(p.sid){const bands=campMapResidents(c).get(p.sid)||[];if(bands.length){campMapTownSheet(c,p,bands);return}const card=document.getElementById('hubloc-'+p.sid);if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.classList.remove('flash');void card.offsetWidth;card.classList.add('flash')}return}
   toast(p.note?`${p.name} — ${p.note}`:p.name)}
 // --- admin editor
 let campMapEd=null;
@@ -12015,7 +12018,7 @@ function campaignStandingUnit(k){return {points:'pts',wins:'',rating:'GC',gold:'
 function campaignStandingValue(m,k){const st=m?.stats||{};return k==='artifacts'?(Array.isArray(st.artifacts)?st.artifacts.length:0):Number(st[k]||0)}
 async function setCampaignStandings(cid,k){if(!CAMPAIGN_STANDING_KEYS.includes(k))return;await saveCampaignDefinition(cid,def=>{def.standings=k})}
 // The warband's public line in the campaign (name, value, reputation…).
-function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),artifactsFound:rosterArtifactsFound(r),items:rosterItemCounts(r),residence:r.campaignResidence||null,color:warbandColor(r),greatQuest:greatQuestAchieved(r)[0]?.name||null,greatQuestTrophy:greatQuestAchieved(r)[0]?.trophy||null,greatQuestColor:greatQuestAchieved(r)[0]?gqColor(greatQuestAchieved(r)[0].color):null};const sig=JSON.stringify([r.name,stats]);if(!force&&campaignStatsSentLocal.get(r.id)===sig)return;campaignStatsSentLocal.set(r.id,sig);window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{})}
+function pushCampaignEntryStats(r,force){if(!r?.campaignId)return;const stats={rating:total(r),reputation:Number(r.reputation||0),fighters:(r.fighters||[]).length,gold:Number(r.gold||0),treasure:Number(r.wyrdstone||0),artifacts:rosterArtifactNames(r),artifactsFound:rosterArtifactsFound(r),items:rosterItemCounts(r),residence:r.campaignResidence||null,color:warbandColor(r),icon:campIconSmall(r),iconFocus:r.icon?(r.iconFocus||null):null,sigil:(()=>{try{return factionSigils[faction(r)?.id]||'◆'}catch(e){return '◆'}})(),greatQuest:greatQuestAchieved(r)[0]?.name||null,greatQuestTrophy:greatQuestAchieved(r)[0]?.trophy||null,greatQuestColor:greatQuestAchieved(r)[0]?gqColor(greatQuestAchieved(r)[0].color):null};const sig=JSON.stringify([r.name,stats]);if(!force&&campaignStatsSentLocal.get(r.id)===sig)return;campaignStatsSentLocal.set(r.id,sig);window.MordheimundaAPI.updateCampaignEntry(r.campaignId,{rosterId:r.id,rosterName:r.name,stats}).catch(()=>{})}
 const campaignStatsSentLocal=new Map();
 // Warband → Campaign tab.
 function campaignView(r){
@@ -19944,3 +19947,13 @@ setTimeout(()=>{try{helpPreviewBar()}catch(e){}},500);
 // ===================== V-FRMISSING: rule pages without French text (admin) =====================
 function frMissingRulePages(){const fr=frRulesBundle()||{};const ov=ruleOverridesCache||{};const out=[];(window.RULES_BOOK||[]).forEach(s=>(s.content||[]).forEach(p=>{const k=`${s.id}:${p.page}`;if(!fr[k]&&typeof ov['fr:'+k]!=='string')out.push({id:s.id,page:p.page,title:s.title})}));return out}
 function frMissingOpen(id){navigateApp(APP_ROUTES.rules);ensureRulesBook().then(()=>openRuleSection(id)).catch(()=>openRuleSection(id))}
+
+// ===================== V-CMAPAV: warband pictures on the campaign map =====================
+// Each warband shows as a small round picture (the one its player chose) next
+// to the town it resides in. Other players' pictures travel as a tiny
+// thumbnail in the campaign stats (a few KB), never the full image.
+const campIconThumbs=new Map();
+function campIconSmall(r){const ic=String(r?.icon||'');if(!ic)return null;if(!ic.startsWith('data:'))return ic.length<400?ic:null;if(ic.length<6000)return ic;const key=r.id+':'+ic.length+':'+ic.slice(-32);if(campIconThumbs.has(key))return campIconThumbs.get(key);campIconThumbs.set(key,null);
+  imgShrink(ic,72,.8).then(t=>{campIconThumbs.set(key,t&&t.length<9000?t:null);if(t&&t.length<9000)try{pushCampaignEntryStats(r,true)}catch(e){}}).catch(()=>{});return null}
+function campMapAvatar(b,big){return `<span class="cmap-av${b.mine?' mine':''}${big?' big':''}" style="--c:${esc(b.color)}">${b.icon?`<img src="${esc(b.icon)}"${imageFocusStyle(b.focus)} alt="" loading="lazy" decoding="async">`:`<b>${esc(b.sigil||'◆')}</b>`}</span>`}
+function campMapTownSheet(c,p,bands){const en=siteLanguage==='en';helpSheetOpen(`<div class="help-kicker">${esc(p.name)} · ${bands.length} ${en?(bands.length>1?'warbands':'warband'):(bands.length>1?'bandes':'bande')}</div>${p.note?`<p class="muted" style="margin:4px 0 6px;font-size:13px">${esc(p.note)}</p>`:''}<div class="cmap-town">${bands.map(b=>`<div class="cmap-town-row">${campMapAvatar(b,true)}<div><b>${esc(b.name)}</b>${b.player?`<small>${esc(b.player)}${b.mine?` · ${en?'you':'toi'}`:''}</small>`:(b.mine?`<small>${en?'you':'toi'}</small>`:'')}</div></div>`).join('')}</div><div class="help-actions"><button type="button" class="help-ghost" onclick="helpSheetClose();const k=document.getElementById('hubloc-${esc(p.sid)}');if(k){k.scrollIntoView({behavior:'smooth',block:'center'});k.classList.remove('flash');void k.offsetWidth;k.classList.add('flash')}">${en?'See the place':'Voir le lieu'}</button><button type="button" class="help-go" onclick="helpSheetClose()">${en?'Close':'Fermer'}</button></div>`)}
