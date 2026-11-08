@@ -1143,6 +1143,8 @@ await test('[desktop] settlements ban whole races and show them',null,async page
     const html=settlementWhoMarkup(st,false);const open=settlementWhoMarkup({id:'o',name:'X',excluded:[]},false);
     return {human:settlementAllows(st,f.id),skaven:settlementAllows(st,g.id),shows:/Races proscrites/.test(html)&&/Skaven/.test(html),open:/Toutes les races/.test(open)}});
   expect(out.human&&!out.skaven&&out.shows&&out.open,'race bans: '+JSON.stringify(out));
+  const it=await page.evaluate(()=>{const st={bannedItems:['Ithilmar','Elven Cloak']};return {ith:settlementBansItem(st,'Ithilmar Sword'),cloak:settlementBansItem(st,'Elven cloak'),sword:settlementBansItem(st,'Sword'),chip:/Introuvable ici/.test(settlementWhoMarkup({...st,excluded:[]},false))}});
+  expect(it.ith&&it.cloak&&!it.sword&&it.chip,'items kept off a settlement market: '+JSON.stringify(it));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

@@ -5923,3 +5923,6 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .settle-race-checks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .settle-adv{margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:6px 10px}
 .settle-adv summary{cursor:pointer;font-size:12.5px;color:var(--muted);min-height:30px;display:flex;align-items:center}
+
+.settle-item-chip{display:inline-flex;font:600 12px 'IBM Plex Sans',sans-serif;padding:3px 9px;border-radius:99px;border:1px dashed #6a5420;background:rgba(224,176,74,.08);color:var(--text);text-decoration:line-through;text-decoration-color:rgba(224,137,90,.8)}
+#stBanItems{font:14px/1.5 'IBM Plex Sans',sans-serif}

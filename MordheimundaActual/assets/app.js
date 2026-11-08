@@ -11275,6 +11275,7 @@ function campaignMarketApply(r,list,src){
   // V-MARKETSELL: an item a player sold into the shared market without it
   // being stocked carries a price premium (x1.5, -10 % per later sale).
   const premOf=it=>{const cp=r?.campaignId?campaignMarketPost(r):null;return Number(cp?.premium?.[normName(it.w?.name)])||1};
+  {const mm=rosterCampaignMarket(r);if(mm?.st)list=list.filter(it=>!settlementBansItem(mm.st,it.w?.name))}
   const m=rosterCampaignMarket(r);if(!m)return r?.campaignId?list.map(it=>{const pr=premOf(it);return {...it,price:pr!==1&&it.price>0?Math.round(it.price*pr):it.price,basePrice:it.price,campaignMod:pr!==1}}):list;const t=tradingData(r);const rolls=t.priceRolls||{};const mk=m.st?.market||{};
   return list.map(it=>{
     const base=it.rarity;let rarity=base;
@@ -11297,7 +11298,7 @@ function campaignMarketBanner(r){
   const m=rosterCampaignMarket(r);if(!m)return '';const en=siteLanguage==='en';
   if(m.outsider)return `<div class="tp-campaign-mods outsider"><b>${en?'No settlement accepts this warband':'Aucune colonie n’accepte cette bande'}</b><span>${en?`Campaign market: Common items count as Rare 4, Rarity +${m.pen.rarity}, prices +${m.pen.pricePct}%.`:`Marché de campagne : les objets Common comptent comme Rare 4, rareté +${m.pen.rarity}, prix +${m.pen.pricePct} %.`}</span></div>`;
   if(!m.st)return `<div class="tp-campaign-mods"><b>${en?'No residence chosen':'Aucune résidence choisie'}</b><span>${en?'Pick a settlement in the Campaign tab to get its market modifiers.':'Choisis une colonie dans l’onglet Campagne pour profiter de ses modificateurs de marché.'}</span></div>`;
-  const fx=settlementEffects(m.st,en).filter(x=>x.tag==='MARKET'||x.tag==='MARCHÉ');
+  const fx=settlementEffects(m.st,en).filter(x=>x.tag==='MARKET'||x.tag==='MARCHÉ');const banTxt=settlementBannedItems(m.st);if(banTxt.length)fx.push({tag:en?'MARKET':'MARCHÉ',text:(en?'Not sold here: ':'Introuvable ici : ')+banTxt.join(', ')});
   return `<div class="tp-campaign-mods"><b>${esc(m.st.name)}</b><span>${fx.length?fx.map(x=>esc(x.text)).join(' · '):(en?'No market modifier.':'Aucun modificateur de marché.')}</span></div>`;
 }
 function tradingLockReason(r,it){if(!it.rarity)return '';const a=tradingAvailability(r),en=siteLanguage==='en';if(a==null)return en?'Roll rarity first':'Lance la rareté d’abord';if(it.rarity>a)return en?`Needs Availability ${it.rarity}`:`Disponibilité ${it.rarity} requise`;return ''}
@@ -19968,4 +19969,9 @@ function settlementFactionRace(fid){fid=String(fid||'');try{if(fid.startsWith('c
 function settlementWhoMarkup(st,en){const banned=(st.bannedRaces||[]).filter(Boolean);const opts=campaignFactionOptions();
  const extra=(st.excluded||[]).filter(fid=>!banned.includes(settlementFactionRace(fid))).map(fid=>opts.find(o=>o.id===fid)?.name||'').filter(Boolean);
  const chip=r=>`<span class="settle-race-chip" style="--rc:${raceColor(r)}">${esc(r)}</span>`;
- return `<div class="settle-who">${banned.length?`<div class="settle-who-row"><b>⛔ ${en?'Banned races':'Races proscrites'}</b><span>${banned.map(chip).join('')}</span></div>`:`<div class="settle-who-row ok"><b>✓ ${en?'Every race is welcome':'Toutes les races sont acceptées'}</b></div>`}${extra.length?`<div class="settle-who-row"><b>${en?'Also excluded':'Exclues aussi'}</b><span class="muted">${extra.map(esc).join(', ')}</span></div>`:''}</div>`}
+ return `<div class="settle-who">${banned.length?`<div class="settle-who-row"><b>⛔ ${en?'Banned races':'Races proscrites'}</b><span>${banned.map(chip).join('')}</span></div>`:`<div class="settle-who-row ok"><b>✓ ${en?'Every race is welcome':'Toutes les races sont acceptées'}</b></div>`}${extra.length?`<div class="settle-who-row"><b>${en?'Also excluded':'Exclues aussi'}</b><span class="muted">${extra.map(esc).join(', ')}</span></div>`:''}${settlementBannedItems(st).length?`<div class="settle-who-row"><b>🚫 ${en?'Not sold here':'Introuvable ici'}</b><span>${settlementBannedItems(st).map(x=>`<span class="settle-item-chip">${esc(x)}</span>`).join('')}</span></div>`:''}</div>`}
+
+// V-SETTLEITEMS: a settlement can keep items off the market for the warbands
+// residing there ("Ithilmar" removes every item whose name contains it).
+function settlementBannedItems(st){return (Array.isArray(st?.bannedItems)?st.bannedItems:String(st?.bannedItems||'').split(/[,\n]/)).map(x=>String(x).trim()).filter(Boolean)}
+function settlementBansItem(st,name){const n=normName(name||'');if(!n)return false;return settlementBannedItems(st).some(b=>{const k=normName(b.replace(/\*/g,''));return k&&n.includes(k)})}
