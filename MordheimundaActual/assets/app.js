@@ -245,7 +245,7 @@ const COMMON_SKILL_TREES=['Agility','Brawn','Combat','Cunning','Ferocity','Leade
 const WARBAND_ROLE_ORDER=['Leader','Champion','Raw Recruit','Henchman','Animal','Hired Sword','Dramatis Personae'];
 // V-DPLABEL: a Dramatis Personae stays a Hired Sword internally (type) but is
 // shown as "Dramatis Personae" everywhere a role is displayed.
-function fighterTypeLabel(x){return x&&x.dramatis?'Dramatis Personae':String(x?.type||'')}
+function fighterTypeLabel(x){return x&&x.neutral?'NPC':x&&x.dramatis?'Dramatis Personae':String(x?.type||'')}
 function warbandRoleSortIndex(t){const i=WARBAND_ROLE_ORDER.indexOf(t);return i===-1?WARBAND_ROLE_ORDER.length:i;}
 // MAGIC_ACCESS access resolved for a faction, falling back to its base
 // faction's entry for a supplement/pack that doesn't define its own (e.g.
@@ -9448,7 +9448,7 @@ function fighterRuleCardMarkup(w,f){
 <div class="fcard-top">
 <span class="fname">${esc(w.name)}</span>
 <div class="fcard-top-meta">
-${maxBadge}<span class="fcost">${w.cost??0} GC</span>${w.type?`<span class="role-badge role-${esc(roleSlug)}">${esc(fighterTypeLabel(w))}</span>`:''}
+${w.neutral?'':`${maxBadge}<span class="fcost">${w.cost??0} GC</span>`}${w.type?`<span class="role-badge role-${esc(roleSlug)}">${esc(fighterTypeLabel(w))}</span>`:''}
 </div>
 </div>
 <div class="statbar">${statCells}</div>
@@ -9464,9 +9464,9 @@ ${exclusiveTrees.length?`<div class="opt-cat"><div class="cat-label">${en?'Warba
 <details class="opt-section"><summary><span>${en?'Magic available':'Magie disponible'} <span class="count">${domains.length||(en?'none':'aucune')}</span></span><span class="chev">▸</span></summary>
 <div class="opt-body"><div class="opt-list">${domains.length?magicRowsMarkup:`<span class="empty-note">${en?'This profile has no access to any magic domain.':'Ce profil n’a accès à aucun domaine de sort.'}</span>`}</div></div>
 </details>
-<details class="opt-section"><summary><span>${en?'Equipment available at recruitment':'Équipement disponible à la création'} <span class="count">${equipGroupSections.length} ${en?'categories':'catégories'}</span></span><span class="chev">▸</span></summary>
+${w.neutral?'':`<details class="opt-section"><summary><span>${en?'Equipment available at recruitment':'Équipement disponible à la création'} <span class="count">${equipGroupSections.length} ${en?'categories':'catégories'}</span></span><span class="chev">▸</span></summary>
 <div class="opt-body">${equipGroupSections.length?equipGroupSections.map(sec=>`<div class="opt-cat"><div class="cat-label">${esc(sec.label)}</div><div class="opt-list">${sec.items.map(name=>`<span class="opt-pill">${refLinkByName(name,'equipment')}</span>`).join('')}</div></div>`).join(''):`<div class="opt-list"><span class="empty-note">${en?'None':'Aucune'}</span></div>`}</div>
-</details>`}
+</details>`}`}
 </div>`;
 }
 // V-WBDETAILSECTIONS: shared wrapper for the four admin-editable sections
@@ -16573,7 +16573,7 @@ function customFighterRow(w,isOfficial,editHandler){const en=siteLanguage==='en'
   // editHandler lets a caller (customWarbandEditor's own Combattants roster)
   // route the ✎ button back to itself instead of the generic Custom
   // Générique editor — defaults to the normal standalone edit.
-  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">⚔</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isOfficial?`<span class="archived-tag official-tag">${en?'OFFICIALIZED':'OFFICIALISÉ'}</span> · `:''}${esc(w.type||'Henchman')} · ${esc(bandLabel)} · Race (${esc(fighterRace(w,null))}) · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('fighter',w.customFighterId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomFighterArchive('${w.customFighterId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" title="${en?'Duplicate — start a similar profile from this one':'Dupliquer — partir de ce profil pour en faire un similaire'}" onclick="duplicateCustomFighter('${w.customFighterId}')">⧉</button><button type="button" class="equipment-action" onclick="${editHandler||`editCustomFighter('${w.customFighterId}')`}">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomFighter('${w.customFighterId}')">🗑</button></div></article>`}
+  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">⚔</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isOfficial?`<span class="archived-tag official-tag">${en?'OFFICIALIZED':'OFFICIALISÉ'}</span> · `:''}${esc(w.neutral?'NPC':(w.type||'Henchman'))} · ${esc(bandLabel)} · Race (${esc(fighterRace(w,null))})${w.neutral?'':` · ${Number(w.cost||0)} GC`}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('fighter',w.customFighterId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomFighterArchive('${w.customFighterId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" title="${en?'Duplicate — start a similar profile from this one':'Dupliquer — partir de ce profil pour en faire un similaire'}" onclick="duplicateCustomFighter('${w.customFighterId}')">⧉</button><button type="button" class="equipment-action" onclick="${editHandler||`editCustomFighter('${w.customFighterId}')`}">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomFighter('${w.customFighterId}')">🗑</button></div></article>`}
 // V-DUPFIGHTERPROFILE: copy a custom fighter profile (stats, rules, skills,
 // equipment, access…) as a new, unpublished profile in the same warband, and
 // open it in the editor — so a similar model doesn't start from scratch.

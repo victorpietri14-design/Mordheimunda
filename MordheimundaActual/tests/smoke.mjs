@@ -1206,6 +1206,13 @@ await test('[desktop] neutral creatures are never hireable and their form hides 
     return {hire,hidden,own:document.getElementById('dpRulesField')?.style.display!=='none'}});
   expect(out.hire===false&&out.hidden&&out.own,'neutral creature hire/form: '+JSON.stringify(out));
 });
+await test('[desktop] neutral creatures are labelled NPC, without cost',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{state.customFighters=[...(state.customFighters||[]),{customFighterId:'nt9',name:'Swamp Beast',type:'Hired Sword',hiredSword:true,neutral:true,cost:0,max:1,profile:[6,3,0,4,4,3,2,2,6],race:'Beast',ruleNames:[],defaultEquipment:[]}];save(true);
+    navigateApp('/rules/warbands/neutral-creatures');await new Promise(z=>setTimeout(z,600));const t=document.getElementById('content').innerText;const i=t.indexOf('Swamp Beast');const seg=t.slice(i,i+120);
+    return {label:fighterTypeLabel({neutral:true,type:'Hired Sword'}),npc:/NPC/.test(seg),hs:/Hired Sword/i.test(seg),gc:/\bGC\b/.test(seg)}});
+  expect(out.label==='NPC'&&out.npc&&!out.hs&&!out.gc,'NPC label: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
