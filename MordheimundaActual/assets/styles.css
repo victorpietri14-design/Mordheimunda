@@ -5931,3 +5931,11 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .covref-example{margin-top:10px;border:1px dashed var(--line2,#4a4945);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
 .covref-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.covref-head select{max-width:60%}
 .ref-cov-section{margin-top:22px}.ref-cov-title{font:800 20px Cinzel,serif;margin:0 0 6px}.ref-cov-title small{font:700 12px 'IBM Plex Sans',sans-serif;color:var(--muted)}
+/* V-CMAPAV phone: smaller warband circles on the campaign map */
+@media (max-width:760px){
+  .cmap-avs .cmap-av{width:18px;height:18px;margin-left:-5px;border-width:1px;box-shadow:0 0 0 1.5px rgba(0,0,0,.75)}
+  .cmap-avs.left .cmap-av{margin-left:0;margin-right:-5px}
+  .cmap-avs .cmap-av:first-child{margin-left:0}.cmap-avs.left .cmap-av:first-child{margin-right:0}
+  .cmap-avs .cmap-av.mine{box-shadow:0 0 0 1.5px rgba(0,0,0,.8),0 0 0 3px var(--accent,#9dfa3c)}
+  .cmap-avs .cmap-av b{font-size:9px}.cmap-avs .cmap-av.more{font-size:8px}
+}
