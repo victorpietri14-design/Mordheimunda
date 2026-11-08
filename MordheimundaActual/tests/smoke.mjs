@@ -1146,6 +1146,14 @@ await test('[desktop] settlements ban whole races and show them',null,async page
   const it=await page.evaluate(()=>{const st={bannedItems:['Ithilmar','Elven Cloak']};return {ith:settlementBansItem(st,'Ithilmar Sword'),cloak:settlementBansItem(st,'Elven cloak'),sword:settlementBansItem(st,'Sword'),chip:/Introuvable ici/.test(settlementWhoMarkup({...st,excluded:[]},false))}});
   expect(it.ith&&it.cloak&&!it.sword&&it.chip,'items kept off a settlement market: '+JSON.stringify(it));
 });
+await test('[desktop] coverings listed in the Reference with a computed example',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{state.customEquipment=[...(state.customEquipment||[]),{customEquipmentId:'cov1',name:'Ithilmar',type:'covering',rarity:'Rare 11',market:true,covering:{strength:1,mult:3,traits:[]}}];save(true);
+    referenceCategory='equipment';navigateApp('/reference');await new Promise(z=>setTimeout(z,500));
+    const sec=document.getElementById('ref-coverings');const ex=sec?.querySelectorAll('.covering-preview-row').length||0;const txt=sec?.textContent||'';
+    return {sec:!!sec,ex,effect:/S \+1|F \+1/.test(txt),covered:/Ithilmar Sword/.test(txt)}});
+  expect(out.sec&&out.ex===2&&out.effect&&out.covered,'coverings in the reference: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0792.0';
+const APP_BUILD='110.0793.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1041,7 +1041,7 @@ function refTableAwareMarkup(text,excludeName){
     return `<p>${linkGlossaryInHtml(html,excludeName)}</p>`;
   }).join('');
 }
-function referenceEntryMarkup(e,cat){const en=siteLanguage==='en';const short=e.lines<=5;const sectionId=referenceOverrideSectionId(cat,e.id);const override=ruleEffectiveText(sectionId,0);const text=override!=null?override:e.text;const canEdit=isAdminEditUI();const isEditing=canEdit&&ruleOverridesEditKey===ruleOverrideKey(sectionId,0);const editBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Edit this entry (admin)':'Modifier cette entrée (admin)'}" onclick="openRuleEdit('${esc(sectionId)}',0);event.stopPropagation()">✎ ${ruleHasOverride(sectionId,0)?(en?'Modified':'Modifié'):(en?'Edit':'Modifier')}</button>`:'';const displayName=refDisplayName(cat,e);const titleBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Rename the title (admin)':'Renommer le titre (admin)'}" onclick="renameReferenceEntry('${cat}','${esc(e.id)}','${esc(displayName).replace(/'/g,"\\'")}');event.stopPropagation()">✎ ${refTitleEffective(cat,e.id)!=null?(en?'Title modified':'Titre modifié'):(en?'Title':'Titre')}</button>`:'';return `<article class="ref-entry" id="ref-entry-${esc(e.id)}"><div class="rh"><span class="rname">${esc(displayName)}</span>${e.category?`<span class="rtree">${esc(e.category)}</span>`:''}${(canEdit&&ruleHasOverride(sectionId,0))?`<span class="rule-override-tag">${en?'CORRECTED':'CORRIGÉ'}</span>`:''}${titleBtn}${editBtn}<button type="button" class="reference-peek-button" onclick="openReference('${cat}','${e.id}');event.stopPropagation()">ⓘ</button></div>${isEditing?ruleEditFormMarkup(sectionId,0,text):`<div class="rtext">${refTableAwareMarkup(text,e.name)}</div>`}${e.custom?`<div class="rsource"><span class="tag offi">${en?'Custom':'Personnalisé'}</span>${e.source?esc(e.source):''}</div>`:''}${!short?`<div class="reference-entry-meta">${en?`Full rule · ${e.lines} lines in source`:`Règle complète · ${e.lines} lignes dans la source`}</div>`:''}</article>`;}
+function referenceEntryMarkup(e,cat){const en=siteLanguage==='en';const short=e.lines<=5;const sectionId=referenceOverrideSectionId(cat,e.id);const override=ruleEffectiveText(sectionId,0);const text=override!=null?override:e.text;const canEdit=isAdminEditUI()&&!e.coveringName;const isEditing=canEdit&&ruleOverridesEditKey===ruleOverrideKey(sectionId,0);const editBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Edit this entry (admin)':'Modifier cette entrée (admin)'}" onclick="openRuleEdit('${esc(sectionId)}',0);event.stopPropagation()">✎ ${ruleHasOverride(sectionId,0)?(en?'Modified':'Modifié'):(en?'Edit':'Modifier')}</button>`:'';const displayName=refDisplayName(cat,e);const titleBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Rename the title (admin)':'Renommer le titre (admin)'}" onclick="renameReferenceEntry('${cat}','${esc(e.id)}','${esc(displayName).replace(/'/g,"\\'")}');event.stopPropagation()">✎ ${refTitleEffective(cat,e.id)!=null?(en?'Title modified':'Titre modifié'):(en?'Title':'Titre')}</button>`:'';return `<article class="ref-entry" id="ref-entry-${esc(e.id)}"><div class="rh"><span class="rname">${esc(displayName)}</span>${e.category?`<span class="rtree">${esc(e.category)}</span>`:''}${(canEdit&&ruleHasOverride(sectionId,0))?`<span class="rule-override-tag">${en?'CORRECTED':'CORRIGÉ'}</span>`:''}${titleBtn}${editBtn}<button type="button" class="reference-peek-button" onclick="openReference('${cat}','${e.id}');event.stopPropagation()">ⓘ</button></div>${isEditing?ruleEditFormMarkup(sectionId,0,text):`<div class="rtext">${refTableAwareMarkup(text,e.name)}</div>`}${e.custom?`<div class="rsource"><span class="tag offi">${en?'Custom':'Personnalisé'}</span>${e.source?esc(e.source):''}</div>`:''}${!short?`<div class="reference-entry-meta">${en?`Full rule · ${e.lines} lines in source`:`Règle complète · ${e.lines} lignes dans la source`}</div>`:''}${e.coveringName?coveringRefExampleBox(e):''}</article>`;}
 function referenceFilteredList(cat,q,src){let list=referenceEntries(cat);if(src==='book')list=list.filter(e=>!e.custom);else if(src==='custom')list=list.filter(e=>e.custom);
   // Terror now has its own standalone entry (CORE_SPECIAL_RULES above), so
   // a plain search for "terror" matches it directly — no Fear-alias
@@ -1787,7 +1787,7 @@ function referenceEquipmentBodyMarkup(q){
 }
 function referenceBodyMarkup(){
   const q=referenceSearch.trim().toLowerCase();
-  if(referenceCategory==='equipment')return referenceEquipmentBodyMarkup(q);
+  if(referenceCategory==='equipment')return referenceEquipmentBodyMarkup(q)+coveringReferenceSection(q);
   if(referenceCategory==='skills'||referenceCategory==='spells')return referenceGroupedBodyMarkup(referenceCategory,q);
   if(referenceCategory==='traits'||referenceCategory==='special')return referenceAlphaBodyMarkup(referenceCategory,q);
   return '';
@@ -17186,7 +17186,7 @@ function referenceEntriesUncached(category){
     // richer custom/officialized stat block is listed.
     const customNames=new Set(customs.map(c=>normName(c.name)));
     const base=(Array.isArray(RULES.categories?.equipment)?RULES.categories.equipment:[]).filter(e=>!hiddenNames.has(normName(e.name))&&!customNames.has(normName(e.name)));
-    return [...base,...customs];
+    return [...base,...customs,...coveringReferenceEntries()];
   }
   if(['traits','skills','spells','special'].includes(category))return customContentReferenceEntries(category);
   return Array.isArray(RULES.categories?.[category])?RULES.categories[category]:[];
@@ -19975,3 +19975,30 @@ function settlementWhoMarkup(st,en){const banned=(st.bannedRaces||[]).filter(Boo
 // residing there ("Ithilmar" removes every item whose name contains it).
 function settlementBannedItems(st){return (Array.isArray(st?.bannedItems)?st.bannedItems:String(st?.bannedItems||'').split(/[,\n]/)).map(x=>String(x).trim()).filter(Boolean)}
 function settlementBansItem(st,name){const n=normName(name||'');if(!n)return false;return settlementBannedItems(st).some(b=>{const k=normName(b.replace(/\*/g,''));return k&&n.includes(k)})}
+
+// ===================== V-COVERINGREF: coverings in the Reference =====================
+// Coverings (Ithilmar, Gromril…) are never a shop row of their own; their
+// effect only showed on covered weapons. The Reference now lists each one,
+// read straight from what the admin entered, with a live example computed by
+// the same coveredWeapon() the shops use.
+function coveringRefSlug(name){return 'covering-'+normName(name).replace(/[^a-z0-9]+/g,'-')}
+function coveringReferenceEntries(){let list=[];try{list=coveringList()}catch(e){return []}const en=siteLanguage==='en';
+ return list.map(c=>{const cv=c.covering||{};const ex=(Array.isArray(cv.excluded)?cv.excluded:[]).filter(Boolean);
+  let bands=[];try{bands=(D.factions||[]).filter(f=>f&&!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))&&coveringInScope(c,f)).map(f=>f.displayName||f.name||f.id)}catch(e){}
+  const lines=[
+   `${en?'Effect on the weapon':'Effet sur l’arme'} : ${coveringSummary(c)} ${en?'(× the weapon’s price)':'(× le prix de l’arme)'}`,
+   `${en?'Rarity':'Rareté'} : ${c.rarity||(en?'as the weapon':'celle de l’arme')}`,
+   `${en?'Applies to':'S’applique à'} : ${en?'every close-combat weapon':'toutes les armes de corps à corps'}${ex.length?` ${en?'except':'sauf'} ${ex.join(', ')}`:''}`,
+   `${en?'Band List of':'Band List de'} : ${bands.length?bands.join(', '):(en?'no warband':'aucune warband')} · ${en?'Market':'Marché'} : ${c.market?(en?'yes':'oui'):(en?'no':'non')}${coveringHeroesOnly(c)?` · ${en?'Heroes only':'Héros seulement'}`:''}`];
+  if(String(c.rulesText||'').trim())lines.push(String(c.rulesText).trim());
+  return {id:coveringRefSlug(c.name),name:c.name,category:en?'Coverings':'Revêtements',text:lines.join('\n\n'),lines:1,coveringName:c.name}})}
+const coveringRefPicks=new Map();
+function coveringRefExampleInner(name){const en=siteLanguage==='en';const c=coveringFind(null,name);if(!c)return '';const bases=coveringBaseCandidates().filter(b=>coveringAppliesTo(c,b));if(!bases.length)return `<p class="muted">${en?'No weapon can take it.':'Aucune arme ne peut le recevoir.'}</p>`;
+ const pick=coveringRefPicks.get(normName(name));const base=(pick&&bases.find(b=>normName(b.name)===pick))||bases.find(b=>normName(b.name)==='sword')||bases[0];const v=coveredWeapon(base,c);
+ const row=(it,label)=>`<div class="covering-preview-row"><small>${label}</small>${weaponProfileMarkup({...it,customEquipmentId:it.customEquipmentId||'preview'})}</div>`;
+ return `<div class="covref-head"><span class="micro-label">${en?'EXAMPLE':'EXEMPLE'}</span><select aria-label="${en?'Example weapon':'Arme d’exemple'}" onchange="coveringRefPick('${esc(name).replace(/'/g,"\\'")}',this.value)">${bases.map(b=>`<option value="${esc(b.name)}" ${b===base?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>${row(base,`${esc(base.name)} · ${Number(base.price||0)} GC`)}${row(v,`◆ ${esc(v.name)} · ${Number(v.price||0)} GC`)}`}
+function coveringRefExampleBox(e){return `<div class="covref-example" data-cov="${esc(normName(e.coveringName))}">${coveringRefExampleInner(e.coveringName)}</div>`}
+function coveringRefPick(name,base){coveringRefPicks.set(normName(name),normName(base));const box=document.querySelector(`.covref-example[data-cov="${CSS.escape(normName(name))}"]`);if(box)box.innerHTML=coveringRefExampleInner(name)}
+
+function coveringReferenceSection(q){const en=siteLanguage==='en';if(referenceSourceFilter==='book')return '';const list=coveringReferenceEntries().filter(e=>!q||normName(e.name).includes(normName(q))||normName(e.text).includes(normName(q)));if(!list.length)return '';
+ return `<section class="ref-cov-section" id="ref-coverings"><h2 class="ref-cov-title">◈ ${en?'Coverings':'Revêtements'} <small>${list.length}</small></h2><p class="muted" style="margin:0 0 10px;font-size:12.5px">${en?'A covering is applied to a close-combat weapon (e.g. an Ithilmar sword): it changes its profile and its price.':'Un revêtement s’applique à une arme de corps à corps (ex. une épée en ithilmar) : il modifie son profil et son prix.'}</p>${list.map(e=>referenceEntryMarkup(e,'equipment')).join('')}</section>`}

@@ -5926,3 +5926,8 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 
 .settle-item-chip{display:inline-flex;font:600 12px 'IBM Plex Sans',sans-serif;padding:3px 9px;border-radius:99px;border:1px dashed #6a5420;background:rgba(224,176,74,.08);color:var(--text);text-decoration:line-through;text-decoration-color:rgba(224,137,90,.8)}
 #stBanItems{font:14px/1.5 'IBM Plex Sans',sans-serif}
+
+/* V-COVERINGREF */
+.covref-example{margin-top:10px;border:1px dashed var(--line2,#4a4945);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.covref-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.covref-head select{max-width:60%}
+.ref-cov-section{margin-top:22px}.ref-cov-title{font:800 20px Cinzel,serif;margin:0 0 6px}.ref-cov-title small{font:700 12px 'IBM Plex Sans',sans-serif;color:var(--muted)}
