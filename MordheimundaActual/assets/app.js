@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0801.0';
+const APP_BUILD='110.0803.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -245,7 +245,7 @@ const COMMON_SKILL_TREES=['Agility','Brawn','Combat','Cunning','Ferocity','Leade
 const WARBAND_ROLE_ORDER=['Leader','Champion','Raw Recruit','Henchman','Animal','Hired Sword','Dramatis Personae'];
 // V-DPLABEL: a Dramatis Personae stays a Hired Sword internally (type) but is
 // shown as "Dramatis Personae" everywhere a role is displayed.
-function fighterTypeLabel(x){return x&&x.dramatis?'Dramatis Personae':String(x?.type||'')}
+function fighterTypeLabel(x){return x&&x.neutral?'NPC':x&&x.dramatis?'Dramatis Personae':String(x?.type||'')}
 function warbandRoleSortIndex(t){const i=WARBAND_ROLE_ORDER.indexOf(t);return i===-1?WARBAND_ROLE_ORDER.length:i;}
 // MAGIC_ACCESS access resolved for a faction, falling back to its base
 // faction's entry for a supplement/pack that doesn't define its own (e.g.
@@ -2867,10 +2867,10 @@ function syncAdminManagedFighter(x,r){
     const haveGranted=oldCounts.get(key)||0;
     for(let n=haveGranted;n<wantCount;n++){
       const name=desired.find(v=>normName(v)===key)||key;
-      const e=D.weapons.find(a=>normName(a.name)===key)||customEquipmentByName(name);
+      const e=D.weapons.find(a=>normName(a.name)===key)||customEquipmentByName(name)||coveredByName(name);
       if(!e)continue;
       const dv=defaultEquipmentItemPrice(e,r?faction(r):null);
-      const item={stashId:crypto.randomUUID(),name:e.name,paid:0,value:dv,price:dv,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],rulesText:e.rulesText||'',customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
+      const item={...coatedItemFields(e),stashId:crypto.randomUUID(),name:e.name,paid:0,value:dv,price:dv,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],rulesText:e.rulesText||'',customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true};
       collection.push(item);
       if(isLoadout){
         const active=x.equipmentLoadouts.find(l=>l.id===x.activeLoadoutId)||x.equipmentLoadouts[0];
@@ -8392,7 +8392,7 @@ function playSessionMarkupBase(){
   return `<div class="rules-shell-wrap scn-detail">
    <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div>${s.thumbnail?`<div class="scn-hero play-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text"><h2>${esc(s.name)}</h2></div></div>`:`<div class="play-scn-title"><h2 style="margin-top:6px">${esc(s.name)}</h2></div>`}<p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
-   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
+   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes),{ps}),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
   </div>`;
 }
 function playMode(){
@@ -8927,7 +8927,7 @@ function drawDeploymentMap(scenarioId){
 // V-SCNSECTIONS: the scenario's sections, empty ones left out, shared by
 // Rules › Scenarios and the Play mode Scenario tab (each passes its own
 // Deployment block).
-function scenarioSections(s,en,deployBody){
+function scenarioSections(s,en,deployBody,ctx){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const has=v=>String(v??'').replace(/<[^>]*>/g,'').trim().length>0;
   const txt=v=>`<div class="scn-text">${scenarioText(v||'')}</div>`;
@@ -8953,6 +8953,7 @@ function scenarioSections(s,en,deployBody){
   if(xp.length)add(en?'Experience':'Expérience',`<div class="scn-xp">${xp.map(x=>`<div class="scn-xp-row"><strong>${esc(x.name||'')}</strong>${has(x.text)?`<div>${esc(x.text)}</div>`:''}</div>`).join('')}</div>`);
   const ob=s.objectives||{};
   add(en?'Objectives':'Objectifs',(has(ob.primary)||has(ob.secondary))?`<div class="scn-list">${has(ob.primary)?`<div><strong>${en?'Primary:':'Principal :'}</strong> ${scenarioText(ob.primary)}</div>`:''}${has(ob.secondary)?`<div><strong>${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(ob.secondary)}</div>`:''}</div>`:'');
+  try{const npc=scenarioNpcMarkup(s,en,ctx?.ps);if(npc)add(en?'NPC — Neutral creatures':'PNJ — Créatures neutres',npc)}catch(e){}
   add(en?'End of Game':'Fin de Partie',has(s.endCondition)?txt(s.endCondition):'');
   const v=s.victory||{};
   add(en?'Victory':'Victoire',(has(v.major)||has(v.minor)||has(v.draw))?`<div class="scn-victory">${has(v.major)?`<div><strong>${en?'Major:':'Majeure :'}</strong> ${scenarioText(v.major)}</div>`:''}${has(v.minor)?`<div><strong>${en?'Minor:':'Mineure :'}</strong> ${scenarioText(v.minor)}</div>`:''}${has(v.draw)?`<div><strong>${en?'Draw:':'Nul :'}</strong> ${scenarioText(v.draw)}</div>`:''}</div>`:'');
@@ -8965,7 +8966,7 @@ function scenarioSections(s,en,deployBody){
 // Preparation · Play · Ending — with a thin line between sections instead of
 // one big spaced box each. opts.open: which parts start open (default all).
 function scenarioSectionGroup(title){const t=String(title||'').replace(/<[^>]*>/g,'');
-  if(/Special|Spéciale|Objective|Objectif/i.test(t))return 'j';
+  if(/Special|Spéciale|Objective|Objectif|NPC|PNJ/i.test(t))return 'j';
   if(/End of Game|Fin de Partie|Victory|Victoire|Experience|Expérience|Reward|Récompense/i.test(t))return 'f';
   return 'p'}
 const SCN_GROUP_ORDER=[/End of Game|Fin de Partie/i,/Victory|Victoire/i,/Experience|Expérience/i,/Reward|Récompense/i];
@@ -9448,7 +9449,7 @@ function fighterRuleCardMarkup(w,f){
 <div class="fcard-top">
 <span class="fname">${esc(w.name)}</span>
 <div class="fcard-top-meta">
-${maxBadge}<span class="fcost">${w.cost??0} GC</span>${w.type?`<span class="role-badge role-${esc(roleSlug)}">${esc(fighterTypeLabel(w))}</span>`:''}
+${w.neutral?'':`${maxBadge}<span class="fcost">${w.cost??0} GC</span>`}${w.type?`<span class="role-badge role-${esc(roleSlug)}">${esc(fighterTypeLabel(w))}</span>`:''}
 </div>
 </div>
 <div class="statbar">${statCells}</div>
@@ -9464,9 +9465,9 @@ ${exclusiveTrees.length?`<div class="opt-cat"><div class="cat-label">${en?'Warba
 <details class="opt-section"><summary><span>${en?'Magic available':'Magie disponible'} <span class="count">${domains.length||(en?'none':'aucune')}</span></span><span class="chev">▸</span></summary>
 <div class="opt-body"><div class="opt-list">${domains.length?magicRowsMarkup:`<span class="empty-note">${en?'This profile has no access to any magic domain.':'Ce profil n’a accès à aucun domaine de sort.'}</span>`}</div></div>
 </details>
-<details class="opt-section"><summary><span>${en?'Equipment available at recruitment':'Équipement disponible à la création'} <span class="count">${equipGroupSections.length} ${en?'categories':'catégories'}</span></span><span class="chev">▸</span></summary>
+${w.neutral?'':`<details class="opt-section"><summary><span>${en?'Equipment available at recruitment':'Équipement disponible à la création'} <span class="count">${equipGroupSections.length} ${en?'categories':'catégories'}</span></span><span class="chev">▸</span></summary>
 <div class="opt-body">${equipGroupSections.length?equipGroupSections.map(sec=>`<div class="opt-cat"><div class="cat-label">${esc(sec.label)}</div><div class="opt-list">${sec.items.map(name=>`<span class="opt-pill">${refLinkByName(name,'equipment')}</span>`).join('')}</div></div>`).join(''):`<div class="opt-list"><span class="empty-note">${en?'None':'Aucune'}</span></div>`}</div>
-</details>`}
+</details>`}`}
 </div>`;
 }
 // V-WBDETAILSECTIONS: shared wrapper for the four admin-editable sections
@@ -10360,7 +10361,7 @@ function playCampaignStripInject(html,ps){
 // conditions; only the host changes them, and only the host records the
 // result. Devices check a tiny "state" (revision + players) every 15 s while
 // the game screen is open and visible, and fetch the game only when it moved.
-const PLAY_SHARED_KEYS=['scenarioId','campaignId','tableSize','numBands','slots','groupColors','generated','conditions'];
+const PLAY_SHARED_KEYS=['scenarioId','campaignId','tableSize','numBands','slots','groupColors','generated','conditions','npcPick'];
 let playShareTimer=null,playShareBusy=false,playShareLastJson='',playShareLastCheck=0,playInvites=null,playInvitesAt=0,playInvitesHidden=new Set();
 function playIsGuest(ps=state.playSession){return ps?.shared?.role==='guest'}
 function playGuestBlocked(){if(!playIsGuest())return false;const en=siteLanguage==='en';toast(en?`Only ${state.playSession.shared.hostName||'the host'} can change this game`:`Seul ${state.playSession.shared.hostName||'l’hôte'} peut modifier cette partie`);return true}
@@ -12254,7 +12255,7 @@ function hiredSwordOptionKind(name,f){
   const domains=customMergedMagicDomains(f);if(Object.values(domains||{}).some(list=>(list||[]).some(sp=>normName(typeof sp==='string'?sp:sp?.name)===normName(name))))return 'spell';
   return 'skill';
 }
-function hiredSwordGearItem(name,extra){const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;return {stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),hsFixed:true,...(extra||{})}}
+function hiredSwordGearItem(name,extra){const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name)||coveredByName(name);if(!e)return null;return {...coatedItemFields(e),stashId:crypto.randomUUID(),name:e.name,paid:0,value:0,price:0,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),hsFixed:true,...(extra||{})}}
 let hiredSwordPickTarget=null;
 function hiredSwordChoiceModal(w,current,onConfirm,title){
   const en=siteLanguage==='en';
@@ -16573,7 +16574,7 @@ function customFighterRow(w,isOfficial,editHandler){const en=siteLanguage==='en'
   // editHandler lets a caller (customWarbandEditor's own Combattants roster)
   // route the ✎ button back to itself instead of the generic Custom
   // Générique editor — defaults to the normal standalone edit.
-  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">⚔</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isOfficial?`<span class="archived-tag official-tag">${en?'OFFICIALIZED':'OFFICIALISÉ'}</span> · `:''}${esc(w.type||'Henchman')} · ${esc(bandLabel)} · Race (${esc(fighterRace(w,null))}) · ${Number(w.cost||0)} GC</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('fighter',w.customFighterId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomFighterArchive('${w.customFighterId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" title="${en?'Duplicate — start a similar profile from this one':'Dupliquer — partir de ce profil pour en faire un similaire'}" onclick="duplicateCustomFighter('${w.customFighterId}')">⧉</button><button type="button" class="equipment-action" onclick="${editHandler||`editCustomFighter('${w.customFighterId}')`}">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomFighter('${w.customFighterId}')">🗑</button></div></article>`}
+  return `<article class="custom-item-row${w.archived?' is-archived':''}"><div class="custom-item-main"><div class="custom-item-icon">⚔</div><div><strong>${esc(w.name)}</strong><small>${w.archived?`<span class="archived-tag">${en?'ARCHIVED':'ARCHIVÉ'}</span> · `:''}${isOfficial?`<span class="archived-tag official-tag">${en?'OFFICIALIZED':'OFFICIALISÉ'}</span> · `:''}${esc(w.neutral?'NPC':(w.type||'Henchman'))} · ${esc(bandLabel)} · Race (${esc(fighterRace(w,null))})${w.neutral?'':` · ${Number(w.cost||0)} GC`}</small></div></div><div class="custom-item-actions">${officializeBtnMarkup('fighter',w.customFighterId,w.officialWarbandId)}<button type="button" class="equipment-action" title="${w.archived?(en?'Unarchive':'Désarchiver'):(en?'Archive':'Archiver')}" onclick="toggleCustomFighterArchive('${w.customFighterId}')">${w.archived?'⇤':'🗄'}</button><button type="button" class="equipment-action" title="${en?'Duplicate — start a similar profile from this one':'Dupliquer — partir de ce profil pour en faire un similaire'}" onclick="duplicateCustomFighter('${w.customFighterId}')">⧉</button><button type="button" class="equipment-action" onclick="${editHandler||`editCustomFighter('${w.customFighterId}')`}">✎</button><button type="button" class="equipment-action remove" onclick="deleteCustomFighter('${w.customFighterId}')">🗑</button></div></article>`}
 // V-DUPFIGHTERPROFILE: copy a custom fighter profile (stats, rules, skills,
 // equipment, access…) as a new, unpublished profile in the same warband, and
 // open it in the editor — so a similar model doesn't start from scratch.
@@ -16746,7 +16747,7 @@ function addFighterCore(wid){const r=activeRoster(),f=faction(r),custom=customFi
   // warbandLegalityBadgeMarkup, which read the roster live on every render
   // and flag it as illegal (with what to fix, on click) instead of refusing
   // the recruit outright or interrupting with a popup on every purchase.
-  const count=r.fighters.filter(x=>x.wid===wid).length;if(w.max!==null&&count>=w.max){toast(siteLanguage==='en'?'Limit reached for this profile':'Limite atteinte pour ce profil');return}if(!isHiredSword(w)){const sizeMax=warbandSizeLimitFor(f),size=warbandSizeCount(r);if(sizeMax&&size>=sizeMax){toast(siteLanguage==='en'?`Warband full: ${size}/${sizeMax} fighters (Hired Swords not counted)`:`Bande complète : ${size}/${sizeMax} combattants (Hired Swords non compris)`);return}}const recruitCost=fighterRecruitCost(w,f);if(r.gold<recruitCost){toast(siteLanguage==='en'?'Insufficient treasury':'Trésor insuffisant');return}const defaults=(w.defaultEquipment||[]).map(name=>{const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name);if(!e)return null;const dp=defaultEquipmentItemPrice(e,f);return {stashId:crypto.randomUUID(),name:e.name,paid:dp,value:dp,price:dp,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true}}).filter(Boolean);const fighter={...w,profile:effectiveFighterProfile(w,f),baseProfile:effectiveFighterProfile(w,f),sourceName:w.name,wid,instance:crypto.randomUUID(),name:w.name,xp:startingXpFor(w),defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:defaults,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],spells:Array.isArray(w.defaultSpells)?w.defaultSpells.slice():[],defaultSpellsGranted:Array.isArray(w.defaultSpells)?w.defaultSpells.slice():[],advancements:[],injuries:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId||null};if(fighterUsesLoadouts(fighter)){fighter.equipmentStash=defaults.slice();fighter.equipmentLoadouts=[{id:crypto.randomUUID(),name:'1',equipmentIds:defaults.map(e=>e.stashId),equipmentNames:defaults.map(e=>e.name)}];fighter.activeLoadoutId=fighter.equipmentLoadouts[0].id;syncLoadoutProjection(fighter);}r.fighters.push(fighter);syncCustomEquipmentEffects(fighter);r.gold-=recruitCost;logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(w.name)}</b> recruited into the warband — <b>${esc(w.type)}</b>, cost ${recruitCost} GC`:`<b>${esc(w.name)}</b> recruté dans la bande — <b>${esc(w.type)}</b>, coût ${recruitCost} GC`);save(true);render('builder');toast(siteLanguage==='en'?`✓ ${w.name} recruited — ${recruitCost} GC`:`✓ ${w.name} recruté — ${recruitCost} GC`);}
+  const count=r.fighters.filter(x=>x.wid===wid).length;if(w.max!==null&&count>=w.max){toast(siteLanguage==='en'?'Limit reached for this profile':'Limite atteinte pour ce profil');return}if(!isHiredSword(w)){const sizeMax=warbandSizeLimitFor(f),size=warbandSizeCount(r);if(sizeMax&&size>=sizeMax){toast(siteLanguage==='en'?`Warband full: ${size}/${sizeMax} fighters (Hired Swords not counted)`:`Bande complète : ${size}/${sizeMax} combattants (Hired Swords non compris)`);return}}const recruitCost=fighterRecruitCost(w,f);if(r.gold<recruitCost){toast(siteLanguage==='en'?'Insufficient treasury':'Trésor insuffisant');return}const defaults=(w.defaultEquipment||[]).map(name=>{const e=D.weapons.find(a=>normName(a.name)===normName(name))||customEquipmentByName(name)||coveredByName(name);if(!e)return null;const dp=defaultEquipmentItemPrice(e,f);return {...coatedItemFields(e),stashId:crypto.randomUUID(),name:e.name,paid:dp,value:dp,price:dp,category:e.category,subcategory:e.subcategory||e.category,rarity:e.rarity||'',availability:e.availability||e.rarity||'—',profile:e.profile||null,profile2:e.profile2||null,traits:e.traits||[],customEquipmentId:e.customEquipmentId||null,weaponSlotCost:weaponSlots(e),intrinsic:true}}).filter(Boolean);const fighter={...w,profile:effectiveFighterProfile(w,f),baseProfile:effectiveFighterProfile(w,f),sourceName:w.name,wid,instance:crypto.randomUUID(),name:w.name,xp:startingXpFor(w),defaultEquipmentGranted:(w.defaultEquipment||[]).slice(),equipmentSelected:defaults,skills:Array.isArray(w.defaultSkills)?w.defaultSkills.slice():[],spells:Array.isArray(w.defaultSpells)?w.defaultSpells.slice():[],defaultSpellsGranted:Array.isArray(w.defaultSpells)?w.defaultSpells.slice():[],advancements:[],injuries:[],notes:'',veteran:false,image:'',status:{recovery:false,captured:false,dead:false,critical:false},customFighterId:w.customFighterId||null};if(fighterUsesLoadouts(fighter)){fighter.equipmentStash=defaults.slice();fighter.equipmentLoadouts=[{id:crypto.randomUUID(),name:'1',equipmentIds:defaults.map(e=>e.stashId),equipmentNames:defaults.map(e=>e.name)}];fighter.activeLoadoutId=fighter.equipmentLoadouts[0].id;syncLoadoutProjection(fighter);}r.fighters.push(fighter);syncCustomEquipmentEffects(fighter);r.gold-=recruitCost;logHistory(r,'recruit',siteLanguage==='en'?`<b>${esc(w.name)}</b> recruited into the warband — <b>${esc(w.type)}</b>, cost ${recruitCost} GC`:`<b>${esc(w.name)}</b> recruté dans la bande — <b>${esc(w.type)}</b>, coût ${recruitCost} GC`);save(true);render('builder');toast(siteLanguage==='en'?`✓ ${w.name} recruited — ${recruitCost} GC`:`✓ ${w.name} recruté — ${recruitCost} GC`);}
 // V-DEFAULTEQUIPPRICE: default (starting) equipment used to be granted at
 // 0 GC: free at recruitment and worth nothing in the fighter's value. It now
 // costs its normal price (Band List price for this warband when it has one,
@@ -17031,7 +17032,8 @@ function customFighterEquipmentChooser(id,selected,mode){
   list.forEach(w=>{const c=canonEquipmentCategory(equipmentCategory(w));(groups[c]||(groups[c]=[])).push(w)});
   const ar=activeRoster(),af=ar?faction(ar):D.factions.find(f=>!f.packId);
   const orderedCats=EQUIPMENT_SECTIONS.map(s=>s.cat).filter(c=>groups[c]);
-  return `<div class="custom-equipment-chooser">${orderedCats.map(cat=>{const items=groups[cat];return `<details class="custom-mini-collapse"><summary>${esc(cat)} <small>${items.length}</small></summary><div class="custom-equipment-checks">${items.map(w=>`<label><input class="${id}" data-name="${esc(w.name)}" type="checkbox" ${set.has(normName(w.name))?'checked':''}><span>${refLink('equipment',w.name,w.name)}<small>${isDraftCustomEquipment(w)?'CUSTOM · ':''}${equipmentPrice(w,af,'band')??0} GC</small></span></label>`).join('')}</div></details>`}).join('')}</div>`;
+  const coated=mode==='default'?coatedWeaponChoices():[];if(coated.length){groups.__coated=coated;orderedCats.push('__coated')}
+  return `<div class="custom-equipment-chooser">${orderedCats.map(cat=>{const items=groups[cat];return `<details class="custom-mini-collapse"${cat==='__coated'&&items.some(w=>set.has(normName(w.name)))?' open':''}><summary>${cat==='__coated'?(siteLanguage==='en'?'◆ Coated weapons':'◆ Armes revêtues'):esc(cat)} <small>${items.length}</small></summary><div class="custom-equipment-checks">${items.map(w=>`<label><input class="${id}" data-name="${esc(w.name)}" type="checkbox" ${set.has(normName(w.name))?'checked':''}><span>${refLink('equipment',w.name,w.name)}<small>${isDraftCustomEquipment(w)?'CUSTOM · ':''}${equipmentPrice(w,af,'band')??0} GC</small></span></label>`).join('')}</div></details>`}).join('')}</div>`;
 }
 function fighterPool(f,opts={}){
   // A custom warband's own `f.warriors` (built by customWarbandWarriors) already
@@ -20041,3 +20043,21 @@ function hazardCreatureMarkup(w){try{const en=siteLanguage==='en';const a=hiredS
  let sv='';try{const parts=armorSaveInfo({...a,equipmentSelected:[]}).parts||[];if(parts.length)sv=parts.map(n=>n+'+').join(' / ')}catch(e){}
  const weapons=dpOwnWeaponItems(w);const gear=(a.defaultEquipment||[]).map(n=>n?.name||n).filter(Boolean);const rules=(a.ruleNames||[]).filter(Boolean);
  return `<div class="hz-creature"><div class="hz-cr-head"><b>${esc(w.name)}</b>${sv?`<span class="hz-cr-sv">${en?'Save':'Sauvegarde'} <b>${esc(sv)}</b></span>`:''}</div>${p.length===9?hazardProfileTable(p):''}${weapons.length?`<div class="hz-cr-weapons">${weapons.map(e=>weaponProfileMarkup(e,a)).join('')}</div>`:''}${gear.length?`<small>${en?'Equipment':'Équipement'}: ${gear.map(n=>refLink('equipment',n,n)).join(', ')}</small>`:''}${rules.length?`<div class="hz-rules">${rules.map(r=>`<span>${refLink('special',r,r)}</span>`).join('')}</div>`:''}${dramatisRulesMarkup(a)}</div>`}catch(e){return ''}}
+
+// V-SCNNPC: a scenario's NPC profiles. "all": every listed creature takes
+// part. "choose": the players pick ONE in Play Mode (kept in the game).
+function scenarioNpcEntries(s){const l=Array.isArray(s?.npcs?.list)?s.npcs.list:[];return l.map(x=>({x,w:hazardCreatureOf({creatureId:x.id,creatureName:x.name})})).filter(e=>e.w)}
+function scenarioNpcMarkup(s,en,ps){const ents=scenarioNpcEntries(s);if(!ents.length)return '';const choose=s.npcs?.mode==='choose'&&ents.length>1;const note=String(s.npcs?.note||'').trim();
+ const card=e=>`<div class="scn-npc-card">${e.x.count&&e.x.count!=='1'?`<span class="scn-npc-count">× ${esc(e.x.count)}</span>`:''}${hazardCreatureMarkup(e.w)}</div>`;
+ const head=`${choose?`<p class="scn-npc-hint">${en?'Choose ONE of these profiles:':'Choisissez UN de ces profils :'}</p>`:''}${note?`<div class="scn-text">${scenarioText(note)}</div>`:''}`;
+ if(choose&&ps){const pick=ents.find(e=>neutralCreatureKey(e.w)===ps.npcPick);
+  if(pick)return `<div class="scn-npc"><div class="scn-npc-chosen"><span class="micro-label">${en?'CHOSEN PROFILE':'PROFIL CHOISI'}</span><button type="button" class="button secondary small" onclick="playNpcPick('')">${en?'Change':'Changer'}</button></div>${note?`<div class="scn-text">${scenarioText(note)}</div>`:''}${card(pick)}</div>`;
+  return `<div class="scn-npc">${head}<div class="scn-npc-btns">${ents.map(e=>`<button type="button" class="button primary" onclick="playNpcPick('${esc(neutralCreatureKey(e.w)).replace(/'/g,"\\'")}')">${esc(e.w.name)}${e.x.count&&e.x.count!=='1'?` × ${esc(e.x.count)}`:''}</button>`).join('')}</div><div class="scn-npc-grid">${ents.map(card).join('')}</div></div>`}
+ return `<div class="scn-npc">${head}<div class="scn-npc-grid">${ents.map(card).join('')}</div></div>`}
+function playNpcPick(k){if(typeof playGuestBlocked==='function'&&playGuestBlocked())return;const ps=state.playSession;if(!ps)return;ps.npcPick=k||null;save();render('playMode')}
+
+// V-COATEDSTART: a coated weapon ("Obsidian Sword") can be a fighter's default
+// / fixed equipment. It is rebuilt live from its covering + base weapon
+// (coveredByName), so editing the covering updates the fighter's weapon too.
+function coatedWeaponChoices(){try{const covs=coveringList();if(!covs.length)return [];const bases=coveringBaseCandidates();const out=[];covs.forEach(c=>bases.forEach(b=>{if(coveringAppliesTo(c,b))out.push(coveredWeapon(b,c))}));return out.sort((a,b)=>a.name.localeCompare(b.name))}catch(e){return []}}
+function coatedItemFields(e){return e?.coveredVariant?{coveredVariant:true,coveringId:e.coveringId||null,coveringName:e.coveringName||'',coveringBase:e.coveringBase||'',rulesText:e.rulesText||''}:{}}

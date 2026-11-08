@@ -5951,3 +5951,10 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 /* V-PLAYHERO: Play shows the scenario picture as a banner, like Rules › Scenarios */
 .scn-hero.play-hero{margin:8px 0 6px;height:clamp(140px,20vw,220px)}
 .page-intro:has(.play-hero)>div{flex:1 1 auto;max-width:none;width:100%}
+
+/* V-SCNNPC */
+.scn-npc{display:flex;flex-direction:column;gap:10px}.scn-npc-hint{margin:0;font-weight:700;color:var(--accent)}
+.scn-npc-btns{display:flex;flex-wrap:wrap;gap:8px}.scn-npc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.scn-npc-card{position:relative;border:1px solid var(--line);border-radius:10px;padding:10px}.scn-npc-count{position:absolute;top:8px;right:10px;font:800 13px 'IBM Plex Sans',sans-serif;color:var(--accent)}
+.scn-npc-card .hz-cr-head{padding-right:44px}.scn-npc-chosen{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.scn-npc-pick{display:flex;flex-direction:column;gap:6px}.scn-npc-pick .custom-check{display:flex;align-items:center;gap:8px}.scn-npc-pick .custom-check span{flex:1}
