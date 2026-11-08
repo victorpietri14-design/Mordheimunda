@@ -1178,6 +1178,13 @@ await test('[desktop] settlement moves: free first pick, then one per game, neve
     setCampaignResidence('a');o.again=r().campaignResidence;}finally{adminViewMode=_av}return o});
   expect(out.first==='a'&&out.blocked==='a'&&out.midPb==='a'&&out.after==='b'&&out.again==='b','residence moves: '+JSON.stringify(out));
 });
+await test('[desktop] campaign menu: a section with one page is a direct link, play colours hidden until random map',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const c={id:'cn1',name:'L',status:'published',members:[],definition:{pages:[{id:'a',title:'1. Setup',text:'x'},{id:'b',title:'1.1 Start',text:'x'},{id:'c',title:'2. Experience',text:'x'},{id:'d',title:'3. Income',text:'x'}]}};campaignDetailCache.set('cn1',c);campaignDetailFresh.add('cn1');navigateApp('/rules/campaign/cn1');await new Promise(z=>setTimeout(z,400));
+    const groups=document.querySelectorAll('.camp-nav .rn-group').length;const direct=[...document.querySelectorAll('.camp-nav > .rn-item')].some(a=>/Experience/.test(a.textContent));
+    const ps={generated:null};const hidden=!playColorsShown(ps);const shown=playColorsShown({generated:{source:'random'}});return {groups,direct,hidden,shown}});
+  expect(out.groups===1&&out.direct&&out.hidden&&out.shown,'campaign menu / play colours: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
