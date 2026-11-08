@@ -1136,6 +1136,14 @@ await test('[desktop] stat origin, sync pill, new-player preview, rules without 
     return {adv:parts.rows.some(r=>/Advances/.test(r[0])&&r[1]===1),inj:legs.rows.some(r=>/Leg wound/.test(r[0])&&r[1]===-1),cell:!!cell,sheet,pill:pill===null||typeof pill.t==='string',miss}});
   expect(out.adv&&out.inj&&out.cell&&/4|5|6/.test(out.sheet)&&out.pill&&typeof out.miss==='number','stat origin etc: '+JSON.stringify(out));
 });
+await test('[desktop] settlements ban whole races and show them',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>/reikland/i.test(x.displayName||''));const g=D.factions.find(x=>/skaven/i.test(x.displayName||''));raceTagMap.set(f.id,'Humain');raceTagMap.set(g.id,'Skaven');
+    const st={id:'s',name:'Skeggi',bannedRaces:['Skaven'],excluded:[]};
+    const html=settlementWhoMarkup(st,false);const open=settlementWhoMarkup({id:'o',name:'X',excluded:[]},false);
+    return {human:settlementAllows(st,f.id),skaven:settlementAllows(st,g.id),shows:/Races proscrites/.test(html)&&/Skaven/.test(html),open:/Toutes les races/.test(open)}});
+  expect(out.human&&!out.skaven&&out.shows&&out.open,'race bans: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

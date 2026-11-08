@@ -5911,3 +5911,15 @@ html[data-theme="light"] .help-check{background:#f4f6ef}html[data-theme="light"]
 .settle-notes-body p{margin:0 0 8px}.settle-notes-body p:last-child{margin-bottom:0}
 html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light"] .settle-notes-head{color:#8a6510}
 .st-notes-field textarea{min-height:180px;font-size:14px;line-height:1.5}
+
+/* V-SETTLERACES */
+.settle-who{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.settle-who-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px}
+.settle-who-row b{font:800 11px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#e0895a}
+.settle-who-row.ok b{color:var(--accent)}
+.settle-who-row>span{display:flex;flex-wrap:wrap;gap:5px}
+.settle-race-chip{display:inline-flex;align-items:center;gap:5px;font:700 12px 'IBM Plex Sans',sans-serif;padding:3px 9px;border-radius:99px;border:1px solid color-mix(in srgb,var(--rc,#888) 60%,transparent);background:color-mix(in srgb,var(--rc,#888) 16%,transparent);color:var(--text)}
+.settle-race-chip::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--rc,#888)}
+.settle-race-checks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.settle-adv{margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:6px 10px}
+.settle-adv summary{cursor:pointer;font-size:12.5px;color:var(--muted);min-height:30px;display:flex;align-items:center}
