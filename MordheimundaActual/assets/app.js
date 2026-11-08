@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0801.0';
+const APP_BUILD='110.0802.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8392,7 +8392,7 @@ function playSessionMarkupBase(){
   return `<div class="rules-shell-wrap scn-detail">
    <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div>${s.thumbnail?`<div class="scn-hero play-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text"><h2>${esc(s.name)}</h2></div></div>`:`<div class="play-scn-title"><h2 style="margin-top:6px">${esc(s.name)}</h2></div>`}<p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
-   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
+   ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes),{ps}),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
   </div>`;
 }
 function playMode(){
@@ -8927,7 +8927,7 @@ function drawDeploymentMap(scenarioId){
 // V-SCNSECTIONS: the scenario's sections, empty ones left out, shared by
 // Rules › Scenarios and the Play mode Scenario tab (each passes its own
 // Deployment block).
-function scenarioSections(s,en,deployBody){
+function scenarioSections(s,en,deployBody,ctx){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const has=v=>String(v??'').replace(/<[^>]*>/g,'').trim().length>0;
   const txt=v=>`<div class="scn-text">${scenarioText(v||'')}</div>`;
@@ -8953,6 +8953,7 @@ function scenarioSections(s,en,deployBody){
   if(xp.length)add(en?'Experience':'Expérience',`<div class="scn-xp">${xp.map(x=>`<div class="scn-xp-row"><strong>${esc(x.name||'')}</strong>${has(x.text)?`<div>${esc(x.text)}</div>`:''}</div>`).join('')}</div>`);
   const ob=s.objectives||{};
   add(en?'Objectives':'Objectifs',(has(ob.primary)||has(ob.secondary))?`<div class="scn-list">${has(ob.primary)?`<div><strong>${en?'Primary:':'Principal :'}</strong> ${scenarioText(ob.primary)}</div>`:''}${has(ob.secondary)?`<div><strong>${en?'Secondary:':'Secondaire :'}</strong> ${scenarioText(ob.secondary)}</div>`:''}</div>`:'');
+  try{const npc=scenarioNpcMarkup(s,en,ctx?.ps);if(npc)add(en?'NPC — Neutral creatures':'PNJ — Créatures neutres',npc)}catch(e){}
   add(en?'End of Game':'Fin de Partie',has(s.endCondition)?txt(s.endCondition):'');
   const v=s.victory||{};
   add(en?'Victory':'Victoire',(has(v.major)||has(v.minor)||has(v.draw))?`<div class="scn-victory">${has(v.major)?`<div><strong>${en?'Major:':'Majeure :'}</strong> ${scenarioText(v.major)}</div>`:''}${has(v.minor)?`<div><strong>${en?'Minor:':'Mineure :'}</strong> ${scenarioText(v.minor)}</div>`:''}${has(v.draw)?`<div><strong>${en?'Draw:':'Nul :'}</strong> ${scenarioText(v.draw)}</div>`:''}</div>`:'');
@@ -8965,7 +8966,7 @@ function scenarioSections(s,en,deployBody){
 // Preparation · Play · Ending — with a thin line between sections instead of
 // one big spaced box each. opts.open: which parts start open (default all).
 function scenarioSectionGroup(title){const t=String(title||'').replace(/<[^>]*>/g,'');
-  if(/Special|Spéciale|Objective|Objectif/i.test(t))return 'j';
+  if(/Special|Spéciale|Objective|Objectif|NPC|PNJ/i.test(t))return 'j';
   if(/End of Game|Fin de Partie|Victory|Victoire|Experience|Expérience|Reward|Récompense/i.test(t))return 'f';
   return 'p'}
 const SCN_GROUP_ORDER=[/End of Game|Fin de Partie/i,/Victory|Victoire/i,/Experience|Expérience/i,/Reward|Récompense/i];
@@ -10360,7 +10361,7 @@ function playCampaignStripInject(html,ps){
 // conditions; only the host changes them, and only the host records the
 // result. Devices check a tiny "state" (revision + players) every 15 s while
 // the game screen is open and visible, and fetch the game only when it moved.
-const PLAY_SHARED_KEYS=['scenarioId','campaignId','tableSize','numBands','slots','groupColors','generated','conditions'];
+const PLAY_SHARED_KEYS=['scenarioId','campaignId','tableSize','numBands','slots','groupColors','generated','conditions','npcPick'];
 let playShareTimer=null,playShareBusy=false,playShareLastJson='',playShareLastCheck=0,playInvites=null,playInvitesAt=0,playInvitesHidden=new Set();
 function playIsGuest(ps=state.playSession){return ps?.shared?.role==='guest'}
 function playGuestBlocked(){if(!playIsGuest())return false;const en=siteLanguage==='en';toast(en?`Only ${state.playSession.shared.hostName||'the host'} can change this game`:`Seul ${state.playSession.shared.hostName||'l’hôte'} peut modifier cette partie`);return true}
@@ -20041,3 +20042,15 @@ function hazardCreatureMarkup(w){try{const en=siteLanguage==='en';const a=hiredS
  let sv='';try{const parts=armorSaveInfo({...a,equipmentSelected:[]}).parts||[];if(parts.length)sv=parts.map(n=>n+'+').join(' / ')}catch(e){}
  const weapons=dpOwnWeaponItems(w);const gear=(a.defaultEquipment||[]).map(n=>n?.name||n).filter(Boolean);const rules=(a.ruleNames||[]).filter(Boolean);
  return `<div class="hz-creature"><div class="hz-cr-head"><b>${esc(w.name)}</b>${sv?`<span class="hz-cr-sv">${en?'Save':'Sauvegarde'} <b>${esc(sv)}</b></span>`:''}</div>${p.length===9?hazardProfileTable(p):''}${weapons.length?`<div class="hz-cr-weapons">${weapons.map(e=>weaponProfileMarkup(e,a)).join('')}</div>`:''}${gear.length?`<small>${en?'Equipment':'Équipement'}: ${gear.map(n=>refLink('equipment',n,n)).join(', ')}</small>`:''}${rules.length?`<div class="hz-rules">${rules.map(r=>`<span>${refLink('special',r,r)}</span>`).join('')}</div>`:''}${dramatisRulesMarkup(a)}</div>`}catch(e){return ''}}
+
+// V-SCNNPC: a scenario's NPC profiles. "all": every listed creature takes
+// part. "choose": the players pick ONE in Play Mode (kept in the game).
+function scenarioNpcEntries(s){const l=Array.isArray(s?.npcs?.list)?s.npcs.list:[];return l.map(x=>({x,w:hazardCreatureOf({creatureId:x.id,creatureName:x.name})})).filter(e=>e.w)}
+function scenarioNpcMarkup(s,en,ps){const ents=scenarioNpcEntries(s);if(!ents.length)return '';const choose=s.npcs?.mode==='choose'&&ents.length>1;const note=String(s.npcs?.note||'').trim();
+ const card=e=>`<div class="scn-npc-card">${e.x.count&&e.x.count!=='1'?`<span class="scn-npc-count">× ${esc(e.x.count)}</span>`:''}${hazardCreatureMarkup(e.w)}</div>`;
+ const head=`${choose?`<p class="scn-npc-hint">${en?'Choose ONE of these profiles:':'Choisissez UN de ces profils :'}</p>`:''}${note?`<div class="scn-text">${scenarioText(note)}</div>`:''}`;
+ if(choose&&ps){const pick=ents.find(e=>neutralCreatureKey(e.w)===ps.npcPick);
+  if(pick)return `<div class="scn-npc"><div class="scn-npc-chosen"><span class="micro-label">${en?'CHOSEN PROFILE':'PROFIL CHOISI'}</span><button type="button" class="button secondary small" onclick="playNpcPick('')">${en?'Change':'Changer'}</button></div>${note?`<div class="scn-text">${scenarioText(note)}</div>`:''}${card(pick)}</div>`;
+  return `<div class="scn-npc">${head}<div class="scn-npc-btns">${ents.map(e=>`<button type="button" class="button primary" onclick="playNpcPick('${esc(neutralCreatureKey(e.w)).replace(/'/g,"\\'")}')">${esc(e.w.name)}${e.x.count&&e.x.count!=='1'?` × ${esc(e.x.count)}`:''}</button>`).join('')}</div><div class="scn-npc-grid">${ents.map(card).join('')}</div></div>`}
+ return `<div class="scn-npc">${head}<div class="scn-npc-grid">${ents.map(card).join('')}</div></div>`}
+function playNpcPick(k){if(typeof playGuestBlocked==='function'&&playGuestBlocked())return;const ps=state.playSession;if(!ps)return;ps.npcPick=k||null;save();render('playMode')}

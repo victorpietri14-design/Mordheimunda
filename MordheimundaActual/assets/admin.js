@@ -1988,6 +1988,7 @@ function scenarioEditorCollect(){
     experience:linesToPairs(v('seExperience')).map(p=>({name:p.a,text:p.b})),
     objectives:{primary:v('seObjPrimary'),secondary:v('seObjSecondary')},
     endCondition:v('seEndCondition'),
+    npcs:{mode:document.getElementById('seNpcMode')?.value==='choose'?'choose':'all',note:v('seNpcNote'),list:[...document.querySelectorAll('.seNpc:checked')].map(cb=>({id:cb.value,name:cb.dataset.name||'',count:(document.querySelector(`.seNpcCount[data-id="${CSS.escape(cb.value)}"]`)?.value||'1').trim()}))},
     victory:{major:v('seVictoryMajor'),minor:v('seVictoryMinor'),draw:v('seVictoryDraw')},
     rewards:(t=>scenarioTextIsRich(t)?[t.trim()]:linesToList(t))(v('seRewards')),
     campaignSeries:{seriesId:'',seriesName:v('seSeriesName'),position:v('seSeriesPosition')},
@@ -2117,6 +2118,8 @@ function scenarioEditorPanel(){
      <div class="scn-field"><label>${en?'Primary objective':'Objectif principal'}</label><textarea id="seObjPrimary" rows="2">${esc(d.objectives?.primary||'')}</textarea></div>
      <div class="scn-field"><label>${en?'Secondary objective':'Objectif secondaire'}</label><textarea id="seObjSecondary" rows="2">${esc(d.objectives?.secondary||'')}</textarea></div>
    </section>
+
+   ${scenarioNpcEditorMarkup(d,en)}
 
    <section class="scn-sec"><div class="scn-sectitle">10 · ${en?'End of Game':'Fin de Partie'}</div>
      <div class="scn-field"><label>${en?'End condition':'Condition de fin'}</label><textarea id="seEndCondition" rows="2">${esc(d.endCondition||'')}</textarea></div>
@@ -2512,3 +2515,10 @@ function adminLogMarkup(){const en=siteLanguage==='en';if(!adminLogData){setTime
  const verb=m=>m==='RESTORE'?(en?'restored':'a rétabli'):m==='DELETE'?(en?'deleted':'a supprimé'):m==='POST'?(en?'added':'a ajouté'):(en?'changed':'a modifié');
  const rows=adminLogData.entries.map(e=>`<div class="adlog-row${e.restored_at?' done':''}"><div class="adlog-main"><b>${esc(adminLogLabel(e))}</b><small>${esc(fmt(e.at))} · ${esc(e.username||'?')} ${verb(e.method)}${e.restored_at?` · ${en?'restored by':'rétabli par'} ${esc(e.restored_by||'?')}`:''}</small></div>${e.restorable&&!e.restored_at?`<button type="button" class="button secondary small" onclick="adminLogRestore(${Number(e.id)})">↶ ${en?'Restore':'Rétablir'}</button>`:''}</div>`).join('');
  return `<div class="card admin-card"><p class="custom-field-help">${en?'Every admin change since this log was added. “Restore” puts back the value from just before that change (rules, catalogue, weapons, races, magic domains, help texts, looks, prices, limits, quests, trophies, event).':'Toutes les modifications admin depuis l’ajout de ce journal. « Rétablir » remet la valeur d’avant cette modification (règles, catalogue, armes, races, domaines de magie, textes de l’aide, apparences, prix, limites, quêtes, trophées, évènement).'}</p>${rows||`<p class="muted">${en?'Nothing yet.':'Rien pour l’instant.'}</p>`}<div class="custom-actions"><button type="button" class="button secondary" onclick="adminLogData=null;render('admin')">↻ ${en?'Refresh':'Actualiser'}</button>${adminLogData.end?'':`<button type="button" class="button secondary" onclick="loadAdminLog(true)">${en?'Older':'Plus ancien'}</button>`}</div></div>`}
+
+// V-SCNNPC: scenario editor — NPC profiles (neutral creatures)
+function scenarioNpcEditorMarkup(d,en){const cur=d?.npcs||{};const picked=new Map((cur.list||[]).map(x=>[x.id||normName(x.name),x]));const list=neutralCreatureList();
+ return `<section class="scn-sec"><div class="scn-sectitle">NPC · ${en?'Neutral creatures in this scenario':'Créatures neutres du scénario'}</div>
+  ${list.length?`<div class="scn-field"><label>${en?'How they are used':'Utilisation'}</label><select id="seNpcMode"><option value="all" ${cur.mode!=='choose'?'selected':''}>${en?'All the ticked profiles take part':'Tous les profils cochés participent'}</option><option value="choose" ${cur.mode==='choose'?'selected':''}>${en?'The players choose ONE of the ticked profiles':'Les joueurs choisissent UN des profils cochés'}</option></select></div>
+  <div class="scn-npc-pick">${list.map(w=>{const k=neutralCreatureKey(w);const hit=picked.get(k)||[...picked.values()].find(x=>normName(x.name)===normName(w.name));return `<label class="custom-check"><input type="checkbox" class="seNpc" value="${esc(k)}" data-name="${esc(w.name)}" ${hit?'checked':''}><span>${esc(w.name)}</span><input class="seNpcCount" data-id="${esc(k)}" value="${esc(hit?.count||'1')}" title="${en?'How many (e.g. 1, D3, 2D3)':'Combien (ex. 1, D3, 2D3)'}" style="width:64px"></label>`}).join('')}</div>
+  <div class="scn-field"><label>${en?'Note (where they are placed, who controls them…)':'Note (où on les place, qui les contrôle…)'}</label><textarea id="seNpcNote" rows="2">${esc(cur.note||'')}</textarea></div>`:`<p class="muted">${en?'No neutral creature yet: create one in Custom › Hired Swords with “Neutral creature” ticked, and publish it (☆).':'Aucune créature neutre : crée-en une dans Custom › Hired Swords avec « Créature neutre » coché, et publie-la (☆).'}</p>`}</section>`}

@@ -1143,6 +1143,9 @@ function validateScenarioDefinition(body){
     experience:Array.isArray(body?.experience)?body.experience.slice(0,20).map(x=>({name:str(x?.name,120),text:str(x?.text,500)})):[],
     objectives:{primary:str(body?.objectives?.primary,2000),secondary:str(body?.objectives?.secondary,2000)},
     endCondition:str(body?.endCondition,2000),
+    // V-SCNNPC: neutral creatures (NPC profiles) the scenario brings — all of
+    // them, or the players pick ONE of the listed profiles.
+    npcs:{mode:body?.npcs?.mode==='choose'?'choose':'all',note:str(body?.npcs?.note,1000),list:Array.isArray(body?.npcs?.list)?body.npcs.list.slice(0,12).map(x=>({id:str(x?.id,120),name:str(x?.name,120),count:str(x?.count,20)})).filter(x=>x.id||x.name):[]},
     victory:{major:str(body?.victory?.major,1000),minor:str(body?.victory?.minor,1000),draw:str(body?.victory?.draw,1000)},
     rewards:arrOf(body?.rewards,30,2000),
     campaignSeries:{seriesId:str(body?.campaignSeries?.seriesId,120),seriesName:str(body?.campaignSeries?.seriesName,120),position:str(body?.campaignSeries?.position,20)},

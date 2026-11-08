@@ -1213,6 +1213,17 @@ await test('[desktop] neutral creatures are labelled NPC, without cost',null,asy
     return {label:fighterTypeLabel({neutral:true,type:'Hired Sword'}),npc:/NPC/.test(seg),hs:/Hired Sword/i.test(seg),gc:/\bGC\b/.test(seg)}});
   expect(out.label==='NPC'&&out.npc&&!out.hs&&!out.gc,'NPC label: '+JSON.stringify(out));
 });
+await test('[desktop] scenario NPCs: listed on the rules page, players choose one in Play',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const mk=(id,n)=>({customFighterId:id,name:n,type:'Hired Sword',hiredSword:true,neutral:true,cost:0,max:1,profile:[6,3,0,4,4,3,2,2,6],race:'Beast',ruleNames:[],defaultEquipment:[]});
+    state.customFighters=[...(state.customFighters||[]),mk('na1','Carnosaur Z'),mk('nb1','Giant Spider Z')];save(true);
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'snz',name:'Beast Hunt',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Jungle'},endCondition:'x',victory:{major:'Win'},npcs:{mode:'choose',list:[{id:'na1',name:'Carnosaur Z',count:'1'},{id:'nb1',name:'Giant Spider Z',count:'D3'}]}}];
+    currentScenarioId='snz';render('scenarioDetail');await new Promise(z=>setTimeout(z,200));const rules=document.querySelectorAll('#content .scn-npc-card').length;
+    playStartScenarioWithBands('snz',2);render('playMode');await new Promise(z=>setTimeout(z,200));const btns=document.querySelectorAll('.scn-npc-btns button').length;
+    playNpcPick('nb1');await new Promise(z=>setTimeout(z,200));const cards=[...document.querySelectorAll('#content .scn-npc-card')].map(c=>c.textContent);state.playSession=null;save();
+    return {rules,btns,one:cards.length===1&&/Giant Spider Z/.test(cards[0])}});
+  expect(out.rules===2&&out.btns===2&&out.one,'scenario NPCs: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
