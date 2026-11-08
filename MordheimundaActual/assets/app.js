@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0796.0';
+const APP_BUILD='110.0797.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8034,7 +8034,7 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
   const genBtn=`<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
     <button type="button" class="dash-btn-primary" ${ready?'':'disabled'} style="${ready?'':'opacity:.5;cursor:not-allowed'}" onclick="playGenerateExisting()">🗺 ${ps.generated?(en?'Reroll — existing map':'Régénérer — carte existante'):(en?'Launch — existing map':'Lancer — carte existante')}</button>
     <button type="button" class="dash-btn-primary" ${ready?'':'disabled'} style="${ready?'':'opacity:.5;cursor:not-allowed'}" onclick="playGenerateRandom()">🎲 ${ps.generated?(en?'Reroll — random':'Régénérer — aléatoire'):(en?'Launch — random':'Lancer — aléatoire')}</button>
-  </div>`;
+  </div>${playColorsShown(ps)?'':`<div style="display:flex;justify-content:center;align-items:center"><button type="button" class="button secondary tiny" onclick="playColorsOpen=true;render('playMode')">🎨 ${en?'Group colours (random map)':'Couleurs des groupes (carte aléatoire)'}</button></div>`}`;
   const sourceChip=ps.generated&&ps.generated.source==='existing'?`<div style="margin-bottom:8px"><span class="chip">#${ps.generated.mapNumber||''} ${esc(ps.generated.mapName||'')}</span></div>`:'';
   const resultHtml=ps.generated?`<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:4px">
       <div style="flex:none;width:340px;cursor:zoom-in" onclick="openGeneratedMapLightbox()">${deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(ps.generated.image||'')}" alt="" style="width:100%;border-radius:6px;display:block">`}</div>
@@ -8060,7 +8060,7 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
       ${countButtons?`<div><div style="font-size:10.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:6px;font-weight:700">${en?'Players':'Joueurs'}</div>${countButtons}</div>`:''}
     </div>
     <div style="display:flex;flex-direction:column;gap:10px">${slotsHtml}</div>
-    ${playAlliancesMarkup(ps,en)}
+    ${playColorsShown(ps)?playAlliancesMarkup(ps,en):''}
     <div style="display:flex;justify-content:center">${genBtn}</div>
   </div>`:'';
   return `<div style="display:flex;flex-direction:column;gap:14px">
@@ -20020,3 +20020,9 @@ function residenceMoveCheck(r){const st=residenceMoveState(r);if(st.ok)return tr
 function residenceUseMove(r){if(isAdminEditUI()&&r.residenceChosen===r.campaignId&&!r.residenceMoveReady)return;r.residenceChosen=r.campaignId;r.residenceMoveReady=false}
 function residenceGrantMove(r){if(r?.campaignId)r.residenceMoveReady=true}
 function residenceMoveNote(r,en){const st=residenceMoveState(r);if(st.admin)return '';const t=st.first?(en?'First choice: free. Afterwards, one move after each game, before the post-battle actions.':'Premier choix : libre. Ensuite, un déménagement après chaque partie, avant les actions d’après-bataille.'):st.ok?(en?'✓ One move available now (before the post-battle actions).':'✓ Un déménagement possible maintenant (avant les actions d’après-bataille).'):st.why==='postbattle'?(en?'🔒 Post-battle started: no move until the next game.':'🔒 Après-bataille commencé : pas de déménagement avant la prochaine partie.'):(en?'🔒 Move used: the next one comes after your next game.':'🔒 Déménagement utilisé : le prochain après ta prochaine partie.');return `<p class="settle-move-note${st.ok?' ok':''}">${t}</p>`}
+
+// V-PLAYCOLORS: the group colour swatches only matter for a random map (an
+// existing map keeps its own colours), so they stay hidden behind a small
+// button until a random map is generated or the player opens them.
+let playColorsOpen=false;
+function playColorsShown(ps){return playColorsOpen||ps?.generated?.source==='random'}
