@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0797.0';
+const APP_BUILD='110.0798.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11665,7 +11665,7 @@ function campaignDetail(){
   // Groups like Rules: The Game — one per top number (1. with 1.1, 1.2 …),
   // collapsible; the group holding the open page starts open.
   const groups=[];const loose=[];secs.forEach(sx=>{const t=split(String(sx.label));const top=t.num?t.num.split('.')[0]:'';if(!top||sx.id==='overview'||sx.id==='mechanics'){loose.push(sx);return}let g=groups.find(x=>x.top===top);if(!g){g={top,head:t.num.includes('.')&&t.num.split('.')[1]?'':String(sx.label).replace(/\s·\s\d+$/,''),items:[]};groups.push(g)}if(!g.head&&!(t.num.split('.')[1]))g.head=String(sx.label).replace(/\s·\s\d+$/,'');g.items.push(sx)});
-  const navItems=loose.filter(sx=>sx.id==='overview').map(item).join('')+groups.map(g=>{const key=c.id+':'+g.top;const active=g.items.some(sx=>sx.id===cur.id);const open=campaignNavOpen.has(key)?campaignNavOpen.get(key):active;return `<div class="rn-group${active?' active':''}"><button type="button" class="rn-head${open?' open':''}" aria-expanded="${open}" onclick="toggleCampaignNavGroup('${esc(key)}',${open})"><span class="chev">▾</span><span>${esc(g.head||g.top+'.')}</span></button>${open?`<div class="rn-items">${g.items.map(item).join('')}</div>`:''}</div>`}).join('')+loose.filter(sx=>sx.id!=='overview').map(item).join('');
+  const navItems=loose.filter(sx=>sx.id==='overview').map(item).join('')+groups.map(g=>{if(g.items.length===1)return item(g.items[0]);const key=c.id+':'+g.top;const active=g.items.some(sx=>sx.id===cur.id);const open=campaignNavOpen.has(key)?campaignNavOpen.get(key):active;return `<div class="rn-group${active?' active':''}"><button type="button" class="rn-head${open?' open':''}" aria-expanded="${open}" onclick="toggleCampaignNavGroup('${esc(key)}',${open})"><span class="chev">▾</span><span>${esc(g.head||g.top+'.')}</span></button>${open?`<div class="rn-items">${g.items.map(item).join('')}</div>`:''}</div>`}).join('')+loose.filter(sx=>sx.id!=='overview').map(item).join('');
   const curT=split(String(cur.label).replace(/\s·\s\d+$/,''));
   const editBtn=admin&&cur.page?`<button type="button" class="rule-edit-btn" title="${en?'Edit this page':'Modifier cette page'}" onclick="openCampaignPageEditor('${esc(c.id)}','${esc(cur.page.id||'')}')">✎ ${en?'Edit':'Modifier'}</button>`:admin&&cur.id==='overview'?`<button type="button" class="rule-edit-btn" onclick="openCampaignPageEditor('${esc(c.id)}','overview')">✎ ${en?'Edit':'Modifier'}</button>`:'';
   const pageBody=cur.page?`<div class="rules-article-body campaign-text"><section class="rule-page-block"><div class="rule-page-text">${campaignPageTextMarkup(cur.page.text||'',c,admin)}</div></section></div>`:body.replace(/<h2 class="campaign-page-title">[\s\S]*?<\/h2>/,'').replace('<div class="campaign-page-edit"><button type="button" class="button secondary small" onclick="openCampaignPageEditor(\''+esc(c.id)+'\',\'overview\')">✎ '+(en?'Edit the presentation':'Modifier la présentation')+'</button></div>','');
