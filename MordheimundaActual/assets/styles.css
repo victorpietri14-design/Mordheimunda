@@ -5947,3 +5947,7 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .hz-creature{margin-top:8px;display:flex;flex-direction:column;gap:8px}
 .hz-cr-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.hz-cr-head>b{font-size:15px}.hz-cr-sv{font-size:12px;color:var(--muted)}.hz-cr-sv b{color:var(--accent);font-size:14px}
 .hz-cr-weapons{display:flex;flex-direction:column;gap:6px}.hz-cr-weapons small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
+
+/* V-PLAYHERO: Play shows the scenario picture as a banner, like Rules › Scenarios */
+.scn-hero.play-hero{margin:8px 0 6px;height:clamp(140px,20vw,220px)}
+.page-intro:has(.play-hero)>div{flex:1 1 auto;max-width:none;width:100%}

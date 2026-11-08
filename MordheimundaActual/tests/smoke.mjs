@@ -1192,6 +1192,13 @@ await test('[desktop] neutral creatures: own rules count (3+ save), own weapons,
     return {found:!!w,sv:/Save <b>3\+<\/b>|Sauvegarde <b>3\+<\/b>/.test(html),jaws:/Jaws/.test(html),rule:/Thick Scales/.test(html),byName}});
   expect(out.found&&out.sv&&out.jaws&&out.rule&&out.byName,'neutral creature card: '+JSON.stringify(out));
 });
+await test('[desktop] play mode shows the scenario picture as a banner like the rules page',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'pih',name:'Pic',bandsMin:2,bandsMax:2,thumbnail:'/assets/img/dashboard-bg.jpg',battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    playStartScenarioWithBands('pih',2);render('playMode');await new Promise(z=>setTimeout(z,300));const im=document.querySelector('#content .play-hero img');const w=im?im.getBoundingClientRect().width:0;const cw=document.querySelector('#content .scn-detail')?.getBoundingClientRect().width||1;
+    try{playEndSession&&(state.playSession=null)}catch(e){}return {hero:!!im,ratio:w/cw}});
+  expect(out.hero&&out.ratio>0.9,'play scenario banner: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

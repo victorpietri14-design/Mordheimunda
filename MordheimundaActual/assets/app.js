@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0799.0';
+const APP_BUILD='110.0800.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8390,7 +8390,7 @@ function playSessionMarkupBase(){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];
   return `<div class="rules-shell-wrap scn-detail">
-   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div><div class="play-scn-title">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async">`:''}<h2 style="margin-top:6px">${esc(s.name)}</h2></div><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
+   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div>${s.thumbnail?`<div class="scn-hero play-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text"><h2>${esc(s.name)}</h2></div></div>`:`<div class="play-scn-title"><h2 style="margin-top:6px">${esc(s.name)}</h2></div>`}<p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
    ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes)),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
   </div>`;
