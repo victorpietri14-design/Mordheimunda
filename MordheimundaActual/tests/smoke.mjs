@@ -1224,6 +1224,17 @@ await test('[desktop] scenario NPCs: listed on the rules page, players choose on
     return {rules,btns,one:cards.length===1&&/Giant Spider Z/.test(cards[0])}});
   expect(out.rules===2&&out.btns===2&&out.one,'scenario NPCs: '+JSON.stringify(out));
 });
+await test('[desktop] a coated weapon can be default / fixed equipment',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{state.customEquipment=[...(state.customEquipment||[]),{customEquipmentId:'obsz',name:'Obsidianz',type:'covering',category:'Armes de corps à corps',market:true,factions:[],covering:{mult:2,flat:0,range:0,strength:1,ap:0,damage:0,traits:[],excluded:[]}}];
+    const f=D.factions.find(x=>!x.packId&&(x.warriors||[]).length);
+    state.customFighters=[...(state.customFighters||[]),{customFighterId:'cfz',name:'Obsidian Guard',type:'Henchman',factionId:f.id,cost:30,max:5,profile:[4,3,3,3,3,1,3,1,7],race:'Human',ruleNames:[],skillAccess:{},magicAccess:[],defaultSkills:[],defaultSpells:[],defaultEquipment:['Obsidianz Sword'],equipmentAccess:[]}];
+    state.rosters=[...(state.rosters||[]),{id:'zz',name:'ZZ',factionId:f.id,gold:500,fighters:[]}];state.active='zz';save(true);
+    const html=customFighterEquipmentChooser('cfDefaultEquipment',['Obsidianz Sword'],'default');
+    addFighterCore('cfz');await new Promise(z=>setTimeout(z,200));const e=(activeRoster().fighters[0]?.equipmentSelected||[]).find(q=>/Obsidianz/.test(q.name));const hs=hiredSwordGearItem('Obsidianz Sword',{intrinsic:true});
+    return {grp:/Coated weapons|Armes revêtues/.test(html),item:e?.name,S:e?.profile?.strength,cov:!!e?.coveredVariant,hs:hs?.name}});
+  expect(out.grp&&out.item==='Obsidianz Sword'&&/S\+1/.test(out.S)&&out.cov&&out.hs==='Obsidianz Sword','coated starting weapon: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
