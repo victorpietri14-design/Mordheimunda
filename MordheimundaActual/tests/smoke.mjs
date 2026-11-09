@@ -1189,7 +1189,7 @@ await test('[desktop] neutral creatures: own rules count (3+ save), own weapons,
   await seed(page);
   const out=await page.evaluate(()=>{state.customFighters=[...(state.customFighters||[]),{customFighterId:'nt1',name:'Jungle Saurus',type:'Hired Sword',hiredSword:true,neutral:true,factionId:'',cost:0,max:1,profile:[6,3,0,4,4,3,2,2,6],race:'Beast',ruleNames:[],rules:'',skillAccess:{},magicAccess:[],defaultSkills:[],defaultSpells:[],defaultEquipment:[],equipmentAccess:[],dpRules:[{name:'Thick Scales',text:'This model has a 3+ save.'}],dpWeapons:[{id:'w1',name:'Jaws',profile:{range:'Melee',strength:'S+1',ap:'-1',damage:'1',traits:''}}]}];save(true);
     const w=neutralCreatureList().find(x=>x.name==='Jungle Saurus');const html=hazardCreatureMarkup(hazardCreatureOf({creatureId:neutralCreatureKey(w)}));const byName=!!hazardCreatureOf({creatureName:'jungle saurus'});
-    return {found:!!w,sv:/Save <b>3\+<\/b>|Sauvegarde <b>3\+<\/b>/.test(html),jaws:/Jaws/.test(html),rule:/Thick Scales/.test(html),byName}});
+    return {found:!!w,sv:/<span>Sv<\/span><b>3\+/.test(html),jaws:/Jaws/.test(html),rule:/Thick Scales/.test(html),byName}});
   expect(out.found&&out.sv&&out.jaws&&out.rule&&out.byName,'neutral creature card: '+JSON.stringify(out));
 });
 await test('[desktop] play mode shows the scenario picture as a banner like the rules page',null,async page=>{
@@ -1234,6 +1234,16 @@ await test('[desktop] a coated weapon can be default / fixed equipment',null,asy
     addFighterCore('cfz');await new Promise(z=>setTimeout(z,200));const e=(activeRoster().fighters[0]?.equipmentSelected||[]).find(q=>/Obsidianz/.test(q.name));const hs=hiredSwordGearItem('Obsidianz Sword',{intrinsic:true});
     return {grp:/Coated weapons|Armes revêtues/.test(html),item:e?.name,S:e?.profile?.strength,cov:!!e?.coveredVariant,hs:hs?.name}});
   expect(out.grp&&out.item==='Obsidianz Sword'&&/S\+1/.test(out.S)&&out.cov&&out.hs==='Obsidianz Sword','coated starting weapon: '+JSON.stringify(out));
+});
+await test('[desktop] Sv box: rules cards show the base save from starting gear, NPC weapons show their rules',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const f=D.factions.find(f=>!f.packId&&(f.warriors||[]).length);
+    const light=baseSaveFor({name:'T',profile:[4,3,3,3,3,1,3,1,7],ruleNames:[],defaultEquipment:['Light Armour']},f);
+    const npc={customFighterId:'nsv',name:'Raptor Q',type:'Hired Sword',hiredSword:true,neutral:true,cost:0,max:1,profile:[8,4,0,4,4,2,4,2,5],race:'Beast',ruleNames:[],defaultEquipment:[],dpRules:[{name:'Scales',text:'This model has a 5+ save.'}],dpWeapons:[{id:'w1',name:'Claws',profile:{range:'Melee',strength:'S',ap:'-1',damage:'1',traits:'Rending'},rulesText:'Each wound roll of 6 causes 2 wounds.'}]};
+    state.customFighters=[...(state.customFighters||[]),npc];save(true);const html=hazardCreatureMarkup(neutralCreatureList().find(w=>w.name==='Raptor Q'));
+    navigateApp('/rules/warbands/'+encodeURIComponent(f.id));await new Promise(z=>setTimeout(z,600));
+    return {light,cards:document.querySelectorAll('#content .sv-stat').length,npcSv:/<span>Sv<\/span><b>5\+/.test(html),wRule:/Each wound roll of 6/.test(html),trait:/npc-w-rule"><b>Rending/.test(html)}});
+  expect(out.light==='6+'&&out.cards>0&&out.npcSv&&out.wRule&&out.trait,'Sv box: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

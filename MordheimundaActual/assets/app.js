@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0803.0';
+const APP_BUILD='110.0804.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2957,6 +2957,7 @@ function availableSupplementsForFaction(fid){
   return [...hand,...db];
 }
 function faction(r){
+  if(!r)return null;
   if(r?.customWarbandId){
     const cw=Array.isArray(state.customWarbands)?state.customWarbands.find(x=>x.id===r.customWarbandId):null;
     if(cw){
@@ -9323,7 +9324,7 @@ ${warbandsNavPanelMarkup()}
 function fighterRuleCardMarkup(w,f){
   const en=siteLanguage==='en';
   const profile=Array.isArray(w.profile)?w.profile:[];
-  const statCells=P.map((label,i)=>`<div${i>=8?' class="mental-stat"':''}><span>${esc(label)}</span><b>${profile[i]??'—'}</b></div>`).join('');
+  const statCells=P.map((label,i)=>`<div${i>=8?' class="mental-stat"':''}><span>${esc(label)}</span><b>${profile[i]??'—'}</b></div>`).join('')+`<div class="sv-stat" title="${en?'Save from its special rules and starting equipment':'Sauvegarde donnée par ses règles spéciales et son équipement de départ'}"><span>Sv</span><b>${baseSaveFor(w,f)}</b></div>`;
   // V-WBRULEKEYWORDS: w.rules is a flat comma list straight from the source
   // data — "Race (Vampire), Leader, Undead, Vampiric." — which included two
   // things that aren't actual special-rule keywords: the "Race (…)" tag,
@@ -14826,7 +14827,7 @@ function armorSaveInfo(x){
   // it never matched for anyone, and the save never applied "by default".
   // Checking both sources together covers a Lizardmen warband set up either
   // way (band-wide rule, or the rule individually added to each profile).
-  const activeR=activeRoster();
+  const activeR=__saveCtx?__saveCtx.r:activeRoster();
   const scalySaveRuleNames=[...fighterRuleNames(x,faction(activeR)),...warbandRuleEntries(activeR).map(e=>e.name)].map(n=>normName(n));
   if(scalySaveRuleNames.includes(normName('Scaly Skin'))||scalySaveRuleNames.includes(normName('Peau Écailleuse'))){
     const label=String(x?.name||x?.sourceName||x?.type||'').toLowerCase();
@@ -14928,7 +14929,7 @@ function armorSaveInfo(x){
   try{
     // Black Orc Skin / Scaly Skin are handled by name above: their own text is not counted again.
     const handled=new Set(['black orc skin',"peau d'orc noir",'scaly skin','peau écailleuse'].map(normName));
-    const saveDelta=fighterDetectedStatBonuses(x,faction(activeRoster())).filter(b=>!b.conditional&&b.stat==='SAVE'&&!handled.has(normName(b.sourceName||''))).reduce((s,b)=>s+Number(b.delta||0),0);
+    const saveDelta=fighterDetectedStatBonuses(x,faction(__saveCtx?__saveCtx.r:activeRoster())).filter(b=>!b.conditional&&b.stat==='SAVE'&&!handled.has(normName(b.sourceName||''))).reduce((s,b)=>s+Number(b.delta||0),0);
     // V-NATURALSAVE (Task #69): this used to require `base` (a save from
     // worn armour) to already be truthy before a detected bonus could do
     // anything — so a rule that GRANTS its own save outright (a natural
@@ -20039,11 +20040,10 @@ function dpOwnFieldsToggle(){const dp=!!document.getElementById('cfDramatis')?.c
 function neutralCreatureList(){try{return hiredSwordRawList().filter(isNeutralCreature).sort((a,b)=>String(a.name).localeCompare(String(b.name)))}catch(e){return []}}
 function neutralCreatureKey(w){return String(w?.customFighterId||w?.id||'')}
 function hazardCreatureOf(def){if(!def||(!def.creatureId&&!def.creatureName))return null;const list=neutralCreatureList();return list.find(w=>def.creatureId&&neutralCreatureKey(w)===def.creatureId)||list.find(w=>def.creatureName&&normName(w.name)===normName(def.creatureName))||null}
-function hazardCreatureMarkup(w){try{const en=siteLanguage==='en';const a=hiredSwordAsWarrior(w);const p=(Array.isArray(a.profile)?a.profile:[]).slice(0,9);
- let sv='';try{const parts=armorSaveInfo({...a,equipmentSelected:[]}).parts||[];if(parts.length)sv=parts.map(n=>n+'+').join(' / ')}catch(e){}
+function hazardCreatureMarkup(w){try{const en=siteLanguage==='en';const a=hiredSwordAsWarrior(w);const prof=Array.isArray(a.profile)?a.profile:[];
+ const stats=P.map((label,i)=>`<div${i>=8?' class="mental-stat"':''}><span>${esc(label)}</span><b>${prof[i]??prof[8]??'—'}</b></div>`).join('')+`<div class="sv-stat"><span>Sv</span><b>${baseSaveFor(w,null)}</b></div>`;
  const weapons=dpOwnWeaponItems(w);const gear=(a.defaultEquipment||[]).map(n=>n?.name||n).filter(Boolean);const rules=(a.ruleNames||[]).filter(Boolean);
- return `<div class="hz-creature"><div class="hz-cr-head"><b>${esc(w.name)}</b>${sv?`<span class="hz-cr-sv">${en?'Save':'Sauvegarde'} <b>${esc(sv)}</b></span>`:''}</div>${p.length===9?hazardProfileTable(p):''}${weapons.length?`<div class="hz-cr-weapons">${weapons.map(e=>weaponProfileMarkup(e,a)).join('')}</div>`:''}${gear.length?`<small>${en?'Equipment':'Équipement'}: ${gear.map(n=>refLink('equipment',n,n)).join(', ')}</small>`:''}${rules.length?`<div class="hz-rules">${rules.map(r=>`<span>${refLink('special',r,r)}</span>`).join('')}</div>`:''}${dramatisRulesMarkup(a)}</div>`}catch(e){return ''}}
-
+ return `<div class="hz-creature"><div class="hz-cr-head"><b>${esc(w.name)}</b><span class="role-badge role-npc">NPC</span></div><div class="statbar">${stats}</div>${weapons.length?`<div class="hz-cr-weapons">${weapons.map(e=>`<div class="hz-cr-weapon">${weaponProfileMarkup(e,a)}${npcWeaponRulesMarkup(e)}</div>`).join('')}</div>`:''}${gear.length?`<small>${en?'Equipment':'Équipement'}: ${gear.map(n=>refLink('equipment',n,n)).join(', ')}</small>`:''}${rules.length?`<div class="hz-rules">${rules.map(r=>`<span>${refLink('special',r,r)}</span>`).join('')}</div>`:''}${dramatisRulesMarkup(a)}</div>`}catch(e){return ''}}
 // V-SCNNPC: a scenario's NPC profiles. "all": every listed creature takes
 // part. "choose": the players pick ONE in Play Mode (kept in the game).
 function scenarioNpcEntries(s){const l=Array.isArray(s?.npcs?.list)?s.npcs.list:[];return l.map(x=>({x,w:hazardCreatureOf({creatureId:x.id,creatureName:x.name})})).filter(e=>e.w)}
@@ -20061,3 +20061,15 @@ function playNpcPick(k){if(typeof playGuestBlocked==='function'&&playGuestBlocke
 // (coveredByName), so editing the covering updates the fighter's weapon too.
 function coatedWeaponChoices(){try{const covs=coveringList();if(!covs.length)return [];const bases=coveringBaseCandidates();const out=[];covs.forEach(c=>bases.forEach(b=>{if(coveringAppliesTo(c,b))out.push(coveredWeapon(b,c))}));return out.sort((a,b)=>a.name.localeCompare(b.name))}catch(e){return []}}
 function coatedItemFields(e){return e?.coveredVariant?{coveredVariant:true,coveringId:e.coveringId||null,coveringName:e.coveringName||'',coveringBase:e.coveringBase||'',rulesText:e.rulesText||''}:{}}
+
+// V-NPCSAVE: base save of a profile from its own special rules + starting /
+// fixed / own equipment, computed with the same engine as a fighter's Sv box.
+// f = the warband whose band-wide rules apply (null for an NPC).
+let __saveCtx=null;
+function baseSaveFor(w,f){try{const gear=[...(w.defaultEquipment||[]).map(n=>hiredSwordGearItem(n?.name||n,{intrinsic:true})).filter(Boolean),...dpOwnWeaponItems(w)];const x={...w,equipmentSelected:gear};
+ const fid=String(f?.id||'');__saveCtx={r:f?(fid.startsWith('custom-warband-')?{customWarbandId:fid.slice(15)}:{factionId:fid}):null};
+ try{return armorSaveMarkup(x)}finally{__saveCtx=null}}catch(e){__saveCtx=null;return '—'}}
+// An NPC's own weapon: its unique rule text, then what each of its traits does.
+function npcWeaponRulesMarkup(e){const en=siteLanguage==='en';const parts=[];const t=String(e.rulesText||'').trim();if(t)parts.push(`<div class="npc-w-rule">${customTextMarkup(t)}</div>`);
+ (Array.isArray(e.traits)?e.traits:[]).forEach(n=>{const k=String(n).replace(/\(.*\)/,'').trim();const r=k&&referenceFind('traits',k);if(!r)return;const ov=ruleMechanicsText(referenceOverrideSectionId('traits',r.id),0);const txt=String(ov!=null?ov:r.text||'').trim();if(txt)parts.push(`<div class="npc-w-rule"><b>${esc(r.name)}</b> — ${linkGlossaryInHtml(customTextMarkup(txt),r.name)}</div>`)});
+ return parts.length?`<div class="npc-w-rules"><span class="micro-label">${en?'WEAPON RULES':'RÈGLES DE L’ARME'}</span>${parts.join('')}</div>`:''}
