@@ -1254,6 +1254,16 @@ await test('[desktop] scenario editor refuses texts that are too long instead of
     return {loaded:true,ok:ok.length,bad:bad.length}});
   expect(out.loaded&&out.ok===0&&out.bad===2,'scenario length check: '+JSON.stringify(out));
 });
+await test('[desktop] Rules › Objectives & Scenario Actions: page after Actions, scenarios list the rules they use',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const g=RULES_NAV_GROUPS.find(x=>x.id==='g-structure');const i=g.ids.indexOf('actions');
+    openRulePage('scenarioactions');await new Promise(z=>setTimeout(z,600));const cards=[...document.querySelectorAll('#content .action-card .ac-name')].map(x=>x.textContent);
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'saz',name:'Wyrd Z',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Jungle'},victory:{major:'Most Secured tokens wins'},specialRules:'Harvest Wyrdstone (Pick Up).\n\n[ACTIONCARDS]\nLure|basic|active|Roll a D6.\n[/ACTIONCARDS]'}];
+    currentScenarioId='saz';render('scenarioDetail');await new Promise(z=>setTimeout(z,300));
+    const chips=[...document.querySelectorAll('.scn-act-chip')].map(c=>c.textContent);const own=[...document.querySelectorAll('#content .action-card .ac-name')].map(x=>x.textContent);
+    return {after:g.ids[i+1],cards,chips,own}});
+  expect(out.after==='scenarioactions'&&out.cards.join()==='Pick Up,Search,Loot'&&out.chips.includes('Pick Up')&&out.chips.includes('Secured')&&out.own.includes('Lure'),'scenario actions page: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
