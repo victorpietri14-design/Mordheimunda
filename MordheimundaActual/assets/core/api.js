@@ -201,6 +201,8 @@
   adminSupportHistoryGet:(uid,id)=>request('/api/admin/support/'+encodeURIComponent(uid)+'/history/'+encodeURIComponent(id)),
   adminExport:(table,offset=0)=>request('/api/admin/export'+(table?`?table=${encodeURIComponent(table)}&offset=${Number(offset)||0}`:'')),
   adminSaveTrophies:library=>request('/api/admin/trophies',{method:'PUT',body:JSON.stringify({library})}),
+  mutations:()=>request('/api/mutations'),
+  adminSaveMutations:library=>request('/api/admin/mutations',{method:'PUT',compress:true,body:JSON.stringify({library})}),
   adminQuestsBackup:()=>request('/api/admin/quests/backup'),adminSaveQuests:(library,expectedUpdatedAt=null)=>request('/api/admin/quests',{method:'PUT',body:JSON.stringify({library,expectedUpdatedAt})}),
   adminAddNews:p=>request('/api/admin/news',{method:'POST',body:JSON.stringify(p)}),
   adminDeleteNews:id=>request('/api/admin/news/'+encodeURIComponent(id),{method:'DELETE'}),

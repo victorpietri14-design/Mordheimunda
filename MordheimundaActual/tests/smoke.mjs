@@ -1282,6 +1282,36 @@ await test('[desktop] a custom skill with the same name as a published skill of 
     const off=officializedContentIdSets().skills;return {mine:off.has('minez'),copy:off.has('copyz')}});
   expect(out.mine===false&&out.copy===true,'same-name skills: '+JSON.stringify(out));
 });
+await test('[desktop] mutations: bought at recruitment, 2nd at double price, normal value, delete, skill grant',null,async page=>{
+  await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type!=='Leader'&&!(w.recruitOptions||[]).length));const w=f.warriors.find(q=>q.type!=='Leader'&&!(q.recruitOptions||[]).length);
+    w.mutationRule={on:true,max:2,allowed:[]};
+    mutationLibrary={mutations:[{id:'hoof',name:'Cloven Hoofs',cost:40,factions:[],text:'The mutant gains +1 Movement.',rules:[],attack:null},{id:'tail',name:'Scorpion Tail',cost:40,factions:[],text:'An extra attack.',rules:[],attack:{range:'Melee',strength:'5',ap:'-1',damage:'1',traits:''}},{id:'claw',name:'Great Claw',cost:100,factions:[],text:'Claw.',rules:[],attack:null},{id:'other',name:'Elsewhere',cost:10,factions:['nope'],text:'',rules:[],attack:null}],grantSkills:['Dodge']};
+    state.rosters=[{id:'mu',name:'MU',factionId:f.id,gold:1000,fighters:[]}];state.active='mu';window.__mu={wid:w.id,m:Number(effectiveFighterProfile(w,f)[0])};navigateApp(warbandPath('mu'));addFighter(w.id)});
+  await page.waitForSelector('.mutPick');
+  const shown=await page.evaluate(()=>[...document.querySelectorAll('.mutPick')].map(b=>b.value));
+  expect(shown.join()==='hoof,tail,claw','the warband filter / list is wrong: '+shown);
+  await page.check('.mutPick[value="hoof"]');await page.check('.mutPick[value="tail"]');
+  const ui=await page.evaluate(()=>({clawOff:document.querySelector('.mutPick[value="claw"]').disabled,count:document.getElementById('mutCount').textContent,go:document.getElementById('mutGo').textContent}));
+  expect(ui.clawOff&&ui.count==='2 / 2','the maximum is not enforced: '+JSON.stringify(ui));
+  await page.click('#mutGo');await page.waitForTimeout(300);
+  const out=await page.evaluate(()=>{const r=activeRoster(),f=faction(r);const x=r.fighters.find(q=>q.wid===window.__mu.wid);if(!x)return {found:false};
+    return {found:true,names:fighterMutations(x).map(m=>m.name),paid:fighterMutations(x).map(m=>m.paid),spent:1000-r.gold,base:liveFighterCost(x,f),value:fighterValue(x,f),m:Number(x.profile[0])-window.__mu.m,card:/🧬/.test(ownedFighterCard(x,0,f))&&/Scorpion Tail/.test(ownedFighterCard(x,0,f))}});
+  expect(out.found&&out.names.join()==='Cloven Hoofs,Scorpion Tail','mutations not recorded: '+JSON.stringify(out));
+  expect(out.paid.join()==='40,80'&&out.spent===out.base+120,'the 2nd mutation must cost double: '+JSON.stringify(out));
+  expect(out.value===out.base+80,'the value must count normal prices: '+JSON.stringify(out));
+  expect(out.m===1,'Cloven Hoofs +1 Movement not applied: '+JSON.stringify(out));
+  expect(out.card,'the natural attack is missing from the card: '+JSON.stringify(out));
+  await page.evaluate(()=>{const r=activeRoster();editingIndex=r.fighters.findIndex(q=>q.wid===window.__mu.wid);render('fighter')});
+  await page.waitForSelector('.mut-block');
+  await page.evaluate(()=>removeMutation(0));await page.click('.big-delete');await page.waitForTimeout(300);
+  const del=await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),m:Number(x.profile[0])-window.__mu.m,gold:r.gold}});
+  expect(del.names.join()==='Scorpion Tail'&&del.m===0,'deleting did not undo the mutation: '+JSON.stringify(del));
+  await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];x.skills=[...(x.skills||[]),'Dodge'];save(true);render('fighter')});
+  await page.waitForSelector('.mut-grant');await page.evaluate(()=>openMutationGrantModal());await page.waitForSelector('.mutPick');
+  await page.check('.mutPick[value="claw"]');await page.click('#mutGo');await page.waitForTimeout(300);
+  const g=await page.evaluate(g0=>{const r=activeRoster();const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant')}},del.gold);
+  expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===200&&!g.banner,'the skill mutation must be paid double and close the prompt: '+JSON.stringify(g));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

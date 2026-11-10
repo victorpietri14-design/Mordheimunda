@@ -970,6 +970,7 @@ function saveAdminWarrior(idx){
     // over (a brand-new fighter).
     equipmentAccessGroups:d.warriors[idx]?.equipmentAccessGroups==='ALL'?'ALL':Array.isArray(d.warriors[idx]?.equipmentAccessGroups)?d.warriors[idx].equipmentAccessGroups.slice():[],
     recruitOptions:recruitOptionsRead().filter(o=>o.name),
+    mutationRule:(()=>{const v=mutationRuleRead();return v===undefined?(d.warriors[idx]?.mutationRule||null):v})(),
     bannedCategories:bannedCategoriesRead(),
     bannedExceptions:bannedExceptionsRead(),
     description:($('#awDescription')?.value||'')
@@ -1050,6 +1051,7 @@ function adminWarriorFormMarkup(w,idx){
   <label class="custom-check no-equip-check"><input type="checkbox" id="awNoEquip" ${w?.noEquipment?'checked':''}><span>${en?'Cannot receive equipment — buys nothing and gets no Stash items (starting gear stays)':'Ne peut pas recevoir d’équipement — n’achète rien et ne reçoit aucun objet de la réserve (l’équipement de départ reste)'}</span></label>
   ${(()=>{const acc=adminEffectiveEquipmentAccess(w);return `<details class="custom-collapse"><summary><span>${en?'EQUIPMENT ACCESS':'ACCÈS À L’ÉQUIPEMENT'}</span><small>${acc.length}</small></summary><p class="custom-field-help">${en?'The complete list of what this fighter can buy (its Band List). Ticked = allowed, unticked = not allowed — saving makes this list exact, the book’s group access is no longer added on top.':'La liste complète de ce que ce combattant peut acheter (sa Band List). Coché = autorisé, décoché = interdit — l’enregistrement rend cette liste exacte, l’accès par groupe du livre n’est plus ajouté par-dessus.'}</p>${customFighterEquipmentChooser('awEquipmentAccess',acc,'access')}</details>`})()}
   ${recruitOptionsEditorMarkup(w)}
+  ${mutationRuleEditorMarkup(w)}
   ${bannedCategoriesEditorMarkup(w)}
   <details class="custom-collapse"${String(w?.description||'').trim()?' open':''}><summary><span>DESCRIPTION</span><small>${String(w?.description||'').trim()?(en?'Shown on the profile':'Affichée sur le profil'):(en?'Empty':'Vide')}</small></summary>${customTextToolbarMarkup('awDescription')}<textarea id="awDescription" class="wide-textarea" rows="4">${esc(w?.description||'')}</textarea><button type="button" class="button secondary small desc-clear" onclick="const t=document.getElementById('awDescription');if(t)t.value=''">✕ ${en?'Clear the description':'Effacer la description'}</button></details>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminCancelWarrior()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveAdminWarrior(${idx})">${en?'Apply':'Appliquer'}</button></div>`;

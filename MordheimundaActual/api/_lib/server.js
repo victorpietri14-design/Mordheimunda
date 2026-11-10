@@ -81,7 +81,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 const ADMIN_LOG_SNAP=[
  [/^\/api\/admin\/help-texts$/,{setting:'helpTexts'}],[/^\/api\/admin\/race-looks$/,{setting:'raceLooks'}],[/^\/api\/admin\/price-rules$/,{setting:'equipmentPriceRules'}],
  [/^\/api\/admin\/warband-size-limits$/,{setting:'warbandSizeLimits'}],[/^\/api\/admin\/warband-hire-rules$/,{setting:'warbandHireRules'}],[/^\/api\/admin\/quests$/,{setting:'questLibrary'}],
- [/^\/api\/admin\/trophies$/,{setting:'trophyLibrary'}],[/^\/api\/admin\/translate-exclusions$/,{setting:'translateExclusions'}],[/^\/api\/admin\/home\/event$/,{setting:'activeEvent'}],
+ [/^\/api\/admin\/trophies$/,{setting:'trophyLibrary'}],[/^\/api\/admin\/mutations$/,{setting:'mutationLibrary'}],[/^\/api\/admin\/translate-exclusions$/,{setting:'translateExclusions'}],[/^\/api\/admin\/home\/event$/,{setting:'activeEvent'}],
  [/^\/api\/admin\/rules\/overrides\/([^/]+)\/(\d+)$/,{table:'rule_overrides',cols:['section_id','page']}],
  [/^\/api\/admin\/catalog\/overrides\/([^/]+)$/,{table:'catalog_overrides',cols:['faction_id']}],
  [/^\/api\/admin\/catalog\/weapon-overrides\/([^/]+)$/,{table:'weapon_overrides',cols:['weapon_name']}],
@@ -107,7 +107,7 @@ app.use('/api/admin',(req,res,next)=>{
 // repeat visits no longer run the server or count against its transfer
 // quota. Admins always get the live version (their requests carry a unique
 // ?_t=, which the CDN never has in cache). Only successful answers are kept.
-const PUBLIC_CACHED_GETS=new Set(['/api/catalog/race-looks','/api/catalog/help-texts','/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
+const PUBLIC_CACHED_GETS=new Set(['/api/catalog/race-looks','/api/catalog/help-texts','/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/mutations','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
 app.use((req,res,next)=>{
   if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
   const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
@@ -1450,6 +1450,18 @@ app.put('/api/admin/trophies',requireDb,requireSameOrigin,auth,requireAdmin,asyn
   if(!list||list.length>200)return res.status(400).json({error:'INVALID_TROPHIES'});
   const clean={trophies:list.map(t=>({id:String(t?.id||'').slice(0,60),name:String(t?.name||'').slice(0,80),imageId:String(t?.imageId||'').slice(0,36)})).filter(t=>t.id&&/^[0-9a-f-]{36}$/i.test(t.imageId))};
   try{await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('trophyLibrary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify(clean)]);res.json({library:clean})}catch(e){next(e)}
+});
+// V-MUTATIONS: one mutation library for the site (Custom › Mutations).
+function sanitizeMutationLibrary(v){const src=v&&typeof v==='object'?v:{};const str=(x,n)=>String(x??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').trim().slice(0,n);
+  const mutations=(Array.isArray(src.mutations)?src.mutations:[]).slice(0,300).map(m=>{const a=m?.attack&&typeof m.attack==='object'?{range:str(m.attack.range,24),strength:str(m.attack.strength,12),ap:str(m.attack.ap,12),damage:str(m.attack.damage,12),traits:str(m.attack.traits,200)}:null;
+    return {id:str(m?.id,60),name:str(m?.name,80),cost:Math.max(0,Math.min(9999,Math.round(Number(m?.cost)||0))),factions:(Array.isArray(m?.factions)?m.factions:[]).slice(0,300).map(x=>str(x,120)).filter(Boolean),text:str(m?.text,4000),rules:(Array.isArray(m?.rules)?m.rules:[]).slice(0,20).map(x=>str(x,80)).filter(Boolean),attack:a}}).filter(m=>m.id&&m.name);
+  const grantSkills=(Array.isArray(src.grantSkills)?src.grantSkills:[]).slice(0,100).map(x=>str(x,80)).filter(Boolean);return {mutations,grantSkills}}
+app.get('/api/mutations',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='mutationLibrary'");res.json({library:sanitizeMutationLibrary(q.rows[0]?.value)})}catch(e){next(e)}
+});
+app.put('/api/admin/mutations',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const library=sanitizeMutationLibrary(req.body?.library);const json=JSON.stringify(library);if(Buffer.byteLength(json)>1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
+    await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('mutationLibrary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[json]);res.json({library})}catch(e){next(e)}
 });
 app.get('/api/admin/quests/backup',requireDb,auth,requireAdmin,async(req,res,next)=>{
   try{const q=await pool.query("SELECT value,updated_at FROM site_settings WHERE key='questLibraryBackup'");res.json({library:q.rowCount?q.rows[0].value:null,updatedAt:q.rowCount?q.rows[0].updated_at:null})}catch(e){next(e)}
