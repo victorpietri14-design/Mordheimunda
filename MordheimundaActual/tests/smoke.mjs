@@ -1266,6 +1266,13 @@ await test('[desktop] Rules › Objectives & Scenario Actions: page after Action
     return {after:g.ids[i+1],greenNum,cards,chips,own,underlined,peek}});
   expect(out.greenNum&&out.after==='scenarioactions'&&out.cards.slice(0,3).join()==='Pick Up,Search,Loot'&&out.cards.includes('Heavy Load')&&out.underlined&&out.peek&&out.chips.includes('Pick Up')&&out.chips.includes('Secured')&&out.own.includes('Lure'),'scenario actions page: '+JSON.stringify(out));
 });
+await test('[desktop] Rules › Warbands: a sub-faction shows the same picture as in Create a warband',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const sp=D.factions.find(f=>f.packId&&f.baseFactionId);if(!sp)return {skip:true};
+    raceLooks.packs={...(raceLooks.packs||{}),[sp.packId]:{image:'/assets/img/logo.png'}};navigateApp('/rules/warbands');await new Promise(z=>setTimeout(z,700));
+    const tile=[...document.querySelectorAll('.faction-choice.sub')].find(a=>a.textContent.includes(sp.displayName||sp.name));return {img:tile?.querySelector('img')?.getAttribute('src')||null}});
+  expect(out.skip||out.img==='/assets/img/logo.png','sub-faction picture: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

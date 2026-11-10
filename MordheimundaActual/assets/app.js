@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0809.0';
+const APP_BUILD='110.0810.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7575,11 +7575,14 @@ function rulesWarbandsRaceColumnsMarkup(){
   // rendered as its "tag" (e.g. Maneater — index 1 under Unique — showed up
   // indented under Lizardmen with a stray "1"). Never pass rowMarkup itself
   // as a map callback — always `.map(f=>rowMarkup(f))`.
-  const tileMarkup=(f,race,kick,sub)=>{const l=raceLook(race);const own=raceLooks.factions?.[f.id];const img=own?.image||l.image;const foc=own?.image?(own.focus||null):l.focus;const n=(f.warriors||[]).filter(w=>!isHiredSword(w)).length;
+  const tileMarkup=(f,race,kick,sub,parent)=>{const l=raceLook(race);
+    // V-SUBFACTIONPIC: a sub-faction (supplement pack) shows the same picture as
+    // in Create a warband: its pack logo, else its mother warband's picture.
+    const par=parent?raceLooks.factions?.[parent.id]:null;const own=raceLooks.factions?.[f.id]?.image?raceLooks.factions[f.id]:(f.packId&&raceLooks.packs?.[f.packId]?.image?raceLooks.packs[f.packId]:(par?.image?par:null));const img=own?.image||l.image;const foc=own?.image?(own.focus||null):l.focus;const n=(f.warriors||[]).filter(w=>!isHiredSword(w)).length;
     return `<a class="faction-choice bn motif-${l.motif}${sub?' sub':''}" style="${raceBannerStyle(race)}" href="/rules/warbands/${encodeURIComponent(f.id)}" data-app-route="1" onclick="event.preventDefault();openRulesWarband('${esc(f.id)}')"><span class="choice-img-wrap">${looksEmblem(img,factionSigils[f.id]||raceIcon(race),foc)}</span><span class="bn-tx"><span class="bn-kick">${esc(kick)}</span><span class="fname">${esc(f.displayName||f.name)}</span><span class="fcount">${n} ${en?(n>1?'profiles':'profile'):(n>1?'profils':'profil')}</span></span><span class="wbx-chev">›</span></a>`};
   const rowMarkup=(f,catTag,race)=>{
     const supps=supplementsByBase.get(f.id)||[];
-    return tileMarkup(f,race,catTag||race,!!catTag)+supps.map(sp=>tileMarkup(sp,race,`${en?'Sub-faction of':'Sous-faction de'} ${f.displayName||f.name}`,true)).join('');
+    return tileMarkup(f,race,catTag||race,!!catTag)+supps.map(sp=>tileMarkup(sp,race,`${en?'Sub-faction of':'Sous-faction de'} ${f.displayName||f.name}`,true,f)).join('');
   };
   const jumpList=nonEmpty.map((g,i)=>`<button type="button" class="wbr-jump" onclick="document.getElementById('wbrace-${i}')?.scrollIntoView({behavior:'smooth',block:'start'})"><span class="wbr-jump-dot" style="background:${raceColor(g.race)}"></span>${esc(g.race)}<span class="wbr-jump-count">${g.items.length}</span></button>`).join('');
   const cards=nonEmpty.map((g,i)=>{
