@@ -1309,8 +1309,13 @@ await test('[desktop] mutations: bought at recruitment, 2nd at double price, nor
   await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];x.skills=[...(x.skills||[]),'Dodge'];save(true);render('fighter')});
   await page.waitForSelector('.mut-grant');await page.evaluate(()=>openMutationGrantModal());await page.waitForSelector('.mutPick');
   await page.check('.mutPick[value="claw"]');await page.click('#mutGo');await page.waitForTimeout(300);
-  const g=await page.evaluate(g0=>{const r=activeRoster();const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant')}},del.gold);
-  expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===200&&!g.banner,'the skill mutation must be paid double and close the prompt: '+JSON.stringify(g));
+  const g=await page.evaluate(g0=>{const r=activeRoster(),f=faction(r);const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant'),extra:fighterValue(x,f)-liveFighterCost(x,f)}},del.gold);
+  expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===0&&g.extra===40&&!g.banner,'a skill mutation must be free, add no value and close the prompt: '+JSON.stringify(g));
+});
+await test('[desktop] a published custom fighter shows the equipment list saved in Admin on Rules: Warbands',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&(x.warriors||[]).length);const w={id:'cfx',name:'Copy Fighter',type:'Henchman',customFighterId:'cfx',profile:[4,3,3,3,3,1,3,1,7],equipmentAccessGroups:[],equipmentAccess:['Sword','Dagger'],equipmentAccessExact:true};
+    return equipmentAccessGroupedForDisplay(w,f,false).flatMap(g=>g.items)});
+  expect(out.includes('Sword')&&out.includes('Dagger'),'the Admin list is ignored on the rules page: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
