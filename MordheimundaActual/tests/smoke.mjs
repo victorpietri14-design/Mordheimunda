@@ -1273,6 +1273,15 @@ await test('[desktop] Rules › Warbands: a sub-faction shows the same picture a
     const tile=[...document.querySelectorAll('.faction-choice.sub')].find(a=>a.textContent.includes(sp.displayName||sp.name));return {img:tile?.querySelector('img')?.getAttribute('src')||null}});
   expect(out.skip||out.img==='/assets/img/logo.png','sub-faction picture: '+JSON.stringify(out));
 });
+await test('[desktop] a custom skill with the same name as a published skill of another tree stays in its own tree',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{
+    D.factions.push({id:'official-x1',__official:true,displayName:'Ogres X',warriors:[],equipment:[],skills:[{name:'Bellowing Roar',tree:'Ogre Might',text:'roar'}],exclusiveSkillSets:{'Ogre Might':['Bellowing Roar']}});
+    state.customSkillTrees=[...(state.customSkillTrees||[]),{id:'t1z',name:'My Tree Z'},{id:'t2z',name:'Ogre Might'}];
+    state.customSkills=[...(state.customSkills||[]),{customContentId:'minez',name:'Bellowing Roar',text:'my roar',tree:'My Tree Z'},{customContentId:'copyz',name:'Bellowing Roar',text:'roar',tree:'Ogre Might'}];save(true);
+    const off=officializedContentIdSets().skills;return {mine:off.has('minez'),copy:off.has('copyz')}});
+  expect(out.mine===false&&out.copy===true,'same-name skills: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

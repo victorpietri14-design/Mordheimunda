@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0810.0';
+const APP_BUILD='110.0811.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -15541,7 +15541,7 @@ function officializedContentIdSets(){
     try{bundle=bundleCustomContentForOfficialize(cw,customWarbandFaction(cw));}catch(e){return;}
     const map=(kind,list)=>{
       (list||[]).forEach(entry=>{
-        const found=customContentList(kind).find(x=>normName(x.name)===normName(entry.name));
+        const found=customContentList(kind).find(x=>sameContent(kind,x,entry));
         if(found)out[kind].add(found.customContentId);
       });
     };
@@ -18317,13 +18317,13 @@ function customOnlineSets(){
     (f.warriors||[]).forEach(w=>add('fighters',w?.customFighterId,oid));
     (f.equipment||[]).forEach(w=>add('equipment',w?.customEquipmentId,oid));
     (f.traits||[]).forEach(t=>add('traits',normName(t?.name),oid));
-    (f.skills||[]).forEach(t=>add('skills',normName(t?.name),oid));
-    (f.spells||[]).forEach(t=>add('spells',normName(t?.name),oid));
+    (f.skills||[]).forEach(t=>add('skills',contentKey('skills',t),oid));
+    (f.spells||[]).forEach(t=>add('spells',contentKey('spells',t),oid));
     (f.specialRules||[]).forEach(t=>add('special',normName(t?.name),oid));
     Object.keys(f.exclusiveSkillSets||{}).forEach(k=>add('trees',normName(k),oid));
     Object.keys(f.exclusiveMagicDomains||{}).forEach(k=>add('domains',normName(k),oid));
   });
-  ['traits','skills','spells','special'].forEach(c=>(RULES.categories[c]||[]).forEach(e=>{if(e.__official)add(c,normName(e.name),null)}));
+  ['traits','skills','spells','special'].forEach(c=>(RULES.categories[c]||[]).forEach(e=>{if(e.__official)add(c,contentKey(c,e),null)}));
   return out;
 }
 // Local copies of content that is live online count as officialized for the
@@ -18333,7 +18333,7 @@ function customOnlineCopyIds(tab){
   const on=customOnlineSets()[tab];if(!on)return [];
   if(tab==='fighters')return customFighterList().filter(w=>on.has(w.customFighterId)).map(w=>w.customFighterId);
   if(tab==='equipment')return customEquipmentList().filter(w=>on.has(w.customEquipmentId)).map(w=>w.customEquipmentId);
-  return customContentList(tab).filter(x=>on.has(normName(x.name))).map(x=>x.customContentId);
+  return customContentList(tab).filter(x=>contentOnline(on,tab,x)).map(x=>x.customContentId);
 }
 function customPublishedPlan(){
   const online=customOnlineSets();
@@ -18366,14 +18366,14 @@ function customPublishedPlan(){
   cws.forEach(cw=>{
     ['fighterIds','equipmentIds','specialRuleIds','traitIds'].forEach(k=>(cw[k]||[]).forEach(id=>{if(!origin.has(id))origin.set(id,cw.officialId)}));
     let b;try{b=bundleCustomContentForOfficialize(cw,customWarbandFaction(cw))}catch(e){return}
-    const byName=(tab,list)=>(list||[]).forEach(e=>{const k=CUSTOM_CLEANUP_KINDS.find(q=>q.tab===tab);const x=k&&k.list().find(q=>normName(q.name)===normName(e.name));if(x&&!origin.has(x[k.idKey]))origin.set(x[k.idKey],cw.officialId)});
+    const byName=(tab,list)=>(list||[]).forEach(e=>{const k=CUSTOM_CLEANUP_KINDS.find(q=>q.tab===tab);const x=k&&k.list().find(q=>sameContent(tab,q,e));if(x&&!origin.has(x[k.idKey]))origin.set(x[k.idKey],cw.officialId)});
     byName('equipment',b.equipment);byName('traits',b.traits);byName('skills',b.skills);byName('spells',b.spells);byName('special',b.specialRules);
   });
   const items=[],flag=[],kept=[];
   CUSTOM_CLEANUP_KINDS.forEach(k=>{
     const off=official[k.tab];if(!off)return;
     k.list().forEach(x=>{const id=x[k.idKey];
-      const isOnline=k.tab==='fighters'||k.tab==='equipment'?online[k.tab].has(id):(online[k.tab]&&online[k.tab].has(normName(x.name)));
+      const isOnline=k.tab==='fighters'||k.tab==='equipment'?online[k.tab].has(id):(online[k.tab]&&contentOnline(online[k.tab],k.tab,x));
       if(!off.has(id)&&!isOnline)return;
       const keep=keepIds.has(id)||(k.tab==='fighters'&&rosterFighters.has(id))||(keepNames[k.tab]&&keepNames[k.tab].has(normName(x.name)))
         // A published item that belongs to a published warband still kept
@@ -20114,3 +20114,13 @@ function linkScenarioActions(html){if(!html||!/Pick|Search|Loot|Carrying|Heavy|S
   if(skip||!p.trim())return p;
   return p.replace(/\b(Pick[ -]?Up|Search|Loot|Carrying Objectives?|Heavy Load|Secur(?:e|ed|ing)|Holds?|Dominates?)\b/g,w=>{const key=SCN_ACTION_RULES.find(([,re])=>re.test(w))?.[0];return key?scnActionRefMarkup(key,w):w})}).join('')}
 Object.assign(I18N_EN,{"Ouvrir la page des règles →":"Open the rules page →"});
+
+// V-SAMENAMESKILL: a skill is identified by its name AND its tree (a spell by
+// name AND domain). Matching by name alone made a new skill in your own tree
+// (e.g. "Bellowing Roar") count as the published one of another warband, so
+// it was tucked away as "already online" and vanished from its tree.
+// An entry with no tree/domain recorded (older data) still matches by name.
+function contentGroupOf(tab,x){return tab==='skills'?normName(x?.tree||x?.category||''):tab==='spells'?normName(x?.domain||x?.category||''):''}
+function contentKey(tab,x){const n=normName(x?.name||'');if(!n)return '';if(tab!=='skills'&&tab!=='spells')return n;return n+'|'+(contentGroupOf(tab,x)||'*')}
+function contentOnline(set,tab,x){if(!set)return false;if(tab!=='skills'&&tab!=='spells')return set.has(normName(x?.name||''));const n=normName(x?.name||'');return set.has(contentKey(tab,x))||set.has(n+'|*')}
+function sameContent(tab,a,b){if(normName(a?.name||'')!==normName(b?.name||''))return false;if(tab!=='skills'&&tab!=='spells')return true;const ga=contentGroupOf(tab,a),gb=contentGroupOf(tab,b);return !ga||!gb||ga===gb}
