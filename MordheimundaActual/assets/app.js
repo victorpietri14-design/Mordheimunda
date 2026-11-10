@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0804.0';
+const APP_BUILD='110.0807.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -495,7 +495,7 @@ let rulesOpen=restoreUiState('rulesOpen','prebattle');
 const RULES_NAV_GROUPS_DEFAULT=[
   {id:'g-firstprinciples',fr:'0. Principes de base',en:'0. First Principles',ids:['firstprinciples','measurement','lineofsight','rollingdice','fighterstatus','conditions','houserules','characteristics'],icon:'📖'},
   {id:'g-prebattle',fr:'1. Séquence de pré-bataille',en:'1. Pre-Battle Sequence',ids:['prebattle','underdogbonus','scenariorules'],icon:'⚔'},
-  {id:'g-structure',fr:'2.1 – 2.3 Structure de partie',en:'2.1 – 2.3 Game Structure',ids:['structure','priority','actionphase','types','actions','movement','endphase'],icon:'☷'},
+  {id:'g-structure',fr:'2.1 – 2.3 Structure de partie',en:'2.1 – 2.3 Game Structure',ids:['structure','priority','actionphase','types','actions','scenarioactions','movement','endphase'],icon:'☷'},
   {id:'g-combat',fr:'2.2.4 – 2.2.7 Tir & Corps à corps',en:'2.2.4 – 2.2.7 Shooting & Close Combat',ids:['terrain','shooting','combat','resolve'],icon:'🎯'},
   {id:'g-psychology',fr:'2.2.8 Psychologie',en:'2.2.8 Psychology',ids:['psychology'],icon:'◎'},
   {id:'g-magic',fr:'2.2.9 Magie',en:'2.2.9 Magic',ids:['magic'],icon:'✦'},
@@ -510,7 +510,7 @@ async function loadRuleNavGroups(){
     RULES_NAV_GROUPS=Array.isArray(r?.groups)&&r.groups.length?r.groups.map(g=>({...g,ids:Array.isArray(g.ids)?g.ids.slice():[]})):RULES_NAV_GROUPS_DEFAULT.map(g=>({...g,ids:g.ids.slice()}));
     // V-HOUSEPAGES: pages added to the defaults after an admin saved the nav
     // still show up: appended to their default group (or that group is added).
-    const placed=new Set(RULES_NAV_GROUPS.flatMap(g=>g.ids));RULES_NAV_GROUPS_DEFAULT.forEach(d=>{const miss=d.ids.filter(id=>!placed.has(id));if(!miss.length)return;const g=RULES_NAV_GROUPS.find(x=>x.id===d.id);if(g)g.ids.push(...miss);else RULES_NAV_GROUPS.push({...d,ids:miss});miss.forEach(id=>placed.add(id))});
+    const placed=new Set(RULES_NAV_GROUPS.flatMap(g=>g.ids));RULES_NAV_GROUPS_DEFAULT.forEach(d=>{const miss=d.ids.filter(id=>!placed.has(id));if(!miss.length)return;const g=RULES_NAV_GROUPS.find(x=>x.id===d.id);if(g)miss.forEach(id=>{const prev=d.ids[d.ids.indexOf(id)-1];const at=prev?g.ids.indexOf(prev):-1;if(at>=0)g.ids.splice(at+1,0,id);else g.ids.push(id)});else RULES_NAV_GROUPS.push({...d,ids:miss});miss.forEach(id=>placed.add(id))});
   }catch(e){console.warn('Rule nav groups unavailable',e);}
 }
 // The 8 dice/result tables added to the rulebook (see ruleTableMarkup),
@@ -3363,7 +3363,36 @@ A Henchman who reaches 6 XP rolls 2D6 on the table below; the roll uses up the 6
 
 6. CHARACTERISTIC MAXIMUMS
 [AUTO stat-max]
-The fighter's card always shows their real maximums.`}]}
+The fighter's card always shows their real maximums.`}]},
+ {id:'scenarioactions',title:'2.2.2b Objectives & Scenario Actions',pages:'—',content:[{page:904,text:`Objectives & Scenario Actions
+Many scenarios ask warriors to pick up, carry and secure objectives. The rules below apply in every scenario unless the scenario says otherwise. A scenario may give an action its own name for flavour, for example Harvest Wyrdstone (Pick Up): it is the same action, with the same rules.
+
+[ACTIONCARDS]
+Pick Up|basic|active|If the warrior is in base contact with an objective token, make an Intelligence check. If it is passed, the warrior picks up the token and carries it (see Carrying Objectives). A scenario may change the action type or the characteristic tested, for example Pick Up (Free, Strength).
+Search|basic|active|If the warrior is inside a ruin or building that has not been searched yet, make an Intelligence check. If it is passed, roll on the scenario's search result. Each ruin or building can only be searched once.
+Loot|basic|active|Pick one Seriously Injured enemy warrior in base contact: take the objective tokens or scenario items that warrior is carrying.
+[/ACTIONCARDS]
+
+CARRYING OBJECTIVES
+A warrior can carry any number of objective tokens without penalty, unless a token is a Heavy Load. Tokens cannot be handed to another warrior. If the carrier goes Out of Action, place their tokens where the model stood: any warrior can then Pick Up them.
+
+HEAVY LOAD
+A warrior carrying a Heavy Load (a chest, a body, a large idol…) treats Move as a Basic action instead of a Simple action, unless it has the Powerful Build trait.
+
+SECURING AN OBJECTIVE
+An objective is Secured by a warband when one of its warriors carrying it leaves the battlefield (by the table edge the scenario names, if it names one), or is still carrying it at the end of the game. A Secured token can no longer be taken.
+
+HOLD
+A warband Holds a ruin, building or area if at least one of its Standing warriors is inside and no Standing enemy warrior is inside.
+
+DOMINATE
+A warband Dominates an area (an island, a zone…) if it has more Standing warriors in it than any single other warband.
+
+END OF THE GAME
+Unless the scenario says otherwise:
+• any result not covered by the scenario's victory conditions is a draw;
+• a warband that voluntarily routs loses 1 Reputation;
+• Underdog: use the Underdog table when the warbands' ratings differ by more than 100.`}]}
 );
 function ruleAutoTable(head,rows){return '[TABLE]\n'+[head,...rows].map(r=>r.map(c=>String(c??'').replace(/[|\n]+/g,' ')).join('|')).join('\n')+'\n[/TABLE]'}
 function ruleAutoBlock(key,en){
@@ -8960,7 +8989,7 @@ function scenarioSections(s,en,deployBody,ctx){
   add(en?'Victory':'Victoire',(has(v.major)||has(v.minor)||has(v.draw))?`<div class="scn-victory">${has(v.major)?`<div><strong>${en?'Major:':'Majeure :'}</strong> ${scenarioText(v.major)}</div>`:''}${has(v.minor)?`<div><strong>${en?'Minor:':'Mineure :'}</strong> ${scenarioText(v.minor)}</div>`:''}${has(v.draw)?`<div><strong>${en?'Draw:':'Nul :'}</strong> ${scenarioText(v.draw)}</div>`:''}</div>`:'');
   const rw=(Array.isArray(s.rewards)?s.rewards:[]).filter(has);
   if(rw.length)add(en?'Rewards':'Récompenses',`<div class="scn-list">${rw.map(r=>`<div>${scenarioText(r)}</div>`).join('')}</div>`);
-  try{const used=scenarioRulesUsed(s);if(used.length)secs.unshift({title:en?'Rules used':'Règles utilisées',body:`<p class="scn-used-hint">${en?'Tap a rule to read it.':'Touche une règle pour la lire.'}</p><div class="scn-used">${used.map(t=>`<span class="rule-ref scn-used-chip" tabindex="0" data-ref-category="${t.cat}" data-ref-id="${esc(t.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(t.name)}</span>`).join('')}</div>`})}catch(e){}
+  try{const used=scenarioRulesUsed(s);const sa=scenarioActionTermsUsed(s);if(used.length||sa.length)secs.unshift({title:en?'Rules used':'Règles utilisées',body:`<p class="scn-used-hint">${en?'Tap a rule to read it.':'Touche une règle pour la lire.'}</p><div class="scn-used">${sa.map(t=>`<button type="button" class="rule-ref scn-used-chip scn-act-chip" title="${esc(t.title)}" onclick="openScenarioActionRule('${esc(t.key)}')">${esc(t.name)}</button>`).join('')}${used.map(t=>`<span class="rule-ref scn-used-chip" tabindex="0" data-ref-category="${t.cat}" data-ref-id="${esc(t.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(t.name)}</span>`).join('')}</div>`})}catch(e){}
   return secs;
 }
 // V-SCNGROUPS: the scenario's sections grouped in three folding parts —
@@ -9062,7 +9091,7 @@ function autoGrowTextarea(el){if(!el)return;el.style.height='auto';el.style.heig
 // bullet, mini title, colored text, picture) is shown like rules text; a
 // plain text keeps showing exactly as before.
 const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en place'],seAttacker:['Attacker rule','Règle — Attaquant'],seDefender:['Defender rule','Règle — Défenseur'],sePrepText:['Preparation text','Texte de préparation'],seSpecialRules:['Special rules text','Texte des règles spéciales'],seUnderdog:['Underdog bonus','Underdogs Bonus'],seTableEdge:['Table edge rule','Règle des bords de table'],seObjPrimary:['Primary objective','Objectif principal'],seObjSecondary:['Secondary objective','Objectif secondaire'],seEndCondition:['End of game','Fin de partie'],seVictoryMajor:['Major victory','Victoire majeure'],seVictoryMinor:['Minor victory','Victoire mineure'],seVictoryDraw:['Draw','Match nul'],seRewards:['Rewards','Récompenses']};
-function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
+function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG|ACTIONCARDS)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
 // V-SCNNOTITLE: scenario text is not a rules page — its first line (often
 // the sentence right above a table) is plain text, never the page title.
 function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{noTitle:true})}</div>`:esc(v)}
@@ -20073,3 +20102,18 @@ function baseSaveFor(w,f){try{const gear=[...(w.defaultEquipment||[]).map(n=>hir
 function npcWeaponRulesMarkup(e){const en=siteLanguage==='en';const parts=[];const t=String(e.rulesText||'').trim();if(t)parts.push(`<div class="npc-w-rule">${customTextMarkup(t)}</div>`);
  (Array.isArray(e.traits)?e.traits:[]).forEach(n=>{const k=String(n).replace(/\(.*\)/,'').trim();const r=k&&referenceFind('traits',k);if(!r)return;const ov=ruleMechanicsText(referenceOverrideSectionId('traits',r.id),0);const txt=String(ov!=null?ov:r.text||'').trim();if(txt)parts.push(`<div class="npc-w-rule"><b>${esc(r.name)}</b> — ${linkGlossaryInHtml(customTextMarkup(txt),r.name)}</div>`)});
  return parts.length?`<div class="npc-w-rules"><span class="micro-label">${en?'WEAPON RULES':'RÈGLES DE L’ARME'}</span>${parts.join('')}</div>`:''}
+
+// V-SCNACTIONS: Rules › 2.2.2b Objectives & Scenario Actions holds what many
+// scenarios share (Pick Up, Search, Loot, carrying, Heavy Load, Secured, Hold,
+// Dominate). A scenario that names one of them (capitalised, e.g. "Harvest
+// Wyrdstone (Pick Up)") lists it under "Rules used"; a tap opens that rule.
+const SCN_ACTION_RULES=[['pickup',/\bPick[ -]?Up\b/,'Pick Up'],['search',/\bSearch\b/,'Search'],['loot',/\bLoot\b/,'Loot'],['carrying',/\bCarrying Objectives?\b/,'Carrying Objectives'],['heavy',/\bHeavy Load\b/,'Heavy Load'],['secured',/\bSecur(?:e|ed|ing)\b/,'Secured'],['hold',/\bHolds?\b/,'Hold'],['dominate',/\bDominates?\b/,'Dominate']];
+function scenarioActionTermsUsed(s){let txt='';try{txt=[s.specialRules,s.objectives?.primary,s.objectives?.secondary,s.endCondition,s.victory?.major,s.victory?.minor,...(s.experience||[]).map(x=>`${x?.name||''} ${x?.text||''}`),...(Array.isArray(s.rewards)?s.rewards:[])].filter(Boolean).join('\n')}catch(e){}
+ const en=siteLanguage==='en';return SCN_ACTION_RULES.filter(([k,re])=>re.test(txt)).map(([key,,name])=>({key,name,title:en?'Rules › Objectives & Scenario Actions':'Règles › Objectifs et actions de scénario'}))}
+function openScenarioActionRule(key){const en=siteLanguage==='en';const sec=RULES_BOOK.find(x=>x.id==='scenarioactions');if(!sec){openRulePage('scenarioactions');return}
+ const card=getActionRowsForSection('scenarioactions').find(r=>normName(r.name).replace(/\s/g,'')===key||normName(r.name).replace(/\s/g,'')===({pickup:'pickup'}[key]||''));
+ let body='';if(card)body=`<div class="help-kicker">${esc(card.name)} · ${esc(String(card.type||'').toUpperCase())}</div><p>${esc(card.desc)}</p>`;
+ else{const page=sec.content[0];const ov=ruleEffectiveText('scenarioactions',page.page);const text=String(ov!=null?ov:page.text);const heads={carrying:'CARRYING OBJECTIVES',heavy:'HEAVY LOAD',secured:'SECURING AN OBJECTIVE',hold:'HOLD',dominate:'DOMINATE'};const h=heads[key];const i=h?text.indexOf(h):-1;
+  if(i>=0){const rest=text.slice(i+h.length).replace(/^\s*\n/,'');const end=rest.search(/\n\s*\n[A-Z][A-Z &]{2,}\s*\n/);body=`<div class="help-kicker">${esc(h)}</div><div class="rule-page-text">${ruleTextMarkup(end>=0?rest.slice(0,end):rest,{noTitle:true})}</div>`}}
+ if(!body){openRulePage('scenarioactions');return}
+ helpSheetOpen(`${body}<div class="help-actions"><button type="button" class="help-ghost" onclick="helpSheetClose();openRulePage('scenarioactions')">${en?'Open the page':'Ouvrir la page'}</button><button type="button" class="help-go" onclick="helpSheetClose()">${en?'Close':'Fermer'}</button></div>`)}

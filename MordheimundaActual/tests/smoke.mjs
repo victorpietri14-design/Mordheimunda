@@ -1010,7 +1010,9 @@ await test('[desktop] admin code is not part of the page and loads for the admin
   const before=await page.evaluate(async()=>{const html=await (await fetch('/')).text();return {inPage:/admin(\.min)?\.js/.test(html)}});
   expect(!before.inPage,'the page itself never loads the admin code: '+JSON.stringify(before));
   await page.evaluate(()=>navigateApp('/admin')); // localhost counts as an admin session
-  await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});await page.waitForTimeout(400);
+  await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});
+  // the panel draws its sections once its data is in: wait for them rather than a fixed delay
+  await page.waitForFunction(()=>/admin-section-tabs|Gestion|Content|Site/.test(document.getElementById('content')?.innerHTML||''),null,{timeout:8000}).catch(()=>{});
   const t=await page.textContent('#content');
   expect(!/Loading the admin panel|Chargement du panneau admin/.test(t)&&/admin-section-tabs|Gestion|Content|Site/.test(await page.innerHTML('#content')),'opening the panel loads its code and shows it: '+t.slice(0,160));
 });
@@ -1244,6 +1246,25 @@ await test('[desktop] Sv box: rules cards show the base save from starting gear,
     navigateApp('/rules/warbands/'+encodeURIComponent(f.id));await new Promise(z=>setTimeout(z,600));
     return {light,cards:document.querySelectorAll('#content .sv-stat').length,npcSv:/<span>Sv<\/span><b>5\+/.test(html),wRule:/Each wound roll of 6/.test(html),trait:/npc-w-rule"><b>Rending/.test(html)}});
   expect(out.light==='6+'&&out.cards>0&&out.npcSv&&out.wRule&&out.trait,'Sv box: '+JSON.stringify(out));
+});
+await test('[desktop] scenario editor refuses texts that are too long instead of cutting them',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{navigateApp('/admin');for(let i=0;i<40&&typeof scenarioTooLong!=='function';i++)await new Promise(z=>setTimeout(z,100));
+    if(typeof scenarioTooLong!=='function')return {loaded:false};
+    const ok=scenarioTooLong({summary:'x'.repeat(600),experience:[{name:'y'.repeat(200),text:''}]},true);
+    const bad=scenarioTooLong({summary:'x'.repeat(4001),experience:[{name:'y'.repeat(401),text:''}]},true);
+    return {loaded:true,ok:ok.length,bad:bad.length}});
+  expect(out.loaded&&out.ok===0&&out.bad===2,'scenario length check: '+JSON.stringify(out));
+});
+await test('[desktop] Rules › Objectives & Scenario Actions: page after Actions, scenarios list the rules they use',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const g=RULES_NAV_GROUPS.find(x=>x.id==='g-structure');const i=g.ids.indexOf('actions');
+    openRulePage('scenarioactions');await new Promise(z=>setTimeout(z,600));const cards=[...document.querySelectorAll('#content .action-card .ac-name')].map(x=>x.textContent);
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'saz',name:'Wyrd Z',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Jungle'},victory:{major:'Most Secured tokens wins'},specialRules:'Harvest Wyrdstone (Pick Up).\n\n[ACTIONCARDS]\nLure|basic|active|Roll a D6.\n[/ACTIONCARDS]'}];
+    currentScenarioId='saz';render('scenarioDetail');await new Promise(z=>setTimeout(z,300));
+    const chips=[...document.querySelectorAll('.scn-act-chip')].map(c=>c.textContent);const own=[...document.querySelectorAll('#content .action-card .ac-name')].map(x=>x.textContent);
+    return {after:g.ids[i+1],cards,chips,own}});
+  expect(out.after==='scenarioactions'&&out.cards.join()==='Pick Up,Search,Loot'&&out.chips.includes('Pick Up')&&out.chips.includes('Secured')&&out.own.includes('Lure'),'scenario actions page: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
