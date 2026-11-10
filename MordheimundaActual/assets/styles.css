@@ -5230,7 +5230,7 @@ mark.pf-hit.cur{background:#e0b04a;color:#111}
   .read-tool{width:42px;height:42px;font-size:17px}
   .pf-bar{top:auto;bottom:calc(80px + env(safe-area-inset-bottom,0px))}
   /* V-PEEKSHEET: a rule opened from a keyword slides up from the bottom */
-  .rule-peek.visible{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:calc(66px + env(safe-area-inset-bottom,0px))!important;width:100%!important;max-width:none!important;max-height:58vh!important;overflow:auto!important;border-radius:16px 16px 0 0!important;box-shadow:0 -12px 40px rgba(0,0,0,.55)!important;z-index:90!important;animation:readSheetUp .18s ease-out!important}
+  .rule-peek.visible{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:calc(66px + env(safe-area-inset-bottom,0px))!important;width:100%!important;max-width:none!important;max-height:58vh!important;overflow:auto!important;border-radius:16px 16px 0 0!important;box-shadow:0 -12px 40px rgba(0,0,0,.55)!important;z-index:1100!important;animation:readSheetUp .18s ease-out!important}
 }
 @keyframes readSheetUp{from{transform:translateY(30%);opacity:.6}to{transform:none;opacity:1}}
 /* V-FIGHTERSHEET (phone): name never cut, compact top bar, folded status */

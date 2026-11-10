@@ -1324,6 +1324,14 @@ await test('[desktop] a sub-warband whose fighters use its mother warband skill 
     try{return {trees:warbandExclusiveSkillTrees(sub),list:exclusiveSkillListAnywhere('Mother Tree',sub)}}finally{D.factions.splice(D.factions.indexOf(mother),2)}});
   expect(out.trees.includes('Mother Tree')&&(out.list||[]).includes('Big Roar'),'the shared tree is missing on the sub-warband page: '+JSON.stringify(out));
 });
+await test('[mobile] tapping a skill name inside the skill picker shows its rule above the window',null,async page=>{
+  await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'&&!(w.recruitOptions||[]).length));const w=f.warriors.find(q=>q.type==='Leader'&&!(q.recruitOptions||[]).length);state.rosters=[{id:'tp',name:'TP',factionId:f.id,gold:1000,fighters:[]}];state.active='tp';navigateApp(warbandPath('tp'));addFighter(w.id)});
+  await page.waitForTimeout(400);
+  await page.evaluate(()=>{closeModal();editingIndex=0;render('fighter');openSkillModal()});await page.waitForSelector('.skill-modal-category');
+  await page.click('.skill-modal-category');await page.waitForSelector('.skill-modal-skill .rule-ref');await page.evaluate(()=>showRulePeek(document.querySelector('.skill-modal-skill .rule-ref')));await page.waitForTimeout(400);
+  const ok=await page.evaluate(()=>{const p=document.querySelector('#rulePeek.visible');if(!p)return 'not visible';const r=p.getBoundingClientRect();const el=document.elementFromPoint(r.left+r.width/2,r.top+Math.min(20,r.height/2));return !!(el&&el.closest('#rulePeek'))||'covered'});
+  expect(ok===true,'the rule box is hidden: '+ok);
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
