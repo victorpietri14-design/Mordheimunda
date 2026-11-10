@@ -17972,7 +17972,13 @@ function equipmentAccessResolvedNames(w,f){
   return equipmentAccessResolvedNamesBase(w,f);
 }
 function equipmentAccessResolvedNamesBase(w,f){
-  const raw=w.equipmentAccessGroups!==undefined?w.equipmentAccessGroups:(w.equipmentAccessExplicit!==undefined?w.equipmentAccessExplicit:(w.equipmentAccess!==undefined?w.equipmentAccess:[]));
+  // V-CFACCESSLIVE: a custom fighter (also once published, e.g. a duplicated
+  // sub-warband) buys from its equipmentAccess list (warriorBandAllowed), and
+  // that is the list the Admin editor saves. Its equipmentAccessGroups is
+  // only a snapshot taken when it was published, so reading it first showed
+  // "0 categories" after an Admin edit: read the live list first.
+  const live=(w.customFighterId||w.equipmentAccessExact)&&Array.isArray(w.equipmentAccess)?w.equipmentAccess:undefined;
+  const raw=live!==undefined?live:w.equipmentAccessGroups!==undefined?w.equipmentAccessGroups:(w.equipmentAccessExplicit!==undefined?w.equipmentAccessExplicit:(w.equipmentAccess!==undefined?w.equipmentAccess:[]));
   const isCustomFighter=!!w.customFighterId;
   if(equipmentGroupsMeansAll(raw)){
     if(isCustomFighter)return customFighterAllEquipment().map(e=>e.name);
