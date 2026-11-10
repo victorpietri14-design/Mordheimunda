@@ -1010,7 +1010,9 @@ await test('[desktop] admin code is not part of the page and loads for the admin
   const before=await page.evaluate(async()=>{const html=await (await fetch('/')).text();return {inPage:/admin(\.min)?\.js/.test(html)}});
   expect(!before.inPage,'the page itself never loads the admin code: '+JSON.stringify(before));
   await page.evaluate(()=>navigateApp('/admin')); // localhost counts as an admin session
-  await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});await page.waitForTimeout(400);
+  await page.waitForFunction(()=>typeof adminReal==='function',null,{timeout:8000});
+  // the panel draws its sections once its data is in: wait for them rather than a fixed delay
+  await page.waitForFunction(()=>/admin-section-tabs|Gestion|Content|Site/.test(document.getElementById('content')?.innerHTML||''),null,{timeout:8000}).catch(()=>{});
   const t=await page.textContent('#content');
   expect(!/Loading the admin panel|Chargement du panneau admin/.test(t)&&/admin-section-tabs|Gestion|Content|Site/.test(await page.innerHTML('#content')),'opening the panel loads its code and shows it: '+t.slice(0,160));
 });
