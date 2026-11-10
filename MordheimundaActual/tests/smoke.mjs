@@ -1245,6 +1245,15 @@ await test('[desktop] Sv box: rules cards show the base save from starting gear,
     return {light,cards:document.querySelectorAll('#content .sv-stat').length,npcSv:/<span>Sv<\/span><b>5\+/.test(html),wRule:/Each wound roll of 6/.test(html),trait:/npc-w-rule"><b>Rending/.test(html)}});
   expect(out.light==='6+'&&out.cards>0&&out.npcSv&&out.wRule&&out.trait,'Sv box: '+JSON.stringify(out));
 });
+await test('[desktop] scenario editor refuses texts that are too long instead of cutting them',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{navigateApp('/admin');for(let i=0;i<40&&typeof scenarioTooLong!=='function';i++)await new Promise(z=>setTimeout(z,100));
+    if(typeof scenarioTooLong!=='function')return {loaded:false};
+    const ok=scenarioTooLong({summary:'x'.repeat(600),experience:[{name:'y'.repeat(200),text:''}]},true);
+    const bad=scenarioTooLong({summary:'x'.repeat(4001),experience:[{name:'y'.repeat(401),text:''}]},true);
+    return {loaded:true,ok:ok.length,bad:bad.length}});
+  expect(out.loaded&&out.ok===0&&out.bad===2,'scenario length check: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

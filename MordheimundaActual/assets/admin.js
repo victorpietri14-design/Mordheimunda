@@ -2004,6 +2004,7 @@ async function saveScenarioEditor(){
   const name=v('seName').trim();
   if(!name){toast(en?'Give the scenario a name':'Donne un nom au scénario');return}
   const body=scenarioEditorCollect();
+  {const over=scenarioTooLong(body,en);if(over.length){toast((en?'Too long, nothing saved: ':'Trop long, rien n’est enregistré : ')+over.join(' · '));return}}
   try{
     if(adminScenarioEditId)await window.MordheimundaAPI.adminUpdateScenario(adminScenarioEditId,body);
     else await window.MordheimundaAPI.adminCreateScenario(body);
@@ -2522,3 +2523,12 @@ function scenarioNpcEditorMarkup(d,en){const cur=d?.npcs||{};const picked=new Ma
   ${list.length?`<div class="scn-field"><label>${en?'How they are used':'Utilisation'}</label><select id="seNpcMode"><option value="all" ${cur.mode!=='choose'?'selected':''}>${en?'All the ticked profiles take part':'Tous les profils cochés participent'}</option><option value="choose" ${cur.mode==='choose'?'selected':''}>${en?'The players choose ONE of the ticked profiles':'Les joueurs choisissent UN des profils cochés'}</option></select></div>
   <div class="scn-npc-pick">${list.map(w=>{const k=neutralCreatureKey(w);const hit=picked.get(k)||[...picked.values()].find(x=>normName(x.name)===normName(w.name));return `<label class="custom-check"><input type="checkbox" class="seNpc" value="${esc(k)}" data-name="${esc(w.name)}" ${hit?'checked':''}><span>${esc(w.name)}</span><input class="seNpcCount" data-id="${esc(k)}" value="${esc(hit?.count||'1')}" title="${en?'How many (e.g. 1, D3, 2D3)':'Combien (ex. 1, D3, 2D3)'}" style="width:64px"></label>`}).join('')}</div>
   <div class="scn-field"><label>${en?'Note (where they are placed, who controls them…)':'Note (où on les place, qui les contrôle…)'}</label><textarea id="seNpcNote" rows="2">${esc(cur.note||'')}</textarea></div>`:`<p class="muted">${en?'No neutral creature yet: create one in Custom › Hired Swords with “Neutral creature” ticked, and publish it (☆).':'Aucune créature neutre : crée-en une dans Custom › Hired Swords avec « Créature neutre » coché, et publie-la (☆).'}</p>`}</section>`}
+
+// V-SCNLIMITS: the server keeps at most these lengths. Saving is refused (with
+// the field named) instead of letting the server cut the end of a text.
+const SCN_TEXT_LIMITS=[['summary',4000,'Summary','Résumé'],['battlefield.terrainType',300,'Terrain','Terrain'],['battlefield.setupInstructions',8000,'Battlefield setup','Mise en place'],['roles.attacker',4000,'Attacker','Attaquant'],['roles.defender',4000,'Defender','Défenseur'],['preparation.text',8000,'Preparation','Préparation'],['specialRules',20000,'Special rules','Règles spéciales'],['bandsFormula.customText',1000,'Fighters per warband','Combattants par bande'],['bandsFormula.adjacentText',4000,'Fighters per warband (text)','Combattants par bande (texte)'],['underdogBonus',4000,'Underdog','Underdog'],['deployment.tableEdgeRule',8000,'Table edges','Bords de table'],['objectives.primary',8000,'Primary objective','Objectif principal'],['objectives.secondary',8000,'Secondary objective','Objectif secondaire'],['endCondition',8000,'End of game','Fin de partie'],['victory.major',4000,'Major victory','Victoire majeure'],['victory.minor',4000,'Minor victory','Victoire mineure'],['victory.draw',4000,'Draw','Match nul'],['npcs.note',4000,'NPC note','Note PNJ']];
+function scenarioTooLong(b,en){const out=[];const get=(o,path)=>path.split('.').reduce((v,k)=>v?.[k],o);
+ SCN_TEXT_LIMITS.forEach(([path,max,le,lf])=>{const n=String(get(b,path)??'').length;if(n>max)out.push(`${en?le:lf} ${n}/${max}`)});
+ (b.experience||[]).forEach((x,i)=>{if(String(x?.name||'').length>400)out.push(`${en?'Experience':'Expérience'} ${i+1} ${String(x.name).length}/400`);if(String(x?.text||'').length>4000)out.push(`${en?'Experience':'Expérience'} ${i+1} ${String(x.text).length}/4000`)});
+ (b.rewards||[]).forEach((r,i)=>{if(String(r||'').length>8000)out.push(`${en?'Reward':'Récompense'} ${i+1} ${String(r).length}/8000`)});
+ return out}

@@ -1101,7 +1101,7 @@ function validateScenarioDefinition(body){
   const num=(v,min,max,def)=>Number.isFinite(+v)?Math.max(min,Math.min(max,+v)):def;
   const arrOf=(v,max,itemMax)=>Array.isArray(v)?v.slice(0,max).map(x=>typeof x==='string'?x.slice(0,itemMax):x):[];
   const definition={
-    summary:str(body?.summary,500),
+    summary:str(body?.summary,4000),
     // V-MAPBUILDER2 / V-PLAYMODE: which fixed table size(s) this scenario
     // can be played on — the deployment-map picker AND the Play-mode random
     // deployment generator only offer/produce maps for an allowed size,
@@ -1112,15 +1112,15 @@ function validateScenarioDefinition(body){
     get tableSize(){return this.tableSizes[0]},
     bandsMin:Number.isFinite(+body?.bandsMin)?Math.max(1,Math.min(10,+body.bandsMin)):2,
     bandsMax:Number.isFinite(+body?.bandsMax)?Math.max(1,Math.min(10,+body.bandsMax)):2,
-    battlefield:{terrainType:str(body?.battlefield?.terrainType,300),setupInstructions:str(body?.battlefield?.setupInstructions,2000)},
-    roles:{attacker:str(body?.roles?.attacker,1000),defender:str(body?.roles?.defender,1000)},
-    preparation:{enabled:!!body?.preparation?.enabled,text:str(body?.preparation?.text,2000)},
+    battlefield:{terrainType:str(body?.battlefield?.terrainType,300),setupInstructions:str(body?.battlefield?.setupInstructions,8000)},
+    roles:{attacker:str(body?.roles?.attacker,4000),defender:str(body?.roles?.defender,4000)},
+    preparation:{enabled:!!body?.preparation?.enabled,text:str(body?.preparation?.text,8000)},
     // V-SCNPLAINRULES: plain explanatory text now, not a "Name | Text" rule
     // list — a list fragmented a pasted paragraph into bogus per-line rules.
     // Accepts a plain string going forward; a legacy array (saved before
     // this change) is flattened into one paragraph so older scenarios don't
     // lose their text the next time they're saved.
-    specialRules:typeof body?.specialRules==='string'?str(body.specialRules,4000):(Array.isArray(body?.specialRules)?body.specialRules.slice(0,40).map(r=>[r?.name,r?.text].filter(x=>typeof x==='string'&&x).join(' — ')).join('\n\n').slice(0,4000):''),
+    specialRules:typeof body?.specialRules==='string'?str(body.specialRules,20000):(Array.isArray(body?.specialRules)?body.specialRules.slice(0,40).map(r=>[r?.name,r?.text].filter(x=>typeof x==='string'&&x).join(' — ')).join('\n\n').slice(0,4000):''),
     // V-SCENARIOS-FORMULA: how many fighters EACH warband fields, decided
     // per band (never pooled/shared across bands). Three modes:
     //  - custom: admin types the exact value/text, shown verbatim, never computed.
@@ -1129,8 +1129,8 @@ function validateScenarioDefinition(body){
     //    of that band's own total fighters.
     bandsFormula:{
       mode:['custom','random','hybrid'].includes(body?.bandsFormula?.mode)?body.bandsFormula.mode:'custom',
-      customText:str(body?.bandsFormula?.customText,300),
-      adjacentText:str(body?.bandsFormula?.adjacentText,500),
+      customText:str(body?.bandsFormula?.customText,1000),
+      adjacentText:str(body?.bandsFormula?.adjacentText,4000),
       randomDiceCount:num(body?.bandsFormula?.randomDiceCount,1,10,1),
       randomDiceFaces:num(body?.bandsFormula?.randomDiceFaces,2,100,6),
       hybridBase:num(body?.bandsFormula?.hybridBase,0,50,0),
@@ -1138,16 +1138,16 @@ function validateScenarioDefinition(body){
     },
     // V-SCNPLAINRULES: same fix as specialRules — plain text, not a
     // "Threshold | Reward" list (which fragmented a pasted paragraph).
-    underdogBonus:typeof body?.underdogBonus==='string'?str(body.underdogBonus,2000):(Array.isArray(body?.underdogBonus)?body.underdogBonus.slice(0,10).map(u=>[u?.threshold,u?.reward].filter(x=>typeof x==='string'&&x).join(' — ')).join('\n\n').slice(0,2000):''),
-    deployment:{tableEdgeRule:str(body?.deployment?.tableEdgeRule,2000),zones:arrOf(body?.deployment?.zones,20,200),mapIds:Array.isArray(body?.deployment?.mapIds)?body.deployment.mapIds.filter(x=>typeof x==='string').slice(0,200):[]},
-    experience:Array.isArray(body?.experience)?body.experience.slice(0,20).map(x=>({name:str(x?.name,120),text:str(x?.text,500)})):[],
-    objectives:{primary:str(body?.objectives?.primary,2000),secondary:str(body?.objectives?.secondary,2000)},
-    endCondition:str(body?.endCondition,2000),
+    underdogBonus:typeof body?.underdogBonus==='string'?str(body.underdogBonus,4000):(Array.isArray(body?.underdogBonus)?body.underdogBonus.slice(0,10).map(u=>[u?.threshold,u?.reward].filter(x=>typeof x==='string'&&x).join(' — ')).join('\n\n').slice(0,2000):''),
+    deployment:{tableEdgeRule:str(body?.deployment?.tableEdgeRule,8000),zones:arrOf(body?.deployment?.zones,20,200),mapIds:Array.isArray(body?.deployment?.mapIds)?body.deployment.mapIds.filter(x=>typeof x==='string').slice(0,200):[]},
+    experience:Array.isArray(body?.experience)?body.experience.slice(0,20).map(x=>({name:str(x?.name,400),text:str(x?.text,4000)})):[],
+    objectives:{primary:str(body?.objectives?.primary,8000),secondary:str(body?.objectives?.secondary,8000)},
+    endCondition:str(body?.endCondition,8000),
     // V-SCNNPC: neutral creatures (NPC profiles) the scenario brings — all of
     // them, or the players pick ONE of the listed profiles.
-    npcs:{mode:body?.npcs?.mode==='choose'?'choose':'all',note:str(body?.npcs?.note,1000),list:Array.isArray(body?.npcs?.list)?body.npcs.list.slice(0,12).map(x=>({id:str(x?.id,120),name:str(x?.name,120),count:str(x?.count,20)})).filter(x=>x.id||x.name):[]},
-    victory:{major:str(body?.victory?.major,1000),minor:str(body?.victory?.minor,1000),draw:str(body?.victory?.draw,1000)},
-    rewards:arrOf(body?.rewards,30,2000),
+    npcs:{mode:body?.npcs?.mode==='choose'?'choose':'all',note:str(body?.npcs?.note,4000),list:Array.isArray(body?.npcs?.list)?body.npcs.list.slice(0,12).map(x=>({id:str(x?.id,120),name:str(x?.name,120),count:str(x?.count,20)})).filter(x=>x.id||x.name):[]},
+    victory:{major:str(body?.victory?.major,4000),minor:str(body?.victory?.minor,4000),draw:str(body?.victory?.draw,4000)},
+    rewards:arrOf(body?.rewards,30,8000),
     campaignSeries:{seriesId:str(body?.campaignSeries?.seriesId,120),seriesName:str(body?.campaignSeries?.seriesName,120),position:str(body?.campaignSeries?.position,20)},
     eventWindow:{start:str(body?.eventWindow?.start,40),end:str(body?.eventWindow?.end,40)},
     // Only real images: an uploaded data:image (png/jpeg/webp/gif) or an https URL.
