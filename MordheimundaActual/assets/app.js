@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0814.0';
+const APP_BUILD='110.0815.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -255,6 +255,10 @@ function warbandRoleSortIndex(t){const i=WARBAND_ROLE_ORDER.indexOf(t);return i=
 // same exclusion of __official (admin-officialized) factions from it.
 function warbandMagicAccess(f){return MAGIC_ACCESS[f.id]||(f?.baseFactionId&&!f.__official&&MAGIC_ACCESS[f.baseFactionId])||{};}
 function warriorMagicDomains(f,w){const access=warbandMagicAccess(f);const byName=k=>{const key=Object.keys(access).find(a=>normName(a)===normName(k||''));return key?access[key]:null};return byName(w?.sourceName)||byName(w?.name)||access[w?.type]||access['*']||[];}
+// V-SHAREDTREE: a warband's own skill tree lives on that faction
+// (f.exclusiveSkillSets). Another warband (e.g. its sub-warband) whose
+// fighters were given access to it shares it: find its skills wherever it is.
+function exclusiveSkillListAnywhere(name,f){const n=normName(name);const pick=o=>{const k=Object.keys(o||{}).find(x=>normName(x)===n);return k?o[k]:null};return pick(f?.exclusiveSkillSets)||(D.factions||[]).map(x=>pick(x.exclusiveSkillSets)).find(Boolean)||null}
 function warbandExclusiveSkillTrees(f){
   const set=new Set();
   // V-ORPHANTREEACCESS: a warrior's skillAccess can carry a stray key for a
@@ -267,7 +271,7 @@ function warbandExclusiveSkillTrees(f){
   // that still resolves to a real tree (a book one, or one still defined in
   // f.exclusiveSkillSets) is counted — a leftover key with nothing backing
   // it is silently dropped instead of displayed as a phantom entry.
-  const known=new Set([...Object.keys(D.skillSets||{}),...Object.keys(f.exclusiveSkillSets||{})].map(normName));
+  const known=new Set([...Object.keys(D.skillSets||{}),...Object.keys(f.exclusiveSkillSets||{}),...(D.factions||[]).flatMap(x=>Object.keys(x.exclusiveSkillSets||{}))].map(normName));
   (f.warriors||[]).filter(w=>!isHiredSword(w)).forEach(w=>Object.keys(w.skillAccess||{}).forEach(t=>{if(!COMMON_SKILL_TREES.includes(t)&&known.has(normName(t)))set.add(t);}));
   Object.keys(f.exclusiveSkillSets||{}).forEach(t=>set.add(t));
   return [...set];
@@ -9556,7 +9560,7 @@ function rulesWarbandDetail(){
   // actual rule right here rather than having to click through.
   const exSkills=warbandExclusiveSkillTrees(f);
   const skillCards=exSkills.map(name=>{
-    const list=(D.skillSets&&D.skillSets[name])||(f.exclusiveSkillSets&&f.exclusiveSkillSets[name])||[];
+    const list=(D.skillSets&&D.skillSets[name])||exclusiveSkillListAnywhere(name,f)||[];
     const entries=list.map(sname=>referenceEntryByNameInScope('skills',sname,name)).filter(Boolean);
     const body=entries.length?skillCardsGridMarkup(entries):list.map(sname=>`<span class="pill equip">${esc(sname)}</span>`).join('');
     // V-WBTREERENAME: this heading used to always print the RAW tree name

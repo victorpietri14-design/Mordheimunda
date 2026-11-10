@@ -1318,6 +1318,12 @@ await test('[desktop] a published custom fighter shows the equipment list saved 
     return equipmentAccessGroupedForDisplay(w,f,false).flatMap(g=>g.items)});
   expect(out.includes('Sword')&&out.includes('Dagger'),'the Admin list is ignored on the rules page: '+JSON.stringify(out));
 });
+await test('[desktop] a sub-warband whose fighters use its mother warband skill tree shows that tree on Rules: Warbands',null,async page=>{
+  const out=await page.evaluate(()=>{const mother={id:'mom-x',displayName:'Mother X',warriors:[{id:'m1',name:'M1',type:'Hero',skillAccess:{'Mother Tree':'Primary'}}],exclusiveSkillSets:{'Mother Tree':['Big Roar']}};
+    const sub={id:'sub-x',displayName:'Sub X',warriors:[{id:'s1',name:'S1',type:'Hero',skillAccess:{'Mother Tree':'Primary'}}]};D.factions.push(mother,sub);
+    try{return {trees:warbandExclusiveSkillTrees(sub),list:exclusiveSkillListAnywhere('Mother Tree',sub)}}finally{D.factions.splice(D.factions.indexOf(mother),2)}});
+  expect(out.trees.includes('Mother Tree')&&(out.list||[]).includes('Big Roar'),'the shared tree is missing on the sub-warband page: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
