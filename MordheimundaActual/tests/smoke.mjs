@@ -1309,8 +1309,8 @@ await test('[desktop] mutations: bought at recruitment, 2nd at double price, nor
   await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];x.skills=[...(x.skills||[]),'Dodge'];save(true);render('fighter')});
   await page.waitForSelector('.mut-grant');await page.evaluate(()=>openMutationGrantModal());await page.waitForSelector('.mutPick');
   await page.check('.mutPick[value="claw"]');await page.click('#mutGo');await page.waitForTimeout(300);
-  const g=await page.evaluate(g0=>{const r=activeRoster();const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant')}},del.gold);
-  expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===200&&!g.banner,'the skill mutation must be paid double and close the prompt: '+JSON.stringify(g));
+  const g=await page.evaluate(g0=>{const r=activeRoster(),f=faction(r);const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant'),extra:fighterValue(x,f)-liveFighterCost(x,f)}},del.gold);
+  expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===0&&g.extra===40&&!g.banner,'a skill mutation must be free, add no value and close the prompt: '+JSON.stringify(g));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
