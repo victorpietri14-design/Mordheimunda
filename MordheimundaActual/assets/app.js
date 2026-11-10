@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0806.0';
+const APP_BUILD='110.0807.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3380,7 +3380,7 @@ HEAVY LOAD
 A warrior carrying a Heavy Load (a chest, a body, a large idol…) treats Move as a Basic action instead of a Simple action, unless it has the Powerful Build trait.
 
 SECURING AN OBJECTIVE
-An objective is Secured when its carrier leaves the battlefield by the table edge the scenario names (its own deployment edge if none is named), or, if the scenario says so, when the carrier still holds it at the end of the game. A Secured token can no longer be taken.
+An objective is Secured by a warband when one of its warriors carrying it leaves the battlefield (by the table edge the scenario names, if it names one), or is still carrying it at the end of the game. A Secured token can no longer be taken.
 
 HOLD
 A warband Holds a ruin, building or area if at least one of its Standing warriors is inside and no Standing enemy warrior is inside.
