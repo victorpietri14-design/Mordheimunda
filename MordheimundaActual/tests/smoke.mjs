@@ -1307,7 +1307,8 @@ await test('[desktop] mutations: bought at recruitment, 2nd at double price, nor
   const del=await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),m:Number(x.profile[0])-window.__mu.m,gold:r.gold}});
   expect(del.names.join()==='Scorpion Tail'&&del.m===0,'deleting did not undo the mutation: '+JSON.stringify(del));
   await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];x.skills=[...(x.skills||[]),'Dodge'];save(true);render('fighter')});
-  await page.waitForSelector('.mut-grant');await page.evaluate(()=>openMutationGrantModal());await page.waitForSelector('.mutPick');
+  await page.waitForSelector('.mut-dialog .mutPick');
+  expect(await page.evaluate(()=>fighterMutationGrantsOpen({skills:['Mutation'],mutationGrantsDone:0}).length===1),'a skill named Mutation must give a mutation without setup');
   await page.check('.mutPick[value="claw"]');await page.click('#mutGo');await page.waitForTimeout(300);
   const g=await page.evaluate(g0=>{const r=activeRoster(),f=faction(r);const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant'),extra:fighterValue(x,f)-liveFighterCost(x,f)}},del.gold);
   expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===0&&g.extra===40&&!g.banner,'a skill mutation must be free, add no value and close the prompt: '+JSON.stringify(g));

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0813.0';
+const APP_BUILD='110.0814.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -19936,7 +19936,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}
-(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}return o.apply(this,arguments)}})();
+(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}return o.apply(this,arguments)}})();
 
 // ===================== V-WBCATS: categories apart in Rules › Warbands =====================
 // Dramatis Personae, Hired Swords ("Agents") and neutral creatures are single
@@ -19990,7 +19990,10 @@ function applyMutations(r,x,list,extra,free){if(!r||!x||!list.length)return 0;co
 function fighterMutationTexts(x){return fighterMutations(x).map(m=>({name:m.name,text:String(mutationLive(m)?.text||m.text||'')})).filter(t=>t.text.trim())}
 function fighterMutationWeapons(x){return fighterMutations(x).map(m=>{const a=mutationLive(m)?.attack||m.attack;if(!a)return null;return {name:m.name,profile:{range:a.range||'Melee',strength:a.strength||'S',ap:a.ap||'-',damage:a.damage||'1',traits:a.traits||''},traits:String(a.traits||'').split(',').map(t=>t.trim()).filter(Boolean),isMutationWeapon:true,mutationId:m.id}}).filter(Boolean)}
 function mutationGrantSkillSet(){return new Set((mutationLibrary.grantSkills||[]).map(normName))}
-function fighterMutationGrantsOpen(x){const g=mutationGrantSkillSet();if(!g.size)return [];const names=(Array.isArray(x?.skills)?x.skills:[]).map(k=>typeof k==='object'?k?.name:k).filter(n=>n&&g.has(normName(n)));return names.slice(Number(x?.mutationGrantsDone)||0)}
+// A skill gives a mutation when it is listed in the library, or when its name
+// says so ("Mutation", "Mutations", "Mutate"…), so it works without setup.
+function isMutationGrantSkill(n,g){return !!n&&(g.has(normName(n))||/mutat/i.test(String(n)))}
+function fighterMutationGrantsOpen(x){if(!(mutationLibrary.mutations||[]).length)return [];const g=mutationGrantSkillSet();const names=(Array.isArray(x?.skills)?x.skills:[]).map(k=>typeof k==='object'?k?.name:k).filter(n=>isMutationGrantSkill(n,g));return names.slice(Number(x?.mutationGrantsDone)||0)}
 function openMutationPeek(i){const r=activeRoster();const x=r?.fighters?.[editingIndex];const m=fighterMutations(x)[i];if(!m)return;const l=mutationLive(m);helpSheetOpen(`<div class="help-kicker">MUTATION</div><h3>${esc(m.name)}</h3><p>${esc(l.text||m.text||'')}</p>${(l.rules||[]).length?`<p>${l.rules.map(n=>refLink('special',n)).join(' · ')}</p>`:''}`)}
 
 // --- picker: at recruitment (mode recruit) or through a skill (mode grant)
@@ -20016,6 +20019,8 @@ function openRecruitMutationModal(wid,w,rule,choices){const r=activeRoster();con
   openMutationModal({mode:'recruit',wid,title:w.name,choices,existing:0,max:rule.max,limit:rule.max,base:recruitBaseCost(w)+optCost})}
 function openMutationGrantModal(){const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const skill=fighterMutationGrantsOpen(x)[0];if(!skill)return;const rule=fighterMutationRule(x)||{max:0,allowed:null};const have=fighterMutations(x).length;const choices=mutationChoicesFor({...rule,on:true},r).filter(m=>!fighterMutations(x).some(q=>q.id===m.id));
   openMutationModal({mode:'grant',title:x.name,skill,choices,existing:have,max:rule.max,limit:1,base:0,free:true})}
+const mutationGrantShown=new Set();
+function mutationGrantAutoOpen(){try{if(currentViewName()!=='fighter'||document.querySelector('.mut-dialog'))return;const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const open=fighterMutationGrantsOpen(x);if(!open.length)return;const rule=fighterMutationRule(x);const max=rule?.max||0;if(max>0&&fighterMutations(x).length>=max)return;const key=(x.instance||editingIndex)+'|'+(Number(x.mutationGrantsDone)||0);if(mutationGrantShown.has(key))return;mutationGrantShown.add(key);setTimeout(()=>{if(currentViewName()==='fighter'&&!document.querySelector('.mut-dialog'))openMutationGrantModal()},250)}catch(e){}}
 function skipMutationGrant(){const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;x.mutationGrantsDone=(Number(x.mutationGrantsDone)||0)+1;save(true);render('fighter')}
 function removeMutation(i){const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];const m=fighterMutations(x)[i];if(!m)return;openModal(`<div class="delete-dialog"><div class="eyebrow">MUTATION</div><h2>${en?`Delete "${esc(m.name)}"?`:`Supprimer « ${esc(m.name)} » ?`}</h2><p>${en?'A mutation is never sold: it leaves the sheet and no gold is given back.':'Une mutation ne se vend pas : elle quitte la fiche et aucun or n’est rendu.'}</p><button type="button" class="big-delete" onclick="confirmRemoveMutation(${i})">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
 function confirmRemoveMutation(i){const r=activeRoster();const x=r?.fighters?.[editingIndex];const m=fighterMutations(x)[i];if(!m)return;x.mutations=fighterMutations(x).filter((_,k)=>k!==i);try{syncSkillTraitStatBonuses(x,faction(r))}catch(e){}try{logHistory(r,'recruit',`${esc(x.name)} : ${siteLanguage==='en'?'mutation deleted':'mutation supprimée'} ${esc(m.name)}`)}catch(e){}closeModal();save(true);render('fighter')}
