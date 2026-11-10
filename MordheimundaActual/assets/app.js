@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0807.0';
+const APP_BUILD='110.0808.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4012,7 +4012,7 @@ function ruleHasOverride(sectionId,page){return typeof ruleOverridesCache?.[rule
 // own bold, accent-colored span so it reads as a distinct label instead of
 // blending into the title text.
 function ruleTitleMarkup(title){
-  const m=String(title||'').match(/^([\d.]+)\s+(.*)$/);
+  const m=String(title||'').match(/^((?:\d+\.)*\d+[a-z]?\.?)\s+(.*)$/);
   if(!m)return esc(title);
   return `<span class="rt-num">${esc(m[1])}</span><span class="rt-name">${esc(m[2])}</span>`;
 }
