@@ -5965,3 +5965,7 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .npc-w-rule b{color:var(--text)}.role-badge.role-npc{background:rgba(154,168,131,.16);border-color:#9aa883;color:#cfd9bd}
 .hz-creature .statbar{margin:6px 0}
 .statbar:has(.sv-stat){grid-template-columns:repeat(13,1fr)}
+
+/* V-SCNCARDS: rule cards on 2.2.2b */
+.action-card.c-rule{border-color:color-mix(in srgb,var(--accent) 45%,var(--panel))}
+.action-card.c-rule::before{background:linear-gradient(160deg,rgba(157,250,60,.10),rgba(157,250,60,.02) 65%)}

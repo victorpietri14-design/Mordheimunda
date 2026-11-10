@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0808.0';
+const APP_BUILD='110.0809.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -656,8 +656,8 @@ function rulePeekSummary(rawText){const en=siteLanguage==='en';const lines=strip
 // — same mechanism as the Référentiel entry bodies), so a tooltip's own text
 // can be used to jump to a keyword it mentions instead of dead-ending there.
 function rulePeekSummaryHtml(rawText,excludeName){const plain=rulePeekSummary(rawText);return linkGlossaryInHtml(esc(plain),excludeName);}
-function rulePeekTitle(cat){return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
-function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔'}[cat]||'◆';}
+function rulePeekTitle(cat){if(cat==='scnaction')return siteLanguage==='en'?'Objectives & Scenario Actions':'Objectifs et actions de scénario';return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
+function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',scnaction:'◎'}[cat]||'◆';}
 function positionRulePeek(elOrRect){const pop=$('#rulePeek');if(!pop||!elOrRect)return;const r=typeof elOrRect.getBoundingClientRect==='function'?elOrRect.getBoundingClientRect():elOrRect;const pw=Math.min(460,window.innerWidth-24),ph=pop.offsetHeight;let left=Math.min(Math.max(12,r.left),window.innerWidth-pw-12),top=r.bottom+10;if(top+ph>window.innerHeight-12)top=r.top-ph-10;if(top<12)top=12;pop.style.left=left+'px';pop.style.top=top+'px';pop.style.width=pw+'px';}
 function showRulePeek(el){
   // V-STALEPEEKTARGET: on a touch tap, the browser fires a synthetic
@@ -687,7 +687,7 @@ function showRulePeek(el){
   // goes straight to that entry's own glossary page — never a second popup
   // stacked over the first.
   if(el&&el.closest&&el.closest('#rulePeek'))return;
-  clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=referenceEntries(cat).find(x=>x.id===id);if(!e)return;
+  clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=cat==='scnaction'?scnActionEntry(id):referenceEntries(cat).find(x=>x.id===id);if(!e)return;
   // Same override layer as the Règles/Référentiel tabs (referenceEntryMarkup) —
   // without this, a fighter-card hover/click peek always showed the stale
   // baked-in RULES_BOOK text even after an admin corrected the rule, since
@@ -725,7 +725,7 @@ function showRulePeek(el){
     // themselves) and prepend its profile grid when it has one.
     const weaponForProfile=cat==='equipment'?equipmentPeekFind(e.name):null;
     const profileMarkup=weaponForProfile?equipmentPeekProfileMarkup(weaponForProfile):'';
-    pop.innerHTML=`<div class="rule-peek-head"><div class="rule-peek-icon">${rulePeekIcon(cat)}</div><div><div class="rule-peek-kicker">${esc(rulePeekTitle(cat))}</div><strong>${esc(applyRuleParam(refDisplayName(cat,e),el.dataset.refParam))}</strong></div></div><div class="rule-peek-divider"></div>${profileMarkup}<p>${rulePeekSummaryHtml(applyRuleParam(text,el.dataset.refParam),e.name)}</p><button type="button" class="rule-peek-open" onclick="openReferenceFromPeek(event)">${e.lines>5?'Voir la règle complète →':'Ouvrir dans le référentiel →'}</button>`;
+    pop.innerHTML=`<div class="rule-peek-head"><div class="rule-peek-icon">${rulePeekIcon(cat)}</div><div><div class="rule-peek-kicker">${esc(rulePeekTitle(cat))}</div><strong>${esc(applyRuleParam(refDisplayName(cat,e),el.dataset.refParam))}</strong></div></div><div class="rule-peek-divider"></div>${profileMarkup}<p>${rulePeekSummaryHtml(applyRuleParam(text,el.dataset.refParam),e.name)}</p><button type="button" class="rule-peek-open" onclick="openReferenceFromPeek(event)">${cat==='scnaction'?'Ouvrir la page des règles →':e.lines>5?'Voir la règle complète →':'Ouvrir dans le référentiel →'}</button>`;
   }
   pop.classList.add('visible');
   // V-PEEKSWAPRACE: replacing pop.innerHTML above can itself make the browser
@@ -777,7 +777,7 @@ function cancelHideRulePeek(){clearTimeout(rulePeekTimer)}
 // event bookkeeping got confused) and stand down if so.
 function scheduleHideRulePeek(){if(window.matchMedia?.('(hover: none)').matches)return;clearTimeout(rulePeekTimer);rulePeekTimer=setTimeout(()=>{const pop=$('#rulePeek');if(pop&&pop.matches(':hover'))return;if(pop)pop.classList.remove('visible');activeRulePeek=null},180)}
 function openReferenceFromPeek(event){event?.stopPropagation();const el=activeRulePeek;if(!el)return;openReference(el.dataset.refCategory,el.dataset.refId);}
-function openReference(category='skills',id=''){referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
+function openReference(category='skills',id=''){if(category==='scnaction'){openRulePage('scenarioactions');return}referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
 // Lightweight inline formatting for the Custom tab's own text fields (fighter
 // / warband descriptions, custom skill·spell·special-rule text, custom
 // equipment rules text): a small **bold**/*italic*/size/color syntax, with a
@@ -3373,26 +3373,14 @@ Search|basic|active|If the warrior is inside a ruin or building that has not bee
 Loot|basic|active|Pick one Seriously Injured enemy warrior in base contact: take the objective tokens or scenario items that warrior is carrying.
 [/ACTIONCARDS]
 
-CARRYING OBJECTIVES
-A warrior can carry any number of objective tokens without penalty, unless a token is a Heavy Load. Tokens cannot be handed to another warrior. If the carrier goes Out of Action, place their tokens where the model stood: any warrior can then Pick Up them.
-
-HEAVY LOAD
-A warrior carrying a Heavy Load (a chest, a body, a large idol…) treats Move as a Basic action instead of a Simple action, unless it has the Powerful Build trait.
-
-SECURING AN OBJECTIVE
-An objective is Secured by a warband when one of its warriors carrying it leaves the battlefield (by the table edge the scenario names, if it names one), or is still carrying it at the end of the game. A Secured token can no longer be taken.
-
-HOLD
-A warband Holds a ruin, building or area if at least one of its Standing warriors is inside and no Standing enemy warrior is inside.
-
-DOMINATE
-A warband Dominates an area (an island, a zone…) if it has more Standing warriors in it than any single other warband.
-
-END OF THE GAME
-Unless the scenario says otherwise:
-• any result not covered by the scenario's victory conditions is a draw;
-• a warband that voluntarily routs loses 1 Reputation;
-• Underdog: use the Underdog table when the warbands' ratings differ by more than 100.`}]}
+[ACTIONCARDS]
+Carrying Objectives|Rule||A warrior can carry any number of objective tokens without penalty, unless a token is a Heavy Load. Tokens cannot be handed to another warrior. If the carrier goes Out of Action, place their tokens where the model stood: any warrior can then Pick Up them.
+Heavy Load|Rule||A warrior carrying a Heavy Load (a chest, a body, a large idol…) treats Move as a Basic action instead of a Simple action, unless it has the Powerful Build trait.
+Securing an Objective|Rule||An objective is Secured by a warband when one of its warriors carrying it leaves the battlefield (by the table edge the scenario names, if it names one), or is still carrying it at the end of the game. A Secured token can no longer be taken.
+Hold|Rule||A warband Holds a ruin, building or area if at least one of its Standing warriors is inside and no Standing enemy warrior is inside.
+Dominate|Rule||A warband Dominates an area (an island, a zone…) if it has more Standing warriors in it than any single other warband.
+End of the Game|Rule||Unless the scenario says otherwise: any result not covered by the scenario's victory conditions is a draw; a warband that voluntarily routs loses 1 Reputation; use the Underdog table when the warbands' ratings differ by more than 100.
+[/ACTIONCARDS]`}]}
 );
 function ruleAutoTable(head,rows){return '[TABLE]\n'+[head,...rows].map(r=>r.map(c=>String(c??'').replace(/[|\n]+/g,' ')).join('|')).join('\n')+'\n[/TABLE]'}
 function ruleAutoBlock(key,en){
@@ -3626,7 +3614,7 @@ function ruleActionCardsMarkup(rows){
     const type=(cols[1]||'').trim();
     const statuses=(cols[2]||'').split(',').map(s=>s.trim().toLowerCase()).filter(s=>byId[s]);
     const desc=cols.slice(3).join('|').trim();
-    const primary=priority.find(p=>statuses.includes(p))||statuses[0]||'active';
+    const primary=type.toLowerCase()==='rule'?'rule':(priority.find(p=>statuses.includes(p))||statuses[0]||'active');
     const tags=statuses.map(s=>`<span class="ac-tag t-${s}"><span class="dot"></span>${esc(en?byId[s].shortEn:byId[s].shortFr)}</span>`).join('');
     return `<div class="action-card c-${primary}" data-name="${esc(name.toLowerCase())}" data-desc="${esc(desc.toLowerCase())}"><div class="ac-head"><span class="ac-name">${esc(name)}</span>${actionTypeIconMarkup(type)}</div><p class="ac-desc">${esc(desc)}</p><div class="ac-tags">${tags}</div></div>`;
   }).join('');
@@ -8989,7 +8977,7 @@ function scenarioSections(s,en,deployBody,ctx){
   add(en?'Victory':'Victoire',(has(v.major)||has(v.minor)||has(v.draw))?`<div class="scn-victory">${has(v.major)?`<div><strong>${en?'Major:':'Majeure :'}</strong> ${scenarioText(v.major)}</div>`:''}${has(v.minor)?`<div><strong>${en?'Minor:':'Mineure :'}</strong> ${scenarioText(v.minor)}</div>`:''}${has(v.draw)?`<div><strong>${en?'Draw:':'Nul :'}</strong> ${scenarioText(v.draw)}</div>`:''}</div>`:'');
   const rw=(Array.isArray(s.rewards)?s.rewards:[]).filter(has);
   if(rw.length)add(en?'Rewards':'Récompenses',`<div class="scn-list">${rw.map(r=>`<div>${scenarioText(r)}</div>`).join('')}</div>`);
-  try{const used=scenarioRulesUsed(s);const sa=scenarioActionTermsUsed(s);if(used.length||sa.length)secs.unshift({title:en?'Rules used':'Règles utilisées',body:`<p class="scn-used-hint">${en?'Tap a rule to read it.':'Touche une règle pour la lire.'}</p><div class="scn-used">${sa.map(t=>`<button type="button" class="rule-ref scn-used-chip scn-act-chip" title="${esc(t.title)}" onclick="openScenarioActionRule('${esc(t.key)}')">${esc(t.name)}</button>`).join('')}${used.map(t=>`<span class="rule-ref scn-used-chip" tabindex="0" data-ref-category="${t.cat}" data-ref-id="${esc(t.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(t.name)}</span>`).join('')}</div>`})}catch(e){}
+  try{const used=scenarioRulesUsed(s);const sa=scenarioActionTermsUsed(s);if(used.length||sa.length)secs.unshift({title:en?'Rules used':'Règles utilisées',body:`<p class="scn-used-hint">${en?'Tap a rule to read it.':'Touche une règle pour la lire.'}</p><div class="scn-used">${sa.map(t=>scnActionRefMarkup(t.key,t.name,'scn-used-chip scn-act-chip')).join('')}${used.map(t=>`<span class="rule-ref scn-used-chip" tabindex="0" data-ref-category="${t.cat}" data-ref-id="${esc(t.id)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(t.name)}</span>`).join('')}</div>`})}catch(e){}
   return secs;
 }
 // V-SCNGROUPS: the scenario's sections grouped in three folding parts —
@@ -9094,7 +9082,7 @@ const SCN_RICH_FIELDS={seSetup:['Setup instructions','Instructions de mise en pl
 function scenarioTextIsRich(t){return /\[(?:TABLE|SUBHEAD|COLOR|IMG|ACTIONCARDS)\b|^\s*•\s|^\s*Note\s?:|^\s*(?:\d+\.\s+)?[A-ZÀ-Ý0-9][A-ZÀ-Ý0-9’'&\/ ,()-]{3,}\s*$/m.test(String(t||''))}
 // V-SCNNOTITLE: scenario text is not a rules page — its first line (often
 // the sentence right above a table) is plain text, never the page title.
-function scenarioText(t){const v=String(t||'');return scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{noTitle:true})}</div>`:esc(v)}
+function scenarioText(t){const v=String(t||'');return linkScenarioActions(scenarioTextIsRich(v)?`<div class="rule-page-text scn-rich">${ruleTextMarkup(v,{noTitle:true})}</div>`:esc(v))}
 function scenarioFormatFocus(ev){
   const t=ev.target;if(!t||t.tagName!=='TEXTAREA')return;
   const en=siteLanguage==='en';const lab=document.getElementById('scnFormatTarget');
@@ -20110,10 +20098,16 @@ function npcWeaponRulesMarkup(e){const en=siteLanguage==='en';const parts=[];con
 const SCN_ACTION_RULES=[['pickup',/\bPick[ -]?Up\b/,'Pick Up'],['search',/\bSearch\b/,'Search'],['loot',/\bLoot\b/,'Loot'],['carrying',/\bCarrying Objectives?\b/,'Carrying Objectives'],['heavy',/\bHeavy Load\b/,'Heavy Load'],['secured',/\bSecur(?:e|ed|ing)\b/,'Secured'],['hold',/\bHolds?\b/,'Hold'],['dominate',/\bDominates?\b/,'Dominate']];
 function scenarioActionTermsUsed(s){let txt='';try{txt=[s.specialRules,s.objectives?.primary,s.objectives?.secondary,s.endCondition,s.victory?.major,s.victory?.minor,...(s.experience||[]).map(x=>`${x?.name||''} ${x?.text||''}`),...(Array.isArray(s.rewards)?s.rewards:[])].filter(Boolean).join('\n')}catch(e){}
  const en=siteLanguage==='en';return SCN_ACTION_RULES.filter(([k,re])=>re.test(txt)).map(([key,,name])=>({key,name,title:en?'Rules › Objectives & Scenario Actions':'Règles › Objectifs et actions de scénario'}))}
-function openScenarioActionRule(key){const en=siteLanguage==='en';const sec=RULES_BOOK.find(x=>x.id==='scenarioactions');if(!sec){openRulePage('scenarioactions');return}
- const card=getActionRowsForSection('scenarioactions').find(r=>normName(r.name).replace(/\s/g,'')===key||normName(r.name).replace(/\s/g,'')===({pickup:'pickup'}[key]||''));
- let body='';if(card)body=`<div class="help-kicker">${esc(card.name)} · ${esc(String(card.type||'').toUpperCase())}</div><p>${esc(card.desc)}</p>`;
- else{const page=sec.content[0];const ov=ruleEffectiveText('scenarioactions',page.page);const text=String(ov!=null?ov:page.text);const heads={carrying:'CARRYING OBJECTIVES',heavy:'HEAVY LOAD',secured:'SECURING AN OBJECTIVE',hold:'HOLD',dominate:'DOMINATE'};const h=heads[key];const i=h?text.indexOf(h):-1;
-  if(i>=0){const rest=text.slice(i+h.length).replace(/^\s*\n/,'');const end=rest.search(/\n\s*\n[A-Z][A-Z &]{2,}\s*\n/);body=`<div class="help-kicker">${esc(h)}</div><div class="rule-page-text">${ruleTextMarkup(end>=0?rest.slice(0,end):rest,{noTitle:true})}</div>`}}
- if(!body){openRulePage('scenarioactions');return}
- helpSheetOpen(`${body}<div class="help-actions"><button type="button" class="help-ghost" onclick="helpSheetClose();openRulePage('scenarioactions')">${en?'Open the page':'Ouvrir la page'}</button><button type="button" class="help-go" onclick="helpSheetClose()">${en?'Close':'Fermer'}</button></div>`)}
+const SCN_ACTION_CARD={pickup:'Pick Up',search:'Search',loot:'Loot',carrying:'Carrying Objectives',heavy:'Heavy Load',secured:'Securing an Objective',hold:'Hold',dominate:'Dominate',endgame:'End of the Game'};
+function scnActionEntry(key){const want=normName(SCN_ACTION_CARD[key]||key);const r=getActionRowsForSection('scenarioactions').find(x=>normName(x.name)===want);if(!r)return null;const t=String(r.type||'');return {id:key,name:r.name,text:(t&&t.toLowerCase()!=='rule'?`(${t.toUpperCase()}) `:'')+r.desc}}
+function scnActionRefMarkup(key,label,cls){return `<span class="rule-ref${cls?' '+cls:''}" tabindex="0" data-ref-category="scnaction" data-ref-id="${esc(key)}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(label)}</span>`}
+// Underlines the 2.2.2b terms in a scenario's rendered text (text only: never
+// inside a tag, a link, a button, a heading or an existing rule reference).
+function linkScenarioActions(html){if(!html||!/Pick|Search|Loot|Carrying|Heavy|Secur|Hold|Dominat/.test(html))return html;
+ const parts=String(html).split(/(<[^>]+>)/);let skip=0;const stack=[];
+ return parts.map(p=>{if(p.startsWith('<')){const m=p.match(/^<\/?([a-z0-9]+)/i);if(!m||/\/>$/.test(p)||/^<(br|img|hr|input)\b/i.test(p))return p;const tag=m[1].toLowerCase();
+   if(p[1]==='/'){const top=stack.pop();if(top)skip--;return p}
+   const sk=/^(a|button|h[1-6]|summary|textarea|select)$/.test(tag)||/class="[^"]*(rule-ref|ac-name|scn-subtitle)/.test(p);stack.push(sk);if(sk)skip++;return p}
+  if(skip||!p.trim())return p;
+  return p.replace(/\b(Pick[ -]?Up|Search|Loot|Carrying Objectives?|Heavy Load|Secur(?:e|ed|ing)|Holds?|Dominates?)\b/g,w=>{const key=SCN_ACTION_RULES.find(([,re])=>re.test(w))?.[0];return key?scnActionRefMarkup(key,w):w})}).join('')}
+Object.assign(I18N_EN,{"Ouvrir la page des règles →":"Open the rules page →"});
