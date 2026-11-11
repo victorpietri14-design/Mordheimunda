@@ -1346,6 +1346,27 @@ await test('[mobile] learn to play: lessons list, answer, dice explained, progre
   await page.evaluate(()=>learnOpen(''));await page.waitForSelector('.learn-row.done');
   const w=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1);expect(w,'the lessons page scrolls sideways on a phone');
 });
+await test('[desktop] Play: "My first game" guide — phases, who acted, rout worked out, next turn',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);(f.warriors||[]).slice(0,4).forEach(w=>r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:w.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]}));
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'cg1',name:'Plain',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const ps=blankPlaySession();ps.scenarioId='cg1';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};state.playSession=ps;
+    const e=playEngEntry(ps,r);e.picks=r.fighters.map(x=>x.instance);e.validated=true;
+    localStorage.removeItem('mu_coach');const off=/Activer le guide|Turn on the guide/.test(playFightersMarkup(ps));
+    localStorage.setItem('mu_coach','1');const html=playFightersMarkup(ps);
+    const div=document.createElement('div');div.innerHTML=html;document.body.appendChild(div);
+    const p1=document.querySelector('#playCoach .coach-steps .on')?.textContent||'';
+    coachNext();const chips=document.querySelectorAll('#playCoach .coach-chips button').length;
+    document.querySelector('#playCoach .coach-chips button').click();const ready=document.querySelector('#playCoach .coach-ready .micro-label')?.textContent||'';
+    const cur=state.playSession;cur.rout={};cur.rout[r.id]=2;coachNext();const rout=document.querySelector('#playCoach .coach-rout')?.textContent||'';
+    coachNext();const c=state.playSession.coach;div.remove();state.playSession=null;
+    return {off,p1,chips,ready,rout,round:c.round,phase:c.phase,acted:c.acted.length,n:r.fighters.length}});
+  expect(out.off,'the guide is offered when off: '+JSON.stringify(out));
+  expect(/1/.test(out.p1)&&out.chips===out.n,'phases or fighter list missing: '+JSON.stringify(out));
+  expect(new RegExp(String(out.n-1)).test(out.ready),'marking a fighter as acted does not count: '+JSON.stringify(out));
+  expect(/[0-9]\+/.test(out.rout),'the rout test is not worked out: '+JSON.stringify(out));
+  expect(out.round===2&&out.phase==='priority'&&out.acted===0,'next turn does not reset: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

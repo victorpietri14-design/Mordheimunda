@@ -1,4 +1,4 @@
-const CACHE='mordheimunda-v110-461';
+const CACHE='mordheimunda-v110-462';
 const PRECACHE=['/','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRECACHE)).then(()=>self.skipWaiting()))});
 // V-OFFLINE: public read-only content (rules, catalog, scenarios, maps…) is

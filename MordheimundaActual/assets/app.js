@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0818.0';
+const APP_BUILD='110.0819.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10700,14 +10700,14 @@ function playFightersMarkup(ps){
   // V-COMBATSCREEN: once every own selection is confirmed, the engaged
   // fighters come first; selection and Underdog fold to one line below.
   const inGame=playEngAllLocked(ps)&&groups.length;
-  return `<div class="eng-page${inGame?' eng-ingame':''}">${inGame?`${playRoutMarkup(ps)}${cardsBox}${playNoteMarkup(ps)}<div class="eng-setup-folded">${selBlock}${ud}</div>`:`${selBlock}${ud}${cardsBox}`}${endNotes}</div>`;
+  return `<div class="eng-page${inGame?' eng-ingame':''}">${inGame?`${coachMarkup(ps,true)}${playRoutMarkup(ps)}${cardsBox}${playNoteMarkup(ps)}<div class="eng-setup-folded">${selBlock}${ud}</div>`:`${coachMarkup(ps,false)}${selBlock}${ud}${cardsBox}`}${endNotes}</div>`;
 }
 // A block's open state: what the player chose last, else the default given.
 // V-ROUTBAR: when to take the Rout test. Starting crew = engaged fighters
 // (+ temporary ones); the player counts Seriously Injured / Out of Action
 // with the − / + buttons (tokens stay on the table) and sees the D6 needed.
 function playRoutCrew(ps,r){const e=playEngEntry(ps,r);return (e?.picks||[]).length+((e?.ud?.temps)||[]).length+((e?.ud?.reinf)||[]).filter(v=>v.arrived).length}
-function playRoutAdj(rid,d){const ps=state.playSession;if(!ps)return;ps.rout=ps.rout||{};const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const max=r?playRoutCrew(ps,r):99;ps.rout[rid]=Math.max(0,Math.min(max,(Number(ps.rout[rid])||0)+d));try{saveLocalOnly()}catch(e){}const box=document.getElementById('routbar-'+rid);if(box&&r)box.outerHTML=playRoutRowMarkup(ps,r)}
+function playRoutAdj(rid,d){const ps=state.playSession;if(!ps)return;ps.rout=ps.rout||{};const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const max=r?playRoutCrew(ps,r):99;ps.rout[rid]=Math.max(0,Math.min(max,(Number(ps.rout[rid])||0)+d));try{saveLocalOnly()}catch(e){}const box=document.getElementById('routbar-'+rid);if(box&&r)box.outerHTML=playRoutRowMarkup(ps,r);try{if(coachOn())coachRefresh()}catch(e){}}
 function playRoutRowMarkup(ps,r){const en=siteLanguage==='en';const n=playRoutCrew(ps,r);const k=Number(ps.rout?.[r.id])||0;const need=n-k+1;
   const verdict=!k?(en?'No test while nobody is Seriously Injured or Out of Action.':'Pas de test tant qu’aucun combattant n’est Gravement Blessé ou Hors de Combat.')
     :need>6?(en?`Test at the End phase: D6 + ${k} — cannot fail yet.`:`Test en phase finale : D6 + ${k} — impossible d’échouer pour l’instant.`)
@@ -19943,6 +19943,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  HELP_READING.forEach((c,i)=>{add('create',`read.${c.id}.title`,`lecture ${i+1} · titre`,c.title);add('create',`read.${c.id}.text`,`lecture ${i+1} · texte`,c.text)});
  helpSteps().forEach(s=>{add('create',`step.${s.k}.t`,`premiers pas · ${s.k}`,s.t);if(s.k!=='hench')add('create',`step.${s.k}.d`,`premiers pas · ${s.k} (détail)`,s.d)});
  HELP_NEWS.forEach(n=>add('news',`news.${n.id}`,n.id,n.text));
+ Object.keys(COACH_TEXTS).forEach(k=>add('learn',`coach.${k}`,`Ma première partie · ${k}`,COACH_TEXTS[k]));
  LEARN_LESSONS.forEach((l,i)=>['title','sub','body','q','why'].forEach(f=>add('learn',`learn.${l.id}.${f}`,`${i+1} · ${({title:'titre',sub:'sous-titre',body:'texte',q:'question',why:'explication'})[f]}`,l[f])));
  (D.factions||[]).filter(f=>!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['',''])});
  return L}
@@ -20098,10 +20099,10 @@ function learnSave(p){try{localStorage.setItem(LEARN_KEY,JSON.stringify({...lear
 const LEARN_SHOOT_SVG=`<svg class="learn-svg" viewBox="0 0 358 120" role="img" aria-label="Shooter, wall, target"><circle cx="50" cy="64" r="14" fill="#9dfa3c"/><line x1="66" y1="64" x2="284" y2="64" stroke="#e0b04a" stroke-width="2" stroke-dasharray="5 5"/><rect x="232" y="40" width="22" height="48" rx="3" fill="#5a5953"/><circle cx="300" cy="64" r="14" fill="#e06f6f"/><text x="160" y="54" text-anchor="middle" font-size="12" fill="#e0b04a">12"</text></svg>`;
 const LEARN_LESSONS=[
  {id:'turn',rule:'structure',title:['The game turn','Le tour de jeu'],sub:['Priority, actions, end of the turn','Priorité, actions, fin du tour'],
-  body:['A game is played in turns. Each turn has 3 phases:\n• **Priority**: each player rolls 1 dice. The highest takes the Priority marker and activates first. Every fighter becomes **Ready** again.\n• **Actions**: in turn, each player activates **one Ready fighter**, until everyone has played.\n• **End**: a Rout test if fighters went down, then Recovery for the seriously injured.','Une partie se joue en tours. Chaque tour a 3 phases :\n• **Priorité** : chaque joueur lance 1 dé. Le plus haut prend le marqueur de Priorité et activera en premier. Tous les combattants redeviennent **Prêts**.\n• **Actions** : chacun son tour, les joueurs activent **un combattant Prêt**, jusqu’à ce que tous aient joué.\n• **Fin** : test de déroute si des combattants sont tombés, puis récupération des gravement blessés.'],
-  q:['Both players roll a 4 for Priority. Last turn, your opponent had it. Who has Priority now?','Les deux joueurs font 4 au jet de Priorité. Au tour précédent, ton adversaire l’avait. Qui a la Priorité ?'],
-  opts:[['You','Toi'],['Your opponent','Ton adversaire'],['Roll again','On relance']],a:0,
-  why:['On a tie, whoever had Priority passes it to the other player. Only a tie on the very first roll of the game is rolled again.','En cas d’égalité, celui qui avait la Priorité la passe à l’autre. Seule une égalité au tout premier jet de la partie se relance.'],
+  body:['A game is played in turns. Each turn has 3 phases:\n• **Priority**: each player rolls 1 dice. The highest takes the Priority marker and activates first (tie: roll again). Every fighter becomes **Ready** again.\n• **Actions**: in turn, each player activates **one Ready fighter**, until everyone has played.\n• **End**: a Rout test if fighters went down, then Recovery for the seriously injured.','Une partie se joue en tours. Chaque tour a 3 phases :\n• **Priorité** : chaque joueur lance 1 dé. Le plus haut prend le marqueur de Priorité et activera en premier (égalité : on relance). Tous les combattants redeviennent **Prêts**.\n• **Actions** : chacun son tour, les joueurs activent **un combattant Prêt**, jusqu’à ce que tous aient joué.\n• **Fin** : test de déroute si des combattants sont tombés, puis récupération des gravement blessés.'],
+  q:['Both players roll a 4 for Priority. What happens?','Les deux joueurs font 4 au jet de Priorité. Que se passe-t-il ?'],
+  opts:[['Whoever had Priority keeps it','Celui qui l’avait la garde'],['It passes to the other player','Elle passe à l’autre joueur'],['Both players roll again','Les deux joueurs relancent']],a:2,
+  why:['On a tie, both players simply roll again until one is higher.','En cas d’égalité, les deux joueurs relancent simplement jusqu’à ce que l’un fasse plus haut.'],
   roll:{k:'priority'}},
  {id:'activate',rule:'types',title:['Activating a fighter','Activer un combattant'],sub:['2 actions: simple, basic, double','2 actions : simple, basique, double'],
   body:['When you activate a **Ready** fighter, it makes **2 actions**, then it is no longer Ready until the next turn.\n• **Simple**: can be repeated (e.g. Move twice).\n• **Basic**: once per activation (e.g. Shoot).\n• **Double**: counts as both actions (e.g. Charge).\n• **Free**: does not count in the 2.','Quand tu actives un combattant **Prêt**, il fait **2 actions**, puis il n’est plus Prêt jusqu’au tour suivant.\n• **Simple** : peut se répéter (ex. Bouger deux fois).\n• **Basique** : une seule fois par activation (ex. Tirer).\n• **Double** : compte pour les 2 actions (ex. Charger).\n• **Gratuite** : ne compte pas dans les 2.'],
@@ -20177,10 +20178,49 @@ function learnPick(j){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l)ret
 function learnD6(){return 1+Math.floor(Math.random()*6)}
 function learnRoll(){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l?.roll)return;learnUi.roll=l.roll.k==='priority'?{a:learnD6(),b:learnD6()}:{a:learnD6()};learn()}
 function learnRollMarkup(l){const en=siteLanguage==='en';const r=l.roll,v=learnUi.roll;const die=n=>`<span class="learn-die">${n}</span>`;let res='',ok=true,steps=[];
-  if(r.k==='priority'){ok=v.a>v.b;steps=[en?`You roll ${v.a}, your opponent ${v.b}.`:`Tu fais ${v.a}, ton adversaire ${v.b}.`,v.a===v.b?(en?'Tie: whoever had Priority last turn passes it to the other player.':'Égalité : celui qui avait la Priorité au tour précédent la passe à l’autre.'):(en?`The highest roll takes Priority: ${ok?'you':'your opponent'}.`:`Le plus haut prend la Priorité : ${ok?'toi':'ton adversaire'}.`)];res=v.a===v.b?(en?'Tie':'Égalité'):ok?(en?'You have Priority':'Tu as la Priorité'):(en?'Your opponent has it':'Ton adversaire l’a');return `<div class="learn-dice">${die(v.a)}<span class="learn-vs">${en?'vs':'contre'}</span>${die(v.b)}<div class="learn-res ${v.a===v.b?'':ok?'ok':'ko'}">${res}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}
+  if(r.k==='priority'){ok=v.a>v.b;steps=[en?`You roll ${v.a}, your opponent ${v.b}.`:`Tu fais ${v.a}, ton adversaire ${v.b}.`,v.a===v.b?(en?'Tie: both players roll again.':'Égalité : les deux joueurs relancent.'):(en?`The highest roll takes Priority: ${ok?'you':'your opponent'}.`:`Le plus haut prend la Priorité : ${ok?'toi':'ton adversaire'}.`)];res=v.a===v.b?(en?'Tie':'Égalité'):ok?(en?'You have Priority':'Tu as la Priorité'):(en?'Your opponent has it':'Ton adversaire l’a');return `<div class="learn-dice">${die(v.a)}<span class="learn-vs">${en?'vs':'contre'}</span>${die(v.b)}<div class="learn-res ${v.a===v.b?'':ok?'ok':'ko'}">${res}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}
   if(r.k==='rout'){const t=v.a+r.down;ok=t<=r.crew;steps=[en?`The dice gives ${v.a}.`:`Le dé donne ${v.a}.`,en?`Add the ${r.down} fighters down: ${v.a} + ${r.down} = ${t}.`:`On ajoute les ${r.down} combattants tombés : ${v.a} + ${r.down} = ${t}.`,en?`Started with ${r.crew}: ${t} ${ok?'is not higher':'is higher'}.`:`Départ à ${r.crew} : ${t} ${ok?'ne dépasse pas':'dépasse'}.`];res=ok?(en?'The warband holds':'La bande tient'):(en?'The warband flees':'La bande fuit')}
   else{const t=v.a+(r.mod||0);ok=v.a!==1&&t>=r.need;steps=[en?`The dice gives ${v.a}.`:`Le dé donne ${v.a}.`];if(v.a===1)steps.push(en?'A 1 always fails.':'Un 1 rate toujours.');else{if(r.mod)steps.push(`${en?'Modifier':'Modificateur'} (${helpT(r.modWhy||['',''])}) : ${r.mod>0?'+':''}${r.mod} → ${t}.`);steps.push(en?`You need ${r.need} or more: ${t} ${ok?'is enough':'is not enough'}.`:`Il faut ${r.need} ou plus : ${t} ${ok?'suffit':'ne suffit pas'}.`)}res=helpT(ok?r.ok:r.ko)}
   return `<div class="learn-dice">${die(v.a)}<div class="learn-res ${ok?'ok':'ko'}">${esc(res)}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}
+
+// ===================== V-COACH: Play › "My first game" =====================
+// A beginner guide on top of the fighters tab of Play: the turn counter,
+// the 3 phases (Priority › Actions › End) with what to do now, a tap-to-mark
+// list of who has already acted, and at the End phase the Rout test worked
+// out from the existing rout counter. Kept per device (ps.coach). Texts are
+// editable in Admin › Help texts › Learn to play (keys coach.*).
+const COACH_KEY='mu_coach';
+function coachOn(){try{return localStorage.getItem(COACH_KEY)==='1'}catch(e){return false}}
+function coachToggle(on){try{localStorage.setItem(COACH_KEY,on?'1':'0')}catch(e){}coachRefresh()}
+const COACH_TEXTS={
+ setup:['Before the game: tick the fighters who play, then confirm. If your warband is worth less, the Underdog table gives you bonuses to buy.','Avant la partie : coche les combattants qui jouent, puis valide. Si ta bande vaut moins cher, le tableau Underdog te donne des bonus à acheter.'],
+ priority:['Each player rolls 1 dice: the highest takes Priority and activates first (tie: roll again). All your fighters are Ready again.','Chaque joueur lance 1 dé : le plus haut prend la Priorité et active en premier (égalité : on relance). Tous tes combattants redeviennent Prêts.'],
+ actions:['In turn, activate 1 Ready fighter: 2 actions (e.g. move + shoot, or a Charge, which takes both). Tap its name below once it has played.','Chacun son tour, active 1 combattant Prêt : 2 actions (ex. bouger + tirer, ou une Charge, qui prend les deux). Touche son nom ci-dessous une fois qu’il a joué.'],
+ end:['End of the turn: Rout test if fighters are down, then each Seriously Injured fighter rolls an Injury dice to recover, and Broken fighters try to rally.','Fin du tour : test de déroute si des combattants sont tombés, puis chaque Gravement blessé lance un dé de blessure pour récupérer, et les Brisés tentent de se rallier.']};
+const COACH_PHASES=['priority','actions','end'];
+function coachTx(k){return hx(`coach.${k}`,COACH_TEXTS[k])}
+function coachState(ps){if(!ps.coach||typeof ps.coach!=='object')ps.coach={round:1,phase:'priority',acted:[]};if(!Array.isArray(ps.coach.acted))ps.coach.acted=[];return ps.coach}
+function coachSave(){try{saveLocalOnly()}catch(e){}}
+function coachRefresh(){const ps=state.playSession;const el=document.getElementById('playCoach');if(el&&ps)el.outerHTML=coachMarkup(ps,!!el.dataset.ingame)}
+function coachNext(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const i=COACH_PHASES.indexOf(c.phase);if(i>=COACH_PHASES.length-1){c.round=(Number(c.round)||1)+1;c.phase='priority';c.acted=[]}else c.phase=COACH_PHASES[i+1];coachSave();coachRefresh()}
+function coachSetPhase(p){const ps=state.playSession;if(!ps||!COACH_PHASES.includes(p))return;coachState(ps).phase=p;coachSave();coachRefresh()}
+function coachActed(key){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const s=new Set(c.acted);if(s.has(key))s.delete(key);else s.add(key);c.acted=[...s];coachSave();coachRefresh()}
+function coachFighters(ps){const out=[];playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);(e.picks||[]).forEach(id=>{const x=(r.fighters||[]).find(q=>q.instance===id);if(x&&!playOoaHas(ps,r.id,id))out.push({key:`${r.id}:${id}`,name:x.name||''})})});return out}
+function coachRoutText(ps){const en=siteLanguage==='en';return playOwnRosters(ps).filter(r=>playEngEntry(ps,r)?.validated).map(r=>{const n=playRoutCrew(ps,r);const k=Number(ps.rout?.[r.id])||0;const need=n-k+1;
+  return `<li><b>${esc(r.name)}</b> : ${!k?(en?'nobody down, no Rout test.':'personne à terre, pas de test de déroute.'):need>6?(en?`D6 + ${k} cannot go over ${n}: the warband holds.`:`D6 + ${k} ne peut pas dépasser ${n} : la bande tient.`):need<=1?(en?`D6 + ${k} is always over ${n}: the warband flees.`:`D6 + ${k} dépasse toujours ${n} : la bande fuit.`):(en?`roll 1 dice: on <b>${need}+</b> the warband flees (D6 + ${k} > ${n}).`:`lance 1 dé : sur <b>${need}+</b> la bande fuit (D6 + ${k} > ${n}).`)}</li>`}).join('')}
+function coachMarkup(ps,inGame){const en=siteLanguage==='en';
+  if(!coachOn())return `<div class="coach-off" id="playCoach"${inGame?' data-ingame="1"':''}><span>🎓 ${en?'First game?':'Première partie ?'}</span><button type="button" class="button secondary small" onclick="coachToggle(true)">${en?'Turn on the guide':'Activer le guide'}</button></div>`;
+  const sw=`<button type="button" class="coach-sw on" role="switch" aria-checked="true" onclick="coachToggle(false)"><i></i>${en?'My first game':'Ma première partie'}</button>`;
+  if(!inGame)return `<section class="coach" id="playCoach"><div class="coach-top"><span class="coach-kick">${en?'BEFORE THE GAME':'AVANT LA PARTIE'}</span>${sw}</div><p class="coach-tx">${esc(coachTx('setup'))}</p><div class="coach-links"><button type="button" onclick="learnOpen('')">🎓 ${en?'Learn to play':'Apprendre à jouer'}</button></div></section>`;
+  const c=coachState(ps);const labels={priority:en?'Priority':'Priorité',actions:en?'Actions':'Actions',end:en?'End':'Fin'};
+  const steps=`<div class="coach-steps">${COACH_PHASES.map((p,i)=>`<button type="button" class="${c.phase===p?'on':''}" onclick="coachSetPhase('${p}')">${i+1} · ${labels[p]}</button>`).join('')}</div>`;
+  let extra='',lesson='turn';
+  if(c.phase==='actions'){lesson='activate';const fs=coachFighters(ps);const acted=new Set(c.acted);const ready=fs.filter(f=>!acted.has(f.key)).length;
+    extra=`<div class="coach-ready"><span class="micro-label">${en?`${ready} READY OF ${fs.length}`:`${ready} PRÊT${ready>1?'S':''} SUR ${fs.length}`}</span><div class="coach-chips">${fs.map(f=>`<button type="button" class="${acted.has(f.key)?'done':''}" aria-pressed="${acted.has(f.key)}" onclick="coachActed('${esc(f.key)}')">${acted.has(f.key)?'✓ ':''}${esc(f.name)}</button>`).join('')||`<span class="muted">${en?'No fighter in play.':'Aucun combattant en jeu.'}</span>`}</div></div>`}
+  if(c.phase==='end'){lesson='rout';const rows=coachRoutText(ps);extra=rows?`<ul class="coach-rout">${rows}</ul><small class="muted">${en?'Count fighters down with the ROUT TEST bar below.':'Compte les combattants tombés avec la barre TEST DE DÉROUTE ci-dessous.'}</small>`:''}
+  return `<section class="coach" id="playCoach" data-ingame="1"><div class="coach-top"><span class="coach-kick">${en?`TURN ${c.round}`:`TOUR ${c.round}`}</span>${sw}</div>${steps}
+  <div class="coach-bubble"><p class="coach-tx">${esc(coachTx(c.phase))}</p>${extra}<div class="coach-links"><button type="button" onclick="learnOpen('${lesson}')">🎓 ${en?'Lesson':'Leçon'}</button></div></div>
+  <button type="button" class="button primary coach-next" onclick="coachNext()">${c.phase==='end'?(en?`Next turn (${Number(c.round)+1}) ›`:`Tour suivant (${Number(c.round)+1}) ›`):(en?'Next phase ›':'Phase suivante ›')}</button></section>`}
 
 // ===================== V-STATORIGIN: "where does this number come from?" =====================
 // On a fighter sheet, tapping a characteristic shows its detail:
