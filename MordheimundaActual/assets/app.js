@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0822.0';
+const APP_BUILD='110.0823.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -41,6 +41,9 @@ function routeForView(view){
 }
 // V-SHARE state (see enterSharedView) — declared early, read by the router.
 let sharedViewToken=null,sharedViewRosterId=null,sharedViewOwner='',sharedOwnStateSnapshot=null,sharedLoadingToken=null;
+// V-SYNCDEVICE: which device made a warband's last change, so a single
+// device never sees its own earlier copy as "changed on another device".
+const SYNC_DEVICE=(()=>{try{let d=localStorage.getItem('mu_device');if(!d){d=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2));localStorage.setItem('mu_device',d)}return d}catch(e){return ''}})();
 function parseAppRoute(path=location.pathname){
   const p=appPath(path);
   if(p==='/')return {view:'dashboard'};
@@ -1988,6 +1991,7 @@ function save(silent=false){try{undoTrack()}catch(e){}try{playShareAfterSave()}c
     // more of the shared history, so its edit always outranks one made
     // against an older baseline, regardless of either clock.
     activeR.updatedSeq=(Number(state?.meta?.cloudRevision)||0)*1e13+Date.now();
+    if(SYNC_DEVICE)activeR.updatedBy=SYNC_DEVICE;
   }
   // V-ADMINFOREIGNSAVE (Task #47): every roster/custom-content mutation in
   // the app already ends in a call to save() — that's what makes it safe to
@@ -7169,7 +7173,7 @@ function dashWarbandCard(r,reorder){const en=siteLanguage==='en';const f=faction
 // an edited roster (confirmed revision first, then the clock).
 function syncStamp(){return (Number(state?.meta?.cloudRevision)||0)*1e13+Date.now()}
 function stampRosterOrder(){state.rosterOrder={ids:(state.rosters||[]).map(r=>String(r.id)),seq:syncStamp()}}
-function touchRoster(r){if(!r)return;r.updatedAt=Date.now();r.updatedSeq=syncStamp()}
+function touchRoster(r){if(!r)return;r.updatedAt=Date.now();r.updatedSeq=syncStamp();if(SYNC_DEVICE)r.updatedBy=SYNC_DEVICE}
 function moveRosterOrder(id,dir){
   const idx=state.rosters.findIndex(r=>r.id===id);if(idx<0)return;
   const to=idx+dir;if(to<0||to>=state.rosters.length)return;
@@ -19504,10 +19508,10 @@ const SYNC_CONFLICT_KEY='mu_sync_conflicts';
 const syncNm=v=>v&&typeof v==='object'?(v.name||''):String(v??'');
 const syncBody=r=>{try{const eq=x=>[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].map(syncNm).sort();return JSON.stringify({n:r.name||'',g:Math.round(Number(r.gold)||0),w:Math.round(Number(r.wyrdstone)||0),st:(r.stash||r.reserve||[]).map(syncNm).sort(),
   f:(r.fighters||[]).map(x=>[x.instance,x.name,Number(x.xp)||0,(x.profile||[]).join(','),(x.skills||[]).map(syncNm).sort(),(x.spells||[]).map(syncNm).sort(),(x.injuries||[]).map(syncNm),(x.advancements||[]).length,eq(x),!!x.dead,!!x.captured,x.recovery||null,(x.mutations||[]).map(m=>m.id)]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])))})}catch(e){return JSON.stringify(r,(k,v)=>k==='updatedAt'||k==='updatedSeq'?undefined:v)}};
-function syncConflictNote(a,b,bWins){if(!a||!b||a.updatedSeq==null||b.updatedSeq==null)return;const ra=Math.floor(Number(a.updatedSeq)/1e13),rb=Math.floor(Number(b.updatedSeq)/1e13);if(ra!==rb||Number(a.updatedSeq)===Number(b.updatedSeq))return;if(syncBody(a)===syncBody(b))return;
+function syncConflictNote(a,b,bWins){if(!a||!b||a.updatedSeq==null||b.updatedSeq==null)return;if(!a.updatedBy||!b.updatedBy||a.updatedBy===b.updatedBy)return;const ra=Math.floor(Number(a.updatedSeq)/1e13),rb=Math.floor(Number(b.updatedSeq)/1e13);if(ra!==rb||Number(a.updatedSeq)===Number(b.updatedSeq))return;if(syncBody(a)===syncBody(b))return;
   const loser=bWins?a:b,winner=bWins?b:a;let list=[];try{list=JSON.parse(localStorage.getItem(SYNC_CONFLICT_KEY)||'[]')}catch(e){}list=list.filter(c=>String(c.rid)!==String(loser.id));
-  list.push({rid:loser.id,name:loser.name,at:Date.now(),lostAt:Number(loser.updatedAt)||0,keptAt:Number(winner.updatedAt)||0,json:JSON.stringify(loser)});while(list.length>5)list.shift();try{localStorage.setItem(SYNC_CONFLICT_KEY,JSON.stringify(list))}catch(e){}}
-function syncConflicts(){try{const l=JSON.parse(localStorage.getItem(SYNC_CONFLICT_KEY)||'[]');const old=Date.now()-3*864e5;return Array.isArray(l)?l.filter(c=>{if(Number(c.at||0)<=old)return false;const cur=(state.rosters||[]).find(r=>String(r.id)===String(c.rid));if(!cur)return false;try{return syncBody(cur)!==syncBody(JSON.parse(c.json))}catch(e){return true}}):[]}catch(e){return []}}
+  list.push({rid:loser.id,name:loser.name,dev:1,at:Date.now(),lostAt:Number(loser.updatedAt)||0,keptAt:Number(winner.updatedAt)||0,json:JSON.stringify(loser)});while(list.length>5)list.shift();try{localStorage.setItem(SYNC_CONFLICT_KEY,JSON.stringify(list))}catch(e){}}
+function syncConflicts(){try{const l=JSON.parse(localStorage.getItem(SYNC_CONFLICT_KEY)||'[]');const old=Date.now()-3*864e5;return Array.isArray(l)?l.filter(c=>{if(!c.dev||Number(c.at||0)<=old)return false;const cur=(state.rosters||[]).find(r=>String(r.id)===String(c.rid));if(!cur)return false;try{return syncBody(cur)!==syncBody(JSON.parse(c.json))}catch(e){return true}}):[]}catch(e){return []}}
 function syncConflictDrop(rid){try{const l=JSON.parse(localStorage.getItem(SYNC_CONFLICT_KEY)||'[]').filter(c=>String(c.rid)!==String(rid));localStorage.setItem(SYNC_CONFLICT_KEY,JSON.stringify(l))}catch(e){}}
 function syncConflictBannerMarkup(){const en=siteLanguage==='en';const c=syncConflicts();if(!c.length)return '';return c.map(x=>`<div class="sync-conflict"><span>⚠ <b>${esc(x.name)}</b> ${en?'was changed on two devices. The most recent version was kept.':'a été modifiée sur deux appareils. La version la plus récente a été gardée.'}</span><button type="button" class="button secondary small" onclick="openSyncConflict('${esc(x.rid)}')">${en?'See the other version':'Voir l’autre version'}</button></div>`).join('')}
 function openSyncConflict(rid){const en=siteLanguage==='en';const c=syncConflicts().find(x=>String(x.rid)===String(rid));const cur=(state.rosters||[]).find(r=>String(r.id)===String(rid));if(!c||!cur)return;let other=null;try{other=JSON.parse(c.json)}catch(e){}if(!other)return;

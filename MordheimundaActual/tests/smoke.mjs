@@ -976,7 +976,7 @@ await test('[desktop] undo 10 changes, warband check, two-device conflict, compa
     // 8 check: break things, list them, fix one
     const rr=state.rosters.find(q=>q.id==='smoke');rr.gold=-5;rr.fighters[0].xp=-3;rr.fighters.push({...rr.fighters[0]});save(true);const issues=rosterIssues(activeRoster()).map(x=>x.k);openRosterCheck();const modal=document.getElementById('modalContent').innerHTML;rosterFixOne('gold-neg');const goldFixed=state.rosters.find(q=>q.id==='smoke').gold;closeModal();
     // 10 conflict: two copies edited on the same synced revision
-    localStorage.removeItem(SYNC_CONFLICT_KEY);const base=JSON.parse(JSON.stringify(state.rosters.find(q=>q.id==='smoke')));const A={...base,name:'Phone edit',updatedSeq:7e13+1000,updatedAt:1000};const B={...base,name:'PC edit',updatedSeq:7e13+2000,updatedAt:2000};
+    localStorage.removeItem(SYNC_CONFLICT_KEY);const base=JSON.parse(JSON.stringify(state.rosters.find(q=>q.id==='smoke')));const A={...base,name:'Phone edit',updatedSeq:7e13+1000,updatedAt:1000,updatedBy:'phone'};const B={...base,name:'PC edit',updatedSeq:7e13+2000,updatedAt:2000,updatedBy:'pc'};
     const merged=mergeAccountData({rosters:[A]},{rosters:[B]});const conflicts=syncConflicts().map(c=>c.name);const C={...base,name:'Old',updatedSeq:6e13+1,updatedAt:1};localStorage.removeItem(SYNC_CONFLICT_KEY);mergeAccountData({rosters:[C]},{rosters:[B]});const noFalse=syncConflicts().length;
     localStorage.removeItem(SYNC_CONFLICT_KEY);mergeAccountData({rosters:[A]},{rosters:[B]});readToolsSync();const banner=!!document.querySelector('.sync-conflict');localStorage.removeItem(SYNC_CONFLICT_KEY);
     // 14 scenario rules
@@ -1383,11 +1383,12 @@ await test('[mobile] a game in progress shows "Back to the game" on every page',
 await test('[desktop] sync notice only for real changes made on two devices',null,async page=>{
   const out=await page.evaluate(()=>{localStorage.removeItem('mu_sync_conflicts');const base={id:'sc1',name:'Band',gold:100,fighters:[{instance:'i1',name:'A',xp:2,profile:[4,3,3,3,3,1,3,1,7],skills:[],equipmentSelected:[{name:'Sword'}]}]};
     state.rosters=[JSON.parse(JSON.stringify(base))];
-    const a={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+1,ui:{open:1}},b={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+2,ui:{open:2},updatedAt:9};
+    const a={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+1,updatedBy:'devA',ui:{open:1}},b={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+2,updatedBy:'devB',ui:{open:2},updatedAt:9};
     syncConflictNote(a,b,true);const noise=syncConflicts().length;
-    const c={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+3,gold:40};syncConflictNote(c,b,true);const real=syncConflicts().length;
-    localStorage.removeItem('mu_sync_conflicts');state.rosters=[];return {noise,real}});
-  expect(out.noise===0&&out.real===1,'sync notice: '+JSON.stringify(out));
+    const same={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+3,updatedBy:'devB',gold:40};syncConflictNote(same,b,true);const self=syncConflicts().length;
+    const c={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+3,updatedBy:'devA',gold:40};syncConflictNote(c,b,true);const real=syncConflicts().length;
+    localStorage.removeItem('mu_sync_conflicts');state.rosters=[];return {noise,self,real}});
+  expect(out.noise===0&&out.self===0&&out.real===1,'sync notice: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
