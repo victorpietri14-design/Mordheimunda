@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0819.0';
+const APP_BUILD='110.0820.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -662,8 +662,8 @@ function rulePeekSummary(rawText){const en=siteLanguage==='en';const lines=strip
 // — same mechanism as the Référentiel entry bodies), so a tooltip's own text
 // can be used to jump to a keyword it mentions instead of dead-ending there.
 function rulePeekSummaryHtml(rawText,excludeName){const plain=rulePeekSummary(rawText);return linkGlossaryInHtml(esc(plain),excludeName);}
-function rulePeekTitle(cat){if(cat==='scnaction')return siteLanguage==='en'?'Objectives & Scenario Actions':'Objectifs et actions de scénario';return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
-function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',scnaction:'◎'}[cat]||'◆';}
+function rulePeekTitle(cat){if(cat==='scnaction')return siteLanguage==='en'?'Objectives & Scenario Actions':'Objectifs et actions de scénario';if(cat==='gameaction')return siteLanguage==='en'?'Action':'Action';return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
+function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',scnaction:'◎',gameaction:'➤'}[cat]||'◆';}
 function positionRulePeek(elOrRect){const pop=$('#rulePeek');if(!pop||!elOrRect)return;const r=typeof elOrRect.getBoundingClientRect==='function'?elOrRect.getBoundingClientRect():elOrRect;const pw=Math.min(460,window.innerWidth-24),ph=pop.offsetHeight;let left=Math.min(Math.max(12,r.left),window.innerWidth-pw-12),top=r.bottom+10;if(top+ph>window.innerHeight-12)top=r.top-ph-10;if(top<12)top=12;pop.style.left=left+'px';pop.style.top=top+'px';pop.style.width=pw+'px';}
 function showRulePeek(el){
   // V-STALEPEEKTARGET: on a touch tap, the browser fires a synthetic
@@ -693,7 +693,7 @@ function showRulePeek(el){
   // goes straight to that entry's own glossary page — never a second popup
   // stacked over the first.
   if(el&&el.closest&&el.closest('#rulePeek'))return;
-  clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=cat==='scnaction'?scnActionEntry(id):referenceEntries(cat).find(x=>x.id===id);if(!e)return;
+  clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=cat==='scnaction'?scnActionEntry(id):cat==='gameaction'?gameActionEntry(id):referenceEntries(cat).find(x=>x.id===id);if(!e)return;
   // Same override layer as the Règles/Référentiel tabs (referenceEntryMarkup) —
   // without this, a fighter-card hover/click peek always showed the stale
   // baked-in RULES_BOOK text even after an admin corrected the rule, since
@@ -783,7 +783,7 @@ function cancelHideRulePeek(){clearTimeout(rulePeekTimer)}
 // event bookkeeping got confused) and stand down if so.
 function scheduleHideRulePeek(){if(window.matchMedia?.('(hover: none)').matches)return;clearTimeout(rulePeekTimer);rulePeekTimer=setTimeout(()=>{const pop=$('#rulePeek');if(pop&&pop.matches(':hover'))return;if(pop)pop.classList.remove('visible');activeRulePeek=null},180)}
 function openReferenceFromPeek(event){event?.stopPropagation();const el=activeRulePeek;if(!el)return;openReference(el.dataset.refCategory,el.dataset.refId);}
-function openReference(category='skills',id=''){if(category==='scnaction'){openRulePage('scenarioactions');return}referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
+function openReference(category='skills',id=''){if(category==='scnaction'){openRulePage('scenarioactions');return}if(category==='gameaction'){openRulePage('actions');return}referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
 // Lightweight inline formatting for the Custom tab's own text fields (fighter
 // / warband descriptions, custom skill·spell·special-rule text, custom
 // equipment rules text): a small **bold**/*italic*/size/color syntax, with a
@@ -10729,7 +10729,9 @@ function playBackToGame(){playReturnToGame=false;playBackSync();navigateApp(APP_
 function playBackSync(){
   let btn=document.getElementById('playBackBtn');const v=parseAppRoute().view;
   if(location.pathname===APP_ROUTES.playMode||!state.playSession)playReturnToGame=false;
-  const show=playReturnToGame&&(v==='fighter'||v==='builder');
+  // V-BACKTOGAME: shown on every page while a game is in progress, so the
+  // player can read rules, sheets… and come straight back.
+  const show=!!state.playSession&&v!=='playMode'&&v!=='sharedLoading';
   if(!show){btn?.remove();return}
   if(!btn){btn=document.createElement('button');btn.id='playBackBtn';btn.type='button';btn.className='button primary play-back-btn';btn.onclick=playBackToGame;document.body.appendChild(btn)}
   btn.textContent=siteLanguage==='en'?'← Back to the game':'← Retour à la partie';
@@ -19949,7 +19951,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}
-(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}return o.apply(this,arguments)}})();
+(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}try{playBackSync()}catch(e){}return o.apply(this,arguments)}})();
 
 // ===================== V-WBCATS: categories apart in Rules › Warbands =====================
 // Dramatis Personae, Hired Swords ("Agents") and neutral creatures are single
@@ -20202,24 +20204,68 @@ function coachTx(k){return hx(`coach.${k}`,COACH_TEXTS[k])}
 function coachState(ps){if(!ps.coach||typeof ps.coach!=='object')ps.coach={round:1,phase:'priority',acted:[]};if(!Array.isArray(ps.coach.acted))ps.coach.acted=[];return ps.coach}
 function coachSave(){try{saveLocalOnly()}catch(e){}}
 function coachRefresh(){const ps=state.playSession;const el=document.getElementById('playCoach');if(el&&ps)el.outerHTML=coachMarkup(ps,!!el.dataset.ingame)}
-function coachNext(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const i=COACH_PHASES.indexOf(c.phase);if(i>=COACH_PHASES.length-1){c.round=(Number(c.round)||1)+1;c.phase='priority';c.acted=[]}else c.phase=COACH_PHASES[i+1];coachSave();coachRefresh()}
+function coachNext(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const i=COACH_PHASES.indexOf(c.phase);if(i>=COACH_PHASES.length-1){c.round=(Number(c.round)||1)+1;c.phase='priority';c.acted=[];c.done=[];c.cur=null;c.used=[];c.prio=null}else c.phase=COACH_PHASES[i+1];coachSave();coachRefresh()}
 function coachSetPhase(p){const ps=state.playSession;if(!ps||!COACH_PHASES.includes(p))return;coachState(ps).phase=p;coachSave();coachRefresh()}
 function coachActed(key){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const s=new Set(c.acted);if(s.has(key))s.delete(key);else s.add(key);c.acted=[...s];coachSave();coachRefresh()}
 function coachFighters(ps){const out=[];playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);(e.picks||[]).forEach(id=>{const x=(r.fighters||[]).find(q=>q.instance===id);if(x&&!playOoaHas(ps,r.id,id))out.push({key:`${r.id}:${id}`,name:x.name||''})})});return out}
 function coachRoutText(ps){const en=siteLanguage==='en';return playOwnRosters(ps).filter(r=>playEngEntry(ps,r)?.validated).map(r=>{const n=playRoutCrew(ps,r);const k=Number(ps.rout?.[r.id])||0;const need=n-k+1;
   return `<li><b>${esc(r.name)}</b> : ${!k?(en?'nobody down, no Rout test.':'personne à terre, pas de test de déroute.'):need>6?(en?`D6 + ${k} cannot go over ${n}: the warband holds.`:`D6 + ${k} ne peut pas dépasser ${n} : la bande tient.`):need<=1?(en?`D6 + ${k} is always over ${n}: the warband flees.`:`D6 + ${k} dépasse toujours ${n} : la bande fuit.`):(en?`roll 1 dice: on <b>${need}+</b> the warband flees (D6 + ${k} > ${n}).`:`lance 1 dé : sur <b>${need}+</b> la bande fuit (D6 + ${k} > ${n}).`)}</li>`}).join('')}
+// --- V-COACH2: a fuller step by step (choices, actions, rule links)
+// Actions of the rulebook (2.2.2, [ACTIONCARDS]) as rule pop-ups.
+function gameActionRows(){try{return getActionRowsForSection('actions')}catch(e){return []}}
+function gameActionEntry(id){const r=gameActionRows().find(x=>normName(x.name)===id);if(!r)return null;return {id,name:r.name,text:`(${String(r.type||'').toUpperCase()}) ${r.desc}`}}
+function gameActionRef(name,label){return `<span class="rule-ref" tabindex="0" data-ref-category="gameaction" data-ref-id="${esc(normName(name))}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(label||name)}</span>`}
+const COACH_TYPE={simple:['Simple','Simple'],basic:['Basic','Basique'],double:['Double','Double'],free:['Free','Gratuite']};
+function coachTypeOf(t){const k=String(t||'').toLowerCase();return COACH_TYPE[k]?k:'simple'}
+function coachActCost(t){return t==='double'?2:t==='free'?0:1}
+function coachUsed(c){return (c.used||[]).reduce((n,u)=>n+coachActCost(u.t),0)}
+function coachCanAdd(c,row){const t=coachTypeOf(row.type);const used=coachUsed(c);if(used+coachActCost(t)>2)return false;if((t==='basic'||t==='free')&&(c.used||[]).some(u=>normName(u.n)===normName(row.name)))return false;return true}
+function coachRuleBtn(id,label){return `<button type="button" onclick="learnRuleGo('${esc(id)}')">📖 ${esc(label)}</button>`}
+function coachStep(c,k,html){const on=(c.done||[]).includes(k);return `<label class="coach-step${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="coachTick('${k}')"><span>${html}</span></label>`}
+function coachTick(k){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const s=new Set(c.done||[]);if(s.has(k))s.delete(k);else s.add(k);c.done=[...s];coachSave();coachRefresh()}
+function coachSetPrio(v){const ps=state.playSession;if(!ps)return;coachState(ps).prio=v;coachSave();coachRefresh()}
+function coachPick(key){const ps=state.playSession;if(!ps)return;const c=coachState(ps);c.cur=c.cur===key?null:key;c.used=[];coachSave();coachRefresh()}
+function coachSetStatus(s){const ps=state.playSession;if(!ps)return;coachState(ps).st=s;coachSave();coachRefresh()}
+function coachAddAct(i){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const row=coachStatusRows(c.st)[i];if(!row)return;const en=siteLanguage==='en';
+  if(!coachCanAdd(c,row)){toast(coachTypeOf(row.type)==='basic'?(en?'A Basic action only once per activation':'Une action Basique une seule fois par activation'):(en?'Only 2 actions per activation':'Seulement 2 actions par activation'));return}
+  c.used=[...(c.used||[]),{n:row.name,t:coachTypeOf(row.type)}];coachSave();coachRefresh()}
+function coachUndoAct(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);c.used=(c.used||[]).slice(0,-1);coachSave();coachRefresh()}
+function coachFinish(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);if(c.cur){const s=new Set(c.acted);s.add(c.cur);c.acted=[...s]}c.cur=null;c.used=[];coachSave();coachRefresh()}
+function coachStatusRows(st){return gameActionRows().filter(r=>(r.statuses||[]).includes(st||'active'))}
 function coachMarkup(ps,inGame){const en=siteLanguage==='en';
   if(!coachOn())return `<div class="coach-off" id="playCoach"${inGame?' data-ingame="1"':''}><span>🎓 ${en?'First game?':'Première partie ?'}</span><button type="button" class="button secondary small" onclick="coachToggle(true)">${en?'Turn on the guide':'Activer le guide'}</button></div>`;
   const sw=`<button type="button" class="coach-sw on" role="switch" aria-checked="true" onclick="coachToggle(false)"><i></i>${en?'My first game':'Ma première partie'}</button>`;
-  if(!inGame)return `<section class="coach" id="playCoach"><div class="coach-top"><span class="coach-kick">${en?'BEFORE THE GAME':'AVANT LA PARTIE'}</span>${sw}</div><p class="coach-tx">${esc(coachTx('setup'))}</p><div class="coach-links"><button type="button" onclick="learnOpen('')">🎓 ${en?'Learn to play':'Apprendre à jouer'}</button></div></section>`;
+  if(!inGame)return `<section class="coach" id="playCoach"><div class="coach-top"><span class="coach-kick">${en?'BEFORE THE GAME':'AVANT LA PARTIE'}</span>${sw}</div><p class="coach-tx">${esc(coachTx('setup'))}</p><div class="coach-links"><button type="button" onclick="learnOpen('')">🎓 ${en?'Learn to play':'Apprendre à jouer'}</button>${coachRuleBtn('scenariorules',en?'Scenario rules':'Règles de scénario')}${coachRuleBtn('underdogbonus','Underdog')}</div></section>`;
   const c=coachState(ps);const labels={priority:en?'Priority':'Priorité',actions:en?'Actions':'Actions',end:en?'End':'Fin'};
   const steps=`<div class="coach-steps">${COACH_PHASES.map((p,i)=>`<button type="button" class="${c.phase===p?'on':''}" onclick="coachSetPhase('${p}')">${i+1} · ${labels[p]}</button>`).join('')}</div>`;
-  let extra='',lesson='turn';
-  if(c.phase==='actions'){lesson='activate';const fs=coachFighters(ps);const acted=new Set(c.acted);const ready=fs.filter(f=>!acted.has(f.key)).length;
-    extra=`<div class="coach-ready"><span class="micro-label">${en?`${ready} READY OF ${fs.length}`:`${ready} PRÊT${ready>1?'S':''} SUR ${fs.length}`}</span><div class="coach-chips">${fs.map(f=>`<button type="button" class="${acted.has(f.key)?'done':''}" aria-pressed="${acted.has(f.key)}" onclick="coachActed('${esc(f.key)}')">${acted.has(f.key)?'✓ ':''}${esc(f.name)}</button>`).join('')||`<span class="muted">${en?'No fighter in play.':'Aucun combattant en jeu.'}</span>`}</div></div>`}
-  if(c.phase==='end'){lesson='rout';const rows=coachRoutText(ps);extra=rows?`<ul class="coach-rout">${rows}</ul><small class="muted">${en?'Count fighters down with the ROUT TEST bar below.':'Compte les combattants tombés avec la barre TEST DE DÉROUTE ci-dessous.'}</small>`:''}
-  return `<section class="coach" id="playCoach" data-ingame="1"><div class="coach-top"><span class="coach-kick">${en?`TURN ${c.round}`:`TOUR ${c.round}`}</span>${sw}</div>${steps}
-  <div class="coach-bubble"><p class="coach-tx">${esc(coachTx(c.phase))}</p>${extra}<div class="coach-links"><button type="button" onclick="learnOpen('${lesson}')">🎓 ${en?'Lesson':'Leçon'}</button></div></div>
+  let body='';
+  if(c.phase==='priority'){
+    body=`<p class="coach-tx">${esc(coachTx('priority'))}</p><div class="coach-list">
+     ${coachStep(c,'p1',en?'Each player rolls <b>1 dice</b>; the highest takes the Priority marker (tie: roll again).':'Chaque joueur lance <b>1 dé</b> ; le plus haut prend le marqueur de Priorité (égalité : on relance).')}
+     ${coachStep(c,'p2',en?'Every fighter becomes <b>Ready</b> again (the app clears the marks for you).':'Tous les combattants redeviennent <b>Prêts</b> (l’app efface les marques pour toi).')}
+     ${coachStep(c,'p3',en?'If a warband failed its Rout test: each of its fighters takes a <b>Cool</b> check at the start of the Actions, failed = it flees.':'Si une bande a raté son test de déroute : chacun de ses combattants fait un test de <b>Calme</b> au début des Actions, raté = il s’enfuit.')}</div>
+     <div class="coach-q"><span>${en?'Who has Priority?':'Qui a la Priorité ?'}</span><div class="coach-seg"><button type="button" class="${c.prio==='me'?'on':''}" onclick="coachSetPrio('me')">${en?'Me':'Moi'}</button><button type="button" class="${c.prio==='opp'?'on':''}" onclick="coachSetPrio('opp')">${en?'My opponent':'Mon adversaire'}</button></div></div>
+     <div class="coach-links">${coachRuleBtn('priority',en?'2.1 Priority':'2.1 Priorité')}<button type="button" onclick="learnOpen('turn')">🎓 ${en?'Lesson':'Leçon'}</button></div>`}
+  else if(c.phase==='actions'){const fs=coachFighters(ps);const acted=new Set(c.acted);const ready=fs.filter(f=>!acted.has(f.key));
+    const order=c.prio==='me'?(en?'You have Priority: <b>you activate first</b>, then you take turns, one fighter each.':'Tu as la Priorité : <b>tu actives en premier</b>, puis chacun son tour, un combattant à la fois.'):c.prio==='opp'?(en?'Your opponent activates first, then you take turns, one fighter each.':'Ton adversaire active en premier, puis chacun son tour, un combattant à la fois.'):(en?'Whoever has Priority activates first, then you take turns, one fighter each.':'Celui qui a la Priorité active en premier, puis chacun son tour, un combattant à la fois.');
+    const cur=fs.find(f=>f.key===c.cur);
+    const chips=`<div class="coach-ready"><span class="micro-label">${en?`1 · PICK A READY FIGHTER (${ready.length} OF ${fs.length})`:`1 · CHOISIS UN COMBATTANT PRÊT (${ready.length} SUR ${fs.length})`}</span><div class="coach-chips">${fs.map(f=>{const d=acted.has(f.key);return `<button type="button" class="${d?'done':''}${c.cur===f.key?' cur':''}" aria-pressed="${c.cur===f.key}" onclick="${d?`coachActed('${esc(f.key)}')`:`coachPick('${esc(f.key)}')`}">${d?'✓ ':''}${esc(f.name)}</button>`}).join('')||`<span class="muted">${en?'No fighter in play.':'Aucun combattant en jeu.'}</span>`}</div>${ready.length===0&&fs.length?`<p class="coach-tx">${en?'All your fighters have acted. When everyone has, go to the End phase.':'Tous tes combattants ont joué. Quand tout le monde a fini, passe à la Fin du tour.'}</p>`:''}</div>`;
+    let act='';
+    if(cur){const sts=ACTION_STATUS_META.filter(s=>gameActionRows().some(r=>(r.statuses||[]).includes(s.id)));const st=c.st&&sts.some(s=>s.id===c.st)?c.st:'active';const rows=coachStatusRows(st);const used=coachUsed(c);
+      act=`<div class="coach-act"><span class="micro-label">${en?`2 · ${esc(cur.name).toUpperCase()}: WHAT STATE IS IT IN?`:`2 · ${esc(cur.name).toUpperCase()} : DANS QUEL ÉTAT ?`}</span><div class="coach-seg wrap">${sts.map(s=>`<button type="button" class="${st===s.id?'on':''}" onclick="coachSetStatus('${s.id}')">${esc(en?s.shortEn:s.shortFr)}</button>`).join('')}</div>
+       <span class="micro-label">${en?`3 · CHOOSE ITS ACTIONS (${used}/2)`:`3 · CHOISIS SES ACTIONS (${used}/2)`}</span>
+       <div class="coach-acts">${rows.map((r,i)=>{const t=coachTypeOf(r.type);const ok=coachCanAdd(c,r);return `<div class="coach-actcard${ok?'':' off'}"><div><b>${gameActionRef(r.name)}</b> <span class="coach-type t-${t}">${esc(helpT(COACH_TYPE[t]))}</span><small>${esc(String(r.desc||'').slice(0,110))}${String(r.desc||'').length>110?'…':''}</small></div><button type="button" class="button secondary small" ${ok?'':'disabled'} onclick="coachAddAct(${i})">＋</button></div>`}).join('')}</div>
+       ${(c.used||[]).length?`<div class="coach-plan"><b>${en?'Plan':'Plan'} :</b> ${c.used.map(u=>`${esc(u.n)} <small>(${esc(helpT(COACH_TYPE[u.t]))})</small>`).join(' + ')} <button type="button" class="coach-undo" onclick="coachUndoAct()">↶</button></div>`:''}
+       <div class="coach-links">${coachRuleBtn('actions',en?'2.2.2 All actions':'2.2.2 Toutes les actions')}${coachRuleBtn('movement',en?'Movement':'Mouvement')}${coachRuleBtn('shooting',en?'Shooting':'Tir')}${coachRuleBtn('combat',en?'Close combat':'Corps à corps')}${coachRuleBtn('resolve',en?'Wound & injury':'Blesser & blessure')}${coachRuleBtn('psychology',en?'Psychology':'Psychologie')}${coachRuleBtn('magic',en?'Magic':'Magie')}</div>
+       <button type="button" class="button primary coach-done" onclick="coachFinish()">✓ ${en?`${esc(cur.name)} has played`:`${esc(cur.name)} a joué`}</button></div>`}
+    body=`<p class="coach-tx">${order}</p>${chips}${act}`}
+  else{const rows=coachRoutText(ps);
+    body=`<p class="coach-tx">${esc(coachTx('end'))}</p><div class="coach-list">
+     ${coachStep(c,'e1',`<b>${en?'1 · Rout test':'1 · Test de déroute'}</b>${rows?`<ul class="coach-rout">${rows}</ul>`:''}<small class="muted">${en?'Count fighters down with the ROUT TEST bar below.':'Compte les combattants tombés avec la barre TEST DE DÉROUTE ci-dessous.'}</small>`)}
+     ${coachStep(c,'e2',`<b>${en?'2 · Recovery':'2 · Récupération'}</b> — ${en?'each Seriously Injured fighter rolls an Injury dice: 1-2 Flesh Wound (it gets up, Prone and Pinned), 3-5 stays Seriously Injured, 6 Out of Action. A friend within 1" can help: roll 2 dice, keep one.':'chaque Gravement blessé lance un dé de blessure : 1-2 Blessure légère (il se relève, à terre et Plaqué), 3-5 reste Gravement blessé, 6 Hors de combat. Un ami à 1" peut aider : 2 dés, on en garde un.'}`)}
+     ${coachStep(c,'e3',`<b>${en?'3 · Rally':'3 · Ralliement'}</b> — ${en?'each Broken fighter takes a Cool check to stop being Broken.':'chaque combattant Brisé fait un test de Calme pour ne plus l’être.'}`)}</div>
+     <div class="coach-links">${coachRuleBtn('endphase',en?'2.3 End phase':'2.3 Fin du tour')}${coachRuleBtn('conditions',en?'Conditions':'Conditions')}<button type="button" onclick="learnOpen('rout')">🎓 ${en?'Lesson':'Leçon'}</button></div>`}
+  return `<section class="coach" id="playCoach" data-ingame="1"><div class="coach-top"><span class="coach-kick">${en?`TURN ${c.round}`:`TOUR ${c.round}`}</span>${sw}</div>${steps}<div class="coach-bubble">${body}</div>
   <button type="button" class="button primary coach-next" onclick="coachNext()">${c.phase==='end'?(en?`Next turn (${Number(c.round)+1}) ›`:`Tour suivant (${Number(c.round)+1}) ›`):(en?'Next phase ›':'Phase suivante ›')}</button></section>`}
 
 // ===================== V-STATORIGIN: "where does this number come from?" =====================

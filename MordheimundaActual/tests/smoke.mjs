@@ -1356,16 +1356,30 @@ await test('[desktop] Play: "My first game" guide — phases, who acted, rout wo
     localStorage.setItem('mu_coach','1');const html=playFightersMarkup(ps);
     const div=document.createElement('div');div.innerHTML=html;document.body.appendChild(div);
     const p1=document.querySelector('#playCoach .coach-steps .on')?.textContent||'';
-    coachNext();const chips=document.querySelectorAll('#playCoach .coach-chips button').length;
-    document.querySelector('#playCoach .coach-chips button').click();const ready=document.querySelector('#playCoach .coach-ready .micro-label')?.textContent||'';
+    coachSetPrio('me');coachNext();const chips=document.querySelectorAll('#playCoach .coach-chips button').length;
+    document.querySelector('#playCoach .coach-chips button').click();const acts=document.querySelectorAll('#playCoach .coach-actcard').length;const peek=!!document.querySelector('#playCoach .coach-actcard .rule-ref[data-ref-category="gameaction"]');
+    const dbl=[...document.querySelectorAll('#playCoach .coach-actcard')].findIndex(c=>/Double/.test(c.textContent));if(dbl>=0){coachAddAct(dbl)}const full=document.querySelectorAll('#playCoach .coach-actcard.off').length;
+    document.querySelector('#playCoach .coach-done').click();const ready=document.querySelector('#playCoach .coach-ready .micro-label')?.textContent||'';
     const cur=state.playSession;cur.rout={};cur.rout[r.id]=2;coachNext();const rout=document.querySelector('#playCoach .coach-rout')?.textContent||'';
     coachNext();const c=state.playSession.coach;div.remove();state.playSession=null;
-    return {off,p1,chips,ready,rout,round:c.round,phase:c.phase,acted:c.acted.length,n:r.fighters.length}});
+    const peekE=gameActionEntry('move');return {off,p1,chips,acts,peek,dbl,full,peekE:!!peekE,ready,rout,round:c.round,phase:c.phase,acted:c.acted.length,n:r.fighters.length}});
+  expect(out.acts>3&&out.peek&&out.peekE,'action choices with rule pop-ups missing: '+JSON.stringify(out));
+  expect(out.dbl<0||out.full>0,'a Double action should use both actions: '+JSON.stringify(out));
   expect(out.off,'the guide is offered when off: '+JSON.stringify(out));
   expect(/1/.test(out.p1)&&out.chips===out.n,'phases or fighter list missing: '+JSON.stringify(out));
   expect(new RegExp(String(out.n-1)).test(out.ready),'marking a fighter as acted does not count: '+JSON.stringify(out));
   expect(/[0-9]\+/.test(out.rout),'the rout test is not worked out: '+JSON.stringify(out));
   expect(out.round===2&&out.phase==='priority'&&out.acted===0,'next turn does not reset: '+JSON.stringify(out));
+});
+await test('[mobile] a game in progress shows "Back to the game" on every page',null,async page=>{
+  await page.evaluate(()=>{state.playSession=null;navigateApp(APP_ROUTES.rules)});await page.waitForTimeout(300);
+  const before=await page.evaluate(()=>!!document.getElementById('playBackBtn'));
+  await page.evaluate(()=>{const ps=blankPlaySession();state.playSession=ps;navigateApp(APP_ROUTES.rules)});await page.waitForTimeout(300);
+  const onRules=await page.evaluate(()=>!!document.getElementById('playBackBtn'));
+  await page.evaluate(()=>navigateApp(APP_ROUTES.playMode));await page.waitForTimeout(300);
+  const onPlay=await page.evaluate(()=>!!document.getElementById('playBackBtn'));
+  await page.evaluate(()=>{state.playSession=null;navigateApp('/')});
+  expect(!before&&onRules&&!onPlay,'back button: '+JSON.stringify({before,onRules,onPlay}));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

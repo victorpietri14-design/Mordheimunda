@@ -6089,3 +6089,28 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .coach-links{display:flex;gap:8px;flex-wrap:wrap}
 .coach-links button{min-height:32px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font:600 12px 'IBM Plex Sans';cursor:pointer}
 .coach-next{min-height:44px}
+/* V-COACH2 */
+.coach-list{display:flex;flex-direction:column;gap:6px}
+.coach-step{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;line-height:1.45;cursor:pointer}
+.coach-step input{accent-color:var(--accent);width:18px;height:18px;margin-top:1px;flex:none}
+.coach-step.on{opacity:.6}
+.coach-step small{display:block}
+.coach-q{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600}
+.coach-seg{display:flex;gap:6px}
+.coach-seg.wrap{flex-wrap:wrap}
+.coach-seg button{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font:600 12.5px 'IBM Plex Sans';cursor:pointer}
+.coach-seg button.on{border-color:var(--accent);background:rgba(157,250,60,.14);color:var(--accent)}
+.coach-chips button.cur{border-width:2px;background:rgba(157,250,60,.22)}
+.coach-act{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:9px}
+.coach-acts{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto}
+.coach-actcard{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+.coach-actcard.off{opacity:.45}
+.coach-actcard small{display:block;color:var(--muted);font-size:11.5px;line-height:1.4;margin-top:2px}
+.coach-actcard .button{min-width:40px;min-height:36px}
+.coach-type{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:2px 6px;border-radius:5px;border:1px solid var(--line);margin-left:4px;color:var(--muted)}
+.coach-type.t-double{color:#e0b04a;border-color:#e0b04a}
+.coach-type.t-basic{color:#6fb3e0;border-color:#6fb3e0}
+.coach-type.t-free{color:var(--accent);border-color:var(--accent)}
+.coach-plan{font-size:13px;line-height:1.5}
+.coach-undo{background:none;border:1px solid var(--line);border-radius:7px;color:inherit;cursor:pointer;min-width:32px;min-height:28px;margin-left:4px}
+.coach-done{min-height:42px}
