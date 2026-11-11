@@ -1380,6 +1380,15 @@ await test('[mobile] a game in progress shows "Back to the game" on every page',
   await page.evaluate(()=>{state.playSession=null;navigateApp('/')});
   expect(!before&&onRules&&!onPlay,'back button: '+JSON.stringify({before,onRules,onPlay}));
 });
+await test('[desktop] sync notice only for real changes made on two devices',null,async page=>{
+  const out=await page.evaluate(()=>{localStorage.removeItem('mu_sync_conflicts');const base={id:'sc1',name:'Band',gold:100,fighters:[{instance:'i1',name:'A',xp:2,profile:[4,3,3,3,3,1,3,1,7],skills:[],equipmentSelected:[{name:'Sword'}]}]};
+    state.rosters=[JSON.parse(JSON.stringify(base))];
+    const a={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+1,ui:{open:1}},b={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+2,ui:{open:2},updatedAt:9};
+    syncConflictNote(a,b,true);const noise=syncConflicts().length;
+    const c={...JSON.parse(JSON.stringify(base)),updatedSeq:5e13+3,gold:40};syncConflictNote(c,b,true);const real=syncConflicts().length;
+    localStorage.removeItem('mu_sync_conflicts');state.rosters=[];return {noise,real}});
+  expect(out.noise===0&&out.real===1,'sync notice: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
