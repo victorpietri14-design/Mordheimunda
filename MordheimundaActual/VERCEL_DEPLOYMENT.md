@@ -15,7 +15,7 @@ Configurer au minimum :
 - `DATABASE_URL=<URL PostgreSQL poolée>`
 - `DATABASE_SSL=true`
 - `CLIENT_ORIGIN=https://votre-domaine`
-- `SESSION_DAYS=30`
+- `SESSION_DAYS=90` (jours d’inactivité avant déconnexion ; chaque visite repousse l’échéance)
 - `TRUST_PROXY=true` (la valeur doit être exactement `true` — le code ne reconnaît que cette chaîne, pas `1`)
 - `APP_VERSION=88`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`

@@ -9,7 +9,7 @@ export const config={
   frontendUrl:(process.env.FRONTEND_URL||process.env.CLIENT_ORIGIN||'http://localhost:3000').replace(/\/$/,''),
   databaseUrl:process.env.DATABASE_URL||'',
   databaseSsl:process.env.DATABASE_SSL==='true',
-  sessionDays:Math.max(1,Math.min(90,Number(process.env.SESSION_DAYS||30))),
+  sessionDays:Math.max(1,Math.min(365,Number(process.env.SESSION_DAYS||90))),
   nodeEnv:process.env.NODE_ENV||'development',
   trustProxy:process.env.TRUST_PROXY==='true',
   smtpHost:process.env.SMTP_HOST||'',

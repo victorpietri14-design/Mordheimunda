@@ -1390,6 +1390,14 @@ await test('[desktop] sync notice only for real changes made on two devices',nul
     localStorage.removeItem('mu_sync_conflicts');state.rosters=[];return {noise,self,real}});
   expect(out.noise===0&&out.self===0&&out.real===1,'sync notice: '+JSON.stringify(out));
 });
+await test('[mobile] a player whose session ended is told they are logged out',null,async page=>{
+  const out=await page.evaluate(async()=>{localStorage.removeItem('mu_logged_out');localStorage.setItem(ACCOUNT_SESSION_KEY,JSON.stringify({username:'x'}));sessionLostNotice();await new Promise(r=>setTimeout(r,50));
+    const shown=!!document.getElementById('loggedOutBar');const signedOut=!cloudIsSignedIn();
+    localStorage.setItem(ACCOUNT_SESSION_KEY,JSON.stringify({username:'x'}));loggedOutBannerSync();const gone=!document.getElementById('loggedOutBar');
+    localStorage.removeItem(ACCOUNT_SESSION_KEY);sessionLostNotice();await new Promise(r=>setTimeout(r,50));const quiet=!document.getElementById('loggedOutBar');
+    localStorage.removeItem('mu_logged_out');return {shown,signedOut,gone,quiet}});
+  expect(out.shown&&out.signedOut&&out.gone&&out.quiet,'logged out notice: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
