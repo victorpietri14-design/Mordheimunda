@@ -1108,7 +1108,7 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
     return {n:list.length,missing,check,done1,done2,sheet,tip,ring,welcome,menu,statRows,notes,starts,bar1,bar2,reading,keys,ov}});
   expect(out.n>15&&!out.missing.length,'every page has a help entry (add it to HELP_PAGES): '+JSON.stringify(out));
   expect(out.check&&out.done1===1&&out.done2===2,'first steps tick themselves: '+JSON.stringify(out));
-  expect(out.statRows===8&&out.notes===1&&out.starts===3&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
+  expect(out.statRows===8&&out.notes===1&&out.starts===4&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
   expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu>=6,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
 });
 await test('[desktop] rules warbands: race banners, sub-factions, categories apart (Dramatis, agents, neutral creatures)',null,async page=>{
@@ -1331,6 +1331,20 @@ await test('[mobile] tapping a skill name inside the skill picker shows its rule
   await page.click('.skill-modal-category');await page.waitForSelector('.skill-modal-skill .rule-ref');await page.evaluate(()=>showRulePeek(document.querySelector('.skill-modal-skill .rule-ref')));await page.waitForTimeout(400);
   const ok=await page.evaluate(()=>{const p=document.querySelector('#rulePeek.visible');if(!p)return 'not visible';const r=p.getBoundingClientRect();const el=document.elementFromPoint(r.left+r.width/2,r.top+Math.min(20,r.height/2));return !!(el&&el.closest('#rulePeek'))||'covered'});
   expect(ok===true,'the rule box is hidden: '+ok);
+});
+await test('[mobile] learn to play: lessons list, answer, dice explained, progress kept',null,async page=>{
+  await page.evaluate(()=>{localStorage.removeItem('mu_learn');learnOpen('')});await page.waitForSelector('.learn-row');
+  const rows=await page.$$eval('.learn-row',a=>a.length);expect(rows===8,'expected 8 lessons, got '+rows);
+  await page.evaluate(()=>learnOpen('shoot'));await page.waitForSelector('.learn-opt');
+  expect(await page.evaluate(()=>location.pathname)==='/rules/learn/shoot','the lesson has its own address');
+  await page.click('.learn-opt:nth-child(2)');await page.waitForSelector('.learn-why.ko');
+  await page.click('.learn-opt:nth-child(3)');await page.waitForSelector('.learn-why.ok');
+  await page.click('.learn-roll-btn');await page.waitForSelector('.learn-die');
+  const out=await page.evaluate(()=>({steps:document.querySelectorAll('.learn-steps li').length,res:document.querySelector('.learn-res')?.textContent||'',done:JSON.parse(localStorage.getItem('mu_learn')||'{}').done||[]}));
+  expect(out.steps>=2&&/Hit|Miss|Touché|Raté/.test(out.res),'the dice result is not explained: '+JSON.stringify(out));
+  expect(out.done.includes('shoot'),'the lesson is not marked done: '+JSON.stringify(out));
+  await page.evaluate(()=>learnOpen(''));await page.waitForSelector('.learn-row.done');
+  const w=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1);expect(w,'the lessons page scrolls sideways on a phone');
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0817.0';
+const APP_BUILD='110.0818.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -25,7 +25,7 @@ let editingIndex=null;
 
 /* Stable browser routes: refreshes stay on the current page and normal links
    support right-click / Ctrl-click / Cmd-click to open additional tabs. */
-const APP_ROUTES={dashboard:'/',rosters:'/warbands',create:'/warbands/new',rules:'/rules',references:'/reference',custom:'/custom',account:'/account',armory:'/armory',codex:'/rules/book',admin:'/admin',rulesWarbands:'/rules/warbands',playMode:'/warbands/play',rulesCampaign:'/rules/campaign',scenarios:'/rules/scenarios',underdogBonus:'/rules/underdog-bonus',printList:'/print',myCampaigns:'/campaigns'};
+const APP_ROUTES={dashboard:'/',rosters:'/warbands',create:'/warbands/new',rules:'/rules',references:'/reference',custom:'/custom',account:'/account',armory:'/armory',codex:'/rules/book',admin:'/admin',rulesWarbands:'/rules/warbands',playMode:'/warbands/play',rulesCampaign:'/rules/campaign',scenarios:'/rules/scenarios',underdogBonus:'/rules/underdog-bonus',printList:'/print',myCampaigns:'/campaigns',learn:'/rules/learn'};
 function appPath(path){const raw=String(path||'/').split('#')[0].split('?')[0]||'/';return raw.length>1?raw.replace(/\/+$/,''):raw}
 function warbandPath(id){return '/warbands/'+encodeURIComponent(String(id))}
 function fighterPath(rosterId,instance){return warbandPath(rosterId)+'/fighter/'+encodeURIComponent(String(instance))}
@@ -35,6 +35,7 @@ function routeForView(view){
   if(view==='rulesWarbandDetail')return currentRulesWarbandId?'/rules/warbands/'+encodeURIComponent(currentRulesWarbandId):APP_ROUTES.rulesWarbands;
   if(view==='campaignDetail')return currentCampaignId?'/rules/campaign/'+encodeURIComponent(currentCampaignId)+(currentCampaignPage&&currentCampaignPage!=='overview'?'/'+encodeURIComponent(currentCampaignPage):''):APP_ROUTES.rulesCampaign;
   if(view==='campaignHub')return currentHubId?'/campaigns/'+encodeURIComponent(currentHubId)+(currentHubTab&&currentHubTab!=='overview'?'/'+currentHubTab:''):APP_ROUTES.myCampaigns;
+  if(view==='learn')return typeof learnUi!=='undefined'&&learnUi.id?'/rules/learn/'+learnUi.id:APP_ROUTES.learn;
   if(view==='scenarioDetail')return currentScenarioId?'/rules/scenarios/'+encodeURIComponent(currentScenarioId):APP_ROUTES.scenarios;
   return APP_ROUTES[view]||'/'
 }
@@ -57,6 +58,7 @@ function parseAppRoute(path=location.pathname){
   if(p==='/rules/scenarios')return {view:'scenarios'};
   if(p==='/rules/underdog-bonus')return {view:'underdogBonus'};
   if(p==='/print')return {view:'printList'};
+  {const lm=p.match(/^\/rules\/learn(?:\/([a-z]+))?$/);if(lm)return {view:'learn',lesson:lm[1]||''}}
   if(p==='/campaigns')return {view:'myCampaigns'};
   const chm=p.match(/^\/campaigns\/([^/]+)(?:\/(overview|locations|market|battles))?$/);
   if(chm)return {view:'campaignHub',campaignId:decodeURIComponent(chm[1]),hubTab:chm[2]||'overview'};
@@ -106,7 +108,7 @@ let lastRenderedRoutePath=null;
 // "rosters" tab as the warband list itself, so leaving that whole area (to
 // Admin, Custom, etc.) and coming back is treated as one tab change, not as
 // hopping between unrelated views every time a fighter card opens.
-function navTabForView(view){return (view==='builder'||view==='fighter')?'rosters':(view==='rulesWarbandDetail')?'rulesWarbands':(view==='scenarioDetail'||view==='underdogBonus')?'scenarios':(view==='campaignDetail')?'rulesCampaign':(view==='campaignHub')?'myCampaigns':view}
+function navTabForView(view){return (view==='builder'||view==='fighter')?'rosters':(view==='rulesWarbandDetail')?'rulesWarbands':(view==='scenarioDetail'||view==='underdogBonus')?'scenarios':(view==='campaignDetail')?'rulesCampaign':(view==='campaignHub')?'myCampaigns':(view==='learn')?'rules':view}
 let lastNavTab=null;
 function renderCurrentRoute(){
   try{cloudPollSoon()}catch(e){}
@@ -4360,7 +4362,7 @@ const tocLinksHtml=tocHeadings.filter(h=>h.level===1).map(h=>`<a href="#${h.id}"
 const hasTocLinks=tocHeadings.some(h=>h.level===1);
 const tocMarkup=hasTocLinks?`<nav class="rules-toc" id="rulesToc"><div class="rules-toc-label">${en?'On this page':'Sur cette page'}</div><div class="rules-toc-links">${tocLinksHtml}</div></nav>`:'<nav class="rules-toc"></nav>';
 $('#content').innerHTML=`<div class="rules-shell-wrap">
-<div class="rules-head"><h1 class="rules-page-title">${en?'Rules: The Game':'Règles : Le Jeu'}</h1><p>${en?'The complete M17 rules — browse by theme in the sidebar, or use the ▤ button on mobile.':'L’intégralité des règles M17 — navigue par thème dans le menu, ou utilise le bouton ▤ sur mobile.'}</p></div>
+<div class="rules-head"><h1 class="rules-page-title">${en?'Rules: The Game':'Règles : Le Jeu'}</h1><button type="button" class="learn-entry" onclick="learnOpen('')">🎓 ${en?'New to the game? <b>Learn to play</b> in 8 short lessons':'Nouveau ? <b>Apprendre à jouer</b> en 8 leçons courtes'} ›</button><p>${en?'The complete M17 rules — browse by theme in the sidebar, or use the ▤ button on mobile.':'L’intégralité des règles M17 — navigue par thème dans le menu, ou utilise le bouton ▤ sur mobile.'}</p></div>
 <div class="rules-shell">
 ${rulesNavSidebarMarkup()}
 <div class="rules-main">
@@ -6563,7 +6565,7 @@ function renderOriginal(view='dashboard'){
    }
  });
  document.title=`${PROJECT_NAME} // M17`;
- ({dashboard,rosters,create,rules,builder,fighter,armory,codex,references,custom,account,admin,rulesWarbands,rulesWarbandDetail,playMode,rulesCampaign,scenarios,scenarioDetail,underdogBonus,printList,myCampaigns,campaignDetail,campaignHub,sharedLoading}[view]||dashboard)(); try{printListBadge()}catch(e){} if(view==='builder') setTimeout(attachFighterInteractions,0); if(view==='rosters') setTimeout(attachRosterInteractions,0);
+ ({dashboard,rosters,create,rules,builder,fighter,armory,codex,references,custom,account,admin,rulesWarbands,rulesWarbandDetail,playMode,rulesCampaign,scenarios,scenarioDetail,underdogBonus,printList,learn,myCampaigns,campaignDetail,campaignHub,sharedLoading}[view]||dashboard)(); try{printListBadge()}catch(e){} if(view==='builder') setTimeout(attachFighterInteractions,0); if(view==='rosters') setTimeout(attachRosterInteractions,0);
  updateAdminForeignBanner();
  try{syncTabbar(view);closeTabSheet()}catch(e){}
 }
@@ -6858,7 +6860,7 @@ function searchDeepText(o,depth=0){
 // V-SEARCH2: the sources the first version missed — site pages, Hired Swords
 // and Dramatis Personae, campaigns (pages, artifacts, settlements), Armory
 // items without a Reference entry, and the player's own Custom content.
-const SEARCH_PAGES=[['dashboard','Home','Accueil','dashboard tableau de bord'],['rosters','My warbands','Mes bandes','rosters'],['create','Create a warband','Créer une bande','new nouvelle'],['myCampaigns','My campaigns','Mes campagnes',''],['playMode','Play mode','Mode jeu','jouer partie battle bataille'],['rules','Rules: The Game','Règles : Le Jeu','rulebook livre'],['rulesWarbands','Rules: Warbands','Règles : Warbands','bandes'],['rulesCampaign','Rules: Campaign','Règles : Campagne','campaigns campagnes'],['scenarios','Scenarios','Scénarios','missions'],['underdogBonus','Underdog bonus','Bonus Underdog',''],['references','Reference','Référentiel','glossary glossaire skills compétences'],['armory','Armory','Armurerie','equipment équipement weapons armes'],['custom','Custom','Custom','personnalisé hired swords dramatis personae'],['printList','Print','Imprimer','pdf'],['account','Account','Compte','profil login'],['admin','Admin','Admin','administration']];
+const SEARCH_PAGES=[['dashboard','Home','Accueil','dashboard tableau de bord'],['rosters','My warbands','Mes bandes','rosters'],['create','Create a warband','Créer une bande','new nouvelle'],['myCampaigns','My campaigns','Mes campagnes',''],['playMode','Play mode','Mode jeu','jouer partie battle bataille'],['rules','Rules: The Game','Règles : Le Jeu','rulebook livre'],['learn','Learn to play','Apprendre à jouer','tutorial tutoriel tuto lessons leçons débutant beginner'],['rulesWarbands','Rules: Warbands','Règles : Warbands','bandes'],['rulesCampaign','Rules: Campaign','Règles : Campagne','campaigns campagnes'],['scenarios','Scenarios','Scénarios','missions'],['underdogBonus','Underdog bonus','Bonus Underdog',''],['references','Reference','Référentiel','glossary glossaire skills compétences'],['armory','Armory','Armurerie','equipment équipement weapons armes'],['custom','Custom','Custom','personnalisé hired swords dramatis personae'],['printList','Print','Imprimer','pdf'],['account','Account','Compte','profil login'],['admin','Admin','Admin','administration']];
 function searchMoreGroups(q,en,add){
   const tr=(fn)=>{try{return fn()||[]}catch(e){console.warn(e);return []}};
   add('pages',en?'Pages':'Pages',tr(()=>SEARCH_PAGES.filter(p=>p[0]!=='admin'||isAdminSession()).map(([k,a,b,kw])=>({score:Math.max(searchScore(q,en?a:b),searchScore(q,en?b:a)*0.9|0,searchScore(q,'',kw)?15:0),title:en?a:b,sub:APP_ROUTES[k],go:()=>navigateApp(APP_ROUTES[k])}))));
@@ -19719,7 +19721,11 @@ const HELP_PAGES={
   ['Edit the rules, the catalogue, the scenarios and the campaign settings for everyone.','Modifie les règles, le catalogue, les scénarios et les réglages de campagne pour tout le monde.'],
   ['“Player view” hides the ✎ buttons to see the site as a player.','« Vue joueur » cache les boutons ✎ pour voir le site comme un joueur.']]},
  printList:{title:['Print list','Liste d’impression'],points:[
-  ['Add cards from anywhere (⎙), then print them all at once.','Ajoute des fiches depuis n’importe où (⎙), puis imprime-les d’un coup.']]}
+  ['Add cards from anywhere (⎙), then print them all at once.','Ajoute des fiches depuis n’importe où (⎙), puis imprime-les d’un coup.']]},
+ learn:{title:['Learn to play','Apprendre à jouer'],points:[
+  ['8 short lessons, in order. Each ends with a question and a dice roll explained step by step.','8 leçons courtes, dans l’ordre. Chacune finit par une question et un jet de dé expliqué pas à pas.'],
+  ['A lesson is ticked when you answer right; your progress stays on this device.','Une leçon est cochée quand tu réponds juste ; ta progression reste sur cet appareil.'],
+  ['“Read the full rule” opens the matching chapter of the rules.','« Lire la règle complète » ouvre le chapitre des règles correspondant.']]}
 };
 // pages that share another page's help
 const HELP_ALIASES={rulesWarbands:'rules',rulesWarbandDetail:'rules',rulesCampaign:'rules',codex:'rules',campaignDetail:'rules',underdogBonus:'scenarios',scenarioDetail:'scenarios',armory:'references',sharedLoading:'dashboard'};
@@ -19764,6 +19770,7 @@ function openHelpMenu(){const en=siteLanguage==='en';const st=helpState();const 
  helpSheetOpen(`<div class="help-kicker">${en?'HELP':'AIDE'}</div><h3>${en?'Help and tours':'Aide et visites'}</h3>
  <div class="help-menu">
   <button type="button" onclick="helpSheetClose();helpTourStart('general')"><i>▶</i><span><b>${en?'General tour':'Visite générale'}</b><small>${en?'The main screens, in 4 steps.':'Les écrans principaux, en 4 étapes.'}</small></span></button>
+  <button type="button" onclick="helpSheetClose();learnOpen('')"><i>🎓</i><span><b>${en?'Learn to play':'Apprendre à jouer'}</b><small>${en?'8 short lessons with a dice exercise.':'8 leçons courtes avec un exercice au dé.'}</small></span></button>
   <button type="button" onclick="helpSheetClose();helpCardsOpen(0)"><i>◆</i><span><b>${en?'The game in 2 minutes':'Le jeu en 2 minutes'}</b><small>${en?'9 short cards on how a game is played.':'9 cartes courtes pour comprendre une partie.'}</small></span></button>
   <button type="button" onclick="helpSheetClose();helpGuideStart()"><i>⚔</i><span><b>${en?'Create my warband step by step':'Créer ma bande pas à pas'}</b><small>${en?'From the race to the equipment, in 8 steps.':'De la race à l’équipement, en 8 étapes.'}</small></span></button>
   <button type="button" onclick="helpSheetClose();helpReadingShow()"><i>📖</i><span><b>${en?'Rules: what to read first':'Règles : quoi lire d’abord'}</b><small>${en?'5 chapters, ticked as you go.':'5 chapitres, cochés au fur et à mesure.'}</small></span></button>
@@ -19836,10 +19843,10 @@ function loadHelpTexts(){if(helpOverridesLoaded||!window.MordheimundaAPI?.helpTe
 function hx(key,def){const o=helpOverrides.texts?.[key];const l=siteLanguage==='en'?'en':'fr';return (o&&o[l])||helpT(def)}
 // ---- "Where to start?" ----
 let helpStartPick='cards';
-function helpStartMarkup(){const en=siteLanguage==='en';const o=[['cards','▶',en?'The game in 2 minutes':'Le jeu en 2 minutes',en?'9 short cards to understand how a game is played.':'9 cartes courtes pour comprendre comment se joue une partie.',true],['guide','⚔',en?'Create my warband step by step':'Créer ma bande pas à pas',en?'We guide you from the race to the equipment, in 8 steps.':'On te guide de la race jusqu’à l’équipement, en 8 étapes.'],['read','📖',en?'Read the rules':'Lire les règles',en?'The 5 chapters to read first, ticked as you go.':'Les 5 chapitres à lire d’abord, cochés au fur et à mesure.']];
- return `<div class="help-welcome help-start"><div class="help-kicker">${en?'NEW TO THE GAME':'JE DÉCOUVRE LE JEU'}</div><h2>${en?'Where to start?':'Par où commencer ?'}</h2><p>${en?'You can do all three, in any order. Everything is in Account › Help afterwards.':'Tu peux faire les trois, dans l’ordre que tu veux. Tout se retrouve ensuite dans Compte › Aide.'}</p>${o.map(([k,ic,t,d,rec])=>`<button type="button" class="help-opt${helpStartPick===k?' on':''}" aria-pressed="${helpStartPick===k}" onclick="helpStartPick='${k}';document.querySelector('.help-start').outerHTML=helpStartMarkup()"><span class="help-ico">${ic}</span><span><b>${t}${rec?` <i class="help-tag">${en?'RECOMMENDED':'CONSEILLÉ'}</i>`:''}</b><small>${d}</small></span></button>`).join('')}<button type="button" class="help-go wide" onclick="helpStartGo()">${en?'Continue':'Continuer'}</button><button type="button" class="help-link help-later" onclick="closeModal()">${en?'Later':'Plus tard'}</button></div>`}
+function helpStartMarkup(){const en=siteLanguage==='en';const o=[['cards','▶',en?'The game in 2 minutes':'Le jeu en 2 minutes',en?'9 short cards to understand how a game is played.':'9 cartes courtes pour comprendre comment se joue une partie.',true],['learn','🎓',en?'Learn to play':'Apprendre à jouer',en?'8 short lessons, each with a dice exercise.':'8 leçons courtes, chacune avec un exercice au dé.'],['guide','⚔',en?'Create my warband step by step':'Créer ma bande pas à pas',en?'We guide you from the race to the equipment, in 8 steps.':'On te guide de la race jusqu’à l’équipement, en 8 étapes.'],['read','📖',en?'Read the rules':'Lire les règles',en?'The 5 chapters to read first, ticked as you go.':'Les 5 chapitres à lire d’abord, cochés au fur et à mesure.']];
+ return `<div class="help-welcome help-start"><div class="help-kicker">${en?'NEW TO THE GAME':'JE DÉCOUVRE LE JEU'}</div><h2>${en?'Where to start?':'Par où commencer ?'}</h2><p>${en?'Do them in any order. Everything is in Account › Help afterwards.':'Fais-les dans l’ordre que tu veux. Tout se retrouve ensuite dans Compte › Aide.'}</p>${o.map(([k,ic,t,d,rec])=>`<button type="button" class="help-opt${helpStartPick===k?' on':''}" aria-pressed="${helpStartPick===k}" onclick="helpStartPick='${k}';document.querySelector('.help-start').outerHTML=helpStartMarkup()"><span class="help-ico">${ic}</span><span><b>${t}${rec?` <i class="help-tag">${en?'RECOMMENDED':'CONSEILLÉ'}</i>`:''}</b><small>${d}</small></span></button>`).join('')}<button type="button" class="help-go wide" onclick="helpStartGo()">${en?'Continue':'Continuer'}</button><button type="button" class="help-link help-later" onclick="closeModal()">${en?'Later':'Plus tard'}</button></div>`}
 function helpStartOpen(){helpStartPick='cards';openModal(helpStartMarkup())}
-function helpStartGo(){const k=helpStartPick;closeModal();if(k==='cards')setTimeout(()=>helpCardsOpen(0),150);else if(k==='guide')helpGuideStart();else helpReadingShow()}
+function helpStartGo(){const k=helpStartPick;closeModal();if(k==='learn'){learnOpen('');return}if(k==='cards')setTimeout(()=>helpCardsOpen(0),150);else if(k==='guide')helpGuideStart();else helpReadingShow()}
 // ---- "The game in 2 minutes": short cards, following the app's M17 rules ----
 const HELP_CARDS=[
  {title:['What is Mordheim?','Mordheim, c’est quoi ?'],body:['A ruined city struck by a comet. Rival warbands fight there for wyrdstone, shards of magic stone worth a fortune. Each player leads a small warband of models.','Une cité en ruines frappée par une comète. Des bandes rivales s’y battent pour la wyrdstone, des éclats de pierre magique qui valent une fortune. Chaque joueur dirige une petite bande de figurines.'],rule:'firstprinciples'},
@@ -19936,6 +19943,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  HELP_READING.forEach((c,i)=>{add('create',`read.${c.id}.title`,`lecture ${i+1} · titre`,c.title);add('create',`read.${c.id}.text`,`lecture ${i+1} · texte`,c.text)});
  helpSteps().forEach(s=>{add('create',`step.${s.k}.t`,`premiers pas · ${s.k}`,s.t);if(s.k!=='hench')add('create',`step.${s.k}.d`,`premiers pas · ${s.k} (détail)`,s.d)});
  HELP_NEWS.forEach(n=>add('news',`news.${n.id}`,n.id,n.text));
+ LEARN_LESSONS.forEach((l,i)=>['title','sub','body','q','why'].forEach(f=>add('learn',`learn.${l.id}.${f}`,`${i+1} · ${({title:'titre',sub:'sous-titre',body:'texte',q:'question',why:'explication'})[f]}`,l[f])));
  (D.factions||[]).filter(f=>!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['',''])});
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
@@ -20078,6 +20086,101 @@ async function saveMutationEntry(){const en=siteLanguage==='en';const name=Strin
 function deleteMutationEntry(id){const en=siteLanguage==='en';const m=mutationById(id);if(!m)return;openModal(`<div class="delete-dialog"><div class="eyebrow">MUTATION</div><h2>${en?`Delete "${esc(m.name)}"?`:`Supprimer « ${esc(m.name)} » ?`}</h2><p>${en?'Fighters who already have it keep their copy.':'Les combattants qui l’ont déjà gardent leur copie.'}</p><button type="button" class="big-delete" onclick="confirmDeleteMutationEntry('${esc(id)}')">${en?'DELETE':'SUPPRIMER'}</button><button type="button" class="button secondary full" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div>`)}
 async function confirmDeleteMutationEntry(id){closeModal();if(await saveMutationLibrary({mutations:(mutationLibrary.mutations||[]).filter(m=>m.id!==id),grantSkills:mutationLibrary.grantSkills||[]})){mutEditId=null;render('custom')}}
 async function saveMutationGrantSkills(){const v=String(document.getElementById('mutGrantSkills')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);if(await saveMutationLibrary({mutations:mutationLibrary.mutations||[],grantSkills:v}))render('custom')}
+
+// ===================== V-LEARN: Rules › Learn to play =====================
+// 8 short lessons following the app's M17 rules, each with a small
+// exercise (a question, then a dice roll explained step by step). Progress
+// is kept on this device. Every title/text is editable in Admin › Help texts
+// (tab "Learn to play"), like the rest of the help.
+const LEARN_KEY='mu_learn';
+function learnState(){try{const v=JSON.parse(localStorage.getItem(LEARN_KEY)||'{}');return v&&typeof v==='object'?v:{}}catch(e){return {}}}
+function learnSave(p){try{localStorage.setItem(LEARN_KEY,JSON.stringify({...learnState(),...p}))}catch(e){}}
+const LEARN_SHOOT_SVG=`<svg class="learn-svg" viewBox="0 0 358 120" role="img" aria-label="Shooter, wall, target"><circle cx="50" cy="64" r="14" fill="#9dfa3c"/><line x1="66" y1="64" x2="284" y2="64" stroke="#e0b04a" stroke-width="2" stroke-dasharray="5 5"/><rect x="232" y="40" width="22" height="48" rx="3" fill="#5a5953"/><circle cx="300" cy="64" r="14" fill="#e06f6f"/><text x="160" y="54" text-anchor="middle" font-size="12" fill="#e0b04a">12"</text></svg>`;
+const LEARN_LESSONS=[
+ {id:'turn',rule:'structure',title:['The game turn','Le tour de jeu'],sub:['Priority, actions, end of the turn','Priorité, actions, fin du tour'],
+  body:['A game is played in turns. Each turn has 3 phases:\n• **Priority**: each player rolls 1 dice. The highest takes the Priority marker and activates first. Every fighter becomes **Ready** again.\n• **Actions**: in turn, each player activates **one Ready fighter**, until everyone has played.\n• **End**: a Rout test if fighters went down, then Recovery for the seriously injured.','Une partie se joue en tours. Chaque tour a 3 phases :\n• **Priorité** : chaque joueur lance 1 dé. Le plus haut prend le marqueur de Priorité et activera en premier. Tous les combattants redeviennent **Prêts**.\n• **Actions** : chacun son tour, les joueurs activent **un combattant Prêt**, jusqu’à ce que tous aient joué.\n• **Fin** : test de déroute si des combattants sont tombés, puis récupération des gravement blessés.'],
+  q:['Both players roll a 4 for Priority. Last turn, your opponent had it. Who has Priority now?','Les deux joueurs font 4 au jet de Priorité. Au tour précédent, ton adversaire l’avait. Qui a la Priorité ?'],
+  opts:[['You','Toi'],['Your opponent','Ton adversaire'],['Roll again','On relance']],a:0,
+  why:['On a tie, whoever had Priority passes it to the other player. Only a tie on the very first roll of the game is rolled again.','En cas d’égalité, celui qui avait la Priorité la passe à l’autre. Seule une égalité au tout premier jet de la partie se relance.'],
+  roll:{k:'priority'}},
+ {id:'activate',rule:'types',title:['Activating a fighter','Activer un combattant'],sub:['2 actions: simple, basic, double','2 actions : simple, basique, double'],
+  body:['When you activate a **Ready** fighter, it makes **2 actions**, then it is no longer Ready until the next turn.\n• **Simple**: can be repeated (e.g. Move twice).\n• **Basic**: once per activation (e.g. Shoot).\n• **Double**: counts as both actions (e.g. Charge).\n• **Free**: does not count in the 2.','Quand tu actives un combattant **Prêt**, il fait **2 actions**, puis il n’est plus Prêt jusqu’au tour suivant.\n• **Simple** : peut se répéter (ex. Bouger deux fois).\n• **Basique** : une seule fois par activation (ex. Tirer).\n• **Double** : compte pour les 2 actions (ex. Charger).\n• **Gratuite** : ne compte pas dans les 2.'],
+  q:['Your fighter Charges. What else can it do in this activation?','Ton combattant fait une Charge. Que peut-il faire d’autre pendant cette activation ?'],
+  opts:[['Shoot first','Tirer d’abord'],['Move first','Bouger d’abord'],['Nothing: the Charge uses both actions','Rien : la Charge prend ses 2 actions']],a:2,
+  why:['Charge is a Double action: it counts as both actions. Reaching the enemy still gives a free Fight action.','La Charge est une action Double : elle compte pour les 2 actions. Arriver au contact donne quand même un Combat gratuit.']},
+ {id:'move',rule:'movement',title:['Moving and charging','Bouger et charger'],sub:['Movement, terrain, charge','Mouvement, terrain, charge'],
+  body:['• **Move** (simple): up to your **M** characteristic, in inches. Moving twice = 2 × M.\n• **Charge** (double): up to **2 × M**, by the shortest route, to reach an enemy. In base contact you get a **free Fight** action.\n• Declare the action **before** measuring.\n• Difficult ground, climbing and jumps slow you down: see 2.2.4 Terrain.','• **Bouger** (simple) : jusqu’à ta caractéristique **M**, en pouces. Bouger deux fois = 2 × M.\n• **Charger** (double) : jusqu’à **2 × M**, par le chemin le plus court, pour atteindre un ennemi. Au contact, tu gagnes un **Combat gratuit**.\n• On annonce l’action **avant** de mesurer.\n• Le terrain difficile, l’escalade et les sauts ralentissent : voir 2.2.4 Terrain.'],
+  q:['Your fighter has M 4. The enemy is 7" away. Can it charge?','Ton combattant a M 4. L’ennemi est à 7". Peut-il le charger ?'],
+  opts:[['Yes','Oui'],['No','Non']],a:0,
+  why:['A Charge allows 2 × M = 8": 7" is enough.','Une Charge permet 2 × M = 8" : 7" suffit.']},
+ {id:'shoot',rule:'shooting',svg:LEARN_SHOOT_SVG,title:['Shooting','Tirer'],sub:['Ballistic Skill, range, cover','Capacité de tir, portée, couvert'],
+  body:['Pick a ranged weapon and the **closest target** you can see (another one needs a Cool check). Check the range, then roll **1 dice**: you need the number given by your **BS** (Ballistic Skill).\n• BS 2 → 5+, BS 3 → 4+, BS 4 → 3+, BS 5 or more → 2+.\n• A **1** always misses.\n• Target in partial cover: **−1** to the dice.\n• Hit? Go to lesson 5: wounding.','Choisis une arme de tir et la **cible la plus proche** que tu vois (une autre demande un test de Calme). Vérifie la portée, puis lance **1 dé** : il faut atteindre le chiffre donné par ta **CT** (Capacité de tir).\n• CT 2 → 5+, CT 3 → 4+, CT 4 → 3+, CT 5 et plus → 2+.\n• Un **1** rate toujours.\n• Cible en couvert partiel : **−1** au dé.\n• Touché ? Passe à la leçon 5 : blesser.'],
+  q:['Your shooter has BS 3. The target is behind a wall (partial cover). What do you need on the dice?','Ton tireur a CT 3. Sa cible est derrière un mur (couvert partiel). Quel chiffre faut-il au dé ?'],
+  opts:['3+','4+','5+','6'],a:2,
+  why:['BS 3 needs 4+, and the wall gives −1 to the dice: you need a 5 or a 6.','CT 3 demande 4+, et le mur fait −1 au dé : il faut donc 5 ou 6.'],
+  roll:{k:'target',need:4,mod:-1,modWhy:['wall','mur'],ok:['Hit','Touché'],ko:['Miss','Raté']}},
+ {id:'wound',rule:'resolve',title:['Wound, save, injury','Blesser, sauvegarder, blessure'],sub:['Strength vs Toughness, armour, Injury dice','Force contre Endurance, armure, dé de blessure'],
+  body:['For each hit:\n• **Wound**: compare the weapon’s **Strength** with the target’s **Toughness**. S twice T or more: 2+ · S higher: 3+ · equal: 4+ · lower: 5+ · half or less: 6+.\n• **Save**: a target wearing armour rolls 1 dice to cancel the wound. The weapon’s **AP** makes the save harder.\n• **Damage**: the target loses Wounds. At 0, roll the **Injury dice**: 1-2 Flesh Wound (−1 T), 3-5 Seriously Injured (on the ground), 6 Out of Action.','Pour chaque touche :\n• **Blesser** : compare la **Force** de l’arme à l’**Endurance** de la cible. F double de E ou plus : 2+ · F plus haute : 3+ · égale : 4+ · plus basse : 5+ · moitié ou moins : 6+.\n• **Sauvegarde** : une cible en armure lance 1 dé pour annuler la blessure. L’**AP** de l’arme rend la sauvegarde plus dure.\n• **Dégâts** : la cible perd des Blessures (PV). À 0, on lance le **dé de blessure** : 1-2 Blessure légère (−1 E), 3-5 Gravement blessé (au sol), 6 Hors de combat.'],
+  q:['Your weapon is Strength 4. The target is Toughness 3. What do you need to wound?','Ton arme a Force 4. La cible a Endurance 3. Quel chiffre faut-il pour blesser ?'],
+  opts:['2+','3+','4+','5+'],a:1,
+  why:['4 is higher than 3 (but not twice): 3+.','4 est plus grand que 3 (mais pas le double) : 3+.'],
+  roll:{k:'target',need:3,mod:0,ok:['Wounded','Blessé'],ko:['No wound','Pas de blessure']}},
+ {id:'melee',rule:'combat',title:['Close combat','Le corps à corps'],sub:['Attacks, Weapon Skill, coup de grâce','Attaques, Capacité de combat, coup de grâce'],
+  body:['A fighter in base contact makes the **Fight** action and rolls as many dice as its **Attacks (A)**.\n• To hit, compare your **WS** (Weapon Skill) with the enemy’s: twice or more 2+ · higher 3+ · equal or lower 4+ · much lower 5+.\n• Hits are then resolved like shooting: wound, save, damage.\n• A **Seriously Injured** enemy in contact can be finished off with a **Coup de grâce**.','Un combattant au contact fait l’action **Combat** et lance autant de dés que ses **Attaques (A)**.\n• Pour toucher, compare ta **CC** (Capacité de combat) à celle de l’ennemi : double ou plus 2+ · plus haute 3+ · égale ou plus basse 4+ · bien plus basse 5+.\n• Les touches se résolvent ensuite comme au tir : blesser, sauvegarde, dégâts.\n• Un ennemi **Gravement blessé** au contact peut être achevé avec un **Coup de grâce**.'],
+  q:['Your fighter has WS 4, the enemy WS 3. What do you need to hit?','Ton combattant a CC 4, l’ennemi CC 3. Quel chiffre faut-il pour toucher ?'],
+  opts:['2+','3+','4+','5+'],a:1,
+  why:['4 is higher than 3 (but not twice): 3+.','4 est plus haut que 3 (mais pas le double) : 3+.'],
+  roll:{k:'target',need:3,mod:0,ok:['Hit','Touché'],ko:['Miss','Raté']}},
+ {id:'rout',rule:'endphase',title:['End of the turn: rout','Fin du tour : déroute'],sub:['Rout test, recovery, rally','Test de déroute, récupération, ralliement'],
+  body:['At the end of each turn:\n• **Rout test** if at least one of your fighters is Seriously Injured or Out of Action: roll 1 dice and **add the number** of those fighters. If the total is **higher** than the number of fighters you started with, your warband **flees**.\n• A fleeing warband: next turn each fighter takes a **Cool** check; on a failure it leaves the table.\n• Then each Seriously Injured fighter makes a **Recovery test** (an Injury dice) and Broken fighters try to rally.','À la fin de chaque tour :\n• **Test de déroute** si au moins un de tes combattants est Gravement blessé ou Hors de combat : lance 1 dé et **ajoute le nombre** de ces combattants. Si le total **dépasse** le nombre de combattants du début de partie, ta bande **fuit**.\n• Une bande qui fuit : au tour suivant, chaque combattant fait un test de **Calme** ; s’il le rate, il quitte la table.\n• Puis chaque Gravement blessé fait un **test de récupération** (un dé de blessure) et les combattants Brisés tentent de se rallier.'],
+  q:['Your warband started with 6 fighters. 2 are Out of Action. You roll a 4. Does your warband flee?','Ta bande a commencé avec 6 combattants. 2 sont Hors de combat. Tu fais 4 au dé. Ta bande fuit-elle ?'],
+  opts:[['Yes','Oui'],['No','Non']],a:1,
+  why:['4 + 2 = 6: you must go over 6 to flee. Your warband holds, just.','4 + 2 = 6 : il faut dépasser 6 pour fuir. Ta bande tient, de justesse.'],
+  roll:{k:'rout',crew:6,down:2}},
+ {id:'after',rule:'postbattlesequence',title:['After the battle','Après la bataille'],sub:['Injuries, experience, gold','Blessures, expérience, or'],
+  body:['When the game is over:\n• Fighters taken **Out of Action** roll on the **Lasting Injuries** table: some heal, others keep a scar… or die.\n• Each fighter gains **experience**; enough XP gives an **advance** (a characteristic or a skill).\n• You collect **gold** and wyrdstone, then you can recruit and buy.\n• In the app, the **After the battle** tab guides you step by step.','Quand la partie est finie :\n• Les combattants **Hors de combat** lancent sur le tableau des **blessures durables** : certains guérissent, d’autres gardent une séquelle… ou meurent.\n• Chacun gagne de l’**expérience** ; assez d’XP donne une **progression** (une caractéristique ou une compétence).\n• Tu récupères de l’**or** et de la malepierre, puis tu peux recruter et acheter.\n• Dans l’app, l’onglet **Après-bataille** te guide étape par étape.'],
+  q:['Your fighter went Out of Action during the game. What happens after the battle?','Ton combattant est sorti Hors de combat pendant la partie. Que se passe-t-il après la bataille ?'],
+  opts:[['It is dead','Il est mort'],['It rolls on the Lasting Injuries table','Il lance sur le tableau des blessures durables'],['Nothing','Rien']],a:1,
+  why:['Out of Action is not death: after the battle it rolls for a Lasting Injury, which may (rarely) kill it.','Hors de combat ne veut pas dire mort : après la bataille, il lance pour une blessure durable, qui peut (rarement) le tuer.']}
+];
+function learnTx(l,f){return hx(`learn.${l.id}.${f}`,l[f])}
+function learnFormat(t){const lines=String(t||'').split('\n');let out='',ul=false;const fmt=s=>esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  lines.forEach(line=>{const m=line.match(/^\s*[•\-]\s*(.*)$/);if(m){if(!ul){out+='<ul>';ul=true}out+=`<li>${fmt(m[1])}</li>`}else{if(ul){out+='</ul>';ul=false}if(line.trim())out+=`<p>${fmt(line)}</p>`}});if(ul)out+='</ul>';return out}
+let learnUi={id:null,pick:null,roll:null};
+function learnDone(){return new Set(Array.isArray(learnState().done)?learnState().done:[])}
+function learnOpen(id){learnUi={id,pick:null,roll:null};learnSave({last:id||learnState().last||null});navigateApp(id?`/rules/learn/${id}`:'/rules/learn')}
+function learnRuleGo(id){rulesOpen=id;try{persistUiState('rulesOpen',id)}catch(e){}navigateApp(APP_ROUTES.rules)}
+function learn(){const en=siteLanguage==='en';const id=parseAppRoute().lesson||'';const i=LEARN_LESSONS.findIndex(l=>l.id===id);
+  if(i<0){learnUi.id=null;$('#content').innerHTML=learnListMarkup();return}
+  if(learnUi.id!==id)learnUi={id,pick:null,roll:null};
+  $('#content').innerHTML=learnLessonMarkup(i)}
+function learnListMarkup(){const en=siteLanguage==='en';const done=learnDone();const n=LEARN_LESSONS.length;const k=LEARN_LESSONS.filter(l=>done.has(l.id)).length;const next=LEARN_LESSONS.find(l=>!done.has(l.id));
+  return `<div class="learn-page"><div class="rules-crumb"><a href="#" onclick="navigateApp(APP_ROUTES.rules);return false;">${en?'Rules':'Règles'}</a><span class="sep">›</span><span class="cur">${en?'Learn to play':'Apprendre à jouer'}</span></div>
+  <h1 class="learn-title">${en?'Learn to play':'Apprendre à jouer'}</h1><p class="learn-intro">${en?`${n} short lessons, 3 minutes each. Each one ends with a small dice exercise.`:`${n} leçons courtes, 3 minutes chacune. Chaque leçon finit par un petit exercice au dé.`}</p>
+  <div class="learn-progress"><div class="learn-bar"><i style="width:${Math.round(k/n*100)}%"></i></div><span>${k} / ${n}</span></div>
+  <div class="learn-list">${LEARN_LESSONS.map((l,j)=>{const d=done.has(l.id),cur=next&&next.id===l.id;return `<button type="button" class="learn-row${d?' done':''}${cur?' cur':''}" onclick="learnOpen('${l.id}')"><span class="learn-num">${d?'✓':j+1}</span><span class="learn-row-tx"><b>${esc(learnTx(l,'title'))}</b><small>${esc(learnTx(l,'sub'))}</small></span><span class="learn-go">${cur&&k?(en?'CONTINUE':'REPRENDRE'):'›'}</span></button>`}).join('')}</div>
+  <div class="learn-tip">${en?'Ready? Open <b>Play</b>: the app shows the phases of the turn as you play.':'Prêt ? Ouvre <b>Play</b> : l’app affiche les phases du tour pendant la partie.'}</div>
+  ${k?`<button type="button" class="button secondary small learn-reset" onclick="learnSave({done:[]});learn()">${en?'Start again':'Tout recommencer'}</button>`:''}</div>`}
+function learnLessonMarkup(i){const en=siteLanguage==='en';const l=LEARN_LESSONS[i];const n=LEARN_LESSONS.length;const prev=LEARN_LESSONS[i-1],next=LEARN_LESSONS[i+1];const rule=(typeof RULES_BOOK!=='undefined'?RULES_BOOK:[]).find(s=>s.id===l.rule);
+  const opt=o=>Array.isArray(o)?helpT(o):String(o);const picked=learnUi.pick;const answered=picked!=null;const right=answered&&picked===l.a;
+  const opts=l.opts.map((o,j)=>{const cls=answered?(j===l.a?' right':j===picked?' wrong':' dim'):'';return `<button type="button" class="learn-opt${cls}" ${answered&&right?'disabled':''} onclick="learnPick(${j})">${esc(opt(o))}${answered&&j===l.a?' ✓':''}</button>`}).join('');
+  const verdict=answered?`<div class="learn-why ${right?'ok':'ko'}"><b>${right?(en?'Right!':'Bonne réponse !'):(en?'Not quite.':'Pas tout à fait.')}</b> ${esc(learnTx(l,'why'))}</div>`:'';
+  const rollBox=l.roll&&right?`<div class="learn-roll">${learnUi.roll?learnRollMarkup(l):''}<button type="button" class="button ${learnUi.roll?'secondary':'primary'} learn-roll-btn" onclick="learnRoll()">🎲 ${learnUi.roll?(en?'Roll again':'Relancer'):(en?'Roll the dice':'Lancer le dé')}</button></div>`:'';
+  return `<div class="learn-page"><div class="rules-crumb"><a href="#" onclick="learnOpen('');return false;">${en?'Learn to play':'Apprendre à jouer'}</a><span class="sep">›</span><span class="cur">${en?'Lesson':'Leçon'} ${i+1} / ${n}</span></div>
+  <h1 class="learn-title">${esc(learnTx(l,'title'))}</h1>${l.svg||''}
+  <div class="learn-body">${learnFormat(learnTx(l,'body'))}</div>
+  ${rule?`<button type="button" class="learn-rule" onclick="learnRuleGo('${esc(rule.id)}')">${en?'Read the full rule':'Lire la règle complète'} : ${esc(rule.title)}</button>`:''}
+  <div class="learn-ex"><div class="learn-kick">${en?'TRY IT':'ESSAIE'}</div><div class="learn-q">${esc(learnTx(l,'q'))}</div><div class="learn-opts n${l.opts.length}">${opts}</div>${verdict}${rollBox}</div>
+  ${right?`<button type="button" class="button primary learn-next" onclick="learnOpen('${next?next.id:''}')">${next?`${en?'Next lesson':'Leçon suivante'} : ${esc(learnTx(next,'title'))} ›`:(en?'All lessons done — back to the list':'Toutes les leçons faites — retour à la liste')}</button>`:''}
+  <div class="learn-nav">${prev?`<a href="#" onclick="learnOpen('${prev.id}');return false;">‹ ${esc(learnTx(prev,'title'))}</a>`:'<span></span>'}${next?`<a href="#" onclick="learnOpen('${next.id}');return false;">${esc(learnTx(next,'title'))} ›</a>`:''}</div></div>`}
+function learnPick(j){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l)return;learnUi.pick=j;learnUi.roll=null;if(j===l.a){const d=learnDone();d.add(l.id);learnSave({done:[...d]})}learn()}
+function learnD6(){return 1+Math.floor(Math.random()*6)}
+function learnRoll(){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l?.roll)return;learnUi.roll=l.roll.k==='priority'?{a:learnD6(),b:learnD6()}:{a:learnD6()};learn()}
+function learnRollMarkup(l){const en=siteLanguage==='en';const r=l.roll,v=learnUi.roll;const die=n=>`<span class="learn-die">${n}</span>`;let res='',ok=true,steps=[];
+  if(r.k==='priority'){ok=v.a>v.b;steps=[en?`You roll ${v.a}, your opponent ${v.b}.`:`Tu fais ${v.a}, ton adversaire ${v.b}.`,v.a===v.b?(en?'Tie: whoever had Priority last turn passes it to the other player.':'Égalité : celui qui avait la Priorité au tour précédent la passe à l’autre.'):(en?`The highest roll takes Priority: ${ok?'you':'your opponent'}.`:`Le plus haut prend la Priorité : ${ok?'toi':'ton adversaire'}.`)];res=v.a===v.b?(en?'Tie':'Égalité'):ok?(en?'You have Priority':'Tu as la Priorité'):(en?'Your opponent has it':'Ton adversaire l’a');return `<div class="learn-dice">${die(v.a)}<span class="learn-vs">${en?'vs':'contre'}</span>${die(v.b)}<div class="learn-res ${v.a===v.b?'':ok?'ok':'ko'}">${res}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}
+  if(r.k==='rout'){const t=v.a+r.down;ok=t<=r.crew;steps=[en?`The dice gives ${v.a}.`:`Le dé donne ${v.a}.`,en?`Add the ${r.down} fighters down: ${v.a} + ${r.down} = ${t}.`:`On ajoute les ${r.down} combattants tombés : ${v.a} + ${r.down} = ${t}.`,en?`Started with ${r.crew}: ${t} ${ok?'is not higher':'is higher'}.`:`Départ à ${r.crew} : ${t} ${ok?'ne dépasse pas':'dépasse'}.`];res=ok?(en?'The warband holds':'La bande tient'):(en?'The warband flees':'La bande fuit')}
+  else{const t=v.a+(r.mod||0);ok=v.a!==1&&t>=r.need;steps=[en?`The dice gives ${v.a}.`:`Le dé donne ${v.a}.`];if(v.a===1)steps.push(en?'A 1 always fails.':'Un 1 rate toujours.');else{if(r.mod)steps.push(`${en?'Modifier':'Modificateur'} (${helpT(r.modWhy||['',''])}) : ${r.mod>0?'+':''}${r.mod} → ${t}.`);steps.push(en?`You need ${r.need} or more: ${t} ${ok?'is enough':'is not enough'}.`:`Il faut ${r.need} ou plus : ${t} ${ok?'suffit':'ne suffit pas'}.`)}res=helpT(ok?r.ok:r.ko)}
+  return `<div class="learn-dice">${die(v.a)}<div class="learn-res ${ok?'ok':'ko'}">${esc(res)}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}
 
 // ===================== V-STATORIGIN: "where does this number come from?" =====================
 // On a fighter sheet, tapping a characteristic shows its detail:
