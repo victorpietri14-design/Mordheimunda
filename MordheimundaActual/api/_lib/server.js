@@ -347,7 +347,11 @@ async function auth(req,res,next){
     // V154: refresh last_seen_at at most every 5 minutes (fire-and-forget)
     // so the device list stays meaningful without a write on every request.
     const seen=q.rows[0].last_seen_at?new Date(q.rows[0].last_seen_at).getTime():0;
-    if(Date.now()-seen>5*60*1000)pool.query('UPDATE sessions SET last_seen_at=NOW(),ip=COALESCE($2,ip) WHERE id=$1',[req.user.session_id,clientIp(req)||null]).catch(()=>{});
+    // V-SLIDINGSESSION: an active player is never logged out — each refresh
+    // (at most every 5 minutes) pushes the expiry sessionDays ahead again and
+    // renews the cookie; only an unused session expires.
+    if(Date.now()-seen>5*60*1000){pool.query("UPDATE sessions SET last_seen_at=NOW(),ip=COALESCE($2,ip),expires_at=GREATEST(expires_at,NOW()+($3::int*INTERVAL '1 day')) WHERE id=$1",[req.user.session_id,clientIp(req)||null,config.sessionDays]).catch(()=>{});
+      try{res.cookie('mordheimunda_session',raw,{...cookie,maxAge:config.sessionDays*86400000})}catch(e){}}
     // Bootstrap admin(s) from ADMIN_EMAILS stay admin even if the DB flag was
     // ever reset by hand; this keeps the env var authoritative for them.
     if(!req.user.is_admin && isBootstrapAdminEmail(req.user.email)){

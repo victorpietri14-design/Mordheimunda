@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0823.0';
+const APP_BUILD='110.0824.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2034,6 +2034,17 @@ function recordCloudError(where,e){lastCloudError={where,status:e?.status??null,
 function clearCloudError(){lastCloudError=null;}
 let cloudPollTimer=null,cloudPollBusy=false,pendingRemoteRerender=false;
 function cloudIsSignedIn(){return !!accountSession();}
+// V-LOGGEDOUT: when the server says the session is over (expired, or ended
+// from another device) while this device thought it was signed in, the
+// player is told — changes stay on the device but are no longer saved
+// online until they sign in again. A normal "Log out" does not show it.
+const LOGGED_OUT_KEY='mu_logged_out';
+function sessionLostNotice(){const had=!!localStorage.getItem(ACCOUNT_SESSION_KEY);localStorage.removeItem(ACCOUNT_SESSION_KEY);if(had){try{localStorage.setItem(LOGGED_OUT_KEY,'1');sessionStorage.removeItem(LOGGED_OUT_KEY+'_hide')}catch(e){}setTimeout(()=>{try{loggedOutBannerSync()}catch(e){}},0)}}
+function loggedOutBannerSync(){let el=document.getElementById('loggedOutBar');let on=false,hide=false;try{on=localStorage.getItem(LOGGED_OUT_KEY)==='1';hide=sessionStorage.getItem(LOGGED_OUT_KEY+'_hide')==='1'}catch(e){}
+  if(on&&cloudIsSignedIn()){try{localStorage.removeItem(LOGGED_OUT_KEY)}catch(e){}on=false}
+  if(!on||hide||parseAppRoute().view==='account'){el?.remove();return}
+  const en=siteLanguage==='en';if(!el){el=document.createElement('div');el.id='loggedOutBar';el.className='logged-out-bar';el.setAttribute('role','alert');document.body.appendChild(el)}
+  el.innerHTML=`<span>⚠ <b>${en?'You have been logged out.':'Tu as été déconnecté.'}</b> ${en?'Your changes stay on this device but are no longer saved online.':'Tes changements restent sur cet appareil mais ne sont plus enregistrés en ligne.'}</span><button type="button" class="button primary small" onclick="navigateApp(APP_ROUTES.account)">${en?'Sign in':'Me reconnecter'}</button><button type="button" class="logged-out-x" aria-label="${en?'Hide':'Masquer'}" onclick="try{sessionStorage.setItem('${LOGGED_OUT_KEY}_hide','1')}catch(e){}document.getElementById('loggedOutBar')?.remove()">✕</button>`}
 // Every action that changes something (recruiting a fighter, creating a
 // custom item, editing a roster, etc.) already calls save() right after
 // mutating state. Previously this then waited a fixed 500ms before actually
@@ -2174,7 +2185,7 @@ async function flushCloudSave(){
     }else if(e.status===409){
       await resolveCloudConflictAndRetry();
     }else if(e.status===401){
-      localStorage.removeItem(ACCOUNT_SESSION_KEY);
+      sessionLostNotice();
       stopCloudPolling();
     }else{
       cloudSaveAgain=true;
@@ -2532,7 +2543,7 @@ async function pollCloudRevision(){
       requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'}));
     }
   }catch(e){
-    if(e.status===401){localStorage.removeItem(ACCOUNT_SESSION_KEY);stopCloudPolling();}
+    if(e.status===401){sessionLostNotice();stopCloudPolling();}
     else console.warn('Cloud poll failed',e);
   }finally{cloudPollBusy=false;}
 }
@@ -4773,7 +4784,7 @@ async function bootstrapAccountSession(){
     if(!foreignStateOpen()&&hasInlineImages(state)){state.meta=state.meta||{};state.meta.cloudDirty=true;queueCloudSave(3000)}
   }catch(e){
     if(e.status===401){
-      localStorage.removeItem(ACCOUNT_SESSION_KEY);
+      sessionLostNotice();
       // Local-dev convenience: no session yet on your own machine — try
       // signing in as the standing local-admin account instead of making
       // you go through signup by hand (see devAdminLogin / localDevAdmin
@@ -19960,7 +19971,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}
-(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}try{playBackSync()}catch(e){}return o.apply(this,arguments)}})();
+(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}try{playBackSync()}catch(e){}try{loggedOutBannerSync()}catch(e){}return o.apply(this,arguments)}})();
 
 // ===================== V-WBCATS: categories apart in Rules › Warbands =====================
 // Dramatis Personae, Hired Swords ("Agents") and neutral creatures are single
