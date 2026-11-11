@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0819.0';
+const APP_BUILD='110.0821.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -662,8 +662,8 @@ function rulePeekSummary(rawText){const en=siteLanguage==='en';const lines=strip
 // — same mechanism as the Référentiel entry bodies), so a tooltip's own text
 // can be used to jump to a keyword it mentions instead of dead-ending there.
 function rulePeekSummaryHtml(rawText,excludeName){const plain=rulePeekSummary(rawText);return linkGlossaryInHtml(esc(plain),excludeName);}
-function rulePeekTitle(cat){if(cat==='scnaction')return siteLanguage==='en'?'Objectives & Scenario Actions':'Objectifs et actions de scénario';return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
-function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',scnaction:'◎'}[cat]||'◆';}
+function rulePeekTitle(cat){if(cat==='scnaction')return siteLanguage==='en'?'Objectives & Scenario Actions':'Objectifs et actions de scénario';if(cat==='gameaction')return siteLanguage==='en'?'Action':'Action';return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
+function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',scnaction:'◎',gameaction:'➤'}[cat]||'◆';}
 function positionRulePeek(elOrRect){const pop=$('#rulePeek');if(!pop||!elOrRect)return;const r=typeof elOrRect.getBoundingClientRect==='function'?elOrRect.getBoundingClientRect():elOrRect;const pw=Math.min(460,window.innerWidth-24),ph=pop.offsetHeight;let left=Math.min(Math.max(12,r.left),window.innerWidth-pw-12),top=r.bottom+10;if(top+ph>window.innerHeight-12)top=r.top-ph-10;if(top<12)top=12;pop.style.left=left+'px';pop.style.top=top+'px';pop.style.width=pw+'px';}
 function showRulePeek(el){
   // V-STALEPEEKTARGET: on a touch tap, the browser fires a synthetic
@@ -693,7 +693,7 @@ function showRulePeek(el){
   // goes straight to that entry's own glossary page — never a second popup
   // stacked over the first.
   if(el&&el.closest&&el.closest('#rulePeek'))return;
-  clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=cat==='scnaction'?scnActionEntry(id):referenceEntries(cat).find(x=>x.id===id);if(!e)return;
+  clearTimeout(rulePeekTimer);activeRulePeek=el;const cat=el.dataset.refCategory,id=el.dataset.refId,e=cat==='scnaction'?scnActionEntry(id):cat==='gameaction'?gameActionEntry(id):referenceEntries(cat).find(x=>x.id===id);if(!e)return;
   // Same override layer as the Règles/Référentiel tabs (referenceEntryMarkup) —
   // without this, a fighter-card hover/click peek always showed the stale
   // baked-in RULES_BOOK text even after an admin corrected the rule, since
@@ -783,7 +783,7 @@ function cancelHideRulePeek(){clearTimeout(rulePeekTimer)}
 // event bookkeeping got confused) and stand down if so.
 function scheduleHideRulePeek(){if(window.matchMedia?.('(hover: none)').matches)return;clearTimeout(rulePeekTimer);rulePeekTimer=setTimeout(()=>{const pop=$('#rulePeek');if(pop&&pop.matches(':hover'))return;if(pop)pop.classList.remove('visible');activeRulePeek=null},180)}
 function openReferenceFromPeek(event){event?.stopPropagation();const el=activeRulePeek;if(!el)return;openReference(el.dataset.refCategory,el.dataset.refId);}
-function openReference(category='skills',id=''){if(category==='scnaction'){openRulePage('scenarioactions');return}referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
+function openReference(category='skills',id=''){if(category==='scnaction'){openRulePage('scenarioactions');return}if(category==='gameaction'){openRulePage('actions');return}referenceCategory=category;persistUiState('refCat',category);referenceSearch='';if(id&&(category==='skills'||category==='spells')){const e=referenceEntries(category).find(x=>String(x.id)===String(id));if(e?.category)setRefTreeState(category,e.category)}const pop=$('#rulePeek');if(pop)pop.classList.remove('visible');render('references');setTimeout(()=>{const target=id?document.getElementById('ref-entry-'+id):null;if(target)target.scrollIntoView({behavior:'smooth',block:'start'});},60)}
 // Lightweight inline formatting for the Custom tab's own text fields (fighter
 // / warband descriptions, custom skill·spell·special-rule text, custom
 // equipment rules text): a small **bold**/*italic*/size/color syntax, with a
@@ -10729,7 +10729,9 @@ function playBackToGame(){playReturnToGame=false;playBackSync();navigateApp(APP_
 function playBackSync(){
   let btn=document.getElementById('playBackBtn');const v=parseAppRoute().view;
   if(location.pathname===APP_ROUTES.playMode||!state.playSession)playReturnToGame=false;
-  const show=playReturnToGame&&(v==='fighter'||v==='builder');
+  // V-BACKTOGAME: shown on every page while a game is in progress, so the
+  // player can read rules, sheets… and come straight back.
+  const show=!!state.playSession&&v!=='playMode'&&v!=='sharedLoading';
   if(!show){btn?.remove();return}
   if(!btn){btn=document.createElement('button');btn.id='playBackBtn';btn.type='button';btn.className='button primary play-back-btn';btn.onclick=playBackToGame;document.body.appendChild(btn)}
   btn.textContent=siteLanguage==='en'?'← Back to the game':'← Retour à la partie';
@@ -19949,7 +19951,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}
-(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}return o.apply(this,arguments)}})();
+(function(){const o=helpAfterRender;helpAfterRender=function(){try{loadHelpTexts();helpGuideApply();helpDecorateFactions();helpReadingApply()}catch(e){}try{mutationGrantAutoOpen()}catch(e){}try{playBackSync()}catch(e){}return o.apply(this,arguments)}})();
 
 // ===================== V-WBCATS: categories apart in Rules › Warbands =====================
 // Dramatis Personae, Hired Swords ("Agents") and neutral creatures are single
@@ -20194,33 +20196,60 @@ function coachOn(){try{return localStorage.getItem(COACH_KEY)==='1'}catch(e){ret
 function coachToggle(on){try{localStorage.setItem(COACH_KEY,on?'1':'0')}catch(e){}coachRefresh()}
 const COACH_TEXTS={
  setup:['Before the game: tick the fighters who play, then confirm. If your warband is worth less, the Underdog table gives you bonuses to buy.','Avant la partie : coche les combattants qui jouent, puis valide. Si ta bande vaut moins cher, le tableau Underdog te donne des bonus à acheter.'],
- priority:['Each player rolls 1 dice: the highest takes Priority and activates first (tie: roll again). All your fighters are Ready again.','Chaque joueur lance 1 dé : le plus haut prend la Priorité et active en premier (égalité : on relance). Tous tes combattants redeviennent Prêts.'],
- actions:['In turn, activate 1 Ready fighter: 2 actions (e.g. move + shoot, or a Charge, which takes both). Tap its name below once it has played.','Chacun son tour, active 1 combattant Prêt : 2 actions (ex. bouger + tirer, ou une Charge, qui prend les deux). Touche son nom ci-dessous une fois qu’il a joué.'],
- end:['End of the turn: Rout test if fighters are down, then each Seriously Injured fighter rolls an Injury dice to recover, and Broken fighters try to rally.','Fin du tour : test de déroute si des combattants sont tombés, puis chaque Gravement blessé lance un dé de blessure pour récupérer, et les Brisés tentent de se rallier.']};
+ priority:['Roll 1 dice each. The highest has Priority: they play first this turn. Tie: roll again.','Lancez 1 dé chacun. Le plus haut a la Priorité : il joue en premier ce tour. Égalité : relancez.'],
+ actions:['Pick 1 Ready fighter and make its 2 actions. Then it is your opponent’s turn.','Choisis 1 combattant prêt et fais ses 2 actions. Ensuite c’est au tour de ton adversaire.'],
+ end:['In this order:','Dans l’ordre :']};
 const COACH_PHASES=['priority','actions','end'];
 function coachTx(k){return hx(`coach.${k}`,COACH_TEXTS[k])}
 function coachState(ps){if(!ps.coach||typeof ps.coach!=='object')ps.coach={round:1,phase:'priority',acted:[]};if(!Array.isArray(ps.coach.acted))ps.coach.acted=[];return ps.coach}
 function coachSave(){try{saveLocalOnly()}catch(e){}}
 function coachRefresh(){const ps=state.playSession;const el=document.getElementById('playCoach');if(el&&ps)el.outerHTML=coachMarkup(ps,!!el.dataset.ingame)}
-function coachNext(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const i=COACH_PHASES.indexOf(c.phase);if(i>=COACH_PHASES.length-1){c.round=(Number(c.round)||1)+1;c.phase='priority';c.acted=[]}else c.phase=COACH_PHASES[i+1];coachSave();coachRefresh()}
+function coachNext(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const i=COACH_PHASES.indexOf(c.phase);if(i>=COACH_PHASES.length-1){c.round=(Number(c.round)||1)+1;c.phase='priority';c.acted=[];c.done=[];c.cur=null;c.used=[];c.prio=null}else c.phase=COACH_PHASES[i+1];coachSave();coachRefresh()}
 function coachSetPhase(p){const ps=state.playSession;if(!ps||!COACH_PHASES.includes(p))return;coachState(ps).phase=p;coachSave();coachRefresh()}
 function coachActed(key){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const s=new Set(c.acted);if(s.has(key))s.delete(key);else s.add(key);c.acted=[...s];coachSave();coachRefresh()}
 function coachFighters(ps){const out=[];playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);(e.picks||[]).forEach(id=>{const x=(r.fighters||[]).find(q=>q.instance===id);if(x&&!playOoaHas(ps,r.id,id))out.push({key:`${r.id}:${id}`,name:x.name||''})})});return out}
 function coachRoutText(ps){const en=siteLanguage==='en';return playOwnRosters(ps).filter(r=>playEngEntry(ps,r)?.validated).map(r=>{const n=playRoutCrew(ps,r);const k=Number(ps.rout?.[r.id])||0;const need=n-k+1;
   return `<li><b>${esc(r.name)}</b> : ${!k?(en?'nobody down, no Rout test.':'personne à terre, pas de test de déroute.'):need>6?(en?`D6 + ${k} cannot go over ${n}: the warband holds.`:`D6 + ${k} ne peut pas dépasser ${n} : la bande tient.`):need<=1?(en?`D6 + ${k} is always over ${n}: the warband flees.`:`D6 + ${k} dépasse toujours ${n} : la bande fuit.`):(en?`roll 1 dice: on <b>${need}+</b> the warband flees (D6 + ${k} > ${n}).`:`lance 1 dé : sur <b>${need}+</b> la bande fuit (D6 + ${k} > ${n}).`)}</li>`}).join('')}
+// --- V-COACH3: the essential guide (mockups P1-P3). Only the basics; the
+// player uses the site search for special / unique rules.
+function gameActionRows(){try{return getActionRowsForSection('actions')}catch(e){return []}}
+function gameActionEntry(id){const r=gameActionRows().find(x=>normName(x.name)===id);if(!r)return null;return {id,name:r.name,text:`(${String(r.type||'').toUpperCase()}) ${r.desc}`}}
+function gameActionRef(name,label){if(!gameActionEntry(normName(name)))return esc(label||name);return `<span class="rule-ref" tabindex="0" data-ref-category="gameaction" data-ref-id="${esc(normName(name))}" onmouseenter="showRulePeek(this)" onmouseleave="scheduleHideRulePeek()" onclick="toggleRulePeek(this,event)">${esc(label||name)}</span>`}
+const COACH_BASIC_ACTS=[['Move',['Move','Bouger'],['1 action','1 action']],['Shoot',['Shoot','Tirer'],['1 action','1 action']],['Charge',['Charge','Charger'],['both','les 2']],['Fight',['Fight','Combattre'],['in contact','au contact']]];
+function coachTick(k){const ps=state.playSession;if(!ps)return;const c=coachState(ps);const s=new Set(c.done||[]);if(s.has(k))s.delete(k);else s.add(k);c.done=[...s];coachSave();coachRefresh()}
+function coachSetPrio(v){const ps=state.playSession;if(!ps)return;coachState(ps).prio=v;coachSave();coachRefresh()}
+function coachPick(key){const ps=state.playSession;if(!ps)return;const c=coachState(ps);c.cur=c.cur===key?null:key;coachSave();coachRefresh()}
+function coachFinish(){const ps=state.playSession;if(!ps)return;const c=coachState(ps);if(c.cur){const s=new Set(c.acted);s.add(c.cur);c.acted=[...s]}c.cur=null;coachSave();coachRefresh()}
+function coachSearchHint(){const en=siteLanguage==='en';return `<button type="button" class="coach-search" onclick="openSiteSearch()">🔍 ${en?'A special rule, a weapon, a spell? Use the search.':'Une règle spéciale, une arme, un sort ? Utilise la recherche.'}</button>`}
+function coachRowMarkup(f,state_,right,cls){return `<div class="coach-row ${cls||''}"><span class="coach-dot"></span><span class="coach-row-tx"><b>${esc(f.name)}</b><small>${state_}</small></span>${right||''}</div>`}
 function coachMarkup(ps,inGame){const en=siteLanguage==='en';
   if(!coachOn())return `<div class="coach-off" id="playCoach"${inGame?' data-ingame="1"':''}><span>🎓 ${en?'First game?':'Première partie ?'}</span><button type="button" class="button secondary small" onclick="coachToggle(true)">${en?'Turn on the guide':'Activer le guide'}</button></div>`;
   const sw=`<button type="button" class="coach-sw on" role="switch" aria-checked="true" onclick="coachToggle(false)"><i></i>${en?'My first game':'Ma première partie'}</button>`;
-  if(!inGame)return `<section class="coach" id="playCoach"><div class="coach-top"><span class="coach-kick">${en?'BEFORE THE GAME':'AVANT LA PARTIE'}</span>${sw}</div><p class="coach-tx">${esc(coachTx('setup'))}</p><div class="coach-links"><button type="button" onclick="learnOpen('')">🎓 ${en?'Learn to play':'Apprendre à jouer'}</button></div></section>`;
-  const c=coachState(ps);const labels={priority:en?'Priority':'Priorité',actions:en?'Actions':'Actions',end:en?'End':'Fin'};
-  const steps=`<div class="coach-steps">${COACH_PHASES.map((p,i)=>`<button type="button" class="${c.phase===p?'on':''}" onclick="coachSetPhase('${p}')">${i+1} · ${labels[p]}</button>`).join('')}</div>`;
-  let extra='',lesson='turn';
-  if(c.phase==='actions'){lesson='activate';const fs=coachFighters(ps);const acted=new Set(c.acted);const ready=fs.filter(f=>!acted.has(f.key)).length;
-    extra=`<div class="coach-ready"><span class="micro-label">${en?`${ready} READY OF ${fs.length}`:`${ready} PRÊT${ready>1?'S':''} SUR ${fs.length}`}</span><div class="coach-chips">${fs.map(f=>`<button type="button" class="${acted.has(f.key)?'done':''}" aria-pressed="${acted.has(f.key)}" onclick="coachActed('${esc(f.key)}')">${acted.has(f.key)?'✓ ':''}${esc(f.name)}</button>`).join('')||`<span class="muted">${en?'No fighter in play.':'Aucun combattant en jeu.'}</span>`}</div></div>`}
-  if(c.phase==='end'){lesson='rout';const rows=coachRoutText(ps);extra=rows?`<ul class="coach-rout">${rows}</ul><small class="muted">${en?'Count fighters down with the ROUT TEST bar below.':'Compte les combattants tombés avec la barre TEST DE DÉROUTE ci-dessous.'}</small>`:''}
-  return `<section class="coach" id="playCoach" data-ingame="1"><div class="coach-top"><span class="coach-kick">${en?`TURN ${c.round}`:`TOUR ${c.round}`}</span>${sw}</div>${steps}
-  <div class="coach-bubble"><p class="coach-tx">${esc(coachTx(c.phase))}</p>${extra}<div class="coach-links"><button type="button" onclick="learnOpen('${lesson}')">🎓 ${en?'Lesson':'Leçon'}</button></div></div>
-  <button type="button" class="button primary coach-next" onclick="coachNext()">${c.phase==='end'?(en?`Next turn (${Number(c.round)+1}) ›`:`Tour suivant (${Number(c.round)+1}) ›`):(en?'Next phase ›':'Phase suivante ›')}</button></section>`}
+  if(!inGame)return `<section class="coach" id="playCoach"><div class="coach-top"><span class="coach-kick">${en?'BEFORE THE GAME':'AVANT LA PARTIE'}</span>${sw}</div><div class="coach-bubble"><p class="coach-tx">${esc(coachTx('setup'))}</p></div>${coachSearchHint()}</section>`;
+  const c=coachState(ps);const names=[en?'Priority':'Priorité',en?'Actions':'Actions',en?'End':'Fin'];const pi=COACH_PHASES.indexOf(c.phase);
+  const bar=`<div class="coach-bar"><span class="coach-turn">${en?'TURN':'TOUR'} ${c.round}</span><div class="coach-steps">${COACH_PHASES.map((p,i)=>`<button type="button" class="${i===pi?'on':i<pi?'past':''}" onclick="coachSetPhase('${p}')">${i<pi?'✓':i+1+' ·'} ${names[i]}</button>`).join('')}</div></div>`;
+  const fs=coachFighters(ps);const acted=new Set(c.acted);const ready=fs.filter(f=>!acted.has(f.key));
+  const bubble=(kick,html,extra)=>`<div class="coach-bubble"><span class="coach-kick">${kick}</span><p class="coach-tx">${html}</p>${extra||''}</div>`;
+  let body='',next='';
+  if(c.phase==='priority'){
+    body=bubble(en?'DO THIS NOW':'À FAIRE MAINTENANT',esc(coachTx('priority')),`<div class="coach-q"><span>${en?'Who won?':'Qui a gagné ?'}</span><div class="coach-seg"><button type="button" class="${c.prio==='me'?'on':''}" onclick="coachSetPrio('me')">${en?'Me':'Moi'}</button><button type="button" class="${c.prio==='opp'?'on':''}" onclick="coachSetPrio('opp')">${en?'My opponent':'Mon adversaire'}</button></div></div>`)
+      +`<span class="micro-label coach-lab">${en?'MY WARBAND · ALL READY':'MA BANDE · TOUS PRÊTS'}</span><div class="coach-rows">${fs.map(f=>coachRowMarkup(f,en?'Ready':'Prêt','','ready')).join('')}</div>`;
+    next=en?'Start the actions ›':'Commencer les actions ›'}
+  else if(c.phase==='actions'){
+    const kick=c.prio==='me'?(en?'YOU PLAY FIRST':'TU JOUES EN PREMIER'):c.prio==='opp'?(en?'YOUR OPPONENT STARTS':'TON ADVERSAIRE COMMENCE'):(en?'YOUR TURN':'À TOI DE JOUER');
+    const rows=fs.map(f=>{if(acted.has(f.key))return `<button type="button" class="coach-row done" onclick="coachActed('${esc(f.key)}')"><span class="coach-dot"></span><span class="coach-row-tx"><b>${esc(f.name)}</b><small>${en?'Has played':'A joué'}</small></span></button>`;
+      if(c.cur===f.key)return `<div class="coach-row cur"><div class="coach-row-main"><span class="coach-dot"></span><span class="coach-row-tx"><b>${esc(f.name)}</b><small>${en?'Playing · 2 actions':'En train de jouer · 2 actions'}</small></span></div><div class="coach-acts">${COACH_BASIC_ACTS.map(([k,l,s])=>`<span class="coach-act"><b>${gameActionRef(k,helpT(l))}</b> <small class="${k==='Charge'?'two':''}">· ${esc(helpT(s))}</small></span>`).join('')}</div><div class="coach-row-foot"><span class="muted">${en?'Other actions: 🔍 search':'Autres actions : 🔍 recherche'}</span><button type="button" class="button primary small" onclick="coachFinish()">✓ ${en?'It has played':'Il a joué'}</button></div></div>`;
+      return coachRowMarkup(f,en?'Ready':'Prêt',`<button type="button" class="button secondary small" onclick="coachPick('${esc(f.key)}')">${en?'Play':'Jouer'}</button>`,'ready')}).join('');
+    body=bubble(kick,esc(coachTx('actions')))+`<span class="micro-label coach-lab">${en?`MY WARBAND · ${ready.length} READY OF ${fs.length}`:`MA BANDE · ${ready.length} PRÊT${ready.length>1?'S':''} SUR ${fs.length}`}</span><div class="coach-rows">${rows||`<span class="muted">${en?'No fighter in play.':'Aucun combattant en jeu.'}</span>`}</div>`;
+    next=ready.length?(en?'End of the turn ›':'Fin du tour ›'):(en?'Everyone has played: end of the turn ›':'Tout le monde a joué : fin du tour ›')}
+  else{const step=(k,n,t,s)=>{const on=(c.done||[]).includes(k);return `<button type="button" class="coach-endstep${on?' on':''}" onclick="coachTick('${k}')"><span class="coach-num">${on?'✓':n}</span><span><b>${t}</b><br><span>${s}</span></span></button>`};
+    const rout=coachRoutText(ps);
+    body=bubble(en?'END OF THE TURN · 3 THINGS':'FIN DU TOUR · 3 CHOSES',esc(coachTx('end')))+`<div class="coach-rows">
+     ${step('e1',1,en?'Rout test':'Test de déroute',rout?`<ul class="coach-rout">${rout}</ul>`:(en?'Count fighters down with the bar below.':'Compte les combattants tombés avec la barre ci-dessous.'))}
+     ${step('e2',2,en?'Seriously injured':'Blessés graves',en?'Each one rolls 1 dice: <b>1-2</b> gets up · <b>3-5</b> stays down · <b>6</b> Out of Action.':'Chacun lance 1 dé : <b>1-2</b> il se relève · <b>3-5</b> il reste au sol · <b>6</b> hors de combat.')}
+     ${step('e3',3,en?'Broken':'Brisés',en?'Each Broken fighter takes a Cool check to rally.':'Chaque combattant Brisé fait un test de Calme pour se rallier.')}</div>`;
+    next=en?`Next turn (${Number(c.round)+1}) ›`:`Tour suivant (${Number(c.round)+1}) ›`}
+  return `<section class="coach" id="playCoach" data-ingame="1"><div class="coach-top"><span class="coach-kick">${en?'MY FIRST GAME':'MA PREMIÈRE PARTIE'}</span>${sw}</div>${bar}${body}${coachSearchHint()}<button type="button" class="button primary coach-next" onclick="coachNext()">${next}</button></section>`}
 
 // ===================== V-STATORIGIN: "where does this number come from?" =====================
 // On a fighter sheet, tapping a characteristic shows its detail:
