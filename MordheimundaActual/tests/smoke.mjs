@@ -1356,14 +1356,13 @@ await test('[desktop] Play: "My first game" guide — phases, who acted, rout wo
     localStorage.setItem('mu_coach','1');const html=playFightersMarkup(ps);
     const div=document.createElement('div');div.innerHTML=html;document.body.appendChild(div);
     const p1=document.querySelector('#playCoach .coach-steps .on')?.textContent||'';
-    coachSetPrio('me');coachNext();const chips=document.querySelectorAll('#playCoach .coach-chips button').length;
-    document.querySelector('#playCoach .coach-chips button').click();const acts=document.querySelectorAll('#playCoach .coach-actcard').length;const peek=!!document.querySelector('#playCoach .coach-actcard .rule-ref[data-ref-category="gameaction"]');
-    const dbl=[...document.querySelectorAll('#playCoach .coach-actcard')].findIndex(c=>/Double/.test(c.textContent));if(dbl>=0){coachAddAct(dbl)}const full=document.querySelectorAll('#playCoach .coach-actcard.off').length;
-    document.querySelector('#playCoach .coach-done').click();const ready=document.querySelector('#playCoach .coach-ready .micro-label')?.textContent||'';
+    coachSetPrio('me');coachNext();const chips=document.querySelectorAll('#playCoach .coach-row.ready').length;
+    document.querySelector('#playCoach .coach-row.ready button').click();const acts=document.querySelectorAll('#playCoach .coach-act').length;const peek=!!document.querySelector('#playCoach .coach-act .rule-ref[data-ref-category="gameaction"]');const dbl=-1,full=0;
+    document.querySelector('#playCoach .coach-row.cur .button.primary').click();const ready=document.querySelector('#playCoach .coach-lab')?.textContent||'';
     const cur=state.playSession;cur.rout={};cur.rout[r.id]=2;coachNext();const rout=document.querySelector('#playCoach .coach-rout')?.textContent||'';
     coachNext();const c=state.playSession.coach;div.remove();state.playSession=null;
     const peekE=gameActionEntry('move');return {off,p1,chips,acts,peek,dbl,full,peekE:!!peekE,ready,rout,round:c.round,phase:c.phase,acted:c.acted.length,n:r.fighters.length}});
-  expect(out.acts>3&&out.peek&&out.peekE,'action choices with rule pop-ups missing: '+JSON.stringify(out));
+  expect(out.acts===4&&out.peek&&out.peekE,'the 4 basic actions with rule pop-ups missing: '+JSON.stringify(out));
   expect(out.dbl<0||out.full>0,'a Double action should use both actions: '+JSON.stringify(out));
   expect(out.off,'the guide is offered when off: '+JSON.stringify(out));
   expect(/1/.test(out.p1)&&out.chips===out.n,'phases or fighter list missing: '+JSON.stringify(out));
