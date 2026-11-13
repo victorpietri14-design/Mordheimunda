@@ -1163,9 +1163,18 @@ function validateScenarioDefinition(body){
   return {name,category,categories,payload};
 }
 
+// V-IMGLINKS: lists carry a short link to each inline picture instead of the
+// picture itself; the link (versioned by a hash of the picture) is served
+// alone and cached for a year. Admin editing still reads the full scenario.
+const imgVersion=d=>crypto.createHash('sha1').update(d).digest('hex').slice(0,12);
+const sendDataImage=(res,d)=>{const m=/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(String(d||''));if(!m)return res.status(404).json({error:'NOT_FOUND'});res.setHeader('Content-Type',m[1]);res.setHeader('Cache-Control','public, max-age=31536000, s-maxage=31536000, immutable');res.send(Buffer.from(m[2],'base64'))};
+const lightScenario=s=>{if(typeof s.thumbnail==='string'&&s.thumbnail.startsWith('data:'))s.thumbnail=`/api/scenarios/${s.id}/thumb?v=${imgVersion(s.thumbnail)}`;return s};
 app.get('/api/scenarios',requireDb,async(req,res,next)=>{
   // Public feed: published only, same semantics as /api/warbands/official.
-  try{const q=await pool.query("SELECT id,name,category,categories,status,definition,created_at,updated_at FROM scenarios WHERE status='published' ORDER BY created_at ASC");res.json({scenarios:q.rows.map(toScenario)})}catch(e){next(e)}
+  try{const q=await pool.query("SELECT id,name,category,categories,status,definition,created_at,updated_at FROM scenarios WHERE status='published' ORDER BY created_at ASC");res.json({scenarios:q.rows.map(toScenario).map(lightScenario)})}catch(e){next(e)}
+});
+app.get('/api/scenarios/:id/thumb',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT definition->>'thumbnail' AS t FROM scenarios WHERE id=$1",[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});sendDataImage(res,q.rows[0].t)}catch(e){next(e)}
 });
 
 app.get('/api/admin/scenarios',requireDb,auth,requireAdmin,async(req,res,next)=>{
@@ -1598,7 +1607,10 @@ function validateDeploymentShapes(raw){
 }
 
 app.get('/api/deployment-maps',requireDb,async(req,res,next)=>{
-  try{const q=await pool.query('SELECT id,number,name,image,shapes FROM deployment_maps ORDER BY number ASC');res.json({maps:q.rows.map(toDeploymentMap)})}catch(e){next(e)}
+  try{const q=await pool.query('SELECT id,number,name,image,shapes FROM deployment_maps ORDER BY number ASC');res.json({maps:q.rows.map(toDeploymentMap).map(m=>{if(typeof m.image==='string'&&m.image.startsWith('data:'))m.image=`/api/deployment-maps/${m.id}/image?v=${imgVersion(m.image)}`;return m})})}catch(e){next(e)}
+});
+app.get('/api/deployment-maps/:id/image',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT image FROM deployment_maps WHERE id=$1',[req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});sendDataImage(res,q.rows[0].image)}catch(e){next(e)}
 });
 
 app.post('/api/admin/deployment-maps',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
