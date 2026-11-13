@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0824.0';
+const APP_BUILD='110.0825.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7973,7 +7973,7 @@ function playGenerateExisting(){
   const shapes=deploymentMapHasShapes(map)?deploymentMapResizeShapes(map.shapes,ts.w,ts.h):null;
   const groups=playGroupNumbers(ps);
   const groupsOut=groups.map(g=>({group:g,color:playGroupColor(ps,g),edge:'',players:ps.slots.filter(s=>s.group===g).map(s=>({name:playSlotDisplayName(s,ps)||'—',owner:playSlotOwnerLabel(s,en)}))}));
-  ps.generated={shapes,image:map.image||'',groups:groupsOut,source:'existing',mapName:map.name,mapNumber:map.number};
+  ps.generated={shapes,image:map.image||'',groups:groupsOut,source:'existing',mapId:map.id,mapName:map.name,mapNumber:map.number};
   playSetupManualOpen=null;
   save();render('playMode');
 }
@@ -10407,7 +10407,11 @@ const PLAY_SHARED_KEYS=['scenarioId','campaignId','tableSize','numBands','slots'
 let playShareTimer=null,playShareBusy=false,playShareLastJson='',playShareLastCheck=0,playInvites=null,playInvitesAt=0,playInvitesHidden=new Set();
 function playIsGuest(ps=state.playSession){return ps?.shared?.role==='guest'}
 function playGuestBlocked(){if(!playIsGuest())return false;const en=siteLanguage==='en';toast(en?`Only ${state.playSession.shared.hostName||'the host'} can change this game`:`Seul ${state.playSession.shared.hostName||'l’hôte'} peut modifier cette partie`);return true}
-function playSharedData(ps){const d={};PLAY_SHARED_KEYS.forEach(k=>d[k]=ps[k]??null);d.scenarioName=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId)?.name||'';const c=ps.campaignId?campaignDetailCache.get(ps.campaignId):null;d.campaignName=c&&!c.missing?c.name||'':'';return d}
+// V-SHARELIGHT: a deployment map picture stored inside the map (up to 3 MB)
+// used to make the shared game exceed the server's 300 KB limit, so it was
+// never created and nobody got the invitation. Only the map's reference is
+// sent; each player's device puts its picture back (playSharedMapImage).
+function playSharedData(ps){const d={};PLAY_SHARED_KEYS.forEach(k=>d[k]=ps[k]??null);if(d.generated&&typeof d.generated.image==='string'&&d.generated.image.startsWith('data:'))d.generated={...d.generated,image:''};d.scenarioName=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId)?.name||'';const c=ps.campaignId?campaignDetailCache.get(ps.campaignId):null;d.campaignName=c&&!c.missing?c.name||'':'';return d}
 // A game is worth sharing once a slot holds another account's warband.
 function playHasOtherOwners(ps){const mine=new Set((state.rosters||[]).map(r=>String(r.id)));return (ps.slots||[]).some(sl=>(sl.source==='campaign'&&sl.rosterId&&!mine.has(String(sl.rosterId)))||(sl.source==='friend'&&sl.friendId))}
 // Called by save(): the host's device sends the game when its shared part changed.
@@ -10424,7 +10428,10 @@ async function playSharePush(json){
     if(!ps.shared){const r=await window.MordheimundaAPI.playCreate(data,ps.campaignId||null);if(r?.game&&state.playSession&&!state.playSession.shared&&state.playSession.scenarioId===ps.scenarioId){const ps2=state.playSession;ps2.shared={id:r.game.id,role:'host',revision:r.game.revision,players:r.game.players||[]};saveLocalOnly();try{playOwnRosters(ps).forEach(ro=>{if(ps.engaged?.[ro.id])playEngPublish(ps,ro)})}catch(e){}}}
     else{const sid=ps.shared.id;const r=await window.MordheimundaAPI.playPush(sid,data);const c=state.playSession;if(c?.shared?.id===sid){c.shared.players=r?.players||c.shared.players;if(r?.revision===Number(c.shared.revision)+1)c.shared.revision=r.revision;saveLocalOnly()}}
     playShareLastJson=json;if(location.pathname===APP_ROUTES.playMode)render('playMode');
-  }catch(e){if(e?.status===404||e?.message==='GAME_ENDED'){ps.shared=null;saveLocalOnly()}console.warn('Shared game not sent',e)}
+    {const c=state.playSession;if(c?.shareError){delete c.shareError;saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}}
+  }catch(e){if(e?.status===404||e?.message==='GAME_ENDED'){ps.shared=null;saveLocalOnly()}console.warn('Shared game not sent',e);
+    // V-SHAREERR: tell the host instead of failing silently (no invitation sent).
+    {const c=state.playSession;if(c&&!playIsGuest(c)&&!(e?.status===404||e?.message==='GAME_ENDED')){c.shareError=String(e?.message||e?.status||'ERROR');saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}}}
   finally{playShareBusy=false}
 }
 // Turn the host's data into this player's view of it: their own warbands
@@ -10439,8 +10446,11 @@ function playApplyShared(game){
     return sl});
   {const own={};(prev&&same?Object.entries(prev.engaged||{}):[]).forEach(([k,v])=>{if(mine.has(String(k)))own[k]=v});ps.engaged={...(game.engaged||{}),...own}}
   ps.shared={id:game.id,role:'guest',you:game.you,hostId:game.hostId,hostName:game.hostName,revision:game.revision,players:game.players||[]};
+  playSharedMapImage(ps);
   state.playSession=ps;saveLocalOnly();
 }
+function playSharedMapImage(ps){const g=ps?.generated;if(!g||g.source!=='existing'||g.image)return;const find=()=>DEPLOYMENT_MAPS_CACHE.find(m=>(g.mapId&&m.id===g.mapId)||(g.mapNumber!=null&&m.number===g.mapNumber&&m.name===g.mapName));const m=find();if(m){g.image=m.image||'';return}
+  if(!DEPLOYMENT_MAPS_CACHE.length)loadDeploymentMaps().then(()=>{const cur=state.playSession;if(cur?.generated&&!cur.generated.image){const mm=find();if(mm){cur.generated.image=mm.image||'';saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}}}).catch(()=>{})}
 async function playShareCheck(force){
   const ps0=state.playSession;if(!ps0?.shared||!cloudIsSignedIn())return;const gid=ps0.shared.id;
   if(!force&&(document.visibilityState!=='visible'||location.pathname!==APP_ROUTES.playMode||Date.now()-playShareLastCheck<12000))return;
@@ -10462,7 +10472,9 @@ async function playShareCheck(force){
 setInterval(()=>{try{playShareCheck(false)}catch(e){}},15000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){playShareLastCheck=0;try{playShareCheck(false)}catch(e){}}});
 // The line under the campaign strip: who is in the game.
+function playShareRetry(){const ps=state.playSession;if(!ps)return;delete ps.shareError;playShareLastJson='';saveLocalOnly();playShareAfterSave();render('playMode')}
 function playShareBannerMarkup(ps){
+  if(ps?.shareError&&!playIsGuest(ps)){const en=siteLanguage==='en';const big=/TOO_LARGE/.test(ps.shareError);return `<div class="play-share-err" role="alert"><span>⚠ ${en?'The other players could not be invited':'Les autres joueurs n’ont pas pu être invités'}${big?(en?' (game too large)':' (partie trop lourde)'):` (${esc(ps.shareError)})`}.</span><button type="button" class="button secondary small" onclick="playShareRetry()">${en?'Try again':'Réessayer'}</button></div>`}
   if(!ps?.shared)return '';const en=siteLanguage==='en';const pl=ps.shared.players||[];
   const st=p=>p.status==='joined'?(en?'joined':'a rejoint'):p.status==='declined'?(en?'declined':'a refusé'):p.status==='left'?(en?'left':'est parti'):(en?'invitation sent':'invitation envoyée');
   if(!playIsGuest(ps))return pl.length?`<p class="play-share-line">👥 ${pl.map(p=>`${esc(p.username)} : ${esc(st(p))}`).join(' · ')}</p>`:'';

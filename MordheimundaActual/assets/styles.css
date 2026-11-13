@@ -6127,3 +6127,5 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .logged-out-bar{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));z-index:950;display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 20px));padding:9px 10px 9px 14px;border-radius:12px;border:1.5px solid #e0b04a;background:#1c1710;color:#f2f2ee;font-size:13px;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .logged-out-bar .button{white-space:nowrap}
 .logged-out-x{background:none;border:0;color:inherit;font-size:16px;min-width:32px;min-height:32px;cursor:pointer}
+/* V-SHAREERR */
+.play-share-err{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1.5px solid #e06f6f;background:rgba(224,111,111,.08);border-radius:10px;padding:8px 11px;margin:0 0 10px;font-size:13px}

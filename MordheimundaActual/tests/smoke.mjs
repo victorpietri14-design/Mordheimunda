@@ -1398,6 +1398,16 @@ await test('[mobile] a player whose session ended is told they are logged out',n
     localStorage.removeItem('mu_logged_out');return {shown,signedOut,gone,quiet}});
   expect(out.shown&&out.signedOut&&out.gone&&out.quiet,'logged out notice: '+JSON.stringify(out));
 });
+await test('[desktop] shared game: map pictures not sent, sharing errors shown to the host',null,async page=>{
+  const out=await page.evaluate(()=>{const ps=blankPlaySession();ps.scenarioId='x';ps.generated={source:'existing',image:'data:image/png;base64,'+'A'.repeat(500000),mapId:'m1',mapName:'Big',mapNumber:9,shapes:null,groups:[]};
+    const d=playSharedData(ps);const size=JSON.stringify(d).length;const kept=ps.generated.image.length;
+    DEPLOYMENT_MAPS_CACHE=[{id:'m1',number:9,name:'Big',image:'data:image/png;base64,QQ=='}];const g={...ps,generated:{...d.generated}};playSharedMapImage(g);
+    ps.shareError='GAME_TOO_LARGE';const banner=playShareBannerMarkup(ps);
+    return {size,kept,back:g.generated.image,banner:/play-share-err/.test(banner)&&/Try again|Réessayer/.test(banner)}});
+  expect(out.size<10000&&out.kept>400000,'the map picture must not be sent: '+JSON.stringify({size:out.size,kept:out.kept}));
+  expect(out.back==='data:image/png;base64,QQ==','the guest gets the map picture back: '+out.back);
+  expect(out.banner,'the host is told the invitation failed');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

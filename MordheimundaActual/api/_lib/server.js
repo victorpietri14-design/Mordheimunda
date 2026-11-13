@@ -2283,7 +2283,7 @@ const pubFriend=u=>({id:u.id,username:u.username});
 // join to follow the same scenario, deployment and conditions. Only the host
 // changes the game. Clients ask GET …/state (a few bytes) and fetch the
 // whole game only when its revision moved.
-const PLAY_DATA_MAX=300*1024;
+const PLAY_DATA_MAX=1024*1024;
 const playClip=v=>{const t=JSON.stringify(v??{});return t.length>PLAY_DATA_MAX?null:JSON.parse(t)};
 // Who owns the other warbands of the game: campaign members of its campaign,
 // or friends of the host picked in a slot. Returns Map userId -> [rosterIds].
