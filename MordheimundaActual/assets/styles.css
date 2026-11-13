@@ -6257,3 +6257,22 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .wbfile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer}
 .wbfile-row span{display:flex;flex-direction:column;min-width:0}.wbfile-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wbfile-row small{color:var(--muted)}
 .wbfile-row i{font-style:normal;font-size:18px}
+/* V-PLAYSIMPLE: lightest in-game view */
+.play-simple{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:8px 10px;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.play-simple.cond-down{border-left-color:#f2c94c}.play-simple.cond-stunned{border-left-color:#f0a39e}.play-simple.is-ooa{opacity:.55;border-left-color:#777}
+.play-simple .ps-head{display:flex;align-items:baseline;gap:8px;min-width:0}
+.play-simple .ps-head b{font:800 16px 'Cinzel',serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.play-simple .ps-head small{color:var(--muted);font-size:12px;white-space:nowrap}
+.play-simple .ps-badges{display:flex;flex-wrap:wrap;gap:6px}
+.play-simple .ps-prof{overflow-x:auto}
+.play-simple .ps-prof>*{margin:0!important}
+.play-simple .ps-gear{display:flex;gap:6px;font-size:13px;line-height:1.35}.play-simple .ps-gear i{font-style:normal;color:var(--muted);flex:none}
+.play-simple .ps-states{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.play-simple .ps-states.one{grid-template-columns:1fr}.play-simple .ps-ooa{color:#f0a39e}
+.play-simple .ps-st{padding:7px 4px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:12.5px;font-weight:700;cursor:pointer}
+.play-simple .ps-st.on{background:var(--accent);color:#111;border-color:var(--accent)}
+.play-simple.cond-down .ps-st.on{background:#f2c94c;border-color:#f2c94c}.play-simple.cond-stunned .ps-st.on{background:#f0a39e;border-color:#f0a39e}
+.play-cards .play-simple+.play-simple{margin-top:0}
+.play-simple-list .roster-section{border:0;padding:0;margin:0 0 10px;background:none}
+.play-simple-list .roster-section .section-label{margin:4px 2px 6px}
+.play-simple-list .fighter-list{display:flex;flex-direction:column;gap:8px}
+.play-simple-list .dice-help-btn{display:none}
