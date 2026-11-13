@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0835.0';
+const APP_BUILD='110.0837.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7628,7 +7628,7 @@ function rulesWarbandsRaceColumnsMarkup(){
     // V-SUBFACTIONPIC: a sub-faction (supplement pack) shows the same picture as
     // in Create a warband: its pack logo, else its mother warband's picture.
     const par=parent?raceLooks.factions?.[parent.id]:null;const own=raceLooks.factions?.[f.id]?.image?raceLooks.factions[f.id]:(f.packId&&raceLooks.packs?.[f.packId]?.image?raceLooks.packs[f.packId]:(par?.image?par:null));const img=own?.image||l.image;const foc=own?.image?(own.focus||null):l.focus;const n=(f.warriors||[]).filter(w=>!isHiredSword(w)).length;
-    return `<a class="faction-choice bn motif-${l.motif}${sub?' sub':''}" style="${raceBannerStyle(race)}" href="/rules/warbands/${encodeURIComponent(f.id)}" data-app-route="1" onclick="event.preventDefault();openRulesWarband('${esc(f.id)}')"><span class="choice-img-wrap">${looksEmblem(img,factionSigils[f.id]||raceIcon(race),foc)}</span><span class="bn-tx"><span class="bn-kick">${esc(kick)}</span><span class="fname">${esc(f.displayName||f.name)}</span><span class="fcount">${n} ${en?(n>1?'profiles':'profile'):(n>1?'profils':'profil')}</span></span><span class="wbx-chev">›</span></a>`};
+    return `<a class="faction-choice bn motif-${l.motif}${sub?' sub':''}" style="${raceBannerStyle(race)}" href="/rules/warbands/${encodeURIComponent(f.id)}" data-app-route="1" onclick="event.preventDefault();openRulesWarband('${esc(f.id)}')"><span class="choice-img-wrap">${looksEmblem(img,factionSigils[f.id]||raceIcon(race),foc)}</span><span class="bn-tx"><span class="bn-kick">${esc(kick)}</span><span class="fname">${esc(f.displayName||f.name)}</span><span class="fcount">${n} ${en?(n>1?'profiles':'profile'):(n>1?'profils':'profil')}</span>${(()=>{try{return factionTraitsMarkup(f,new Set(helpBeginnerIds()).has(f.id))}catch(e){return ''}})()}</span><span class="wbx-chev">›</span></a>`};
   const rowMarkup=(f,catTag,race)=>{
     const supps=supplementsByBase.get(f.id)||[];
     return tileMarkup(f,race,catTag||race,!!catTag)+supps.map(sp=>tileMarkup(sp,race,`${en?'Sub-faction of':'Sous-faction de'} ${f.displayName||f.name}`,true,f)).join('');
@@ -9570,6 +9570,26 @@ function warbandSectionMarkup(f,page,titleEn,titleFr,defaultRichHtml,defaultPlai
     :(override!=null?`<div class="${boxClass||'tree-box'}"><div class="rule-page-text">${ruleTextMarkup(override,{})}</div></div>`:defaultRichHtml);
   return `<div class="section-block"><h2><span class="n">${n}</span>${en?titleEn:titleFr}${(canEdit&&override!=null)?`<span class="rule-override-tag" style="margin-left:8px">${en?'EDITED':'MODIFIÉ'}</span>`:''}${editBtn}</h2>${body}</div>`;
 }
+// V-FACEDIT: quick admin editor for one faction: difficulty, keywords, the
+// one-line intro (FR/EN) and the Beginner badge. Saved in the help texts
+// (same data as Admin › Help texts › Factions), so creation and Rules match.
+function openFactionHelpEditor(fid){const en=siteLanguage==='en';const f=(D.factions||[]).find(x=>x.id===fid);if(!f)return;const T=helpOverrides.texts||{};const get=(k,l)=>T[k]?.[l]||'';
+  const auto=factionTraits({...f,id:'__auto'});const beg=new Set(helpBeginnerIds()).has(f.id);const d=get(`faction.${f.id}.diff`,'fr')||get(`faction.${f.id}.diff`,'en');
+  const def=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`))?.[1]||['',''];
+  openModal(`<div class="wc-dialog fac-edit"><div class="eyebrow">ADMIN · ${en?'FACTION':'FACTION'}</div><h2>${esc(f.displayName||f.name)}</h2>
+   <label class="custom-field"><span>${en?'Difficulty':'Difficulté'}</span><select id="feDiff"><option value="" ${!d?'selected':''}>${en?'Automatic':'Automatique'} (${beg?(en?'easy':'facile'):(en?'medium':'moyen')})</option>${[1,2,3].map(n=>`<option value="${n}" ${String(d)===String(n)?'selected':''}>${'★'.repeat(n)}${'☆'.repeat(3-n)} ${[en?'easy':'facile',en?'medium':'moyen',en?'hard':'difficile'][n-1]}</option>`).join('')}</select></label>
+   <label class="custom-field"><span>${en?'Keywords (FR), comma separated — empty = automatic':'Mots-clés (FR), séparés par des virgules — vide = automatique'}</span><input id="feTagsFr" value="${esc(get(`faction.${f.id}.tags`,'fr'))}" placeholder="${esc(siteLanguage==='fr'?auto.tags.join(', '):'')}"></label>
+   <label class="custom-field"><span>${en?'Keywords (EN)':'Mots-clés (EN)'}</span><input id="feTagsEn" value="${esc(get(`faction.${f.id}.tags`,'en'))}" placeholder="${esc(siteLanguage==='en'?auto.tags.join(', '):'')}"></label>
+   <label class="custom-field"><span>${en?'Intro line (FR)':'Présentation (FR)'}</span><textarea id="feBlurbFr" rows="2" placeholder="${esc(def[1])}">${esc(get(`faction.${f.id}`,'fr'))}</textarea></label>
+   <label class="custom-field"><span>${en?'Intro line (EN)':'Présentation (EN)'}</span><textarea id="feBlurbEn" rows="2" placeholder="${esc(def[0])}">${esc(get(`faction.${f.id}`,'en'))}</textarea></label>
+   <label class="fe-beg"><input type="checkbox" id="feBeg" ${beg?'checked':''}> ${en?'Beginner badge (suggested for a first warband)':'Badge Débutant (conseillée pour une première bande)'}</label>
+   <p class="muted" style="font-size:12px">${en?'Same data as Admin › Help texts › Factions. An empty field keeps the automatic value.':'Mêmes données que Admin › Textes de l’aide › Factions. Un champ vide garde la valeur automatique.'}</p>
+   <div class="account-actions"><button type="button" class="button primary" onclick="saveFactionHelpEditor('${esc(f.id)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`)}
+async function saveFactionHelpEditor(fid){const en=siteLanguage==='en';const v=id=>String(document.getElementById(id)?.value||'').trim();const texts=JSON.parse(JSON.stringify(helpOverrides.texts||{}));
+  const put=(k,fr,enV)=>{if(fr||enV)texts[k]={fr,en:enV};else delete texts[k]};const dv=v('feDiff');
+  put(`faction.${fid}.diff`,dv,dv);put(`faction.${fid}.tags`,v('feTagsFr'),v('feTagsEn'));put(`faction.${fid}`,v('feBlurbFr'),v('feBlurbEn'));
+  const begSet=new Set(helpBeginnerIds());if(document.getElementById('feBeg')?.checked)begSet.add(fid);else begSet.delete(fid);
+  try{const res=await window.MordheimundaAPI.adminSaveHelpTexts({texts,beginner:[...begSet]});const h=res?.help||{texts,beginner:[...begSet]};helpOverrides={texts:h.texts||{},beginner:Array.isArray(h.beginner)?h.beginner:null};closeModal();toast(en?'Faction saved':'Faction enregistrée');renderCurrentRoute()}catch(e){toast(en?'Could not save':'Enregistrement impossible')}}
 function rulesWarbandDetail(){
   if(ruleOverridesCache===null)loadRuleOverrides();
   const en=siteLanguage==='en';
@@ -9671,7 +9691,7 @@ function rulesWarbandDetail(){
   const hsSection=`<div class="section-block wb-hired-swords"><h2><span class="n">6</span>Hired Swords${hsAvail.some(isDramatis)?' · Dramatis Personae':''}</h2>${hsNames.length?`<div class="tree-box" style="display:flex;flex-wrap:wrap;gap:8px">${hsAvail.map(w=>`<span class="pill equip"><a href="#" onclick="openRulesWarband('${isDramatis(w)?'dramatis-personae':'hired-swords'}');return false;">${isDramatis(w)?'🎭 ':''}${esc(w.name)}</a></span>`).join('')}</div>`:`<div class="tree-box"><span class="empty-note">${en?'No Hired Sword can be hired by this warband.':'Aucun Hired Sword ne peut être recruté par cette warband.'}</span></div>`}</div>`;
 
   $('#content').innerHTML=`${siteCrumbs('/rules/warbands',[[en?'Rules':'Règles','/rules'],['Warbands','/rules/warbands'],[f.displayName||f.name||'']])}
-<div class="wb-header"><div><div class="eyebrow">${esc(race||(en?'Warband':'Warband'))}</div><h1>${esc(f.displayName||f.name)}</h1>${isSupplement?`<span class="tag" style="margin-top:8px">${en?'Supplement':'Supplément'} · ${esc(baseFaction?.displayName||baseFaction?.name||'')}</span>`:''}</div><span class="chip">${(f.warriors||[]).length} ${en?'fighter profiles':'profils de combattant'}</span></div>
+<div class="wb-header"><div><div class="eyebrow">${esc(race||(en?'Warband':'Warband'))}</div><h1>${esc(f.displayName||f.name)}</h1>${(()=>{try{return factionTraitsMarkup(f,new Set(helpBeginnerIds()).has(f.id))+(helpFactionBlurb(f)?`<p class="fac-blurb">${esc(helpFactionBlurb(f))}</p>`:'')}catch(e){return ''}})()}${isAdminEditUI()?`<button type="button" class="button secondary small fac-edit-btn" onclick="openFactionHelpEditor('${esc(f.id)}')">✎ ${en?'Difficulty & intro':'Difficulté et présentation'}</button>`:''}${isSupplement?`<span class="tag" style="margin-top:8px">${en?'Supplement':'Supplément'} · ${esc(baseFaction?.displayName||baseFaction?.name||'')}</span>`:''}</div><span class="chip">${(f.warriors||[]).length} ${en?'fighter profiles':'profils de combattant'}</span></div>
 ${factionRulesSection}
 ${combatantsSection}
 ${skillTreeSection}

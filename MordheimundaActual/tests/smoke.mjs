@@ -1464,7 +1464,8 @@ await test('[mobile] help B+C: faction traits, ready-made warband, profile expla
     state.rosters=[{id:'wb',name:'WB',factionId:f.id,gold:500,fighters:[],reserve:[],history:[]}];state.active='wb';navigateApp(warbandPath('wb'));await new Promise(z=>setTimeout(z,400));
     const starter=!!document.querySelector('.wba-starter');wbStarterFill();await new Promise(z=>setTimeout(z,300));const r=activeRoster();
     openProfileHelp(0);await new Promise(z=>setTimeout(z,200));const ph=document.querySelector('.profile-help')?.textContent||'';closeModal();
-    return {tags:Array.isArray(tr.tags),stars:/★/.test(mk),starter,filled:r.fighters.length>=3&&r.fighters.some(x=>x.type==='Leader')&&Number(r.gold)>=0&&Number(r.gold)<500,help:/2D6/.test(ph)&&/(3|4|5)\+/.test(ph),pct:statPct(7)===58&&statPct(2)===3}});
+    navigateApp(APP_ROUTES.rulesWarbands);await new Promise(z=>setTimeout(z,500));const onRules=document.querySelectorAll('.faction-choice .fac-traits').length>0;navigateApp(warbandPath('wb'));await new Promise(z=>setTimeout(z,300));
+    return {onRules,tags:Array.isArray(tr.tags),stars:/★/.test(mk),starter,filled:r.fighters.length>=3&&r.fighters.some(x=>x.type==='Leader')&&Number(r.gold)>=0&&Number(r.gold)<500,help:/2D6/.test(ph)&&/(3|4|5)\+/.test(ph),pct:statPct(7)===58&&statPct(2)===3}});
   expect(Object.values(out).every(Boolean),'help B+C: '+JSON.stringify(out));
 });
 await test('[mobile] play: "What do I need to roll?" gives hit / wound / save and the odds',null,async page=>{
@@ -1487,6 +1488,15 @@ await test('[desktop] heavy pictures: lighter encoding, short blob links in redr
     return {shrunk:!!small&&small.length<big.length&&/^data:image\/(webp|jpeg)/.test(small),enc:/^data:image\/(webp|jpeg)/.test(enc),blob:b1.startsWith('blob:')&&b1===b2&&imgSrc('data:image/png;base64,AAAA')==='data:image/png;base64,AAAA',markup:/src="blob:/.test(mk),
       scen:!!sent.s&&sent.s.thumbnail.length<big.length&&sent.s.name==='S'&&!('id' in sent.s),map:!!sent.m&&sent.m.image.length<big.length}});
   expect(Object.values(out).every(Boolean),'pictures: '+JSON.stringify(out));
+});
+await test('[desktop] faction quick editor: difficulty, keywords, intro and Beginner badge saved, shown on creation and Rules',null,async page=>{
+  const out=await page.evaluate(async()=>{const f=D.factions.find(x=>!x.packId&&x.warriors?.length);const api=window.MordheimundaAPI;const orig=api.adminSaveHelpTexts;const keep=JSON.parse(JSON.stringify(helpOverrides));let sent=null;
+    api.adminSaveHelpTexts=async b=>{sent=b;return {help:b}};
+    try{openFactionHelpEditor(f.id);await new Promise(z=>setTimeout(z,100));document.getElementById('feDiff').value='3';document.getElementById('feTagsFr').value='brutal, lent';document.getElementById('feTagsEn').value='brutal, slow';document.getElementById('feBlurbFr').value='Une bande test.';document.getElementById('feBeg').checked=true;
+      await saveFactionHelpEditor(f.id);const tr=factionTraits(f);const mk=factionTraitsMarkup(f,true);
+      return {sent:!!sent&&sent.texts[`faction.${f.id}.diff`]?.fr==='3'&&sent.beginner.includes(f.id),diff:tr.diff===3,tags:tr.tags.length===2,stars:/★★★/.test(mk),blurb:helpFactionBlurb(f)==='Une bande test.'||siteLanguage==='en'}}
+    finally{api.adminSaveHelpTexts=orig;helpOverrides=keep}});
+  expect(Object.values(out).every(Boolean),'faction editor: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
