@@ -1585,6 +1585,20 @@ await test('[desktop] pages kept in more.js: opened first they load it, and it i
     expect(waiting.loading&&!waiting.ready&&after.path==='/rules/learn'&&after.lessons>0&&!errs.length,'learn opened first: '+JSON.stringify({waiting,after,errs}));
   }finally{await ctx.close()}
 });
+await test('[desktop] warband file: save one warband to a file and open it back as a new warband',null,async page=>{
+  await seed(page);
+  await page.evaluate(()=>{const r=activeRoster();r.fighters.push({instance:'a1',name:'Hans',type:'Mercenary',xp:3,profile:[4,3,3,3,3,1,3,1,7]});r.campaignId='camp-x';save(true);navigateApp(APP_ROUTES.rosters)});await page.waitForTimeout(400);
+  expect(await page.isVisible('.wbfile-head >> text=File'),'no File button on My warbands');
+  await page.click('.wbfile-head >> text=File');await page.waitForTimeout(300);
+  expect(await page.isVisible('#modal .wbfile-row >> text=Smoke Test Band'),'the warband is not listed to save');
+  const [dl]=await Promise.all([page.waitForEvent('download'),page.click('#modal .wbfile-row')]);
+  const fs=await import('node:fs');const text=fs.readFileSync(await dl.path(),'utf8');
+  const out=await page.evaluate(t=>{const before=state.rosters.length;const id=wbImportText(t);const r=state.rosters.find(x=>x.id===id);
+    let bad='';try{wbImportText('{"hello":1}')}catch(e){bad=e.message}
+    return {fname:'',n:state.rosters.length-before,name:r.name,newId:id!=='smoke',fighters:r.fighters.length,inst:r.fighters[0].instance!=='a1',camp:r.campaignId||null,xp:r.fighters[0].xp,bad}},text);
+  out.fname=dl.suggestedFilename();
+  expect(out.fname==='Smoke_Test_Band.mordheimunda.json'&&out.n===1&&out.name==='Smoke Test Band (2)'&&out.newId&&out.fighters===1&&out.inst&&out.camp===null&&out.xp===3&&/not a Mordheimunda warband/.test(out.bad),'round trip: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

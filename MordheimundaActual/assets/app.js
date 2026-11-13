@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0846.0';
+const APP_BUILD='110.0847.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6734,7 +6734,7 @@ function openTabSheet(kind){
   }else{
     const admin=isAdminSession();
     html=`<div class="tab-sheet-label">${en?'MORE':'PLUS'}</div>`+tabSheetLink(APP_ROUTES.custom,'✦',en?'Personal content':'Contenu perso')+tabSheetLink(APP_ROUTES.account,'👤',en?'Account':'Compte')+(admin?tabSheetLink(APP_ROUTES.admin,'⛉',en?'Admin panel':'Panneau admin'):'')
-     +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openHelpMenu()"><i>?</i><span>${en?'Help and tours':'Aide et visites'}</span></button>`+`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();shareWarbandImage()"><i>🖼</i><span>${en?'Share as a picture':'Partager en image'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
+     +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openHelpMenu()"><i>?</i><span>${en?'Help and tours':'Aide et visites'}</span></button>`+`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();shareWarbandImage()"><i>🖼</i><span>${en?'Share as a picture':'Partager en image'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openWarbandFiles()"><i>⇅</i><span>${en?'Warband file (save / open)':'Fichier de bande (enregistrer / ouvrir)'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
      +`<div class="tab-sheet-sep"></div><label class="tab-sheet-row"><span>${en?'Day mode':'Mode jour'}</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Candle mode':'Mode bougie'}</span><span class="theme-switch"><input type="checkbox" class="candle-toggle-input" ${siteTheme==='candle'?'checked':''} onchange="toggleCandleTheme()"><i>✦</i></span></label><label class="tab-sheet-row"><span>${en?'Candle in the evening':'Bougie le soir'}</span><span class="theme-switch"><input type="checkbox" ${themeAutoOn()?'checked':''} onchange="setThemeAuto(this.checked)"><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Animated background':'Fond animé'}</span>${ambientSelectMarkup(en)}</label>`
      +(admin?`<label class="tab-sheet-row"><span>${en?'Player view':'Vue Joueur'}</span><span class="theme-switch"><input type="checkbox" class="admin-view-toggle-input" ${adminViewMode==='player'?'checked':''}><i>🎭</i></span></label>`:'')
      +`<label class="tab-sheet-row"><span>${en?'Interface size':'Taille de l’interface'}</span>${comfortSelectMarkup(en)}</label>`
@@ -9409,7 +9409,7 @@ ${magicSection}
 ${equipSection}
 ${hsSection}`;
 }
-function rosters(){const en=siteLanguage==='en';$('#content').innerHTML=`<div class="dash-section-head" style="margin-bottom:18px"><div><span class="dash-kicker">Warhouse / Archives</span><h2 style="margin:0;font-family:'Cinzel',serif;font-size:24px;color:var(--text)">${en?'My warbands':'Mes bandes'}</h2></div><button class="dash-btn-primary" onclick="render('create')">＋ ${en?'New warband':'Nouvelle bande'}</button></div>${state.rosters.length?`<div class="dash-wgrid">${state.rosters.map((r,i)=>dashWarbandCard(r,{index:i,total:state.rosters.length})).join('')}<a href="#" data-app-route="1" onclick="render('create');return false;" class="dash-create-tile"><span class="dash-create-plus">＋</span><span>${en?'Create a new warband':'Créer une nouvelle bande'}</span></a></div>`:`<div class="empty large"><strong>${en?'No warband.':'Aucune bande.'}</strong><span>${en?'Start by choosing a faction and forging your first roster.':'Commence par choisir une faction et forge ton premier roster.'}</span><button class="dash-btn-primary" onclick="render('create')">${en?'Create a warband':'Créer une bande'}</button></div>`}`}
+function rosters(){const en=siteLanguage==='en';$('#content').innerHTML=`<div class="dash-section-head" style="margin-bottom:18px"><div><span class="dash-kicker">Warhouse / Archives</span><h2 style="margin:0;font-family:'Cinzel',serif;font-size:24px;color:var(--text)">${en?'My warbands':'Mes bandes'}</h2></div><span class="wbfile-head"><button type="button" class="button secondary small" onclick="openWarbandFiles()" title="${en?'Save or open a warband file':'Enregistrer ou ouvrir un fichier de bande'}">⇅ ${en?'File':'Fichier'}</button><button class="dash-btn-primary" onclick="render('create')">＋ ${en?'New warband':'Nouvelle bande'}</button></span></div>${state.rosters.length?`<div class="dash-wgrid">${state.rosters.map((r,i)=>dashWarbandCard(r,{index:i,total:state.rosters.length})).join('')}<a href="#" data-app-route="1" onclick="render('create');return false;" class="dash-create-tile"><span class="dash-create-plus">＋</span><span>${en?'Create a new warband':'Créer une nouvelle bande'}</span></a></div>`:`<div class="empty large"><strong>${en?'No warband.':'Aucune bande.'}</strong><span>${en?'Start by choosing a faction and forging your first roster.':'Commence par choisir une faction et forge ton premier roster.'}</span><button class="dash-btn-primary" onclick="render('create')">${en?'Create a warband':'Créer une bande'}</button></div>`}`}
 // Step 0 of warband creation: pick a race tile first (Humain/Dwarf/Elves/
 // Orcs and Goblin/Chaos/Undead/Unique), THEN the existing faction/supplement/
 // name picker below, filtered to that race's tagged warbands. null = show
@@ -18253,6 +18253,42 @@ async function shareWarbandImage(){const en=siteLanguage==='en';const r=activeRo
   const fname=(String(r.name||'warband').replace(/[^\w\-]+/g,'_').slice(0,40)||'warband')+'.png';
   try{const file=new File([blob],fname,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:r.name||''});return}}catch(e){if(e&&e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast(en?'Picture downloaded':'Image téléchargée')}
+
+// ============ V-WBFILE: a warband saved to / opened from a file ============
+// "Export" writes one warband to a .json file (to keep it, send it to a
+// friend or move it to another account); "Import" adds it back as a new
+// warband — never over an existing one. A warband built on a personal
+// (custom) warband carries that warband with it, so it opens anywhere.
+const WB_FILE_KIND='mordheimunda-warband';
+function wbFileOf(r){const copy=JSON.parse(JSON.stringify(r));delete copy.campaignStatsSent;
+  const cw=r.customWarbandId&&Array.isArray(state.customWarbands)?state.customWarbands.find(x=>x.id===r.customWarbandId):null;
+  return {kind:WB_FILE_KIND,version:1,build:APP_BUILD,exportedAt:new Date().toISOString(),roster:copy,customWarband:cw?JSON.parse(JSON.stringify(cw)):null}}
+function wbFileName(r){return (String(r?.name||'warband').replace(/[^\w\-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40)||'warband')+'.mordheimunda.json'}
+async function wbExportFile(id){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>String(x.id)===String(id));if(!r)return;
+  const blob=new Blob([JSON.stringify(wbFileOf(r),null,1)],{type:'application/json'});const fname=wbFileName(r);
+  try{const file=new File([blob],fname,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[file]})&&matchMedia('(pointer:coarse)').matches){await navigator.share({files:[file],title:r.name||''});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast(en?'Warband file saved':'Fichier de la bande enregistré')}
+// Reads a warband file's text; returns the new warband's id, or throws with a
+// message the player can read.
+function wbImportText(text){const en=siteLanguage==='en';let d=null;try{d=JSON.parse(text)}catch(e){}
+  const r=d&&d.kind===WB_FILE_KIND?d.roster:null;
+  if(!r||typeof r!=='object'||!Array.isArray(r.fighters))throw new Error(en?'This file is not a Mordheimunda warband.':'Ce fichier n’est pas une bande Mordheimunda.');
+  const copy=JSON.parse(JSON.stringify(r));delete copy.campaignStatsSent;delete copy.campaignId;delete copy.shareToken;
+  copy.id=crypto.randomUUID();copy.fighters.forEach(x=>{if(x&&typeof x==='object')x.instance=crypto.randomUUID()});(Array.isArray(copy.reserve)?copy.reserve:[]).forEach(x=>{if(x&&typeof x==='object')x.reserveId=crypto.randomUUID()});
+  const names=new Set((state.rosters||[]).map(x=>x.name));if(names.has(copy.name)){let n=2;while(names.has(`${copy.name} (${n})`))n++;copy.name=`${copy.name} (${n})`}
+  const cw=d.customWarband;if(copy.customWarbandId&&cw&&typeof cw==='object'&&cw.id===copy.customWarbandId){if(!Array.isArray(state.customWarbands))state.customWarbands=[];if(!state.customWarbands.some(x=>x.id===cw.id))state.customWarbands.push(JSON.parse(JSON.stringify(cw)))}
+  touchRoster(copy);state.rosters.push(copy);state.active=copy.id;save();return copy.id}
+function wbImportFile(){const en=siteLanguage==='en';const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.style.display='none';
+  input.onchange=async()=>{const f=input.files&&input.files[0];input.remove();if(!f)return;if(f.size>8*1024*1024){toast(en?'This file is too big':'Ce fichier est trop gros');return}
+    try{const id=wbImportText(await f.text());closeModal();toast(en?'Warband imported':'Bande importée');navigateApp(warbandPath(id));const r=(state.rosters||[]).find(x=>x.id===id);if(r&&!faction(r))setTimeout(()=>toast(en?'Its faction is not on this site: some rules may be missing.':'Sa faction n’existe pas ici : des règles peuvent manquer.'),1200)}
+    catch(e){toast(e.message||(en?'Could not read this file':'Impossible de lire ce fichier'))}};
+  document.body.appendChild(input);input.click()}
+function openWarbandFiles(){const en=siteLanguage==='en';const list=Array.isArray(state.rosters)?state.rosters:[];
+  openModal(`<div class="skill-dialog wbfile"><div class="eyebrow">${en?'WARBANDS · FILE':'BANDES · FICHIER'}</div><h2>${en?'Save or open a warband file':'Enregistrer ou ouvrir un fichier de bande'}</h2>
+  <p class="sheet-help">${en?'A file keeps one warband: to keep a copy, send it to a friend or move it to another account. Your own items and skills are not in it, only the warband and its personal warband.':'Un fichier garde une bande : pour en garder une copie, l’envoyer à un ami ou la passer sur un autre compte. Tes objets et compétences perso n’y sont pas, seulement la bande et sa warband perso.'}</p>
+  <button type="button" class="button wbfile-import" onclick="wbImportFile()">⇪ ${en?'Open a warband file…':'Ouvrir un fichier de bande…'}</button>
+  ${list.length?`<div class="wbfile-label">${en?'Save to a file':'Enregistrer dans un fichier'}</div><div class="wbfile-list">${list.map(r=>`<button type="button" class="wbfile-row" onclick="wbExportFile('${esc(String(r.id))}')"><span><b>${esc(r.name||'—')}</b><small>${esc(translateSiteText(faction(r)?.displayName||''))} · ${(r.fighters||[]).length} ${en?'fighters':'combattants'}</small></span><i>⇩</i></button>`).join('')}</div>`:''}
+  <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
 
 // ============ V-PARCHMENT: the fighter sheet as an old parchment ============
 // An extra, optional view (the normal sheet stays the default): aged paper,
