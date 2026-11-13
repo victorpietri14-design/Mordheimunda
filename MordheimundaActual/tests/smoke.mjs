@@ -373,7 +373,7 @@ await test('[desktop] campaign standings: scenarios played counter (e.g. 2/4)',n
   expect(out.head&&out.m.join()==='2/4,1/4','scenario counters wrong (expected Alpha 2/4, Beta 1/4): '+JSON.stringify(out));
 });
 await test('[desktop] Lustria maze (five 4s): the lost Hero keeps the effect until he returns or is lost',null,async page=>{
-  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');
+  const out=await page.evaluate(async()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const L=f.warriors.find(w=>w.type==='Leader');
     campaignDetailCache.set('cm1',{id:'cm1',name:'Maze test',members:[],definition:{exploration:{entries:LUSTRIA_EXPLORATION}}});
     const hero={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h-maze',equipmentSelected:[],status:{}};
     state.rosters=[{id:'mz',name:'MZ',factionId:f.id,campaignId:'cm1',gold:0,fighters:[hero]}];state.active='mz';
@@ -382,9 +382,11 @@ await test('[desktop] Lustria maze (five 4s): the lost Hero keeps the effect unt
     editingIndex=0;mazeGamePlayed();const g1=x().maze.games;
     const rnd=Math.random;Math.random=()=>0;mazeRoll();mazeRoll();mazeRoll();Math.random=rnd;const gone=!!x().maze.gone;
     x().maze={games:1,rolls:[]};Math.random=()=>0.99;mazeRoll();Math.random=rnd;const back=!!x().maze.returned&&playEngFighterOk(x());
-    return {set,blocked,card,noPanel,g1,gone,back}});
+    x().maze={games:0,rolls:[]};const hasUndo=mazePanelMarkup(x()).includes('mazeRemove()');const sc=window.siteConfirm;window.siteConfirm=async()=>true;await mazeRemove();window.siteConfirm=sc;const removed=!x().maze&&playEngFighterOk(x());
+    return {set,blocked,card,noPanel,g1,gone,back,hasUndo,removed}});
   expect(out.set&&out.blocked&&out.card&&out.noPanel,'the maze state is not kept on the hero / he can still be engaged: '+JSON.stringify(out));
   expect(out.g1===1&&out.gone&&out.back,'maze progression is wrong: '+JSON.stringify(out));
+  expect(out.hasUndo&&out.removed,'a maze set by mistake cannot be removed: '+JSON.stringify(out));
 });
 await test('[desktop] exploration effects are applied for real (Well → misses the game, undone by clear; Gold Plaque for Lizardmen)',null,async page=>{
   const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&!/possess|undead|skaven|orc/i.test(x.id));const L=f.warriors.find(w=>w.type==='Leader');
