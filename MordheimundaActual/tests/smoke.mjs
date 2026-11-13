@@ -1476,6 +1476,18 @@ await test('[mobile] play: "What do I need to roll?" gives hit / wound / save an
     const ax=diceFindFighter('a1').x,tx=diceFindFighter('b1').x;return {melee:m.w?.name==='Sword'&&m.hit===diceHitMelee(Number(ax.profile[1]),Number(tx.profile[1]))&&m.wound===diceWound(Number(ax.profile[3]),Number(tx.profile[4]))&&Math.abs(m.p-diceChance(m.hit)*diceChance(m.wound))<1e-9,ranged:r.ranged&&r.hit===Math.min(7,diceHitShoot(Number(ax.profile[2]))+1)&&r.w?.name==='Crossbow',shown:/%/.test(txt),tables:diceWound(6,3)===2&&diceWound(2,4)===6&&diceHitMelee(2,4)===5&&diceHitShoot(5)===2}});
   expect(Object.values(out).every(Boolean),'dice helper: '+JSON.stringify(out));
 });
+await test('[desktop] heavy pictures: lighter encoding, short blob links in redraws, admin "lighten pictures"',null,async page=>{
+  const out=await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=1600;c.height=1200;const g=c.getContext('2d');for(let i=0;i<4000;i++){g.fillStyle=`hsl(${i%360},70%,${30+i%40}%)`;g.fillRect(Math.random()*1600,Math.random()*1200,40,40)}
+    const big=c.toDataURL('image/png');const small=await imgShrink(big,1000,0.8);const enc=imgEncode(c,0.8);
+    const b1=imgSrc(big),b2=imgSrc(big);const mk=imageMarkup(big,'fighter','x');
+    await ensureAdminCode();const api=window.MordheimundaAPI;const orig={g:api.adminGetScenario,u:api.adminUpdateScenario,m:api.adminUpdateDeploymentMap};const sent={};
+    api.adminGetScenario=async id=>({scenario:{id,name:'S',status:'draft',thumbnail:big,summary:'x'}});api.adminUpdateScenario=async(id,body)=>{sent.s=body;return {}};api.adminUpdateDeploymentMap=async(id,body)=>{sent.m=body;return {}};
+    const keepS=adminScenariosCache,keepM=DEPLOYMENT_MAPS_CACHE;adminScenariosCache=[{id:'s1'}];DEPLOYMENT_MAPS_CACHE=[{id:'m1',name:'M',image:big}];
+    try{await adminLightenPictures()}finally{Object.assign(api,{adminGetScenario:orig.g,adminUpdateScenario:orig.u,adminUpdateDeploymentMap:orig.m});adminScenariosCache=keepS;DEPLOYMENT_MAPS_CACHE=keepM}
+    return {shrunk:!!small&&small.length<big.length&&/^data:image\/(webp|jpeg)/.test(small),enc:/^data:image\/(webp|jpeg)/.test(enc),blob:b1.startsWith('blob:')&&b1===b2&&imgSrc('data:image/png;base64,AAAA')==='data:image/png;base64,AAAA',markup:/src="blob:/.test(mk),
+      scen:!!sent.s&&sent.s.thumbnail.length<big.length&&sent.s.name==='S'&&!('id' in sent.s),map:!!sent.m&&sent.m.image.length<big.length}});
+  expect(Object.values(out).every(Boolean),'pictures: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

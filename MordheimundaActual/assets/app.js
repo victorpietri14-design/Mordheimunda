@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0834.0';
+const APP_BUILD='110.0835.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2646,7 +2646,7 @@ function imageFocusStyle(focus){
 }
 function imageMarkup(src,kind='fighter',label='Importer une image',focus=null){
  const cls=(kind==='gang'||kind==='custom-warband')?'gang-icon-image':'fighter-avatar-image';
- return src?`<img class="${cls}"${imageFocusStyle(focus)} src="${esc(src)}" alt="${esc(label)}" loading="lazy" decoding="async">`:`<span class="${(kind==='gang'||kind==='custom-warband')?'gang-icon-placeholder':'fighter-avatar-placeholder'}">＋</span>`;
+ return src?`<img class="${cls}"${imageFocusStyle(focus)} src="${esc(imgSrc(src))}" alt="${esc(label)}" loading="lazy" decoding="async">`:`<span class="${(kind==='gang'||kind==='custom-warband')?'gang-icon-placeholder':'fighter-avatar-placeholder'}">＋</span>`;
 }
 // V-EMBLEM: a fighter without a portrait gets an emblem instead of "+":
 // the shape and ring colour tell the role, the small badge the race initial.
@@ -2679,7 +2679,7 @@ function storeImportedImage(kind,index,file){
    const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,w,h);
-   let data=canvas.toDataURL('image/webp',0.92);if(!data.startsWith('data:image/webp'))data=canvas.toDataURL('image/png');
+   let data=canvas.toDataURL('image/webp',0.92);if(!data.startsWith('data:image/webp'))data=kind==='scenario'?canvas.toDataURL('image/jpeg',0.85):canvas.toDataURL('image/png');
    openImageCropModal(kind,index,data);
  };img.onerror=()=>toast(siteLanguage==='en'?'Can’t read this image':'Impossible de lire cette image');img.src=reader.result};
  reader.onerror=()=>toast(siteLanguage==='en'?'Can’t read this file':'Impossible de lire ce fichier');reader.readAsDataURL(file);
@@ -8014,7 +8014,7 @@ const PM_CARD='background:var(--bg);border:1px solid var(--line);border-radius:1
 function playPickerCardMarkup(s,en){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const playable=(s.bandsMax||1)>=2;
-  return `<div class="scn-card" style="display:flex;flex-direction:column;gap:10px;padding:16px${playable?'':';opacity:.6'}">${s.thumbnail?`<div class="pp-banner"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async"></div>`:''}
+  return `<div class="scn-card" style="display:flex;flex-direction:column;gap:10px;padding:16px${playable?'':';opacity:.6'}">${s.thumbnail?`<div class="pp-banner"><img src="${esc(imgSrc(s.thumbnail))}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async"></div>`:''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
       <h3 style="margin:0;font:700 16px 'Cinzel'">${esc(s.name)}</h3>
       ${scenarioCategoryTagsMarkup(s,en,true)}
@@ -8107,7 +8107,7 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
   </div>${playColorsShown(ps)?'':`<div style="display:flex;justify-content:center;align-items:center"><button type="button" class="button secondary tiny" onclick="playColorsOpen=true;render('playMode')">🎨 ${en?'Group colours (random map)':'Couleurs des groupes (carte aléatoire)'}</button></div>`}`;
   const sourceChip=ps.generated&&ps.generated.source==='existing'?`<div style="margin-bottom:8px"><span class="chip">#${ps.generated.mapNumber||''} ${esc(ps.generated.mapName||'')}</span></div>`:'';
   const resultHtml=ps.generated?`<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:4px">
-      <div style="flex:none;width:340px;cursor:zoom-in" onclick="openGeneratedMapLightbox()">${deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(ps.generated.image||'')}" alt="" style="width:100%;border-radius:6px;display:block">`}</div>
+      <div style="flex:none;width:340px;cursor:zoom-in" onclick="openGeneratedMapLightbox()">${deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(imgSrc(ps.generated.image||''))}" alt="" style="width:100%;border-radius:6px;display:block">`}</div>
       <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:0">
         ${sourceChip}
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:8px">${en?'Groups & table edges':'Groupes & bords de table'}</div>
@@ -8366,7 +8366,7 @@ function playGameXp(rid,inst,lineId,delta){
   else if(e){if(next>0)e.count=next;else x.gameXpRecord=x.gameXpRecord.filter(z=>z!==e)}
   logHistory(r,'xp',`${x.name}: ${line.name}${line.repeatable?` ×${next}`:(next?'':(en?' (undone)':' (annulé)'))} (${diff>=0?'+':''}${diff} XP)`);
   toast(`${diff>=0?'✓':'↺'} ${line.name} · ${x.name} ${diff>=0?'+':''}${diff} XP (${before} → ${x.xp})`);
-  save(true);xpRerender();
+  xpRerender();setTimeout(()=>save(true),0);
 }
 function togglePlayQuestRow(k){if(playQuestOpen.has(k))playQuestOpen.delete(k);else playQuestOpen.add(k);xpRerender()}
 function togglePlayQuest(rid,inst,qid){
@@ -8376,7 +8376,7 @@ function togglePlayQuest(rid,inst,qid){
   const i=x.questRecord.findIndex(e=>e.sessionKey===key&&e.questId===qid);const before=Number(x.xp||0);touchRoster(r);
   if(i>=0){const e=x.questRecord[i];x.questRecord.splice(i,1);x.xp=Math.max(0,before-Number(e.xp||0));logHistory(r,'xp',en?`${x.name}: quest “${q.name}” undone (−${e.xp} XP)`:`${x.name} : quête « ${q.name} » annulée (−${e.xp} XP)`);toast(en?`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`:`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`)}
   else{const xp=Number(q.xp||0);const s=SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId);x.questRecord.push({id:crypto.randomUUID(),questId:q.id,name:q.name,tree:q.tree?.name||'',xp,scenario:s?.name||'',date:Date.now(),sessionKey:key});x.xp=before+xp;logHistory(r,'xp',en?`${x.name}: quest “${q.name}” completed (+${xp} XP)`:`${x.name} : quête « ${q.name} » réussie (+${xp} XP)`);toast(en?`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`:`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`)}
-  save(true);xpRerender();
+  xpRerender();setTimeout(()=>save(true),0);
 }
 // ---- Admin → Manage · Quests
 let adminQuestDraft=null;
@@ -8463,7 +8463,7 @@ function playSessionMarkupBase(){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:['48x48','48x72'];
   return `<div class="rules-shell-wrap scn-detail">
-   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div>${s.thumbnail?`<div class="scn-hero play-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text"><h2>${esc(s.name)}</h2></div></div>`:`<div class="play-scn-title"><h2 style="margin-top:6px">${esc(s.name)}</h2></div>`}<p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
+   <div class="page-intro"><div><div class="play-head-row"><a href="#" onclick="playEndSession();return false;" class="muted" style="font-size:12px">← ${playIsGuest(ps)?(en?'Leave this game':'Quitter cette partie'):(en?'End this game':'Terminer cette partie')}</a><button type="button" class="play-wake" onclick="openPlaySummary()">▤ ${en?'Summary':'Résumé'}</button>${'wakeLock' in navigator?`<button type="button" class="play-wake${wakeWanted()?' on':''}" onclick="toggleWakePref()" title="${en?'Keep the screen on during the game':'Garder l’écran allumé pendant la partie'}">☀ ${en?'Screen on':'Écran allumé'} : ${wakeWanted()?(en?'yes':'oui'):(en?'no':'non')}</button>`:''}</div>${s.thumbnail?`<div class="scn-hero play-hero"><img src="${esc(imgSrc(s.thumbnail))}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text"><h2>${esc(s.name)}</h2></div></div>`:`<div class="play-scn-title"><h2 style="margin-top:6px">${esc(s.name)}</h2></div>`}<p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${scenarioCategoryTagsMarkup(s,en,true)}<span class="chip">👥 ${bandsCount}</span></div></div></div>
 
    ${scenarioSectionsMarkup(scenarioSections(s,en,playDeploymentBlockMarkup(ps,s,en,sizes),{ps}),{open:Array.isArray(ps.openScnGroups)?ps.openScnGroups:['j'],play:true})}
   </div>`;
@@ -8850,7 +8850,7 @@ function deploymentMapHandlesMarkupSafe(sh,opts){try{return mapBuilderHandlesMar
 // library tile, scenario editor's map-picker checkbox grid.
 function deploymentMapPreviewMarkup(m,opts){
   if(deploymentMapHasShapes(m))return deploymentMapCardSVG(m.shapes,opts&&opts.forceDims?{forceDims:true}:null);
-  return `<img src="${esc(m.image||'')}" alt="" loading="lazy" decoding="async">`;
+  return `<img src="${esc(imgSrc(m.image||''))}" alt="" loading="lazy" decoding="async">`;
 }
 
 // ---- Map builder: toolbar + draggable/resizable canvas + side panel -------
@@ -8953,7 +8953,7 @@ const MAP_BUILDER_ARRIVAL_RADIUS_IN=3;
 function scenarioCardMarkup(s,en){
   const bandsCount=s.bandsMin===s.bandsMax?s.bandsMin:`${s.bandsMin}–${s.bandsMax}`;
   return `<a href="/rules/scenarios/${encodeURIComponent(s.id)}" data-app-route="1" class="scn-card">
-    <div class="scn-card-banner">${s.thumbnail?`<img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async">`:'🗺'}<div style="display:flex;gap:4px;flex-wrap:wrap;position:absolute;top:8px;right:8px">${scenarioCategoryTagsMarkup(s,en,true)}</div></div>
+    <div class="scn-card-banner">${s.thumbnail?`<img src="${esc(imgSrc(s.thumbnail))}"${imageFocusStyle(s.thumbnailFocus)} alt="" loading="lazy" decoding="async">`:'🗺'}<div style="display:flex;gap:4px;flex-wrap:wrap;position:absolute;top:8px;right:8px">${scenarioCategoryTagsMarkup(s,en,true)}</div></div>
     <div class="scn-card-body"><h4>${esc(s.name)}</h4><p>${esc(s.summary||'')}</p><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">👥 ${bandsCount}</span>${s.campaignSeries?.seriesName?`<span class="chip">${esc(s.campaignSeries.seriesName)} ${esc(s.campaignSeries.position||'')}</span>`:''}</div></div>
   </a>`;
 }
@@ -8981,7 +8981,7 @@ function openDeploymentMapLightbox(){
 }
 function openGeneratedMapLightbox(){
   const ps=state.playSession;if(!ps?.generated)return;
-  const html=deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(ps.generated.image||'')}" alt="" style="max-width:100%;border-radius:6px;display:block">`;
+  const html=deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(imgSrc(ps.generated.image||''))}" alt="" style="max-width:100%;border-radius:6px;display:block">`;
   openModal(`<div style="display:flex;align-items:center;justify-content:center;min-height:40vh">${html}</div>`);
 }
 function drawDeploymentMap(scenarioId){
@@ -9071,7 +9071,7 @@ function scenarioDetail(){
   const sizes=(Array.isArray(s.tableSizes)&&s.tableSizes.length)?s.tableSizes:(s.tableSize?[s.tableSize]:[]);
   const facts=[has(bf.terrainType)?`🏚 ${esc(bf.terrainType)}`:'',sizes.length?`📐 ${sizes.map(esc).join(' / ')}`:'',`👥 ${bandsCount} ${en?'warbands':'bandes'}`].filter(Boolean);
   $('#content').innerHTML=`<div class="rules-shell-wrap scn-detail">
-   ${s.thumbnail?`<div class="scn-hero"><img src="${esc(s.thumbnail)}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text">${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2>${esc(s.name)}</h2></div></div>`:''}
+   ${s.thumbnail?`<div class="scn-hero"><img src="${esc(imgSrc(s.thumbnail))}"${imageFocusStyle(s.thumbnailFocus)} alt="" decoding="async"><div class="scn-hero-shade"></div><div class="scn-hero-text">${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2>${esc(s.name)}</h2></div></div>`:''}
    <div class="page-intro scn-head${s.thumbnail?' under-hero':''}"><div>${s.thumbnail?'':`${siteCrumbs('/rules/scenarios',[[en?'Rules':'Règles','/rules'],[en?'Scenarios':'Scénarios','/rules/scenarios'],[s.name||'']])}<h2 style="margin-top:2px">${esc(s.name)}</h2>`}${has(s.summary)?`<p class="scn-summary">${esc(s.summary)}</p>`:''}<div class="scn-facts">${scenarioCategoryTagsMarkup(s,en,true)}${facts.map(t=>`<span class="chip">${t}</span>`).join('')}</div></div>${isAdminEditUI()?`<button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Edit':'Modifier'}</button>`:''}</div>
    ${scenarioSectionsMarkup(secs)}
   </div>`;
@@ -9235,7 +9235,7 @@ function uploadDeploymentMapImage(file){
       const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
       const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,w,h);
-      let data=canvas.toDataURL('image/webp',0.9);if(!data.startsWith('data:image/webp'))data=canvas.toDataURL('image/png');
+      const data=imgEncode(canvas,0.82);
       try{
         await window.MordheimundaAPI.adminCreateDeploymentMap({name:file.name.replace(/\.[^.]+$/,'').slice(0,60),image:data});
         await loadDeploymentMaps();render('admin');toast(en?'Map added':'Carte ajoutée');
@@ -9258,7 +9258,7 @@ async function confirmDeleteDeploymentMap(id){
 // so nothing typed elsewhere in the editor is lost.
 function scenarioThumbFieldInner(d){
   const en=siteLanguage==='en';const has=!!d?.thumbnail;
-  return `<div class="scn-thumb-preview">${has?`<img src="${esc(d.thumbnail)}"${imageFocusStyle(d.thumbnailFocus)} alt="">`:'<span>🗺</span>'}</div><div class="scn-thumb-actions"><button type="button" class="button secondary" onclick="pickImage('scenario',0)">${has?(en?'Change image':'Changer l’image'):(en?'Choose an image':'Choisir une image')}</button>${has?`<button type="button" class="button secondary" onclick="openImageCropModal('scenario',0,adminScenarioEditData.thumbnail)">${en?'Reframe':'Recadrer'}</button><button type="button" class="button danger-outline" onclick="removeImage('scenario',0)">${en?'Remove':'Retirer'}</button>`:''}<small class="muted">${en?'Shown at the top of the scenario card. Any image; you pick the centre point. Saved with the scenario.':'Affichée en haut de la carte du scénario. N’importe quelle image ; tu choisis le point central. Enregistrée avec le scénario.'}</small></div>`;
+  return `<div class="scn-thumb-preview">${has?`<img src="${esc(imgSrc(d.thumbnail))}"${imageFocusStyle(d.thumbnailFocus)} alt="">`:'<span>🗺</span>'}</div><div class="scn-thumb-actions"><button type="button" class="button secondary" onclick="pickImage('scenario',0)">${has?(en?'Change image':'Changer l’image'):(en?'Choose an image':'Choisir une image')}</button>${has?`<button type="button" class="button secondary" onclick="openImageCropModal('scenario',0,adminScenarioEditData.thumbnail)">${en?'Reframe':'Recadrer'}</button><button type="button" class="button danger-outline" onclick="removeImage('scenario',0)">${en?'Remove':'Retirer'}</button>`:''}<small class="muted">${en?'Shown at the top of the scenario card. Any image; you pick the centre point. Saved with the scenario.':'Affichée en haut de la carte du scénario. N’importe quelle image ; tu choisis le point central. Enregistrée avec le scénario.'}</small></div>`;
 }
 function refreshScenarioThumbField(){const el=document.getElementById('seThumbField');if(el)el.innerHTML=scenarioThumbFieldInner(adminScenarioEditData)}
 function warbandsDirectoryPaneMarkup(en){
@@ -19696,7 +19696,15 @@ function ensureBook(){if(!D.bookSplit||D.pages?.length)return Promise.resolve();
 // stay at 1024). Pictures imported before this, still heavy, are re-encoded
 // once in WebP in the background — only when the result is smaller.
 const IMG_MAX_FIGHTER=640,IMG_MAX_BAND=1024,IMG_HEAVY=300000;
-function imgShrink(dataUrl,max,q=0.86){return new Promise(res=>{try{if(!/^data:image\//.test(String(dataUrl||'')))return res(null);const img=new Image();img.onload=()=>{const sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const w=Math.max(1,Math.round(img.naturalWidth*sc)),h=Math.max(1,Math.round(img.naturalHeight*sc));const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(img,0,0,w,h);const out=c.toDataURL('image/webp',q);res(out.startsWith('data:image/webp')&&out.length<dataUrl.length?out:null)};img.onerror=()=>res(null);img.src=dataUrl}catch(e){res(null)}})}
+// V-IMGLIGHT: WebP when the browser can make it, else JPEG (an iPhone can't
+// make WebP: the old PNG fallback gave 1-2 MB pictures).
+function imgEncode(c,q=0.82){let out=c.toDataURL('image/webp',q);if(!out.startsWith('data:image/webp'))out=c.toDataURL('image/jpeg',q);return out}
+// A big inline picture is turned once into a short blob: link, so a redraw
+// does not copy and parse megabytes of text each time (Play, scenarios, maps).
+var imgSrcCache=new Map();
+function imgSrc(u){if(!imgSrcCache)imgSrcCache=new Map();const v=String(u||'');if(v.length<20000||!v.startsWith('data:'))return v;const hit=imgSrcCache.get(v);if(hit)return hit;
+  try{const i=v.indexOf(',');const meta=v.slice(5,i);const bin=atob(v.slice(i+1));const a=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);const url=URL.createObjectURL(new Blob([a],{type:meta.split(';')[0]||'image/jpeg'}));if(imgSrcCache.size>60)imgSrcCache.clear();imgSrcCache.set(v,url);return url}catch(e){return v}}
+function imgShrink(dataUrl,max,q=0.86){return new Promise(res=>{try{if(!/^data:image\//.test(String(dataUrl||'')))return res(null);const img=new Image();img.onload=()=>{const sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const w=Math.max(1,Math.round(img.naturalWidth*sc)),h=Math.max(1,Math.round(img.naturalHeight*sc));const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(img,0,0,w,h);const out=imgEncode(c,q);res(out&&out.length<dataUrl.length?out:null)};img.onerror=()=>res(null);img.src=dataUrl}catch(e){res(null)}})}
 async function imgShrinkInPlace(obj,key,max){const before=obj?.[key];if(!before||before.length<60000)return false;const out=await imgShrink(before,max);if(out&&obj[key]===before){obj[key]=out;return true}return false}
 async function imgOptimizeAll(){try{if(sessionStorage.getItem('mu_img_opt'))return;sessionStorage.setItem('mu_img_opt','1')}catch(e){}if(adminViewingUserId||sharedViewToken)return;let changed=0;
   for(const r of (state.rosters||[])){if(!r)continue;if(String(r.icon||'').length>IMG_HEAVY&&await imgShrinkInPlace(r,'icon',IMG_MAX_BAND)){touchRoster(r);changed++}
@@ -20163,7 +20171,7 @@ function factionTraits(f){const en=siteLanguage==='en';const ws=(f.warriors||[])
   const pool=[...(D.weapons||[])];const ranged=(f.equipment||[]).map(e=>typeof e==='string'?e:e?.name).filter(Boolean).filter(n=>{const w=pool.find(x=>normName(x.name)===normName(n));return w&&weaponIsRanged(w.profile)}).length;
   const hench=ws.filter(w=>w.type==='Henchman').map(w=>Number(w.cost)||0).filter(Boolean);const cheap=hench.length?Math.min(...hench):0;
   const tags=[];if(avg(0)>=5)tags.push(en?'fast':'rapide');if(avg(1)>=3.8)tags.push(en?'close combat':'corps à corps');if(ranged>=4)tags.push(en?'shooting':'tir');else if(ranged<=1)tags.push(en?'little shooting':'peu de tir');if(cheap&&cheap<=25)tags.push(en?'numerous':'nombreux');if(avg(4)>=3.8)tags.push(en?'tough':'résistant');
-  const own=hx(`faction.${f.id}.tags`,['','']);const dOwn=Number(hx(`faction.${f.id}.diff`,['','']));
+  const any=k=>{const o=helpOverrides?.texts?.[k];return o?(o[en?'en':'fr']||o.fr||o.en||''):''};const own=any(`faction.${f.id}.tags`);const dOwn=Number(String(any(`faction.${f.id}.diff`)).trim());
   return {tags:own?own.split(',').map(t=>t.trim()).filter(Boolean):tags.slice(0,3),diff:dOwn>=1&&dOwn<=3?dOwn:null}}
 function factionTraitsMarkup(f,beginner){const en=siteLanguage==='en';const t=factionTraits(f);const d=t.diff||(beginner?1:2);
   return `<span class="fac-traits"><span class="fac-diff" title="${en?'Difficulty':'Difficulté'}">${'★'.repeat(d)}${'☆'.repeat(3-d)} <small>${[en?'easy':'facile',en?'medium':'moyen',en?'hard':'difficile'][d-1]}</small></span>${t.tags.map(x=>`<span class="fac-tag">${esc(x)}</span>`).join('')}</span>`}
@@ -20195,7 +20203,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  HELP_NEWS.forEach(n=>add('news',`news.${n.id}`,n.id,n.text));
  Object.keys(COACH_TEXTS).forEach(k=>add('learn',`coach.${k}`,`Ma première partie · ${k}`,COACH_TEXTS[k]));
  LEARN_LESSONS.forEach((l,i)=>['title','sub','body','q','why'].forEach(f=>add('learn',`learn.${l.id}.${f}`,`${i+1} · ${({title:'titre',sub:'sous-titre',body:'texte',q:'question',why:'explication'})[f]}`,l[f])));
- (D.factions||[]).filter(f=>!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['',''])});
+ (D.factions||[]).filter(f=>!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['','']);add('factions',`faction.${f.id}.diff`,`${f.displayName||f.id} · difficulté (1 facile, 2 moyen, 3 difficile — vide = automatique)`,['','']);add('factions',`faction.${f.id}.tags`,`${f.displayName||f.id} · mots-clés, séparés par des virgules (vide = automatique)`,['',''])});
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}

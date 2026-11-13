@@ -359,7 +359,7 @@ function adminScenariosSectionMarkup(en){
       <div class="eyebrow">${en?'SCENARIOS':'SCÉNARIOS'}</div>
       <h3>${en?'Scenarios':'Scénarios'}</h3>
       <p class="muted">${en?'Shown on Rules > Scenarios once published. Draft scenarios stay admin-only.':'Affichés sur Règles > Scénarios une fois publiés. Les brouillons restent réservés aux admins.'}</p>
-      <button type="button" class="button secondary" onclick="openScenarioEditor(null)" style="margin-bottom:12px">+ ${en?'New scenario':'Nouveau scénario'}</button>
+      <button type="button" class="button secondary" onclick="openScenarioEditor(null)" style="margin-bottom:12px">+ ${en?'New scenario':'Nouveau scénario'}</button><button type="button" class="button secondary" onclick="adminLightenPictures()" style="margin:0 0 12px 8px" title="${en?'Re-compress the scenario pictures and map images that are too heavy (they load slowly on phones)':'Recompresse les images de scénario et les cartes trop lourdes (lentes à charger sur téléphone)'}">🗜 ${en?'Lighten pictures':'Alléger les images'}</button>
       <div class="custom-item-list">${list.length?list.map(s=>{const isDraft=s.status==='draft';return `<article class="custom-item-row"><div class="custom-item-main"><div><strong>${esc(s.name)}</strong><small>${isDraft?`<span class="official-status-draft">${en?'DRAFT':'BROUILLON'}</span> · `:''}${scenarioCategoriesOf(s).map(c=>scenarioCategoryLabel(c,en)).join(', ')}</small></div></div><div class="custom-item-actions"><button type="button" class="button secondary" onclick="openScenarioEditor('${esc(s.id)}')">✎ ${en?'Manage':'Gérer'}</button><button type="button" class="button secondary" onclick="setScenarioStatus('${esc(s.id)}','${isDraft?'published':'draft'}')">${isDraft?(en?'Publish':'Publier'):(en?'Unpublish':'Dépublier')}</button>${isDraft?`<button type="button" class="equipment-action remove" onclick="confirmDeleteScenario('${esc(s.id)}')">🗑</button>`:''}</div></article>`}).join(''):`<div class="empty compact">${en?'No scenario yet.':'Aucun scénario pour l’instant.'}</div>`}</div>
     </section>
     <section class="card admin-card">
@@ -2542,3 +2542,14 @@ function scenarioTooLong(b,en){const out=[];const get=(o,path)=>path.split('.').
  (b.experience||[]).forEach((x,i)=>{if(String(x?.name||'').length>400)out.push(`${en?'Experience':'Expérience'} ${i+1} ${String(x.name).length}/400`);if(String(x?.text||'').length>4000)out.push(`${en?'Experience':'Expérience'} ${i+1} ${String(x.text).length}/4000`)});
  (b.rewards||[]).forEach((r,i)=>{if(String(r||'').length>8000)out.push(`${en?'Reward':'Récompense'} ${i+1} ${String(r).length}/8000`)});
  return out}
+
+// V-IMGLIGHT: re-compress the heavy scenario pictures and deployment map
+// images already online (max 1000 px, WebP or JPEG), then save them back.
+async function adminLightenPictures(){const en=siteLanguage==='en';const LIMIT=150000;let done=0,saved=0,failed=0;
+  toast(en?'Lightening pictures…':'Allègement des images…',4000);
+  for(const s0 of (adminScenariosCache||[])){try{const {scenario}=await window.MordheimundaAPI.adminGetScenario(s0.id);const t=scenario?.thumbnail;if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;
+    const out=await imgShrink(t,1000,0.8);if(!out)continue;const {id,status,createdAt,updatedAt,...body}=scenario;body.thumbnail=out;await window.MordheimundaAPI.adminUpdateScenario(s0.id,body);done++;saved+=t.length-out.length}catch(e){failed++}}
+  for(const m of (DEPLOYMENT_MAPS_CACHE||[])){try{const t=m.image;if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;const out=await imgShrink(t,1000,0.8);if(!out)continue;
+    await window.MordheimundaAPI.adminUpdateDeploymentMap(m.id,{name:m.name,image:out});m.image=out;done++;saved+=t.length-out.length}catch(e){failed++}}
+  adminScenariosCache=null;try{loadScenarios()}catch(e){}try{render('admin')}catch(e){}
+  toast(done?(en?`${done} picture(s) lightened: −${Math.round(saved*0.75/1024)} KB${failed?` · ${failed} failed`:''}`:`${done} image(s) allégée(s) : −${Math.round(saved*0.75/1024)} Ko${failed?` · ${failed} échec(s)`:''}`):(failed?(en?`${failed} failed`:`${failed} échec(s)`):(en?'All pictures are already light.':'Toutes les images sont déjà légères.')),6000)}
