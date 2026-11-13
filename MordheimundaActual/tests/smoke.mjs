@@ -1464,8 +1464,39 @@ await test('[mobile] help B+C: faction traits, ready-made warband, profile expla
     state.rosters=[{id:'wb',name:'WB',factionId:f.id,gold:500,fighters:[],reserve:[],history:[]}];state.active='wb';navigateApp(warbandPath('wb'));await new Promise(z=>setTimeout(z,400));
     const starter=!!document.querySelector('.wba-starter');wbStarterFill();await new Promise(z=>setTimeout(z,300));const r=activeRoster();
     openProfileHelp(0);await new Promise(z=>setTimeout(z,200));const ph=document.querySelector('.profile-help')?.textContent||'';closeModal();
-    return {tags:Array.isArray(tr.tags),stars:/★/.test(mk),starter,filled:r.fighters.length>=3&&r.fighters.some(x=>x.type==='Leader')&&Number(r.gold)>=0&&Number(r.gold)<500,help:/2D6/.test(ph)&&/(3|4|5)\+/.test(ph),pct:statPct(7)===58&&statPct(2)===3}});
+    navigateApp(APP_ROUTES.rulesWarbands);await new Promise(z=>setTimeout(z,500));const onRules=document.querySelectorAll('.faction-choice .fac-traits').length>0;navigateApp(warbandPath('wb'));await new Promise(z=>setTimeout(z,300));
+    return {onRules,tags:Array.isArray(tr.tags),stars:/★/.test(mk),starter,filled:r.fighters.length>=3&&r.fighters.some(x=>x.type==='Leader')&&Number(r.gold)>=0&&Number(r.gold)<500,help:/2D6/.test(ph)&&/(3|4|5)\+/.test(ph),pct:statPct(7)===58&&statPct(2)===3}});
   expect(Object.values(out).every(Boolean),'help B+C: '+JSON.stringify(out));
+});
+await test('[mobile] play: "What do I need to roll?" gives hit / wound / save and the odds',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.some(w=>w.type==='Henchman'));const hs=f.warriors.filter(w=>w.type==='Henchman');const sword=D.weapons.find(w=>w.name==='Sword'),xbow=D.weapons.find(w=>w.name==='Crossbow');
+    const mk=(w,inst,eq,prof)=>({...JSON.parse(JSON.stringify(w)),wid:w.id,instance:inst,equipmentSelected:eq.map(e=>JSON.parse(JSON.stringify(e))),profile:prof,status:{}});
+    state.rosters=[{id:'da',name:'A',factionId:f.id,gold:0,fighters:[mk(hs[0],'a1',[sword,xbow],[4,4,3,3,3,1,3,1,7,7,7,7])]},{id:'db',name:'B',factionId:f.id,gold:0,fighters:[mk(hs[0],'b1',[],[4,3,3,3,3,1,3,1,7,7,7,7])]}];state.active='da';
+    state.playSession={slots:[{source:'own',rosterId:'da'},{source:'own',rosterId:'db'}]};
+    openDiceHelp('a1');const m=diceHelpCalc();diceSet('wi',1);diceSet('cover',true);const r=diceHelpCalc();const txt=document.querySelector('.dice-help')?.textContent||'';closeModal();
+    const ax=diceFindFighter('a1').x,tx=diceFindFighter('b1').x;return {melee:m.w?.name==='Sword'&&m.hit===diceHitMelee(Number(ax.profile[1]),Number(tx.profile[1]))&&m.wound===diceWound(Number(ax.profile[3]),Number(tx.profile[4]))&&Math.abs(m.p-diceChance(m.hit)*diceChance(m.wound))<1e-9,ranged:r.ranged&&r.hit===Math.min(7,diceHitShoot(Number(ax.profile[2]))+1)&&r.w?.name==='Crossbow',shown:/%/.test(txt),tables:diceWound(6,3)===2&&diceWound(2,4)===6&&diceHitMelee(2,4)===5&&diceHitShoot(5)===2}});
+  expect(Object.values(out).every(Boolean),'dice helper: '+JSON.stringify(out));
+});
+await test('[desktop] heavy pictures: lighter encoding, short blob links in redraws, admin "lighten pictures"',null,async page=>{
+  const out=await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=1600;c.height=1200;const g=c.getContext('2d');for(let i=0;i<4000;i++){g.fillStyle=`hsl(${i%360},70%,${30+i%40}%)`;g.fillRect(Math.random()*1600,Math.random()*1200,40,40)}
+    const big=c.toDataURL('image/png');const small=await imgShrink(big,1000,0.8);const enc=imgEncode(c,0.8);
+    const b1=imgSrc(big),b2=imgSrc(big);const mk=imageMarkup(big,'fighter','x');
+    await ensureAdminCode();const api=window.MordheimundaAPI;const orig={g:api.adminGetScenario,u:api.adminUpdateScenario,m:api.adminUpdateDeploymentMap};const sent={};
+    api.adminGetScenario=async id=>({scenario:{id,name:'S',status:'draft',thumbnail:big,summary:'x'}});api.adminUpdateScenario=async(id,body)=>{sent.s=body;return {}};api.adminUpdateDeploymentMap=async(id,body)=>{sent.m=body;return {}};
+    const keepS=adminScenariosCache,keepM=DEPLOYMENT_MAPS_CACHE;adminScenariosCache=[{id:'s1'}];DEPLOYMENT_MAPS_CACHE=[{id:'m1',name:'M',image:big}];
+    try{await adminLightenPictures()}finally{Object.assign(api,{adminGetScenario:orig.g,adminUpdateScenario:orig.u,adminUpdateDeploymentMap:orig.m});adminScenariosCache=keepS;DEPLOYMENT_MAPS_CACHE=keepM}
+    return {shrunk:!!small&&small.length<big.length&&/^data:image\/(webp|jpeg)/.test(small),enc:/^data:image\/(webp|jpeg)/.test(enc),blob:b1.startsWith('blob:')&&b1===b2&&imgSrc('data:image/png;base64,AAAA')==='data:image/png;base64,AAAA',markup:/src="blob:/.test(mk),
+      scen:!!sent.s&&sent.s.thumbnail.length<big.length&&sent.s.name==='S'&&!('id' in sent.s),map:!!sent.m&&sent.m.image.length<big.length}});
+  expect(Object.values(out).every(Boolean),'pictures: '+JSON.stringify(out));
+});
+await test('[desktop] faction quick editor: difficulty, keywords, intro and Beginner badge saved, shown on creation and Rules',null,async page=>{
+  const out=await page.evaluate(async()=>{const f=D.factions.find(x=>!x.packId&&x.warriors?.length);const api=window.MordheimundaAPI;const orig=api.adminSaveHelpTexts;const keep=JSON.parse(JSON.stringify(helpOverrides));let sent=null;
+    api.adminSaveHelpTexts=async b=>{sent=b;return {help:b}};
+    try{openFactionHelpEditor(f.id);await new Promise(z=>setTimeout(z,100));document.getElementById('feDiff').value='3';document.getElementById('feTagsFr').value='brutal, lent';document.getElementById('feTagsEn').value='brutal, slow';document.getElementById('feBlurbFr').value='Une bande test.';document.getElementById('feBeg').checked=true;
+      await saveFactionHelpEditor(f.id);const tr=factionTraits(f);const mk=factionTraitsMarkup(f,true);
+      return {sent:!!sent&&sent.texts[`faction.${f.id}.diff`]?.fr==='3'&&sent.beginner.includes(f.id),diff:tr.diff===3,tags:tr.tags.length===2,stars:/★★★/.test(mk),blurb:helpFactionBlurb(f)==='Une bande test.'||siteLanguage==='en'}}
+    finally{api.adminSaveHelpTexts=orig;helpOverrides=keep}});
+  expect(Object.values(out).every(Boolean),'faction editor: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

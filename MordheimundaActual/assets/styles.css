@@ -6185,7 +6185,23 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .ph-row>span:last-child b{display:block;font-size:13px}.ph-row small{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}
 .ph-tips{margin:6px 0 10px;padding-left:18px;font-size:13px;line-height:1.55}
 .fac-traits{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;align-items:center}
-.fac-diff{font-size:11px;color:var(--wip,#e0b04a);margin-right:2px}.fac-diff small{color:var(--muted)}
+.fac-diff{font-size:11px;color:var(--wip,#e0b04a);margin-right:2px;white-space:nowrap}.fac-diff small{color:var(--muted)}
 .fac-tag{font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .wba-starter{display:grid;gap:4px;margin:0 12px 10px;padding:10px 12px;border:1px dashed var(--accent);border-radius:10px}
 .wba-starter small{font-size:12px;color:var(--muted);line-height:1.4}.wba-starter .button{justify-self:start;margin-top:4px}
+/* V-DICEHELP */
+.dice-help-btn{all:unset;cursor:pointer;display:block;margin:6px 0 2px;font-size:12px;font-weight:700;color:var(--accent);text-align:center;padding:6px;border:1px dashed var(--line);border-radius:8px}
+.dh-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.dh-pick label,.dh-num{display:grid;gap:4px;font-size:11px;color:var(--muted);letter-spacing:.6px}
+.dh-pick select,.dh-num select{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:8px;border-radius:8px;font:500 13px 'IBM Plex Sans'}
+.dh-manual{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.dh-tgt{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.dh-cover{display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0 8px}
+.dh-rows{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.dh-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:9px 11px;border-top:1px solid var(--line)}.dh-row:first-child{border-top:0}
+.dh-row small{display:block;font-size:12px;color:var(--muted)}.dh-need{font-size:19px;color:var(--accent)}
+.dh-sum{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;margin:10px 0 6px}
+.dh-note{font-size:11.5px}
+.fac-blurb{margin:6px 0 0;font-size:13px;color:var(--muted);max-width:620px}
+.fac-edit-btn{margin-top:8px}
+.fe-beg{display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0}

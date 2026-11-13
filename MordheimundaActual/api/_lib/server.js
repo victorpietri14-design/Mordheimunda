@@ -1618,6 +1618,10 @@ app.post('/api/admin/deployment-maps',requireDb,requireSameOrigin,auth,requireAd
 app.put('/api/admin/deployment-maps/:id',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const name=String(req.body?.name||'').trim().slice(0,120);
   const shapes=validateDeploymentShapes(req.body?.shapes);
+  // V-IMGLIGHT: an optional lighter copy of the map's picture (Admin › lighten pictures).
+  const image=typeof req.body?.image==='string'?req.body.image:'';
+  if(image){if(!image.startsWith('data:image/')||Buffer.byteLength(image)>3*1024*1024)return res.status(400).json({error:'INVALID_IMAGE'});
+    try{const q=await pool.query('UPDATE deployment_maps SET image=$1 WHERE id=$2 RETURNING id,number,name,image,shapes',[image,req.params.id]);if(!q.rowCount)return res.status(404).json({error:'NOT_FOUND'});return res.json({map:toDeploymentMap(q.rows[0])})}catch(e){return next(e)}}
   try{
     const q=shapes.items.length
       ? await pool.query('UPDATE deployment_maps SET name=$1,shapes=$2 WHERE id=$3 RETURNING id,number,name,image,shapes',[name,JSON.stringify(shapes),req.params.id])
