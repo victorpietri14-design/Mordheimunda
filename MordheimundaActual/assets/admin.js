@@ -2549,7 +2549,8 @@ async function adminLightenPictures(){const en=siteLanguage==='en';const LIMIT=1
   toast(en?'Lightening pictures…':'Allègement des images…',4000);
   for(const s0 of (adminScenariosCache||[])){try{const {scenario}=await window.MordheimundaAPI.adminGetScenario(s0.id);const t=scenario?.thumbnail;if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;
     const out=await imgShrink(t,1000,0.8);if(!out)continue;const {id,status,createdAt,updatedAt,...body}=scenario;body.thumbnail=out;await window.MordheimundaAPI.adminUpdateScenario(s0.id,body);done++;saved+=t.length-out.length}catch(e){failed++}}
-  for(const m of (DEPLOYMENT_MAPS_CACHE||[])){try{const t=m.image;if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;const out=await imgShrink(t,1000,0.8);if(!out)continue;
-    await window.MordheimundaAPI.adminUpdateDeploymentMap(m.id,{name:m.name,image:out});m.image=out;done++;saved+=t.length-out.length}catch(e){failed++}}
-  adminScenariosCache=null;try{loadScenarios()}catch(e){}try{render('admin')}catch(e){}
+  const asData=async u=>{if(typeof u!=='string')return null;if(u.startsWith('data:'))return u;if(!u.startsWith('/api/'))return null;const b=await (await fetch(u,{credentials:'same-origin'})).blob();return await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result||''));fr.onerror=()=>ok(null);fr.readAsDataURL(b)})};
+  for(const m of (DEPLOYMENT_MAPS_CACHE||[])){try{const t=await asData(m.image);if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;const out=await imgShrink(t,1000,0.8);if(!out)continue;
+    await window.MordheimundaAPI.adminUpdateDeploymentMap(m.id,{name:m.name,image:out});done++;saved+=t.length-out.length}catch(e){failed++}}
+  adminScenariosCache=null;try{loadScenarios()}catch(e){}try{DEPLOYMENT_MAPS_CACHE=[];loadDeploymentMaps()}catch(e){}try{render('admin')}catch(e){}
   toast(done?(en?`${done} picture(s) lightened: −${Math.round(saved*0.75/1024)} KB${failed?` · ${failed} failed`:''}`:`${done} image(s) allégée(s) : −${Math.round(saved*0.75/1024)} Ko${failed?` · ${failed} échec(s)`:''}`):(failed?(en?`${failed} failed`:`${failed} échec(s)`):(en?'All pictures are already light.':'Toutes les images sont déjà légères.')),6000)}
