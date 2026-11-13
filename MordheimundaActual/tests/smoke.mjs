@@ -1457,6 +1457,16 @@ await test('[mobile] warband assistant: live checklist on a new warband, ready-t
     return {shown:first.length===7,leaderOk:/Leader/.test(leaderOk),todo:first.filter(c=>c!=='ok'&&c!=='info').length>=3,almost:/ALMOST READY|PRESQUE PRÊT/i.test(ready)&&/STILL TO DO|ENCORE À FAIRE/i.test(ready),goneAfterGame}});
   expect(Object.values(out).every(Boolean),'warband assistant: '+JSON.stringify(out));
 });
+await test('[mobile] help B+C: faction traits, ready-made warband, profile explained with dice',null,async page=>{
+  await page.setViewportSize({width:390,height:844});
+  const out=await page.evaluate(async()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.filter(w=>w.type==='Henchman').length>=1&&x.warriors?.some(w=>w.type==='Leader'));
+    const tr=factionTraits(f);const mk=factionTraitsMarkup(f,true);
+    state.rosters=[{id:'wb',name:'WB',factionId:f.id,gold:500,fighters:[],reserve:[],history:[]}];state.active='wb';navigateApp(warbandPath('wb'));await new Promise(z=>setTimeout(z,400));
+    const starter=!!document.querySelector('.wba-starter');wbStarterFill();await new Promise(z=>setTimeout(z,300));const r=activeRoster();
+    openProfileHelp(0);await new Promise(z=>setTimeout(z,200));const ph=document.querySelector('.profile-help')?.textContent||'';closeModal();
+    return {tags:Array.isArray(tr.tags),stars:/★/.test(mk),starter,filled:r.fighters.length>=3&&r.fighters.some(x=>x.type==='Leader')&&Number(r.gold)>=0&&Number(r.gold)<500,help:/2D6/.test(ph)&&/(3|4|5)\+/.test(ph),pct:statPct(7)===58&&statPct(2)===3}});
+  expect(Object.values(out).every(Boolean),'help B+C: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
