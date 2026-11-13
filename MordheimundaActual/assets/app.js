@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0829.0';
+const APP_BUILD='110.0830.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -443,8 +443,8 @@ const CORE_SPECIAL_RULES=[
     RULES.categories.special.push({name:r.name,category:'Règles spéciales',text:r.text,source:'M17 source PDF',id:'special-core-'+r.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''),lines:Math.max(1,String(r.text).split(/\n+/).filter(Boolean).length)});
   });
 })();
-const REFERENCE_CATEGORIES={skills:'Compétences',traits:'Traits d’armes',special:'Règles spéciales',spells:'Sorts & prières',equipment:'Équipement'};
-const REFERENCE_CATEGORIES_EN={skills:'Skills',traits:'Weapon traits',special:'Special rules',spells:'Spells & prayers',equipment:'Equipment'};
+const REFERENCE_CATEGORIES={skills:'Compétences',traits:'Traits d’armes',special:'Règles spéciales',spells:'Sorts & prières',equipment:'Équipement',artifacts:'Artefacts'};
+const REFERENCE_CATEGORIES_EN={skills:'Skills',traits:'Weapon traits',special:'Special rules',spells:'Spells & prayers',equipment:'Equipment',artifacts:'Artifacts'};
 // Small persistence helper for "which section was I on" UI state (Référentiel
 // category, Règles open section…) — a normal tab switch already keeps these
 // in memory (plain module-level variables), but a hard page refresh reloads
@@ -461,7 +461,7 @@ let referenceSourceFilter='all';
 // with a retractable A–Z sidebar, and a catalog-backed Equipment view. Popup
 // nav labels are fixed English per explicit request, independent of the
 // site's FR/EN toggle.
-const REFERENCE_NAV_LABELS_EN={skills:'Skills',traits:'Traits',special:'Special Rules',spells:'Spells and Prayers',equipment:'Equipment'};
+const REFERENCE_NAV_LABELS_EN={skills:'Skills',traits:'Traits',special:'Special Rules',spells:'Spells and Prayers',equipment:'Equipment',artifacts:'Artifacts'};
 let referenceNavOpen=false;
 let referenceGlossaryOpen=restoreUiState('refGlossaryOpen','1')!=='0';
 // V-SPELLGRIDWIDE (Task #78 follow-up): whether the spells/prayers grid shows
@@ -666,7 +666,7 @@ function rulePeekSummary(rawText){const en=siteLanguage==='en';const lines=strip
 // can be used to jump to a keyword it mentions instead of dead-ending there.
 function rulePeekSummaryHtml(rawText,excludeName){const plain=rulePeekSummary(rawText);return linkGlossaryInHtml(esc(plain),excludeName);}
 function rulePeekTitle(cat){if(cat==='scnaction')return siteLanguage==='en'?'Objectives & Scenario Actions':'Objectifs et actions de scénario';if(cat==='gameaction')return siteLanguage==='en'?'Action':'Action';return REFERENCE_CATEGORIES[cat]||(siteLanguage==='en'?'Reference':'Référence');}
-function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',scnaction:'◎',gameaction:'➤'}[cat]||'◆';}
+function rulePeekIcon(cat){return {skills:'★',traits:'⚔',special:'✚',spells:'✦',equipment:'⚔',artifacts:'◈',scnaction:'◎',gameaction:'➤'}[cat]||'◆';}
 function positionRulePeek(elOrRect){const pop=$('#rulePeek');if(!pop||!elOrRect)return;const r=typeof elOrRect.getBoundingClientRect==='function'?elOrRect.getBoundingClientRect():elOrRect;const pw=Math.min(460,window.innerWidth-24),ph=pop.offsetHeight;let left=Math.min(Math.max(12,r.left),window.innerWidth-pw-12),top=r.bottom+10;if(top+ph>window.innerHeight-12)top=r.top-ph-10;if(top<12)top=12;pop.style.left=left+'px';pop.style.top=top+'px';pop.style.width=pw+'px';}
 function showRulePeek(el){
   // V-STALEPEEKTARGET: on a touch tap, the browser fires a synthetic
@@ -1794,9 +1794,22 @@ function referenceEquipmentBodyMarkup(q){
   const body=`<section class="ref-group" id="ref-eq-${refSlug(s.cat)}"><div class="tc-head ref-group-head"><h3>${esc(s.label)}</h3><span class="tc-count">${items.length}</span></div>${s.weapon?referenceWeaponTableMarkup(items):isCreature?referenceCreatureMarkup(items,s.cat==='Montures'?'mount':'animal'):referenceEquipmentCardMarkup(items)}</section>`;
   return `<nav class="ref-pillnav">${pills}</nav>${body}`;
 }
+// V-ARTREF: References › Artifacts, by campaign then Minor / Major, each one
+// shown like an item: weapon profile (or equipment), description, story.
+function artifactCardMarkup(a,opts){const en=siteLanguage==='en';const r=artifactResolved(a);const admin=opts?.admin&&a.campaignId;
+  const kind=r.weapon?(en?'Weapon':'Arme'):(en?'Equipment':'Équipement');
+  const base=r.base?` · ${en?'counts as':'compte comme'} ${refLink('equipment',r.base.name,r.base.name)}`:(a.base?` · ${esc(a.base)}`:'');
+  const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,''):'';
+  return `<article class="artifact-card art-item" id="artref-${esc(normName(a.name).replace(/\s+/g,'-'))}"><div class="artifact-head">${a.roll?`<span class="artifact-roll">${esc(a.roll)}</span>`:''}<h3>${esc(a.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openCampaignArtifactEditor('${esc(a.campaignId)}','${esc(a.id||'')}')">✎</button>`:''}</div><div class="artifact-base">${kind}${base}</div>${prof}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${a.lore?`<details class="artifact-lore-fold"><summary>${en?'Story':'Histoire'}</summary><p class="artifact-lore">${esc(a.lore)}</p></details>`:''}</article>`}
+function artifactGroupsMarkup(list,opts){const en=siteLanguage==='en';const byCamp=new Map();list.forEach(a=>{const k=a.campaign||'—';if(!byCamp.has(k))byCamp.set(k,[]);byCamp.get(k).push(a)});
+  return [...byCamp.entries()].map(([camp,rows])=>{const part=(t,label)=>{const l=rows.filter(a=>(a.table||'minor')===t).sort((x,y)=>campaignArtifactRollKey(x)-campaignArtifactRollKey(y));return l.length?`<h4 class="art-sub">${label} <small>${l.length}</small></h4><div class="artifact-grid">${l.map(a=>artifactCardMarkup(a,opts)).join('')}</div>`:''};
+    return `<section class="art-camp"><h3 class="campaign-h3">◈ ${esc(camp)}</h3>${part('minor',en?'Minor artifacts':'Artefacts mineurs')}${part('major',en?'Major artifacts':'Artefacts majeurs')}</section>`}).join('')}
+function referenceArtifactsBodyMarkup(q){const en=siteLanguage==='en';const list=artifactAllList().filter(a=>!q||`${a.name} ${a.rules||''} ${a.base||''} ${a.campaign||''}`.toLowerCase().includes(q));
+  if(!list.length)return `<p class="muted">${en?'No artifact.':'Aucun artefact.'}</p>`;return `<div class="art-ref">${artifactGroupsMarkup(list,{admin:isAdminEditUI()})}</div>`}
 function referenceBodyMarkup(){
   const q=referenceSearch.trim().toLowerCase();
   if(referenceCategory==='equipment')return referenceEquipmentBodyMarkup(q)+coveringReferenceSection(q);
+  if(referenceCategory==='artifacts')return referenceArtifactsBodyMarkup(q);
   if(referenceCategory==='skills'||referenceCategory==='spells')return referenceGroupedBodyMarkup(referenceCategory,q);
   if(referenceCategory==='traits'||referenceCategory==='special')return referenceAlphaBodyMarkup(referenceCategory,q);
   return '';
@@ -11043,7 +11056,7 @@ function campaignUsesTreasure(r){return campaignFeatureOn(campaignOfRoster(r),'e
 function treasureText(html){return String(html).replace(/(?<![\w-])([Ww]yrdstone|WYRDSTONE)(?![\w(]| Hunter)/g,(m)=>m==='WYRDSTONE'?'TREASURE':'Treasure').replace(/(?<![\w-])shards?(?![\w(-])/g,m=>m==='shard'?'Treasure':'Treasures').replace(/(?<![\w-])Shards?(?![\w(-])/g,m=>m==='Shard'?'Treasure':'Treasures').replace(/Treasure(s?) de Treasure/g,'Treasure$1').replace(/\bces Treasure\b/g,'ces Treasures').replace(/\bthis Treasure in stock/g,'this Treasure in stock')}
 // Skinned items: name = base catalogue item (rules), skin = name shown.
 function eqShownName(e){return e?.skin||e?.name||''}
-function eqNameLink(e){if(!e)return '';return e.skin&&normName(e.skin)!==normName(e.name)?`${refLink('equipment',e.name,e.skin)} <small class="eq-skin-base">(${esc(e.name)})</small>`:refLink('equipment',e.name)}
+function eqNameLink(e){if(!e)return '';if(e.artifact&&artifactByName(e.artifact))return `<span class="art-tag">✦</span> ${refLink('artifacts',e.artifact,e.skin||e.name)}`;return e.skin&&normName(e.skin)!==normName(e.name)?`${refLink('equipment',e.name,e.skin)} <small class="eq-skin-base">(${esc(e.name)})</small>`:refLink('equipment',e.name)}
 function campaignStashItem(r,spec,qty,source){
   r.reserve=Array.isArray(r.reserve)?r.reserve:[];const base=spec.b?campaignArtifactBaseItem(spec.b):null;
   const def=base?explorationEquipmentDefinition(base.name):{name:spec.n,category:siteLanguage==='en'?'Valuable':'Objet de valeur',price:0,value:0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true,valuable:true};
@@ -11124,7 +11137,7 @@ function rollCampaignArtifact(){
 function takeCampaignArtifact(rid,i){
   const r=activeRoster();if(!r)return;const en=siteLanguage==='en';const c=campaignOfRoster(r);const s=campaignExploreState(r);const res=(s.artifacts||[]).find(x=>x.id===rid);const row=res?.rolls?.[i];if(!row||!row.name||row.heldBy||row.taken)return;
   const a=campaignArtifactList(c).find(x=>normName(x.name)===normName(row.name));if(!a)return;if(campaignHeldArtifacts(c,r).has(normName(a.name))){toast(en?'Already held in this campaign':'Déjà détenu dans cette campagne');return}
-  const e=campaignStashItem(r,{n:a.name,b:a.base||'',note:a.rules||'',artifact:a.name},1,'artifact');if(!a.base){e.category=en?'Artifact':'Artefact'}e.rulesText=[a.rules,e.rulesText].filter(Boolean).join('\n\n');
+  const e=artifactStashEntry(r,a,'artifact');
   e.foundAt=Date.now();row.taken=true;row.reserveId=e.reserveId;logHistory(r,'equipment',en?`Artifact found: <b>${esc(a.name)}</b>, added to the Stash`:`Artefact trouvé : <b>${esc(a.name)}</b>, ajouté à la réserve`);pushCampaignEntryStats(r,true);save(true);render('builder');
 }
 function discardCampaignArtifactRoll(rid){const r=activeRoster();if(!r)return;const s=campaignExploreState(r);const res=(s.artifacts||[]).find(x=>x.id===rid);if(!res)return;res.rolls.forEach(row=>{if(row.taken&&row.reserveId)r.reserve=(r.reserve||[]).filter(e=>e.reserveId!==row.reserveId)});s.artifacts=s.artifacts.filter(x=>x.id!==rid);if(res.fromCredit)s.artifactCredits=(Number(s.artifactCredits)||0)+1;pushCampaignEntryStats(r,true);save(true);render('builder')}
@@ -11810,6 +11823,32 @@ function campaignArtifactBaseItem(name){
   return pool.find(x=>normName(x?.name)===normName(name))||null;
 }
 function campaignArtifactRollKey(a){return Number(String(a?.roll||'').match(/\d+/)?.[0]||99)}
+// V-ARTITEM: an artifact is an item like any other. A weapon (its base item
+// is a weapon, or it has its own weapon profile) is a weapon named after the
+// artifact; anything else is equipment. On top: its description (rules) and
+// its story (lore). a.kind ('weapon' | 'equipment' | '') and a.profile (its
+// own profile) are set in the artifact editor; empty = taken from the base.
+function artifactHasOwnProfile(a){const p=a?.profile;return !!p&&typeof p==='object'&&['range','strength','ap','damage','traits'].some(k=>String(p[k]||'').trim())}
+function artifactResolved(a){const base=a?.base?campaignArtifactBaseItem(a.base):null;const own=artifactHasOwnProfile(a);const filled=own?Object.fromEntries(Object.entries(a.profile).filter(([k,v])=>String(v||'').trim())):{};const profile=own?{range:'',strength:'',ap:'',damage:'',traits:'',...(base?.profile||{}),...filled}:(base?.profile?{...base.profile}:null);
+  const weapon=a?.kind==='weapon'?!!(profile&&hasWeaponStats(profile)):a?.kind==='equipment'?false:base?isWeaponLike(base)||(own&&hasWeaponStats(profile)):!!(profile&&hasWeaponStats(profile));
+  return {base,profile,weapon,own}}
+// Every artifact the site knows: each campaign's own list, then the Lustria book list.
+function artifactAllList(){const out=[];const seen=new Set();const add=(a,camp,cid)=>{if(!a?.name)return;const k=normName(a.name);if(seen.has(k))return;seen.add(k);out.push({...a,campaign:camp||'',campaignId:cid||''})};
+  try{campaignListAll().forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;(Array.isArray(c.definition?.artifacts)?c.definition.artifacts:[]).forEach(a=>add(a,c.name||c0.name,c0.id))})}catch(e){}
+  LUSTRIA_ARTIFACTS.forEach(a=>add(a,'Lustria',''));return out}
+function artifactByName(n){const k=normName(n);return k?artifactAllList().find(a=>normName(a.name)===k)||null:null}
+function artifactRefText(a){const en=siteLanguage==='en';const r=artifactResolved(a);const p=r.weapon&&r.profile?r.profile:null;
+  const head=[a.campaign||'',a.table?(a.table==='major'?(en?'Major artifact':'Artefact majeur'):(en?'Minor artifact':'Artefact mineur')):'',a.roll?`4D6 = ${a.roll}`:''].filter(Boolean).join(' · ');
+  const kind=r.weapon?(en?'Weapon':'Arme'):(en?'Equipment':'Équipement');
+  return [head,`${kind}${r.base?` · ${en?'counts as':'compte comme'} ${r.base.name}`:''}`,p?`${en?'Range':'Portée'} ${p.range||'-'} · S ${p.strength||'-'} · AP ${p.ap||'-'} · D ${p.damage||'-'}${p.traits&&p.traits!=='None'?` · ${p.traits}`:''}`:'',a.rules||'',a.lore?`« ${a.lore} »`:''].filter(Boolean).join('\n\n')}
+function artifactReferenceEntries(){return artifactAllList().map(a=>({id:'artifact-'+normName(a.name).replace(/\s+/g,'-'),name:a.name,text:artifactRefText(a),lines:3,artifact:a}))}
+// The stash entry for a found artifact.
+function artifactStashEntry(r,a,source){const {base,profile,weapon,own}=artifactResolved(a);
+  // Armour, shields… keep their base item (its save and rules work as usual), shown with the artifact's name.
+  if(base&&!weapon&&!own){const e=campaignStashItem(r,{n:a.name,b:a.base,note:a.rules||'',artifact:a.name},1,source);e.rulesText=[a.rules,e.rulesText].filter(Boolean).join('\n\n');e.artifactLore=a.lore||'';return e}
+  r.reserve=Array.isArray(r.reserve)?r.reserve:[];const def=base?explorationEquipmentDefinition(base.name):{};const en=siteLanguage==='en';
+  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:Number(def.value||base?.price||0),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
+  r.reserve.push(entry);return entry}
 // V-MECHANICS: Rules › Campaign › "In the app": what this campaign automates,
 // where it happens for the players, and the reference tables it uses.
 function campaignMechanicsList(c){
@@ -13090,7 +13129,7 @@ function weaponProfileMarkup(e,x){const p=e.profile;if(!p)return '';const fx=wea
   // e.refCategory: 'equipment' (default) or 'spells' — a spell carrying its own
   // weapon profile (V-SPELLWEAPON, see ownedFighterCard) still needs its title
   // to link to ITS OWN reference entry, not a same-named equipment entry.
-  const titleLink=e.isMutationWeapon?esc(e.name):refLink(e.refCategory||'equipment',e.name);
+  const titleLink=e.isMutationWeapon?esc(e.name):e.artifact?`<span class="art-tag" title="${siteLanguage==='en'?'Artifact':'Artefact'}">✦</span> ${refLink('artifacts',e.artifact,e.skin||e.name)}`:refLink(e.refCategory||'equipment',e.name);
   const spellTag=e.refCategory==='spells'?'<span class="weapon-spell-tag">SORT</span>':e.isMutationWeapon?'<span class="weapon-spell-tag mut-tag">🧬</span>':'';
   // V-DUALPROFILE: a weapon with e.profile2 (checkbox-set — see
   // customWeaponEditor/saveCustomEquipment) renders BOTH stat lines, each
@@ -13100,7 +13139,8 @@ function weaponProfileMarkup(e,x){const p=e.profile;if(!p)return '';const fx=wea
   const fx2=e.profile2?weaponEffectPack(x,{...e,profile:e.profile2,traits:String(e.profile2.traits||'').split(/,\s*/).filter(Boolean)}):null;
   const grid2=e.profile2?weaponProfileGridMarkup(e.profile2,fx2,rangeLooksMelee(e.profile2)?'Corps à corps':'Tir'):'';
   const notes2=(fx2?.notes||[]).filter(n=>!fx.notes.includes(n));const noteMarkup2=notes2.length?`<div class="weapon-applied-effects">${notes2.map(n=>`<span>${esc(n)}</span>`).join(' · ')}</div>`:'';
-  return `<div class="weapon-profile"><div class="weapon-profile-title">${titleLink}${spellTag}</div>${grid1}${grid2}${noteMarkup}${noteMarkup2}</div>`}
+  const artRules=e.artifact&&(e.rulesText||e.itemNote)?`<div class="art-rules">${ruleTextMarkup(String(e.rulesText||e.itemNote),{noTitle:true})}</div>`:'';
+  return `<div class="weapon-profile${e.artifact?' is-artifact':''}"><div class="weapon-profile-title">${titleLink}${spellTag}</div>${grid1}${grid2}${noteMarkup}${noteMarkup2}${artRules}</div>`}
 // V-SPELLWEAPON-BOOK: an admin can also attach a weapon profile to an
 // OFFICIAL book spell (e.g. Fire of U'Zhul) — not just a custom one created
 // via Custom > Sorts — since most spells a fighter actually knows come from
@@ -16017,6 +16057,7 @@ function liveEquipmentDef(e){
 // definition is found (e.g. an item an admin later deleted), the stored copy
 // is returned as-is.
 function liveEquipmentView(e){
+  if(e?.artifactItem)return e;
   const def=liveEquipmentDef(e);
   if(!def)return e;
   return {...e,name:def.name||e.name,category:def.category||e.category,subcategory:def.subcategory||e.subcategory,rarity:def.rarity??e.rarity,availability:def.availability??e.availability,profile:def.profile||e.profile||null,profile2:(e.customEquipmentId&&def.customEquipmentId===e.customEquipmentId)?(def.profile2||null):(def.profile2||e.profile2||null),traits:def.traits??e.traits,rulesText:def.rulesText??e.rulesText,creatureProfile:def.creatureProfile||e.creatureProfile||null,creatureSv:def.creatureSv??e.creatureSv};
@@ -17281,6 +17322,7 @@ function referenceEntriesUncached(category){
     return [...base,...customs,...coveringReferenceEntries()];
   }
   if(['traits','skills','spells','special'].includes(category))return customContentReferenceEntries(category);
+  if(category==='artifacts')return artifactReferenceEntries();
   return Array.isArray(RULES.categories?.[category])?RULES.categories[category]:[];
 }
 // `f` (optional): the ACTIVE ROSTER'S faction. When it's an officialized
@@ -17815,9 +17857,12 @@ function custom(){
   const inWarbandArea=customArea==='warband';
   const tabs=inWarbandArea?[]:(en?[['traits','◆ Traits'],['skills','★ Skills'],['spells','✦ Spells'],['special','✚ Special Rules'],['fighters','⚔ Fighters'],['hiredswords','🗡 Hired Swords'],['creatures','🐾 Animals & Mounts'],['equipment','◇ Equipment']]:[['traits','◆ Traits'],['skills','★ Compétences'],['spells','✦ Sorts'],['special','✚ Règles spéciales'],['fighters','⚔ Combattants'],['hiredswords','🗡 Hired Swords'],['creatures','🐾 Animaux & Montures'],['equipment','◇ Équipements']]);
   if(!inWarbandArea&&isAdminSession())tabs.splice(4,0,['mutations','🧬 Mutations']);
-  if(customContentTab==='mutations'&&!isAdminSession())customContentTab='traits';
+  if(!inWarbandArea&&isAdminSession())tabs.push(['artifacts',en?'◈ Artifacts':'◈ Artefacts']);
+  if((customContentTab==='mutations'||customContentTab==='artifacts')&&!isAdminSession())customContentTab='traits';
   let title,createLabel,action,editor,library;
-  if(customContentTab==='mutations'){
+  if(customContentTab==='artifacts'){
+    title=en?'Artifacts':'Artefacts';createLabel='';action='';editor=customArtifactsMarkup();library='';
+  }else if(customContentTab==='mutations'){
     title='Mutations';createLabel=en?'New mutation':'Nouvelle mutation';action='newMutation()';editor=mutationEditorMarkup();library=mutationLibraryAside();
   }else if(customContentTab==='warband'){
     const list=customWarbandList(); title=en?'Create a Warband':'Créer une Warband'; createLabel=en?'New Warband':'Nouvelle Warband'; action='newCustomWarband()'; editor=customWarbandEditorPanel();
@@ -17904,7 +17949,7 @@ function custom(){
   }
   const orphanFighterCount=customContentTab==='fighters'?orphanCustomFighterIds().length:0;
   const introButton=(customContentTab==='skills'||customContentTab==='spells')?'':(action?`<button class="button primary" onclick="${action}">＋ ${esc(createLabel)}</button>`:'')+(customContentTab==='fighters'&&customFighterHSMode?`<button class="button secondary" type="button" onclick="importBookHiredSwords()">📖 ${en?'Import the book’s Hired Swords':'Importer les Hired Swords du livre'}</button>`:'')+(customContentTab==='warband'?`<button class="button secondary" type="button" onclick="openDuplicateWarbandPicker()">⧉ ${en?'Duplicate an existing warband':'Dupliquer une warband existante'}</button><button class="button secondary" type="button" onclick="openImportWarbandPicker()">⇪ ${en?'Import a warband':'Importer une warband'}</button>`:'')+(orphanFighterCount?`<button class="button secondary" type="button" onclick="cleanupOrphanCustomFighters()">🧹 ${en?`Clean up ${orphanFighterCount} orphan profile${orphanFighterCount>1?'s':''}`:`Nettoyer ${orphanFighterCount} profil${orphanFighterCount>1?'s':''} orphelin${orphanFighterCount>1?'s':''}`}</button>`:'')+(customContentTab==='mutations'?'':customCleanupButtonsMarkup());
-  const description=customContentTab==='mutations'?(en?'One list for the whole site. A profile chooses whether it can mutate (its editor, MUTATIONS block); players buy them at recruitment or through a skill listed below.':'Une seule liste pour tout le site. Un profil choisit s’il peut muter (son éditeur, bloc MUTATIONS) ; les joueurs les achètent au recrutement ou par une compétence listée ci-dessous.'):customContentTab==='warband'?(en?'New warband, or a duplicate of an existing one — one place for its fighters, traits, and its exclusive equipment/special rules. Once picked or created, click Edit to set everything up on a single page.':'Nouvelle warband ou duplicata d’une existante — un seul endroit pour ses combattants, traits, et son équipement/règles spéciales exclusifs. Une fois choisie ou créée, clique Modifier pour tout configurer sur une seule page.'):(customContentTab==='skills'||customContentTab==='spells')?(customContentTab==='skills'?(en?'Create a skill tree before adding its skills. Each tree can hold up to 6 custom skills.':'Crée un arbre de compétences avant d’ajouter ses compétences. Chaque arbre peut contenir jusqu’à 6 compétences custom.'):(en?'Create a magic domain before adding its spells.':'Crée un domaine de magie avant d’ajouter ses sorts.')):customContentTab==='creatures'?(en?'A simple profile — stats and special rules only. An Animal is a complete, recruitable profile; a Mount still costs GC and counts toward the warband’s value, but attaches onto an existing fighter instead of its own roster slot — it shows up in the Equipment Market/Band List under “Mounts”.':'Un profil simple — juste les stats et les règles spéciales. Un Animal est un profil complet et recrutable ; une Monture coûte toujours des PO et compte dans la valeur de la bande, mais s’intègre à un combattant existant au lieu d’occuper son propre emplacement — elle apparaît dans le Marché/Liste de bande sous « Montures ».'):(en?'Create custom content without modifying the M17 catalog. Entries are linked to the Reference.':'Crée du contenu personnalisé sans modifier le catalogue M17. Les entrées sont reliées au Référentiel.');
+  const description=customContentTab==='artifacts'?(en?'Artifacts belong to a campaign. Each one is an item like the others: a weapon (its profile) or equipment, with its description and its story. Players find them in the post-battle and see them in References › Artifacts.':'Les artefacts appartiennent à une campagne. Chacun est un objet comme les autres : une arme (son profil) ou un équipement, avec sa description et son histoire. Les joueurs les trouvent dans l’après-bataille et les voient dans Références › Artefacts.'):customContentTab==='mutations'?(en?'One list for the whole site. A profile chooses whether it can mutate (its editor, MUTATIONS block); players buy them at recruitment or through a skill listed below.':'Une seule liste pour tout le site. Un profil choisit s’il peut muter (son éditeur, bloc MUTATIONS) ; les joueurs les achètent au recrutement ou par une compétence listée ci-dessous.'):customContentTab==='warband'?(en?'New warband, or a duplicate of an existing one — one place for its fighters, traits, and its exclusive equipment/special rules. Once picked or created, click Edit to set everything up on a single page.':'Nouvelle warband ou duplicata d’une existante — un seul endroit pour ses combattants, traits, et son équipement/règles spéciales exclusifs. Une fois choisie ou créée, clique Modifier pour tout configurer sur une seule page.'):(customContentTab==='skills'||customContentTab==='spells')?(customContentTab==='skills'?(en?'Create a skill tree before adding its skills. Each tree can hold up to 6 custom skills.':'Crée un arbre de compétences avant d’ajouter ses compétences. Chaque arbre peut contenir jusqu’à 6 compétences custom.'):(en?'Create a magic domain before adding its spells.':'Crée un domaine de magie avant d’ajouter ses sorts.')):customContentTab==='creatures'?(en?'A simple profile — stats and special rules only. An Animal is a complete, recruitable profile; a Mount still costs GC and counts toward the warband’s value, but attaches onto an existing fighter instead of its own roster slot — it shows up in the Equipment Market/Band List under “Mounts”.':'Un profil simple — juste les stats et les règles spéciales. Un Animal est un profil complet et recrutable ; une Monture coûte toujours des PO et compte dans la valeur de la bande, mais s’intègre à un combattant existant au lieu d’occuper son propre emplacement — elle apparaît dans le Marché/Liste de bande sous « Montures ».'):(en?'Create custom content without modifying the M17 catalog. Entries are linked to the Reference.':'Crée du contenu personnalisé sans modifier le catalogue M17. Les entrées sont reliées au Référentiel.');
   // V-CUSTOMTABCOUNTS: these used to show a count next to each tab
   // (customFighterList().length etc.) — always the RAW total, counting
   // officialized entries that are already hidden everywhere else in this
@@ -17930,6 +17975,14 @@ function customWarbandEditorPanel(){
 // V-HIREDSWORDS: Hired Swords are custom fighter profiles flagged
 // hiredSword, edited with the same builder in a "Hired Swords" mode.
 let customFighterHSMode=false;
+// V-ARTCUSTOM: Custom › Artifacts (admin): every campaign's artifacts, to add or edit.
+let customArtifactCamp='';
+function customArtifactsMarkup(){const en=siteLanguage==='en';const camps=campaignListAll();if(!campaignsCache)loadCampaignList('custom');camps.forEach(c=>{if(!campaignDetailCache.has(c.id))loadCampaignDetail(c.id,'custom')});
+  if(!camps.length)return `<p class="muted">${en?'Loading the campaigns…':'Chargement des campagnes…'}</p>`;
+  if(!camps.some(c=>c.id===customArtifactCamp))customArtifactCamp=camps[0].id;const c=campaignDetailCache.get(customArtifactCamp)||camps.find(x=>x.id===customArtifactCamp);
+  const own=(Array.isArray(c?.definition?.artifacts)?c.definition.artifacts:[]).map(a=>({...a,campaign:c.name||'',campaignId:customArtifactCamp}));
+  const pick=`<div class="art-custom-bar"><label class="custom-field"><span>${en?'Campaign':'Campagne'}</span><select onchange="customArtifactCamp=this.value;render('custom')">${camps.map(x=>`<option value="${esc(x.id)}" ${x.id===customArtifactCamp?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select></label><button type="button" class="button primary" onclick="openCampaignArtifactEditor('${esc(customArtifactCamp)}','')">＋ ${en?'New artifact':'Nouvel artefact'}</button>${own.length?'':`<button type="button" class="button secondary" onclick="importLustriaArtifacts('${esc(customArtifactCamp)}')">📖 ${en?'Import the Lustria artifacts':'Importer les artefacts de Lustria'}</button>`}</div>`;
+  return pick+(own.length?artifactGroupsMarkup(own,{admin:true}):`<p class="muted">${en?'No artifact in this campaign yet (the Lustria book list is used by default).':'Aucun artefact dans cette campagne pour l’instant (la liste du livre Lustria est utilisée par défaut).'}</p>`)}
 function setCustomTab(v){if(v==='hiredswords'){customFighterHSMode=true;v='fighters'}else if(v==='fighters')customFighterHSMode=false;customContentTab=v;customContentSearch='';customBuilderResetComposer();customWarbandCreateContextId=null;if(v==='warband'){customWarbandEditId=null;customWarbandCreating=false;customWarbandSection='fighters'}else if(v==='fighters'){customFighterEditId=null}else if(v==='equipment'){customEquipmentEditId=null}else if(v==='creatures'){customCreatureEditId=null;customCreatureRuleDraft=[]}else{customContentEditId=null;customContentDraftItems=[]}render('custom')}
 
 /* ================= CUSTOM WARBANDS ================= */
