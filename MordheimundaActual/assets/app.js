@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0830.0';
+const APP_BUILD='110.0831.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6846,10 +6846,16 @@ function searchSnippet(body,q){const b=String(body||'').replace(/\[\/?[A-Z]+\]/g
 // V-SEARCHHEAD: a [SUBHEAD] or [SUBHEAD color=…] title line (the admin editor
 // writes the coloured form), with any **bold** marks removed.
 function searchSubhead(t){const m=String(t||'').trim().match(/^\[SUBHEAD(?:\s[^\]]*)?\](.*?)\[\/SUBHEAD\]$/i);return m?m[1].replace(/\*\*/g,'').trim():null}
+// A title line: [SUBHEAD], a whole **bold** line, or an all-caps line, numbered
+// or not ("2. CRITICAL HITS", "6. MAKE HIT ROLL(S)", "MISSILE WEAPONS").
+function searchHeadLabel(t,i){const sub=searchSubhead(t);if(sub)return sub;if(!i)return null;const x=String(t||'').trim();
+  const b=x.match(/^\*\*([^*]{2,70})\*\*:?$/);if(b)return b[1].trim();
+  if(x.length>=3&&x.length<90&&/^(\d+[.)]\s*)?[A-ZÀ-Ý][A-ZÀ-ÝŒ0-9'’&\-(),/: ]{2,}$/.test(x)&&/[A-ZÀ-Ý]{2}/.test(x))return x.replace(/:$/,'');return null}
+function searchHeadCore(l){return String(l||'').replace(/^\d+[.)]\s*/,'')}
 // Splits a page text into its titled parts, for campaign pages.
-function searchTextHeads(text){const out=[];let cur=null;String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const sub=searchSubhead(t);
-  if(sub||(i>0&&/^[A-ZÀ-Ý][A-ZÀ-ÝŒ0-9'’&\- ]{2,}$/.test(t)&&t.length<90)){cur={label:sub||t,body:''};out.push(cur)}else if(cur)cur.body+=t+' '});return out}
-function searchFlashHeading(label){setTimeout(()=>{const want=searchNorm(label);const root=document.querySelector('main')||document.body;const el=[...root.querySelectorAll('[id^="rh-"],.rule-heading,.rule-subheading,.rule-subhead,h1,h2,h3,h4,h5,strong,b,div,span')].find(x=>x.children.length<=2&&searchNorm(x.textContent)===want);if(!el)return;try{revealRuleAnchor(el)}catch(e){}el.scrollIntoView({block:'start',behavior:'smooth'});el.classList.add('search-flash');setTimeout(()=>el.classList.remove('search-flash'),1800)},120)}
+function searchTextHeads(text){const out=[];let cur=null;String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const head=searchHeadLabel(t,i);
+  if(head){cur={label:head,body:''};out.push(cur)}else if(cur)cur.body+=t+' '});return out}
+function searchFlashHeading(label){setTimeout(()=>{const want=searchNorm(searchHeadCore(label));const root=document.querySelector('main')||document.body;const el=[...root.querySelectorAll('[id^="rh-"],.rule-heading,.rule-subheading,.rule-subhead,h1,h2,h3,h4,h5,strong,b,div,span')].find(x=>x.children.length<=2&&searchNorm(searchHeadCore(x.textContent))===want);if(!el)return;try{revealRuleAnchor(el)}catch(e){}el.scrollIntoView({block:'start',behavior:'smooth'});el.classList.add('search-flash');setTimeout(()=>el.classList.remove('search-flash'),1800)},120)}
 // Rule book split by heading: title, [SUBHEAD] lines and all-caps lines.
 let searchRulesIndexCache=null;
 function searchRulesIndex(){
@@ -6858,8 +6864,8 @@ function searchRulesIndex(){
     const title=String(sec.title||'').replace(/^[\d.]+\s*/,'');out.push({sec:sec.id,page:null,label:title,section:title,body:''});
     (sec.content||[]).forEach(pg=>{let text=pg.text;try{const o=ruleEffectiveText(sec.id,pg.page);if(o!=null)text=o}catch(e){}
       let cur={sec:sec.id,page:pg.page,label:title,section:title,body:''};out.push(cur);
-      String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const sub=searchSubhead(t);
-        if(sub||(/^[A-ZÀ-Ý][A-ZÀ-ÝŒ0-9'’&\- ]{2,}$/.test(t)&&t.length<90&&i>0)){cur={sec:sec.id,page:pg.page,label:(sub||t).trim(),section:title,body:''};out.push(cur)}
+      String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const head=searchHeadLabel(t,i);
+        if(head){cur={sec:sec.id,page:pg.page,label:head,section:title,body:''};out.push(cur)}
         else cur.body+=t+' '});
     });
   });
@@ -6881,7 +6887,7 @@ function searchRun(q){
   add('scenarios',en?'Scenarios':'Scénarios',(SCENARIOS_CACHE||[]).map(sc=>{const body=searchDeepText(sc);const n=searchScore(q,sc.name);const b=n?0:searchScore(q,'',body);return {score:Math.max(n,b>=20?18:b?8:0),title:sc.name,sub:!n&&b?searchSnippet(body,q):sc.summary?String(sc.summary).slice(0,80):'',go:()=>navigateApp('/rules/scenarios/'+encodeURIComponent(sc.id))}}));
   const ref=[];Object.keys(REFERENCE_CATEGORIES).forEach(cat=>{let list=[];try{list=referenceEntries(cat)||[]}catch(e){}list.forEach(e=>{if(!e?.name)return;const nm=refDisplayName(cat,e);const sc=searchScore(q,nm,e.text);if(sc)ref.push({score:sc,title:nm,sub:(en?REFERENCE_CATEGORIES_EN:REFERENCE_CATEGORIES)[cat]+(sc<50&&e.text?' · '+searchSnippet(e.text,q):''),go:()=>searchOpenRef(cat,e.id)})})});
   add('reference',en?'Reference':'Référentiel',ref);
-  const seen=new Set();const rl=[];searchRulesIndex().forEach((h,i)=>{const sc=searchScore(q,h.label,h.body);if(!sc)return;const k=h.sec+'|'+searchNorm(h.label);if(seen.has(k))return;seen.add(k);rl.push({score:sc,title:h.label===h.section?h.section:`${h.label}`,sub:(h.label===h.section?(en?'Rules: The Game':'Règles : Le Jeu'):h.section)+(sc<50?' · '+searchSnippet(h.body,q):''),go:()=>searchOpenRule(i)})});
+  const seen=new Set();const rl=[];searchRulesIndex().forEach((h,i)=>{const sc=searchScore(q,searchHeadCore(h.label),h.body);if(!sc)return;const k=h.sec+'|'+searchNorm(h.label);if(seen.has(k))return;seen.add(k);rl.push({score:sc,title:h.label===h.section?h.section:`${h.label}`,sub:(h.label===h.section?(en?'Rules: The Game':'Règles : Le Jeu'):h.section)+(sc<50?' · '+searchSnippet(h.body,q):''),go:()=>searchOpenRule(i)})});
   add('rules',en?'Rules':'Règles',rl);
   searchMoreGroups(q,en,add);
   return groups.sort((a,b)=>b.best-a.best);
@@ -6904,7 +6910,7 @@ function searchMoreGroups(q,en,add){
   const camp=[];tr(()=>campaignListAll()).forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;const d=c.definition||{};const base='/rules/campaign/'+encodeURIComponent(c.id);
     const sc=searchScore(q,c.name||c0.name||'',d.description);if(sc)camp.push({score:sc,title:c.name||c0.name,sub:(en?'Campaign':'Campagne')+(sc<50?' · '+searchSnippet(d.description,q):''),go:()=>navigateApp(base)});
     (Array.isArray(d.pages)?d.pages:[]).forEach((p,i)=>{const t=String(p.title||'');const url=base+'/'+encodeURIComponent('rule-'+(p.id||i));const s=searchScore(q,t.replace(/^[\d.]+\s*/,''),p.text);if(s)camp.push({score:s,title:t,sub:(c.name||'')+(s<50?' · '+searchSnippet(p.text,q):''),go:()=>navigateApp(url)});
-      searchTextHeads(p.text).forEach(h=>{const hs=searchScore(q,h.label,h.body);if(hs>=50)camp.push({score:hs+1,title:h.label,sub:`${c.name||''} · ${t}`,go:()=>{navigateApp(url);searchFlashHeading(h.label)}})})});
+      searchTextHeads(p.text).forEach(h=>{const hs=searchScore(q,searchHeadCore(h.label),h.body);if(hs>=50)camp.push({score:hs+1,title:h.label,sub:`${c.name||''} · ${t}`,go:()=>{navigateApp(url);searchFlashHeading(h.label)}})})});
     (Array.isArray(d.artifacts)?d.artifacts:[]).forEach(a=>{const b=searchDeepText(a);const s=searchScore(q,a?.name||'',b);if(s)camp.push({score:s,title:a.name,sub:`${c.name||''} · ${en?'Artifact':'Artefact'}`+(s<50?' · '+searchSnippet(b,q):''),go:()=>navigateApp(base+'/artifacts')})});
     (Array.isArray(d.settlements)?d.settlements:[]).forEach(a=>{const b=searchDeepText(a);const s=searchScore(q,a?.name||'',b);if(s)camp.push({score:s,title:a.name,sub:`${c.name||''} · ${en?'Settlement':'Colonie'}`+(s<50?' · '+searchSnippet(b,q):''),go:()=>navigateApp(base+'/settlements')})});
   });
@@ -6942,7 +6948,7 @@ function searchOpenRef(cat,id){navigateApp(APP_ROUTES.references);openReference(
 function searchOpenRule(i){
   const h=searchRulesIndex()[i];if(!h)return;if(h.sec==='founding'){warbandsRulesCategory='starting';persistUiState('wbRulesCat','starting');navigateApp(APP_ROUTES.rulesWarbands);return}navigateApp(APP_ROUTES.rules);openRuleSection(h.sec);
   setTimeout(()=>{const body=document.querySelector('.rules-article-body');if(!body)return;let el=null;
-    if(h.label!==h.section){const want=searchNorm(h.label);el=[...body.querySelectorAll('[id^="rh-"]')].find(x=>searchNorm(x.textContent)===want)||[...body.querySelectorAll('h1,h2,h3,h4,h5,strong,b,div,span')].find(x=>x.children.length<=2&&searchNorm(x.textContent)===want)||null}
+    if(h.label!==h.section){const want=searchNorm(h.label),core=searchNorm(searchHeadCore(h.label));const same=x=>{const n=searchNorm(x.textContent);return n===want||n===core||searchNorm(searchHeadCore(x.textContent))===core};el=[...body.querySelectorAll('[id^="rh-"]')].find(same)||[...body.querySelectorAll('h1,h2,h3,h4,h5,strong,b,li,div,span')].find(x=>x.children.length<=2&&same(x))||null}
     if(!el&&h.page)el=document.getElementById('rule-page-'+h.page);
     if(!el)return;try{revealRuleAnchor(el)}catch(e){}
     const target=el;target.scrollIntoView({block:'start',behavior:'smooth'});target.classList.add('search-flash');setTimeout(()=>target.classList.remove('search-flash'),1800)},60);
