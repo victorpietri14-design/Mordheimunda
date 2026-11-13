@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0840.0';
+const APP_BUILD='110.0841.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1050,7 +1050,7 @@ function refTableAwareMarkup(text,excludeName){
     return `<p>${linkGlossaryInHtml(html,excludeName)}</p>`;
   }).join('');
 }
-function referenceEntryMarkup(e,cat){const en=siteLanguage==='en';const short=e.lines<=5;const sectionId=referenceOverrideSectionId(cat,e.id);const override=ruleEffectiveText(sectionId,0);const text=override!=null?override:e.text;const canEdit=isAdminEditUI()&&!e.coveringName;const isEditing=canEdit&&ruleOverridesEditKey===ruleOverrideKey(sectionId,0);const editBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Edit this entry (admin)':'Modifier cette entrée (admin)'}" onclick="openRuleEdit('${esc(sectionId)}',0);event.stopPropagation()">✎ ${ruleHasOverride(sectionId,0)?(en?'Modified':'Modifié'):(en?'Edit':'Modifier')}</button>`:'';const displayName=refDisplayName(cat,e);const titleBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Rename the title (admin)':'Renommer le titre (admin)'}" onclick="renameReferenceEntry('${cat}','${esc(e.id)}','${esc(displayName).replace(/'/g,"\\'")}');event.stopPropagation()">✎ ${refTitleEffective(cat,e.id)!=null?(en?'Title modified':'Titre modifié'):(en?'Title':'Titre')}</button>`:'';return `<article class="ref-entry" id="ref-entry-${esc(e.id)}"><div class="rh"><span class="rname">${esc(displayName)}</span>${e.category?`<span class="rtree">${esc(e.category)}</span>`:''}${(canEdit&&ruleHasOverride(sectionId,0))?`<span class="rule-override-tag">${en?'CORRECTED':'CORRIGÉ'}</span>`:''}${titleBtn}${editBtn}<button type="button" class="reference-peek-button" onclick="openReference('${cat}','${e.id}');event.stopPropagation()">ⓘ</button></div>${isEditing?ruleEditFormMarkup(sectionId,0,text):`<div class="rtext">${refTableAwareMarkup(text,e.name)}</div>`}${e.custom?`<div class="rsource"><span class="tag offi">${en?'Custom':'Personnalisé'}</span>${e.source?esc(e.source):''}</div>`:''}${!short?`<div class="reference-entry-meta">${en?`Full rule · ${e.lines} lines in source`:`Règle complète · ${e.lines} lignes dans la source`}</div>`:''}${e.coveringName?coveringRefExampleBox(e):''}</article>`;}
+function referenceEntryMarkup(e,cat){const en=siteLanguage==='en';const short=e.lines<=5;const sectionId=referenceOverrideSectionId(cat,e.id);const override=ruleEffectiveText(sectionId,0);const text=override!=null?override:e.text;const canEdit=isAdminEditUI()&&!e.coveringName;const isEditing=canEdit&&ruleOverridesEditKey===ruleOverrideKey(sectionId,0);const editBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Edit this entry (admin)':'Modifier cette entrée (admin)'}" onclick="openRuleEdit('${esc(sectionId)}',0);event.stopPropagation()">✎ ${ruleHasOverride(sectionId,0)?(en?'Modified':'Modifié'):(en?'Edit':'Modifier')}</button>`:'';const displayName=refDisplayName(cat,e);const titleBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Rename the title (admin)':'Renommer le titre (admin)'}" onclick="renameReferenceEntry('${cat}','${esc(e.id)}','${esc(displayName).replace(/'/g,"\\'")}');event.stopPropagation()">✎ ${refTitleEffective(cat,e.id)!=null?(en?'Title modified':'Titre modifié'):(en?'Title':'Titre')}</button>`:'';return `<article class="ref-entry" id="ref-entry-${esc(e.id)}"><div class="rh"><span class="rname">${esc(displayName)}</span>${newTagMarkup(e)}${e.category?`<span class="rtree">${esc(e.category)}</span>`:''}${(canEdit&&ruleHasOverride(sectionId,0))?`<span class="rule-override-tag">${en?'CORRECTED':'CORRIGÉ'}</span>`:''}${titleBtn}${editBtn}<button type="button" class="reference-peek-button" onclick="openReference('${cat}','${e.id}');event.stopPropagation()">ⓘ</button></div>${isEditing?ruleEditFormMarkup(sectionId,0,text):`<div class="rtext">${refTableAwareMarkup(text,e.name)}</div>`}${e.custom?`<div class="rsource"><span class="tag offi">${en?'Custom':'Personnalisé'}</span>${e.source?esc(e.source):''}</div>`:''}${!short?`<div class="reference-entry-meta">${en?`Full rule · ${e.lines} lines in source`:`Règle complète · ${e.lines} lignes dans la source`}</div>`:''}${e.coveringName?coveringRefExampleBox(e):''}</article>`;}
 function referenceFilteredList(cat,q,src){let list=referenceEntries(cat);if(src==='book')list=list.filter(e=>!e.custom);else if(src==='custom')list=list.filter(e=>e.custom);
   // Terror now has its own standalone entry (CORE_SPECIAL_RULES above), so
   // a plain search for "terror" matches it directly — no Fear-alias
@@ -1573,7 +1573,7 @@ function equipmentNameCellMarkup(w){
   if(delCall)editBtn+=`<button type="button" class="rule-edit-btn ref-eq-edit-btn ref-eq-delete-btn" title="${siteLanguage==='en'?'Delete for everyone (admin)':'Supprimer pour tout le monde (admin)'}" onclick="${delCall};event.stopPropagation()">🗑</button>`;
   const statsBtn='';
   const overrideTag=(canEdit&&override)?'<span class="rule-override-tag">EDITED</span>':'';
-  const customTag=w.custom?'<span class="tag offi">Custom</span>':'';
+  const customTag=(w.custom?'<span class="tag offi">Custom</span>':'')+newTagMarkup(w);
   return {nameHtml,editBtn,statsBtn,overrideTag,customTag,isEditing,sectionId,text,ge};
 }
 // V-CUSTOMEDITFROMREF: same idea as openAdminWeaponEditFromRef, but for an
@@ -1976,7 +1976,14 @@ function markDeleted(key,id){
   state.deleted[key][String(id)]=Date.now();
 }
 let campaignStatsTimer=null;
-function save(silent=false){try{undoTrack()}catch(e){}try{playShareAfterSave()}catch(e){}try{const ar=typeof activeRoster==='function'?activeRoster():null;if(ar?.campaignId&&typeof pushCampaignEntryStats==='function'){clearTimeout(campaignStatsTimer);campaignStatsTimer=setTimeout(()=>{try{pushCampaignEntryStats(ar)}catch(e){}},2500)}}catch(e){}
+// V-NEWTAG: each custom item keeps the date it was added (addedAt). The first
+// run stamps the existing ones as old (0), so only items added from now on
+// show the NEW badge in References for 7 days.
+const CUSTOM_ADDED_LISTS=['customEquipment','customTraits','customSkills','customSpells','customSpecialRules','customCreatures','customFighters'];
+function stampCustomAdded(){try{const first=!state.addedAtInit;CUSTOM_ADDED_LISTS.forEach(k=>(Array.isArray(state[k])?state[k]:[]).forEach(x=>{if(x&&typeof x==='object'&&!('addedAt' in x))x.addedAt=first?0:Date.now()}));state.addedAtInit=true}catch(e){}}
+function isNewItem(o){const t=Number(o?.addedAt);return t>0&&Date.now()-t<7*864e5}
+function newTagMarkup(o){return isNewItem(o)?`<span class="tag new-tag" title="${siteLanguage==='en'?'Added less than a week ago':'Ajouté il y a moins d’une semaine'}">NEW</span>`:''}
+function save(silent=false){stampCustomAdded();try{undoTrack()}catch(e){}try{playShareAfterSave()}catch(e){}try{const ar=typeof activeRoster==='function'?activeRoster():null;if(ar?.campaignId&&typeof pushCampaignEntryStats==='function'){clearTimeout(campaignStatsTimer);campaignStatsTimer=setTimeout(()=>{try{pushCampaignEntryStats(ar)}catch(e){}},2500)}}catch(e){}
   if(!Array.isArray(state.customEquipment))state.customEquipment=[];
   // Stamp whichever roster is currently open so a cross-device merge (see
   // mergeAccountData) can tell which side's edit to that same roster is
@@ -4941,11 +4948,11 @@ function mergeOfficialWarbandPackage(ow){
   // "avoid the conflict". Scoping the dedup key to name+domain/tree lets
   // two same-named spells/skills coexist in different domains/trees, same
   // fix as customContentReferenceEntries.
-  const officialRefEntry=(cat,idPrefix,name,text,category)=>{
+  const officialRefEntry=(cat,idPrefix,name,text,category,addedAt)=>{
     RULES.categories[cat]=RULES.categories[cat]||[];
     const scopeKey=normName(name)+'::'+normName(category||'');
     if(RULES.categories[cat].some(e=>normName(e.name)+'::'+normName(e.category||'')===scopeKey))return;
-    RULES.categories[cat].push({id:idPrefix+'-'+normName(name),name,text:text||'',lines:String(text||'').split(/\n+/).filter(Boolean).length||1,__official:true,category:category||''});
+    RULES.categories[cat].push({id:idPrefix+'-'+normName(name),name,text:text||'',lines:String(text||'').split(/\n+/).filter(Boolean).length||1,__official:true,category:category||'',addedAt:Number(addedAt)||0});
   };
   // A tree/domain that already exists (an official book tree, or one another
   // already-merged official warband made global) gets its new skill/spell
@@ -4986,7 +4993,7 @@ function mergeOfficialWarbandPackage(ow){
       if(!ow.exclusiveSkillSets[key])ow.exclusiveSkillSets[key]=[];
       if(!ow.exclusiveSkillSets[key].includes(s.name))ow.exclusiveSkillSets[key].push(s.name);
     }
-    officialRefEntry('skills','official-skill',s.name,s.text,key);
+    officialRefEntry('skills','official-skill',s.name,s.text,key,s.addedAt);
   });
   (ow.magicDomains||[]).forEach(d=>{
     if(!d?.name||MAGIC_DOMAINS[d.name])return;
@@ -5006,10 +5013,10 @@ function mergeOfficialWarbandPackage(ow){
       if(!ow.exclusiveMagicDomains[key])ow.exclusiveMagicDomains[key]=[];
       if(!ow.exclusiveMagicDomains[key].includes(s.name))ow.exclusiveMagicDomains[key].push(s.name);
     }
-    officialRefEntry('spells','official-spell',s.name,s.text,key);
+    officialRefEntry('spells','official-spell',s.name,s.text,key,s.addedAt);
   });
-  (ow.traits||[]).forEach(t=>{if(t?.name)officialRefEntry('traits','official-trait',t.name,t.text);});
-  (ow.specialRules||[]).forEach(t=>{if(t?.name)officialRefEntry('special','official-special',t.name,t.text);});
+  (ow.traits||[]).forEach(t=>{if(t?.name)officialRefEntry('traits','official-trait',t.name,t.text,null,t.addedAt);});
+  (ow.specialRules||[]).forEach(t=>{if(t?.name)officialRefEntry('special','official-special',t.name,t.text,null,t.addedAt);});
 }
 async function loadOfficialWarbands(){
   try{
@@ -6215,10 +6222,11 @@ const PUBLISHED_FIELD={fighters:'warriors',equipment:'equipment',creatures:'crea
 function publishedEntryFor(kind,w){
   if(kind==='fighters')return customFighterAsWarrior(w);
   if(kind==='equipment')return {...w,archived:false,exclusiveWarbandId:null,officialWarbandId:null};
-  if(kind==='creatures')return {customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||'',naturalWeapons:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[],skills:Array.isArray(w.skills)?w.skills.slice():[],factions:Array.isArray(w.factions)?w.factions.slice():[],market:w.kind==='mount'?w.market!==false:false};
-  if(kind==='skills')return {name:w.name,tree:w.tree||'',text:w.text||''};
-  if(kind==='spells'){const o={name:w.name,domain:w.domain||'',text:w.text||''};if(w.profile)o.profile=w.profile;return o}
-  return {name:w.name,text:w.text||''};
+  if(kind==='creatures')return {customCreatureId:w.customCreatureId,kind:w.kind,name:w.name,cost:Number(w.cost||0),profile:Array.isArray(w.profile)?w.profile.slice():[],sv:w.sv||'',ruleNames:Array.isArray(w.ruleNames)?w.ruleNames.slice():[],rules:w.rules||'',naturalWeapons:Array.isArray(w.naturalWeapons)?w.naturalWeapons.slice():[],skills:Array.isArray(w.skills)?w.skills.slice():[],factions:Array.isArray(w.factions)?w.factions.slice():[],market:w.kind==='mount'?w.market!==false:false,addedAt:Number(w.addedAt)||0};
+  const at=Number(w.addedAt)||0;
+  if(kind==='skills')return {name:w.name,tree:w.tree||'',text:w.text||'',addedAt:at};
+  if(kind==='spells'){const o={name:w.name,domain:w.domain||'',text:w.text||'',addedAt:at};if(w.profile)o.profile=w.profile;return o}
+  return {name:w.name,text:w.text||'',addedAt:at};
 }
 function publishedEntryMatches(kind,e,w){
   if(!e||typeof e!=='object')return false;
@@ -14305,7 +14313,7 @@ function saveCustomEquipment(){
   // creating fresh from inside a warband's Équipement section right now.
   item.exclusiveWarbandId=customWarbandCreateContextId||(idx>=0?(state.customEquipment[idx].exclusiveWarbandId||null):null);
   if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(state.customEquipment[idx][k]!==undefined)item[k]=state.customEquipment[idx][k]});
-  if(idx>=0)state.customEquipment[idx]=item;else state.customEquipment.push(item);
+  if(idx>=0){if(state.customEquipment[idx]&&'addedAt' in state.customEquipment[idx])item.addedAt=state.customEquipment[idx].addedAt;state.customEquipment[idx]=item}else state.customEquipment.push(item);
   if(customWarbandCreateContextId){
     const cw=customWarbandById(customWarbandCreateContextId);
     if(cw){
@@ -16814,7 +16822,7 @@ function saveCustomFighter(){
   item.bannedExceptions=bannedExceptionsRead();
   item.updatedAt=Date.now();
   if(isHS){item.hiredSword=true;item.type='Hired Sword';item.neutral=!!$('#cfNeutral')?.checked;if(!item.neutral)delete item.neutral;item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;{const sc=hiredSwordReadScope();item.hsFactions=sc.only;item.hsExcluded=sc.except;}item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';item.dramatis=!item.neutral&&!!$('#cfDramatis')?.checked;if(item.neutral){item.upkeep=0;item.hsFactions=[];item.hsExcluded=[];item.hsRandomSkill=''}{const own=item.dramatis||item.neutral;item.dpRules=own?dpRulesReadRaw().filter(r=>r.name):[];item.dpWeapons=own?dpWeaponsReadRaw().filter(d=>d.name):[];item.dpLore=own?($('#cfDpLore')?.value||'').trim():'';}if(item.dramatis){item.hsChoices=[];item.hsRandomSkill='';item.dpMode=$('#cfDpMode')?.value||'hire';item.dpGame={base:Math.max(0,Number($('#cfDpBase')?.value)||0),step:Math.max(0,Number($('#cfDpStep')?.value)||0),perStep:Number($('#cfDpPerStep')?.value)||0,factions:dpFacRead()}}else{delete item.dpMode;delete item.dpGame}}
-  const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0)state.customFighters[idx]=item;else state.customFighters.push(item);
+  const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0){if(state.customFighters[idx]&&'addedAt' in state.customFighters[idx])item.addedAt=state.customFighters[idx].addedAt;state.customFighters[idx]=item}else state.customFighters.push(item);
   const ref=`custom:${item.customFighterId}`;
   if(previousCustomWarbandId && previousCustomWarbandId!==customWarbandId){
     const oldCw=customWarbandById(previousCustomWarbandId);
@@ -17426,7 +17434,7 @@ function customContentReferenceEntries(kind){
   // spellCardMarkup, so the SAME spell's own card (Référentiel, Magic tab…)
   // had no way to show its profile at all. Carrying it through here is what
   // lets the card render it directly.
-  const customs=customContentList(kind).filter(x=>!baseKeys.has(normName(x.name)+'::'+normName(x.domain||x.tree||''))).map(x=>({id:'custom-'+kind+'-'+x.customContentId,name:x.name,text:x.text||'Aucune règle enregistrée.',lines:String(x.text||'').split(/\n+/).filter(Boolean).length||1,custom:true,customContentId:x.customContentId,category:x.domain||x.tree||'',profile:x.profile||null}));
+  const customs=customContentList(kind).filter(x=>!baseKeys.has(normName(x.name)+'::'+normName(x.domain||x.tree||''))).map(x=>({id:'custom-'+kind+'-'+x.customContentId,addedAt:Number(x.addedAt)||0,name:x.name,text:x.text||'Aucune règle enregistrée.',lines:String(x.text||'').split(/\n+/).filter(Boolean).length||1,custom:true,customContentId:x.customContentId,category:x.domain||x.tree||'',profile:x.profile||null}));
   return [...base,...customs];
 }
 // V-REFENTRIESCACHE: referenceFind (used by refLink — called constantly for
@@ -17454,7 +17462,7 @@ function referenceEntriesUncached(category){
     // name, not the D.weapons objects themselves, so cross-reference by name.
     const hiddenNames=new Set([...(D.weapons||[]).filter(w=>w.hidden).map(w=>normName(w.name)),...(D.__deletedWeaponNames||[])]);
     // V-OFFICIALIZEMERGE: same draft-vs-published check as referenceEquipmentPool.
-    const customs=allCustomEquipmentList().map(w=>({id:'custom-equipment-'+w.customEquipmentId,name:w.name,text:w.rulesText||'Aucune règle supplémentaire enregistrée.',lines:String(w.rulesText||'').split(/\n+/).filter(Boolean).length||1,custom:!isPublishedCustomEquipment(w),customEquipmentId:w.customEquipmentId}));
+    const customs=allCustomEquipmentList().map(w=>({id:'custom-equipment-'+w.customEquipmentId,addedAt:Number(w.addedAt)||0,name:w.name,text:w.rulesText||'Aucune règle supplémentaire enregistrée.',lines:String(w.rulesText||'').split(/\n+/).filter(Boolean).length||1,custom:!isPublishedCustomEquipment(w),customEquipmentId:w.customEquipmentId}));
     // V-REFDUPE: allCustomEquipmentList() already prioritizes a Mount Creature
     // or custom item over a same-named book item (see its own V-MOUNTSHADOW2
     // note) wherever equipment is actually bought/equipped — but this
@@ -17733,7 +17741,7 @@ function saveCustomContent(kind){
   if(kind==='skills'&&item.tree&&customSkillTreeList().some(t=>t.name===item.tree)){const cur=customContentList('skills').find(x=>x.customContentId===item.customContentId);const count=customContentList('skills').filter(x=>x.tree===item.tree&&x.customContentId!==item.customContentId).length;if(count>=6){toast(en?'This custom tree already has 6 skills':'Cet arbre custom contient déjà 6 compétences');return}}
   // V-DOMAINSPELLCAP: no longer refuses past a 6th spell in a custom domain
   // — see the matching comment on adminAddSpellToDomain for why.
-  const map={traits:'customTraits',skills:'customSkills',spells:'customSpells',special:'customSpecialRules'},key=map[kind],arr=customContentList(kind),idx=arr.findIndex(x=>x.customContentId===item.customContentId);const oldName=idx>=0?arr[idx].name:null;item.archived=idx>=0?!!arr[idx].archived:false;const prevExclusiveWarbandId=idx>=0?(arr[idx].exclusiveWarbandId||null):null;if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(arr[idx][k]!==undefined)item[k]=arr[idx][k]});if(idx>=0)state[key][idx]=item;else state[key].push(item);
+  const map={traits:'customTraits',skills:'customSkills',spells:'customSpells',special:'customSpecialRules'},key=map[kind],arr=customContentList(kind),idx=arr.findIndex(x=>x.customContentId===item.customContentId);const oldName=idx>=0?arr[idx].name:null;item.archived=idx>=0?!!arr[idx].archived:false;const prevExclusiveWarbandId=idx>=0?(arr[idx].exclusiveWarbandId||null):null;if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(arr[idx][k]!==undefined)item[k]=arr[idx][k]});if(idx>=0){if(state[key][idx]&&'addedAt' in state[key][idx])item.addedAt=state[key][idx].addedAt;state[key][idx]=item}else state[key].push(item);
   // V-CUSTOMSKILLRENAME: renaming an entry HERE (typing a new name in the
   // Custom-tab form) changes the entry's own .name directly — unlike the
   // Référentiel's ✎ Title button, which only overlays a display title and
@@ -17844,7 +17852,7 @@ function customBuilderSaveItem(kind,parentId,itemId){
   item.archived=idx>=0?!!arr[idx].archived:false;
   if(idx>=0)['officialWarbandId','officialWarbandIds','bookFactionIds'].forEach(k=>{if(arr[idx][k]!==undefined)item[k]=arr[idx][k]});
   const renamed=idx>=0&&arr[idx].name!==item.name;
-  if(idx>=0)state[key][idx]=item; else state[key].push(item);
+  if(idx>=0){if(state[key][idx]&&'addedAt' in state[key][idx])item.addedAt=state[key][idx].addedAt;state[key][idx]=item} else state[key].push(item);
   customBuilderResetComposer(); save(true); render('custom');if(idx>=0&&!renamed)autoPushPublishedEdit(kind,item.customContentId); toast(idx>=0?(kind==='skills'?(en?'Skill updated':'Compétence modifiée'):(en?'Spell updated':'Sort modifié')):(kind==='skills'?(en?'Skill created':'Compétence créée'):(en?'Spell created':'Sort créé')))
 }
 function customBuilderComposerMarkup(kind,parent,item){
