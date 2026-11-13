@@ -1467,6 +1467,15 @@ await test('[mobile] help B+C: faction traits, ready-made warband, profile expla
     return {tags:Array.isArray(tr.tags),stars:/★/.test(mk),starter,filled:r.fighters.length>=3&&r.fighters.some(x=>x.type==='Leader')&&Number(r.gold)>=0&&Number(r.gold)<500,help:/2D6/.test(ph)&&/(3|4|5)\+/.test(ph),pct:statPct(7)===58&&statPct(2)===3}});
   expect(Object.values(out).every(Boolean),'help B+C: '+JSON.stringify(out));
 });
+await test('[mobile] play: "What do I need to roll?" gives hit / wound / save and the odds',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.some(w=>w.type==='Henchman'));const hs=f.warriors.filter(w=>w.type==='Henchman');const sword=D.weapons.find(w=>w.name==='Sword'),xbow=D.weapons.find(w=>w.name==='Crossbow');
+    const mk=(w,inst,eq,prof)=>({...JSON.parse(JSON.stringify(w)),wid:w.id,instance:inst,equipmentSelected:eq.map(e=>JSON.parse(JSON.stringify(e))),profile:prof,status:{}});
+    state.rosters=[{id:'da',name:'A',factionId:f.id,gold:0,fighters:[mk(hs[0],'a1',[sword,xbow],[4,4,3,3,3,1,3,1,7,7,7,7])]},{id:'db',name:'B',factionId:f.id,gold:0,fighters:[mk(hs[0],'b1',[],[4,3,3,3,3,1,3,1,7,7,7,7])]}];state.active='da';
+    state.playSession={slots:[{source:'own',rosterId:'da'},{source:'own',rosterId:'db'}]};
+    openDiceHelp('a1');const m=diceHelpCalc();diceSet('wi',1);diceSet('cover',true);const r=diceHelpCalc();const txt=document.querySelector('.dice-help')?.textContent||'';closeModal();
+    const ax=diceFindFighter('a1').x,tx=diceFindFighter('b1').x;return {melee:m.w?.name==='Sword'&&m.hit===diceHitMelee(Number(ax.profile[1]),Number(tx.profile[1]))&&m.wound===diceWound(Number(ax.profile[3]),Number(tx.profile[4]))&&Math.abs(m.p-diceChance(m.hit)*diceChance(m.wound))<1e-9,ranged:r.ranged&&r.hit===Math.min(7,diceHitShoot(Number(ax.profile[2]))+1)&&r.w?.name==='Crossbow',shown:/%/.test(txt),tables:diceWound(6,3)===2&&diceWound(2,4)===6&&diceHitMelee(2,4)===5&&diceHitShoot(5)===2}});
+  expect(Object.values(out).every(Boolean),'dice helper: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

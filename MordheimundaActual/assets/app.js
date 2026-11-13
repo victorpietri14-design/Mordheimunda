@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0833.0';
+const APP_BUILD='110.0834.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10711,7 +10711,46 @@ function playUdApplyEnd(ps){
   if(notes.length){save(true);toast((en?'Underdog applied: ':'Underdog appliqué : ')+notes.join(' · '))}
 }
 // --- markup
-function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${esc(openRid)}','${esc(x.instance)}')"`:''}>${h}</div>`}
+// ===================== V-DICEHELP: "What do I need to roll?" =====================
+// From a fighter in play: pick its weapon and a target (or type the target's
+// WS / T / save), and see the number needed to hit, to wound and the enemy's
+// save, with the chance per attack. Special rules are not counted.
+let diceHelp=null;
+function diceRosters(){const ps=state.playSession;const out=[...(ps?playOwnRosters(ps):[])];Object.values(typeof playForeign==='object'&&playForeign?playForeign:{}).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.fighters))out.push(o)});(state.rosters||[]).forEach(r=>{if(!out.includes(r))out.push(r)});return out}
+function diceFindFighter(inst){for(const r of diceRosters()){const x=(r.fighters||[]).find(y=>y&&y.instance===inst);if(x)return {r,x}}return null}
+function diceTargets(attR){const ps=state.playSession;const rs=[...(ps?playOwnRosters(ps):[]),...Object.values(typeof playForeign==='object'&&playForeign?playForeign:{}).filter(o=>o&&typeof o==='object'&&Array.isArray(o.fighters))];const list=[];const seen=new Set();
+  rs.forEach(r=>{if(!r||seen.has(r.id)||String(r.id)===String(attR?.id))return;seen.add(r.id);(r.fighters||[]).forEach(x=>{if(x&&!fighterStatus(x).dead)list.push({key:x.instance,name:`${x.name} · ${r.name}`,x})})});return list}
+function diceStrength(str,S){const t=String(str??'').trim();if(/^s/i.test(t)){const m=t.match(/[+-]\s*\d+/);return S+(m?Number(m[0].replace(/\s/g,'')):0)}const n=Number(t.match(/\d+/)?.[0]);return Number.isFinite(n)?n:S}
+function diceAp(str){const m=String(str??'').match(/[+-]?\s*\d+/);return m?Number(m[0].replace(/\s/g,'')):0}
+function diceHitMelee(a,d){return a>=d*2?2:a>d?3:d>=a*2?5:4}
+function diceHitShoot(bs){return bs>=5?2:bs>=4?3:bs>=3?4:bs>=2?5:6}
+function diceWound(s,t){return s>=t*2?2:s>t?3:s===t?4:s*2<=t?6:5}
+function diceChance(n){return n>6?0:(7-Math.max(2,n))/6}
+function diceSaveOf(x){try{const p=armorSaveInfo(x)?.parts;const n=Number(Array.isArray(p)?p[0]:NaN);return Number.isFinite(n)&&n>=2&&n<=6?n:7}catch(e){return 7}}
+function openDiceHelp(inst){const f=diceFindFighter(inst);if(!f)return;const keep=diceHelp&&diceHelp.inst===inst?diceHelp:null;diceHelp={inst,wi:keep?.wi||0,tgt:keep?.tgt||'',ws:keep?.ws||3,t:keep?.t||3,sv:keep?.sv||7,cover:!!keep?.cover};const tg=diceTargets(f.r);if(!diceHelp.tgt||(diceHelp.tgt!=='manual'&&!tg.some(t=>t.key===diceHelp.tgt)))diceHelp.tgt=tg[0]?.key||'manual';openModal(diceHelpMarkup())}
+function diceSet(k,v){if(!diceHelp)return;diceHelp[k]=k==='cover'?!!v:(k==='tgt'?String(v):Number(v));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceHelpCalc(){const d=diceHelp;const f=diceFindFighter(d.inst);if(!f)return null;const x=f.x;const P0=x.profile||[];const weapons=wbWeapons(x);const w=weapons[d.wi]||null;
+  const ranged=!!(w&&weaponIsRanged(w.profile));const S=Number(P0[3])||3;let fx=null;try{fx=w?weaponEffectPack(x,w):null}catch(e){}
+  const str=diceStrength(w?.profile?.strength,S)+(Number(fx?.strength)||0);const ap=w?diceAp(w.profile?.ap)+(Number(fx?.ap)||0):0;
+  const tgt=d.tgt==='manual'?null:diceTargets(f.r).find(t=>t.key===d.tgt);const tx=tgt?.x;const tWS=tx?Number(tx.profile?.[1])||3:d.ws;const tT=tx?Number(tx.profile?.[4])||3:d.t;const tSv=tx?diceSaveOf(tx):d.sv;
+  const hit=ranged?Math.min(7,diceHitShoot(Number(P0[2])||0)+(d.cover?1:0)):diceHitMelee(Number(P0[1])||0,tWS);const wound=diceWound(str,tT);const save=tSv>=7?7:Math.max(2,tSv-ap);
+  const p=diceChance(hit)*diceChance(wound)*(save>=7?1:1-diceChance(save));const attacks=ranged?1:Math.max(1,Number(P0[7])||1);
+  return {x,weapons,w,ranged,str,ap,tWS,tT,tSv,hit,wound,save,p,attacks,tgt,tg:diceTargets(f.r)}}
+function diceHelpMarkup(){const en=siteLanguage==='en';const c=diceHelpCalc();if(!c)return '';const d=diceHelp;const pct=v=>`${Math.round(v*100)} %`;const need=n=>n>=7?(en?'impossible':'impossible'):n+'+';
+  const row=(k,t,n,why)=>`<div class="dh-row"><span><b>${k} · ${t}</b><small>${why}</small></span><b class="dh-need">${n}</b></div>`;
+  const wOpts=c.weapons.length?c.weapons.map((w,i)=>`<option value="${i}" ${i===d.wi?'selected':''}>${esc(w.name)}</option>`).join(''):`<option>${en?'Bare hands':'Mains nues'}</option>`;
+  const tOpts=c.tg.map(t=>`<option value="${esc(t.key)}" ${t.key===d.tgt?'selected':''}>${esc(t.name)}</option>`).join('')+`<option value="manual" ${d.tgt==='manual'?'selected':''}>${en?'Other target (type its values)':'Autre cible (entrer ses valeurs)'}</option>`;
+  const num=(k,l,v,min,max)=>`<label class="dh-num"><span>${l}</span><select onchange="diceSet('${k}',this.value)">${Array.from({length:max-min+1},(_,i)=>min+i).map(n=>`<option value="${n}" ${n===v?'selected':''}>${k==='sv'?(n>=7?(en?'none':'aucune'):n+'+'):n}</option>`).join('')}</select></label>`;
+  const advice=c.p<0.15?(en?'Low odds: charge with several fighters, or pick a target with lower Toughness or no armour.':'Peu de chances : charge à plusieurs, ou vise une cible avec moins d’Endurance ou sans armure.'):c.p>=0.4?(en?'Good odds: go for it.':'Bonnes chances : fonce.'):'';
+  return `<div class="wc-dialog dice-help"><div class="eyebrow">${en?'WHAT DO I NEED TO ROLL?':'QUE FAUT-IL AU DÉ ?'}</div><h2>${esc(c.x.name)}</h2>
+   <div class="dh-pick"><label><span>${en?'Weapon':'Arme'}</span><select onchange="diceSet('wi',this.value)">${wOpts}</select></label><label><span>${en?'Target':'Cible'}</span><select onchange="diceSet('tgt',this.value)">${tOpts}</select></label></div>
+   ${d.tgt==='manual'?`<div class="dh-manual">${c.ranged?'':num('ws',en?'Its WS':'Sa CC',d.ws,1,8)}${num('t',en?'Its T':'Son E',d.t,1,8)}${num('sv','Sv',d.sv,2,7)}</div>`:`<div class="dh-tgt">${en?'Target:':'Cible :'} ${c.ranged?'':`${en?'WS':'CC'} ${c.tWS} · `}${en?'T':'E'} ${c.tT} · Sv ${c.tSv>=7?(en?'none':'aucune'):c.tSv+'+'}</div>`}
+   ${c.ranged?`<label class="dh-cover"><input type="checkbox" ${d.cover?'checked':''} onchange="diceSet('cover',this.checked)"> ${en?'Target in partial cover (−1 to hit)':'Cible à couvert partiel (−1 pour toucher)'}</label>`:''}
+   <div class="dh-rows">${row('1',en?'Hit':'Toucher',need(c.hit),c.ranged?`${en?'BS':'CT'} ${c.x.profile?.[2]}${d.cover?(en?', cover':', couvert'):''}`:`${en?'WS':'CC'} ${c.x.profile?.[1]} ${en?'against':'contre'} ${c.tWS}`)}${row('2',en?'Wound':'Blesser',need(c.wound),`${en?'S':'F'} ${c.str} ${en?'against T':'contre E'} ${c.tT}`)}${row('3',en?'Enemy save':'Sauvegarde ennemie',c.save>=7?(en?'none':'aucune'):need(c.save),c.save>=7?(en?'no save':'pas de sauvegarde'):`Sv ${c.tSv}+${c.ap?` ${en?'with AP':'avec PA'} ${c.ap>0?'+':''}${c.ap}`:''}`)}</div>
+   <div class="dh-sum">${en?'Chance to wound per attack:':'Chance de blesser par attaque :'} <b>${pct(c.p)}</b>${c.attacks>1?`<br>${en?`With its ${c.attacks} attacks: about ${(c.p*c.attacks).toFixed(1)} wound(s)`:`Avec ses ${c.attacks} attaques : environ ${(c.p*c.attacks).toFixed(1).replace('.',',')} blessure(s)`}`:''}${advice?`<br><span class="muted">${advice}</span>`:''}</div>
+   <p class="muted dh-note">${en?'A 1 always fails. Special rules and skills are not counted: check the sheet.':'Un 1 rate toujours. Les règles spéciales et compétences ne sont pas comptées : vérifie la fiche.'}</p>
+   <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`}
+function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${esc(openRid)}','${esc(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${esc(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
 function playFightersMarkup(ps){
   try{playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(e&&(e.picks||[]).length&&Number(e.total)!==playEngTotal(playEngEntry(ps,r),r))setTimeout(()=>{if(state.playSession)playEngPublish(state.playSession,r)},0)})}catch(err){}
   const en=siteLanguage==='en';const s=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId);const rows=playEngRows(ps);const std=playEngStandard(rows);
