@@ -1564,6 +1564,27 @@ await test('[mobile] reminders: Go, Later and Don’t show again work on home re
     return {three,later,never,tipLater,shown,hid1,hid2}});
   expect(Object.values(out).every(Boolean),'reminders: '+JSON.stringify(out));
 });
+await test('[desktop] pages kept in more.js: opened first they load it, and it is fetched in the background anyway',null,async page=>{
+  // background fetch: the normal session gets it without opening any of those pages
+  await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});
+  await page.evaluate(()=>navigateApp(APP_ROUTES.custom));await page.waitForTimeout(800);
+  const cust=(await page.textContent('#content')).slice(0,200);
+  expect(/custom/i.test(cust)&&await page.evaluate(()=>typeof customLandingMarkup==='function'),'custom page did not draw once loaded: '+cust);
+  // opened first, with the file slow to come: "Loading…", then the page
+  const ctx=await browser.newContext({serviceWorkers:'block',viewport:{width:1300,height:900}});
+  try{const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
+    let release;const hold=new Promise(r=>release=r);
+    await p.route('**/assets/more.min.js*',async r=>{await hold;await r.continue()});
+    await p.goto(base+'/',{waitUntil:'domcontentloaded'});
+    await p.waitForFunction(()=>typeof render==='function'&&typeof D!=='undefined'&&D.factions?.length>0,null,{timeout:20000});
+    await p.evaluate(()=>{siteLanguage='en';navigateApp('/rules/learn')});await p.waitForTimeout(300);
+    const waiting=await p.evaluate(()=>({loading:/Loading…/.test(document.querySelector('#content').textContent),ready:window.MORE_CODE_READY===true}));
+    release();
+    await p.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});await p.waitForTimeout(400);
+    const after=await p.evaluate(()=>({path:location.pathname,lessons:document.querySelectorAll('#content .learn-ch').length}));
+    expect(waiting.loading&&!waiting.ready&&after.path==='/rules/learn'&&after.lessons>0&&!errs.length,'learn opened first: '+JSON.stringify({waiting,after,errs}));
+  }finally{await ctx.close()}
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
