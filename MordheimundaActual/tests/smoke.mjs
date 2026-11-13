@@ -1430,6 +1430,22 @@ await test('[desktop] search lists rule titles, coloured [SUBHEAD] and titles in
     const r={crit:first('critical hits'),vdg:first('very difficult ground'),fall:searchRun('falling').some(g=>g.key==='rules'&&/^falling$/i.test(g.items[0].title)),sub:searchSubhead('[SUBHEAD color=danger]FIGHTING[/SUBHEAD]'),plural:searchScore('critical hits','Marksman','causes a critical hit on a 6')>0};campaignListAll=ca;return r});
   expect(out.crit==='Critical Hits'&&out.vdg==='VERY DIFFICULT GROUND'&&out.fall&&out.sub==='FIGHTING'&&out.plural,'rule titles are search results: '+JSON.stringify(out));
 });
+await test('[desktop] artifacts are items: weapon with its profile, equipment otherwise, References › Artifacts, Custom › Artifacts',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader'));const A=n=>LUSTRIA_ARTIFACTS.find(a=>a.name===n);
+    const ro={id:'t',name:'T',factionId:f.id,gold:0,fighters:[],reserve:[]};
+    const w=artifactStashEntry(ro,A('Blood Blade'),'artifact'),eq=artifactStashEntry(ro,A('Chameleon Skink Skin'),'artifact'),ar=artifactStashEntry(ro,A('Cold One Armour'),'artifact');
+    const own=artifactResolved({name:'X',base:'Sling',kind:'weapon',profile:{strength:'4'}});const forced=artifactResolved({name:'Y',base:'Sword',kind:'equipment'});
+    const wp=weaponProfileMarkup(w,null);
+    campaignDetailCache.set('ca1',{id:'ca1',name:'Camp A',definition:{artifacts:[{id:'a1',table:'major',roll:'7',name:'Test Relic',base:'Dagger',rules:'Glows.',lore:'Old.'}]}});const ca=campaignListAll;campaignListAll=()=>[{id:'ca1',name:'Camp A'}];
+    const refs=referenceEntries('artifacts');const cust=customArtifactsMarkup();campaignListAll=ca;
+    return {w:w.name==='Blood Blade'&&w.artifactItem&&isWeaponLike(w)&&w.profile.range==='Melee 2',eq:eq.name==='Chameleon Skink Skin'&&!isWeaponLike(eq),ar:ar.name==='Heavy armour'&&ar.skin==='Cold One Armour',
+      own:own.weapon&&own.profile.strength==='4'&&own.profile.range==='16',forced:!forced.weapon,wp:/Blood Blade/.test(wp)&&/gains a wound/.test(wp)&&wp.includes('art-tag'),
+      live:liveEquipmentView(w)===w,refs:refs.some(e=>e.name==='Test Relic'&&/Camp A/.test(e.text))&&refs.some(e=>e.name==='Blood Blade'),cust:/Test Relic/.test(cust)&&/openCampaignArtifactEditor/.test(cust)}});
+  expect(Object.values(out).every(Boolean),'artifact items: '+JSON.stringify(out));
+  await page.evaluate(()=>{navigateApp(APP_ROUTES.references);setReferenceCategory('artifacts')});await page.waitForTimeout(500);
+  const cards=await page.evaluate(()=>document.querySelectorAll('.art-ref .art-item').length);
+  expect(cards>=30,'References › Artifacts lists the artifacts by campaign: '+cards);
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

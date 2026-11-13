@@ -6133,3 +6133,16 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .logged-out-x{background:none;border:0;color:inherit;font-size:16px;min-width:32px;min-height:32px;cursor:pointer}
 /* V-SHAREERR */
 .play-share-err{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1.5px solid #e06f6f;background:rgba(224,111,111,.08);border-radius:10px;padding:8px 11px;margin:0 0 10px;font-size:13px}
+/* V-ARTITEM: artifacts shown like items */
+.art-tag{color:var(--wip,#e0b04a);font-weight:800}
+.weapon-profile.is-artifact{border-left:2px solid var(--wip,#e0b04a);padding-left:8px}
+.art-rules{margin-top:6px;font-size:12.5px;line-height:1.5;border-left:2px solid var(--wip,#e0b04a);padding-left:9px}
+.art-rules .rule-line{margin:0}
+.art-camp{margin-bottom:18px}
+.art-sub{margin:12px 0 8px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.art-item .weapon-profile-grid,.art-item table{margin:6px 0}
+.artifact-lore-fold summary{cursor:pointer;font-size:12px;color:var(--muted)}
+.art-custom-bar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.art-custom-bar .custom-field{min-width:200px;margin:0}
+.art-prof{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0}
+.art-prof legend{font-size:11px;color:var(--muted);padding:0 4px}
