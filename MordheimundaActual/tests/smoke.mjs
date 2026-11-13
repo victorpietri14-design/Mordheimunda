@@ -1504,6 +1504,16 @@ await test('[desktop] faction quick editor: difficulty, keywords, intro and Begi
     finally{api.adminSaveHelpTexts=orig;helpOverrides=keep}});
   expect(Object.values(out).every(Boolean),'faction editor: '+JSON.stringify(out));
 });
+await test('[mobile] training game: a whole guided turn with real dice, branches follow the dice, chapter 9 done',null,async page=>{
+  const play=async seq=>page.evaluate(async seq=>{const rnd=Math.random;let i=0;Math.random=()=>((seq[i++%seq.length])-0.5)/6;try{localStorage.removeItem('mu_learn');learnTrainGo();await new Promise(z=>setTimeout(z,300));const seen=new Set();
+    for(let g=0;g<60;g++){seen.add(document.querySelector('.learn-title')?.textContent);const ex=[...document.querySelectorAll('.learn-ex')].find(e=>!e.querySelector('.learn-why'));
+      if(ex){const k=trainUi.step;ex.querySelectorAll('.learn-opt')[k===2?(trainUi.ans.target==null?0:2):k===3?(trainUi.brute==='ooa'?1:0):0].click();await new Promise(z=>setTimeout(z,20));continue}
+      const b=document.querySelector('.learn-roll-btn')||document.querySelector('.learn-next');if(!b)break;b.click();await new Promise(z=>setTimeout(z,20))}
+    return {step:trainUi.step,brute:trainUi.brute,won:!!trainUi.won,done:!!JSON.parse(localStorage.getItem('mu_learn')||'{}').train,n:seen.size,path:location.pathname}}finally{Math.random=rnd}},seq);
+  const a=await play([6,6,1,6,6,6,6,6,6,6]);const b=await play([5,2,6,6,2,6,5,1,1,1]);
+  expect(a.step===6&&a.brute==='ooa'&&a.won&&a.done&&a.path==='/rules/learn/train','shot takes the Brute out, the enemy routs: '+JSON.stringify(a));
+  expect(b.step===6&&b.brute==='flesh'&&b.n>=7,'flesh wound then the charge branch: '+JSON.stringify(b));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
