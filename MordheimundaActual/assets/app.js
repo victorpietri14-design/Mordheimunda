@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0825.0';
+const APP_BUILD='110.0826.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8331,6 +8331,9 @@ function playGameXp(rid,inst,lineId,delta){
   let e=x.gameXpRecord.find(z=>z.sessionKey===key&&z.lineId===lineId);const cur=e?Number(e.count||1):0;
   const next=line.repeatable?Math.max(0,cur+delta):(delta>0?1:0);if(next===cur)return;
   const diff=(next-cur)*Number(line.xp||0);const before=Number(x.xp||0);x.xp=Math.max(0,before+diff);
+  // V-PLAYXPSTAMP: the warband played is often not the one open on screen, so
+  // save() did not stamp it and the next sync put back the older online copy.
+  touchRoster(r);
   if(!e&&next>0){e={id:crypto.randomUUID(),lineId,name:line.name,xp:Number(line.xp||0),count:next,scenario:s?.name||'',date:Date.now(),sessionKey:key};x.gameXpRecord.push(e)}
   else if(e){if(next>0)e.count=next;else x.gameXpRecord=x.gameXpRecord.filter(z=>z!==e)}
   logHistory(r,'xp',`${x.name}: ${line.name}${line.repeatable?` ×${next}`:(next?'':(en?' (undone)':' (annulé)'))} (${diff>=0?'+':''}${diff} XP)`);
@@ -8342,7 +8345,7 @@ function togglePlayQuest(rid,inst,qid){
   const en=siteLanguage==='en';const ps=xpPs();if(!ps)return;const key=playQuestKey(ps);
   const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const x=r?.fighters?.find(f=>f.instance===inst);const q=questById(qid);if(!x||!q)return;
   x.questRecord=Array.isArray(x.questRecord)?x.questRecord:[];
-  const i=x.questRecord.findIndex(e=>e.sessionKey===key&&e.questId===qid);const before=Number(x.xp||0);
+  const i=x.questRecord.findIndex(e=>e.sessionKey===key&&e.questId===qid);const before=Number(x.xp||0);touchRoster(r);
   if(i>=0){const e=x.questRecord[i];x.questRecord.splice(i,1);x.xp=Math.max(0,before-Number(e.xp||0));logHistory(r,'xp',en?`${x.name}: quest “${q.name}” undone (−${e.xp} XP)`:`${x.name} : quête « ${q.name} » annulée (−${e.xp} XP)`);toast(en?`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`:`↺ ${q.name} · ${x.name} −${e.xp} XP (${before} → ${x.xp})`)}
   else{const xp=Number(q.xp||0);const s=SCENARIOS_CACHE.find(z=>z.id===ps.scenarioId);x.questRecord.push({id:crypto.randomUUID(),questId:q.id,name:q.name,tree:q.tree?.name||'',xp,scenario:s?.name||'',date:Date.now(),sessionKey:key});x.xp=before+xp;logHistory(r,'xp',en?`${x.name}: quest “${q.name}” completed (+${xp} XP)`:`${x.name} : quête « ${q.name} » réussie (+${xp} XP)`);toast(en?`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`:`✓ ${q.name} · ${x.name} +${xp} XP (${before} → ${x.xp})`)}
   save(true);xpRerender();
@@ -10669,7 +10672,7 @@ function playUdRitualPick(rid,inst){closeModal();playEngChange(rid,e=>{e.ud.buys
 // --- end of game: XP for every model that took part, extra exploration dice
 function playUdApplyEnd(ps){
   if(!ps)return;const en=siteLanguage==='en';const notes=[];
-  playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(!e||e.applied)return;
+  playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(!e||e.applied)return;touchRoster(r);
     // a temporary Hired Sword who fought can then be recruited for good from the warband's Hired Swords
     if((e.ud?.temps||[]).some(t=>t.kind==='favour')&&r.postBattle&&Array.isArray(r.postBattle.explorationBonuses))r.postBattle.explorationBonuses=r.postBattle.explorationBonuses.filter(b=>b.id!=='returning_favour');
     (e.ud?.temps||[]).forEach(t=>{if(!t?.fighter||(t.kind!=='hs'&&t.kind!=='favour'))return;r.recentTempHires=(r.recentTempHires||[]).filter(h=>h.wid!==t.wid);r.recentTempHires.unshift({wid:t.wid,name:t.fighter.name,fighter:JSON.parse(JSON.stringify(t.fighter)),at:Date.now()});r.recentTempHires=r.recentTempHires.slice(0,5);notes.push(`${t.fighter.name} : ${en?'can now be recruited':'peut maintenant être recruté'}`)});

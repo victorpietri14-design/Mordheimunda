@@ -1408,6 +1408,16 @@ await test('[desktop] shared game: map pictures not sent, sharing errors shown t
   expect(out.back==='data:image/png;base64,QQ==','the guest gets the map picture back: '+out.back);
   expect(out.banner,'the host is told the invitation failed');
 });
+await test('[desktop] game XP on a warband that is not the open one is stamped, so a sync keeps it',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.length>=2);const mk=(id)=>({id,name:id,factionId:f.id,gold:0,fighters:[{...f.warriors[0],instance:'i-'+id,wid:f.warriors[0].id,name:'F',xp:0,profile:(f.warriors[0].profile||[]).slice(),equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]}],updatedSeq:1,updatedAt:1});
+    state.rosters=[mk('ra'),mk('rb')];state.active='ra';const ps=blankPlaySession();ps.scenarioId='zz';ps.slots=[{source:'own',rosterId:'rb',rosterName:'rb',group:1}];state.playSession=ps;
+    const line=universalXpList()[0];if(!line)return {skip:true};playGameXp('rb','i-rb',line.id,1);
+    const rb=state.rosters.find(r=>r.id==='rb');const stamped=Number(rb.updatedSeq)>1;
+    const remote={rosters:[{...JSON.parse(JSON.stringify(rb)),fighters:[{...rb.fighters[0],xp:0}],updatedSeq:1,updatedAt:1}]};
+    const merged=mergeAccountData({rosters:[rb]},remote);const kept=merged.rosters.find(r=>r.id==='rb').fighters[0].xp;
+    state.playSession=null;state.rosters=[];return {stamped,kept,xp:rb.fighters[0].xp}});
+  expect(out.skip||(out.stamped&&out.kept===out.xp&&out.xp>0),'game XP lost on sync: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
