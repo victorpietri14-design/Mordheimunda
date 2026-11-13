@@ -378,12 +378,12 @@ await test('[desktop] Lustria maze (five 4s): the lost Hero keeps the effect unt
     const hero={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h-maze',equipmentSelected:[],status:{}};
     state.rosters=[{id:'mz',name:'MZ',factionId:f.id,campaignId:'cm1',gold:0,fighters:[hero]}];state.active='mz';
     const r=activeRoster();campaignExploreState(r).lead='h-maze';resolveCampaignExplore('5-4');
-    const x=()=>activeRoster().fighters.find(q=>q.instance==='h-maze');const set=!!x().maze;const blocked=!playEngFighterOk(x());const card=/LABYRINTHE|MAZE/.test(ownedFighterCard(x(),0,f));
+    const x=()=>activeRoster().fighters.find(q=>q.instance==='h-maze');const set=!!x().maze;const blocked=!playEngFighterOk(x());const noPanel=mazePanelMarkup({...x(),maze:undefined})==='';const card=/LABYRINTHE|MAZE/.test(ownedFighterCard(x(),0,f));
     editingIndex=0;mazeGamePlayed();const g1=x().maze.games;
     const rnd=Math.random;Math.random=()=>0;mazeRoll();mazeRoll();mazeRoll();Math.random=rnd;const gone=!!x().maze.gone;
     x().maze={games:1,rolls:[]};Math.random=()=>0.99;mazeRoll();Math.random=rnd;const back=!!x().maze.returned&&playEngFighterOk(x());
-    return {set,blocked,card,g1,gone,back}});
-  expect(out.set&&out.blocked&&out.card,'the maze state is not kept on the hero / he can still be engaged: '+JSON.stringify(out));
+    return {set,blocked,card,noPanel,g1,gone,back}});
+  expect(out.set&&out.blocked&&out.card&&out.noPanel,'the maze state is not kept on the hero / he can still be engaged: '+JSON.stringify(out));
   expect(out.g1===1&&out.gone&&out.back,'maze progression is wrong: '+JSON.stringify(out));
 });
 await test('[desktop] exploration effects are applied for real (Well → misses the game, undone by clear; Gold Plaque for Lizardmen)',null,async page=>{
