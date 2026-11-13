@@ -6218,3 +6218,4 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .train-page .learn-body p{margin:6px 0}
 .train-end{display:grid;gap:8px;margin-top:10px}
 .train-page .learn-roll-btn,.train-page .learn-next{margin-top:10px}
+.new-tag{background:var(--accent);color:var(--chip-bg);border-color:var(--accent);font-weight:800;letter-spacing:.8px;margin-left:6px}

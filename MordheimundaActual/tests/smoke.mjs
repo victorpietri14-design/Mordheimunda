@@ -1514,6 +1514,18 @@ await test('[mobile] training game: a whole guided turn with real dice, branches
   expect(a.step===6&&a.brute==='ooa'&&a.won&&a.done&&a.path==='/rules/learn/train','shot takes the Brute out, the enemy routs: '+JSON.stringify(a));
   expect(b.step===6&&b.brute==='flesh'&&b.n>=7,'flesh wound then the charge branch: '+JSON.stringify(b));
 });
+await test('[desktop] NEW badge: a custom item added this week shows NEW in References, old ones and edits do not',null,async page=>{
+  const out=await page.evaluate(()=>{const keepI=state.addedAtInit;delete state.addedAtInit;state.customTraits=Array.isArray(state.customTraits)?state.customTraits:[];
+    const old={customContentId:'old-tr',name:'Oldtrait',text:'x'};state.customTraits.push(old);stampCustomAdded();const oldOk=old.addedAt===0;
+    const fresh={customContentId:'new-tr',name:'Freshtrait',text:'y'};state.customTraits.push(fresh);save(true);const freshOk=Date.now()-fresh.addedAt<60000;
+    try{__refEntriesCache=null}catch(e){}const list=referenceEntries('traits');const fe=list.find(e=>e.name==='Freshtrait'),oe=list.find(e=>e.name==='Oldtrait');
+    const badge=/NEW/.test(referenceEntryMarkup(fe,'traits'))&&!/>NEW</.test(referenceEntryMarkup(oe,'traits'));
+    const week=!isNewItem({addedAt:Date.now()-8*864e5})&&isNewItem({addedAt:Date.now()-6*864e5});
+    const pub=publishedEntryFor('traits',fresh).addedAt===fresh.addedAt;
+    state.customTraits=state.customTraits.filter(x=>x!==old&&x!==fresh);if(keepI!==undefined)state.addedAtInit=keepI;
+    return {oldOk,freshOk,badge,week,pub}});
+  expect(Object.values(out).every(Boolean),'NEW badge: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
