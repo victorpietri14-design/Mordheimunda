@@ -1552,6 +1552,18 @@ await test('[mobile] player guide: 2 levels, steps tick themselves from the warb
     return {hub,empty,chose,recruited,step,inHelp,inLearn}});
   expect(Object.values(out).every(Boolean),'player guide: '+JSON.stringify(out));
 });
+await test('[mobile] reminders: Go, Later and Don’t show again work on home reminders, help tips and the pre-game box',null,async page=>{
+  await page.setViewportSize({width:390,height:844});
+  const out=await page.evaluate(async()=>{localStorage.removeItem('mu_ui_reminders_hidden');localStorage.removeItem('mu_pregame_off');
+    const keep=homeReminders;const list=[{k:'t1',ic:'!',txt:'Test reminder',go:"window.__went=1",w:1}];homeReminders=()=>{const hid=remindHidden();return list.filter(x=>!hid[x.k])};
+    const mk=homeRemindersMarkup();const three=/Aller|Go/.test(mk)&&/Plus tard|Later/.test(mk)&&/Ne plus afficher|show again/.test(mk);
+    remindHide('t1',1);const later=!homeRemindersMarkup()&&remindHidden().t1<Date.now()+2*864e5;localStorage.removeItem('mu_ui_reminders_hidden');remindHide('t1',36500);const never=remindHidden().t1>Date.now()+3000*864e5;homeReminders=keep;
+    helpTipLaterClose('recruit');const tipLater=helpTipLater.has('recruit');
+    const f=D.factions.find(x=>x.warriors?.some(w=>w.type==='Henchman'));const w=f.warriors.find(w=>w.type==='Henchman');const r={id:'pg',name:'PG',factionId:f.id,gold:200,fighters:[{...JSON.parse(JSON.stringify(w)),wid:w.id,instance:'p1',equipmentSelected:[],status:{}}]};
+    const shown=/remind-act/.test(playPreGameReminder(r));preGameLater.add('pg');const hid1=playPreGameReminder(r)==='';preGameLater.delete('pg');localStorage.setItem('mu_pregame_off','1');const hid2=playPreGameReminder(r)==='';localStorage.removeItem('mu_pregame_off');
+    return {three,later,never,tipLater,shown,hid1,hid2}});
+  expect(Object.values(out).every(Boolean),'reminders: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

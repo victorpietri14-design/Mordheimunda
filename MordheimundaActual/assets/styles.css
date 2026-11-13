@@ -6240,3 +6240,12 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .guide-note{font-size:12px;margin:6px 0 10px}
 .guide-deep{all:unset;cursor:pointer;display:block;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:12px}
 .guide-nav{display:flex;gap:8px}.guide-nav .button{flex:1}
+/* V-REMIND2 */
+.remind-acts,.help-tip-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.remind-act{all:unset;cursor:pointer;font-size:11.5px;color:var(--muted);padding:4px 8px;border:1px solid var(--line);border-radius:999px}
+.remind-act:hover{color:var(--text)}
+.remind-go-tag{margin-left:auto;font-size:11.5px;color:var(--accent);white-space:nowrap}
+.home-remind-row{flex-wrap:wrap}
+.help-tip-acts button{margin:0}
+.help-tip-acts .ht-go{font-weight:700}
+.home-remind-row .remind-acts{width:100%;margin:0 0 8px 30px}
