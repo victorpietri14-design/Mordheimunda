@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0837.0';
+const APP_BUILD='110.0839.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -9573,7 +9573,7 @@ function warbandSectionMarkup(f,page,titleEn,titleFr,defaultRichHtml,defaultPlai
 // V-FACEDIT: quick admin editor for one faction: difficulty, keywords, the
 // one-line intro (FR/EN) and the Beginner badge. Saved in the help texts
 // (same data as Admin › Help texts › Factions), so creation and Rules match.
-function openFactionHelpEditor(fid){const en=siteLanguage==='en';const f=(D.factions||[]).find(x=>x.id===fid);if(!f)return;const T=helpOverrides.texts||{};const get=(k,l)=>T[k]?.[l]||'';
+function openFactionHelpEditor(fid,name){const en=siteLanguage==='en';const f=(D.factions||[]).find(x=>x.id===fid)||(name?(D.factions||[]).find(x=>normName(x.displayName||x.name)===normName(name)):null);if(!f){toast(en?'Warband not loaded yet':'Warband pas encore chargée');return}fid=f.id;const T=helpOverrides.texts||{};const get=(k,l)=>T[k]?.[l]||'';
   const auto=factionTraits({...f,id:'__auto'});const beg=new Set(helpBeginnerIds()).has(f.id);const d=get(`faction.${f.id}.diff`,'fr')||get(`faction.${f.id}.diff`,'en');
   const def=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`))?.[1]||['',''];
   openModal(`<div class="wc-dialog fac-edit"><div class="eyebrow">ADMIN · ${en?'FACTION':'FACTION'}</div><h2>${esc(f.displayName||f.name)}</h2>
@@ -9584,7 +9584,7 @@ function openFactionHelpEditor(fid){const en=siteLanguage==='en';const f=(D.fact
    <label class="custom-field"><span>${en?'Intro line (EN)':'Présentation (EN)'}</span><textarea id="feBlurbEn" rows="2" placeholder="${esc(def[0])}">${esc(get(`faction.${f.id}`,'en'))}</textarea></label>
    <label class="fe-beg"><input type="checkbox" id="feBeg" ${beg?'checked':''}> ${en?'Beginner badge (suggested for a first warband)':'Badge Débutant (conseillée pour une première bande)'}</label>
    <p class="muted" style="font-size:12px">${en?'Same data as Admin › Help texts › Factions. An empty field keeps the automatic value.':'Mêmes données que Admin › Textes de l’aide › Factions. Un champ vide garde la valeur automatique.'}</p>
-   <div class="account-actions"><button type="button" class="button primary" onclick="saveFactionHelpEditor('${esc(f.id)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`)}
+   <div class="account-actions"><button type="button" class="button primary" onclick="saveFactionHelpEditor('${esc(fid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`)}
 async function saveFactionHelpEditor(fid){const en=siteLanguage==='en';const v=id=>String(document.getElementById(id)?.value||'').trim();const texts=JSON.parse(JSON.stringify(helpOverrides.texts||{}));
   const put=(k,fr,enV)=>{if(fr||enV)texts[k]={fr,en:enV};else delete texts[k]};const dv=v('feDiff');
   put(`faction.${fid}.diff`,dv,dv);put(`faction.${fid}.tags`,v('feTagsFr'),v('feTagsEn'));put(`faction.${fid}`,v('feBlurbFr'),v('feBlurbEn'));
@@ -20188,7 +20188,7 @@ let helpGuideScrolled='';
 // admin can override them with help texts faction.<id>.diff (1-3) and
 // faction.<id>.tags (comma separated).
 function factionTraits(f){const en=siteLanguage==='en';const ws=(f.warriors||[]).filter(w=>Array.isArray(w.profile));const avg=i=>ws.length?ws.reduce((n,w)=>n+Number(w.profile[i]||0),0)/ws.length:0;
-  const pool=[...(D.weapons||[])];const ranged=(f.equipment||[]).map(e=>typeof e==='string'?e:e?.name).filter(Boolean).filter(n=>{const w=pool.find(x=>normName(x.name)===normName(n));return w&&weaponIsRanged(w.profile)}).length;
+  let pool=[...(D.weapons||[])];try{pool=pool.concat(allCustomEquipmentList())}catch(e){}const ranged=(f.equipment||[]).filter(Boolean).filter(e=>{const w=(e&&typeof e==='object'&&e.profile)?e:pool.find(x=>normName(x.name)===normName(typeof e==='string'?e:e?.name));return w&&weaponIsRanged(w.profile)}).length;
   const hench=ws.filter(w=>w.type==='Henchman').map(w=>Number(w.cost)||0).filter(Boolean);const cheap=hench.length?Math.min(...hench):0;
   const tags=[];if(avg(0)>=5)tags.push(en?'fast':'rapide');if(avg(1)>=3.8)tags.push(en?'close combat':'corps à corps');if(ranged>=4)tags.push(en?'shooting':'tir');else if(ranged<=1)tags.push(en?'little shooting':'peu de tir');if(cheap&&cheap<=25)tags.push(en?'numerous':'nombreux');if(avg(4)>=3.8)tags.push(en?'tough':'résistant');
   const any=k=>{const o=helpOverrides?.texts?.[k];return o?(o[en?'en':'fr']||o.fr||o.en||''):''};const own=any(`faction.${f.id}.tags`);const dOwn=Number(String(any(`faction.${f.id}.diff`)).trim());
@@ -20196,7 +20196,7 @@ function factionTraits(f){const en=siteLanguage==='en';const ws=(f.warriors||[])
 function factionTraitsMarkup(f,beginner){const en=siteLanguage==='en';const t=factionTraits(f);const d=t.diff||(beginner?1:2);
   return `<span class="fac-traits"><span class="fac-diff" title="${en?'Difficulty':'Difficulté'}">${'★'.repeat(d)}${'☆'.repeat(3-d)} <small>${[en?'easy':'facile',en?'medium':'moyen',en?'hard':'difficile'][d-1]}</small></span>${t.tags.map(x=>`<span class="fac-tag">${esc(x)}</span>`).join('')}</span>`}
 function helpDecorateFactions(){if(currentViewName()!=='create')return;const en=siteLanguage==='en';const beg=new Set(helpBeginnerIds());const grid=document.querySelector('.mu-create-page .faction-grid');if(!grid)return;const guide=!!helpGuide()?.on;
- [...grid.querySelectorAll('.faction-choice[data-faction]')].forEach(b=>{const f=D.factions.find(x=>x.id===b.dataset.faction);if(!f||b.dataset.helpDone)return;b.dataset.helpDone='1';const tx=b.querySelector('.bn-tx')||b;const bl=helpFactionBlurb(f);if(bl)tx.insertAdjacentHTML('beforeend',`<span class="help-blurb">${esc(bl)}</span>`);try{tx.insertAdjacentHTML('beforeend',factionTraitsMarkup(f,beg.has(f.id)))}catch(e){}if(beg.has(f.id)){b.classList.add('help-beginner');tx.insertAdjacentHTML('beforeend',`<span class="help-beg">${en?'BEGINNER':'DÉBUTANT'}</span>`);if(guide)grid.prepend(b)}})}
+ [...grid.querySelectorAll('.faction-choice[data-faction]')].forEach(b=>{const f=(b.dataset.supp&&D.factions.find(x=>x.packId===b.dataset.supp))||D.factions.find(x=>x.id===b.dataset.faction);if(!f||b.dataset.helpDone)return;b.dataset.helpDone='1';const tx=b.querySelector('.bn-tx')||b;const bl=helpFactionBlurb(f);if(bl)tx.insertAdjacentHTML('beforeend',`<span class="help-blurb">${esc(bl)}</span>`);try{tx.insertAdjacentHTML('beforeend',factionTraitsMarkup(f,beg.has(f.id)))}catch(e){}if(beg.has(f.id)){b.classList.add('help-beginner');tx.insertAdjacentHTML('beforeend',`<span class="help-beg">${en?'BEGINNER':'DÉBUTANT'}</span>`);if(guide)grid.prepend(b)}})}
 (function(){const o=window.selectFaction;if(typeof o!=='function')return;window.selectFaction=function(...a){const r=o.apply(this,a);try{const g=helpGuide();if(g?.on&&!g.faction){g.faction=true;helpSave({guide:g});helpGuideApply()}}catch(e){}return r}})();
 // ---- "Rules: what to read first" ----
 const HELP_READING=[
@@ -20222,8 +20222,8 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  helpSteps().forEach(s=>{add('create',`step.${s.k}.t`,`premiers pas · ${s.k}`,s.t);if(s.k!=='hench')add('create',`step.${s.k}.d`,`premiers pas · ${s.k} (détail)`,s.d)});
  HELP_NEWS.forEach(n=>add('news',`news.${n.id}`,n.id,n.text));
  Object.keys(COACH_TEXTS).forEach(k=>add('learn',`coach.${k}`,`Ma première partie · ${k}`,COACH_TEXTS[k]));
- LEARN_LESSONS.forEach((l,i)=>['title','sub','body','q','why'].forEach(f=>add('learn',`learn.${l.id}.${f}`,`${i+1} · ${({title:'titre',sub:'sous-titre',body:'texte',q:'question',why:'explication'})[f]}`,l[f])));
- (D.factions||[]).filter(f=>!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['','']);add('factions',`faction.${f.id}.diff`,`${f.displayName||f.id} · difficulté (1 facile, 2 moyen, 3 difficile — vide = automatique)`,['','']);add('factions',`faction.${f.id}.tags`,`${f.displayName||f.id} · mots-clés, séparés par des virgules (vide = automatique)`,['',''])});
+ LEARN_CHAPTERS.forEach((c,i)=>['title','sub'].forEach(f=>add('learn',`learn.ch.${c.id}.${f}`,`chapitre ${i+1} · ${f==='title'?'titre':'sous-titre'}`,c[f])));LEARN_LESSONS.forEach((l,i)=>['title','sub','body','q','why'].forEach(f=>add('learn',`learn.${l.id}.${f}`,`${i+1} · ${({title:'titre',sub:'sous-titre',body:'texte',q:'question',why:'explication'})[f]}`,l[f])));
+ (D.factions||[]).filter(f=>!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))&&!String(f.id||'').startsWith('custom-warband-')).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['','']);add('factions',`faction.${f.id}.diff`,`${f.displayName||f.id} · difficulté (1 facile, 2 moyen, 3 difficile — vide = automatique)`,['','']);add('factions',`faction.${f.id}.tags`,`${f.displayName||f.id} · mots-clés, séparés par des virgules (vide = automatique)`,['',''])});
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}
@@ -20422,6 +20422,37 @@ const LEARN_LESSONS=[
   opts:[['It is dead','Il est mort'],['It rolls on the Lasting Injuries table','Il lance sur le tableau des blessures durables'],['Nothing','Rien']],a:1,
   why:['Out of Action is not death: after the battle it rolls for a Lasting Injury, which may (rarely) kill it.','Hors de combat ne veut pas dire mort : après la bataille, il lance pour une blessure durable, qui peut (rarement) le tuer.']}
 ];
+// V-LEARNCH: three more lessons, taken from the rules book, then the lessons
+// grouped in 9 chapters (Learn to play › path).
+LEARN_LESSONS.push(
+ {id:'checks',rule:'characteristics',title:['Characteristic checks','Les tests de caractéristique'],sub:['1 dice or 2 dice, roll low','1 dé ou 2 dés, il faut faire bas'],
+  body:['Some rules ask for a **check** on a characteristic:\n• **Strength, Toughness, Initiative**: roll **1 dice**. Equal to or lower than the characteristic: passed.\n• **Leadership, Cool, Willpower, Intelligence**: roll **2 dice** and add them. Equal to or lower: passed.\n• Example: jumping, climbing or crossing dangerous terrain uses an **Initiative** check; fear or picking another target uses a **Cool** check.','Certaines règles demandent un **test** sur une caractéristique :\n• **Force, Endurance, Initiative** : lance **1 dé**. Égal ou inférieur à la caractéristique : réussi.\n• **Commandement, Calme, Volonté, Intelligence** : lance **2 dés** et additionne. Égal ou inférieur : réussi.\n• Exemple : sauter, grimper ou traverser un terrain dangereux demande un test d’**Initiative** ; la peur ou choisir une autre cible, un test de **Calme**.'],
+  q:['Your fighter has Initiative 3 and must make an Initiative check. You roll a 4. Passed?','Ton combattant a Initiative 3 et doit faire un test d’Initiative. Tu fais 4. Réussi ?'],
+  opts:[['Yes','Oui'],['No','Non']],a:1,why:['For a check you must roll equal to or lower than the characteristic: 4 is higher than 3.','Pour un test il faut faire égal ou moins que la caractéristique : 4 est plus haut que 3.'],
+  roll:{k:'check',dice:1,v:3,name:['Initiative','Initiative']}},
+ {id:'psych',rule:'psychology',title:['Fear and Cool','La peur et le Calme'],sub:['Cool checks, fear','Tests de Calme, peur'],
+  body:['A **Cool check** is 2 dice, passed on the warrior’s Cool or lower.\n• **Charged by a fear-causing enemy**: Cool check when the charge is declared. Failed: its **WS drops to 1** for the fight.\n• **Wanting to charge a fear-causing enemy**: Cool check first. Failed: it **cannot charge or act** this turn.\n• Warriors that cause fear ignore fear tests.\n• Shooting at another target than the closest also needs a Cool check.','Un **test de Calme**, c’est 2 dés, réussi sur le Calme du combattant ou moins.\n• **Chargé par un ennemi qui cause la peur** : test de Calme quand la charge est annoncée. Raté : sa **CC tombe à 1** pour le combat.\n• **Vouloir charger un ennemi qui cause la peur** : test de Calme d’abord. Raté : il **ne peut ni charger ni agir** ce tour.\n• Les combattants qui causent la peur ignorent les tests de peur.\n• Tirer sur une autre cible que la plus proche demande aussi un test de Calme.'],
+  q:['A frightening enemy charges your fighter (Cool 7). You roll 8 on 2 dice. What happens?','Un ennemi effrayant charge ton combattant (Calme 7). Tu fais 8 aux 2 dés. Que se passe-t-il ?'],
+  opts:[['It fights normally','Il combat normalement'],['Its WS drops to 1','Sa CC tombe à 1'],['It flees','Il fuit']],a:1,why:['8 is over its Cool of 7: the check fails, so it fights with WS 1.','8 dépasse son Calme de 7 : le test est raté, il combat donc avec CC 1.'],
+  roll:{k:'check',dice:2,v:7,name:['Cool','Calme']}},
+ {id:'scenario',rule:'scenarioactions',title:['Scenarios and objectives','Scénarios et objectifs'],sub:['Deployment, objectives, end of the game','Déploiement, objectifs, fin de partie'],
+  body:['Each game uses a **scenario**: read it before deploying.\n• It says how the table is set up, where each warband **deploys**, and how the game **ends** and who **wins**.\n• Many scenarios have **objective tokens**. A warrior in base contact makes the **Pick Up** action: an **Intelligence check** (2 dice, its Int or lower). Passed: it carries the token.\n• In Play, the Scenario tab keeps the scenario rules and objectives at hand.','Chaque partie utilise un **scénario** : lis-le avant de déployer.\n• Il dit comment préparer la table, où chaque bande se **déploie**, comment la partie **se termine** et qui **gagne**.\n• Beaucoup de scénarios ont des **pions objectif**. Un combattant au contact fait l’action **Ramasser** : un **test d’Intelligence** (2 dés, son Int ou moins). Réussi : il porte le pion.\n• Dans Jouer, l’onglet Scénario garde les règles et les objectifs sous la main.'],
+  q:['Your fighter (Int 7) tries to pick up an objective and rolls 7 on 2 dice. Does it pick it up?','Ton combattant (Int 7) essaie de ramasser un objectif et fait 7 aux 2 dés. Le ramasse-t-il ?'],
+  opts:[['Yes','Oui'],['No','Non']],a:0,why:['Equal to the characteristic is enough: 7 against Int 7 passes.','Égal à la caractéristique suffit : 7 contre Int 7, c’est réussi.'],
+  roll:{k:'check',dice:2,v:7,name:['Intelligence','Intelligence']}});
+const LEARN_CHAPTERS=[
+ {id:'basics',title:['The basics','Les bases'],sub:['Turn, actions, checks','Tour, actions, tests'],lessons:['turn','activate','checks']},
+ {id:'move',title:['Moving','Bouger'],sub:['Movement, terrain, charge','Mouvement, terrain, charge'],lessons:['move']},
+ {id:'shoot',title:['Shooting','Tirer'],sub:['Range, cover, closest target','Portée, couvert, cible la plus proche'],lessons:['shoot']},
+ {id:'fight',title:['Fighting','Combattre'],sub:['Close combat, Attacks, WS','Corps à corps, Attaques, CC'],lessons:['melee']},
+ {id:'wound',title:['Wounding','Blesser'],sub:['Strength vs Toughness, save, injury','Force contre Endurance, sauvegarde, blessure'],lessons:['wound']},
+ {id:'psych',title:['Nerves','Le moral'],sub:['Fear, Cool, Rout','Peur, Calme, déroute'],lessons:['psych','rout']},
+ {id:'scen',title:['Scenarios','Scénarios'],sub:['Deployment, objectives, end of game','Déploiement, objectifs, fin de partie'],lessons:['scenario']},
+ {id:'after',title:['After the battle','Après la bataille'],sub:['Injuries, XP, exploration, buying','Blessures, XP, exploration, achats'],lessons:['after']},
+ {id:'train',title:['Training game','Partie d’entraînement'],sub:['Play a first game with the guide','Joue une première partie avec le guide'],lessons:[],train:true}];
+(function(){const order=LEARN_CHAPTERS.flatMap(c=>c.lessons);LEARN_LESSONS.sort((a,b)=>{const i=order.indexOf(a.id),j=order.indexOf(b.id);return (i<0?99:i)-(j<0?99:j)})})();
+function learnChapterOf(id){return LEARN_CHAPTERS.find(c=>c.lessons.includes(id))||null}
+
 function learnTx(l,f){return hx(`learn.${l.id}.${f}`,l[f])}
 function learnFormat(t){const lines=String(t||'').split('\n');let out='',ul=false;const fmt=s=>esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
   lines.forEach(line=>{const m=line.match(/^\s*[•\-]\s*(.*)$/);if(m){if(!ul){out+='<ul>';ul=true}out+=`<li>${fmt(m[1])}</li>`}else{if(ul){out+='</ul>';ul=false}if(line.trim())out+=`<p>${fmt(line)}</p>`}});if(ul)out+='</ul>';return out}
@@ -20433,19 +20464,24 @@ function learn(){const en=siteLanguage==='en';const id=parseAppRoute().lesson||'
   if(i<0){learnUi.id=null;$('#content').innerHTML=learnListMarkup();return}
   if(learnUi.id!==id)learnUi={id,pick:null,roll:null};
   $('#content').innerHTML=learnLessonMarkup(i)}
-function learnListMarkup(){const en=siteLanguage==='en';const done=learnDone();const n=LEARN_LESSONS.length;const k=LEARN_LESSONS.filter(l=>done.has(l.id)).length;const next=LEARN_LESSONS.find(l=>!done.has(l.id));
+function learnChapterDone(c,done){return c.lessons.length?c.lessons.every(id=>done.has(id)):!!learnState().train}
+function learnListMarkup(){const en=siteLanguage==='en';const done=learnDone();const chs=LEARN_CHAPTERS;const k=chs.filter(c=>learnChapterDone(c,done)).length;const cur=chs.find(c=>!learnChapterDone(c,done));const tx=(c,f)=>hx(`learn.ch.${c.id}.${f}`,c[f]);
+  const row=(c,j)=>{const dn=learnChapterDone(c,done);const isCur=cur&&cur.id===c.id;const n=c.lessons.filter(id=>done.has(id)).length;const first=c.lessons.find(id=>!done.has(id))||c.lessons[0];
+    const go=c.train?`learnTrainGo()`:`learnOpen('${first}')`;
+    const sub=isCur&&c.lessons.length>1?`<div class="learn-sub">${c.lessons.map(id=>{const l=LEARN_LESSONS.find(x=>x.id===id);return l?`<button type="button" class="learn-subrow${done.has(id)?' done':''}" onclick="learnOpen('${id}')">${done.has(id)?'✓':'·'} ${esc(learnTx(l,'title'))}</button>`:''}).join('')}</div>`:'';
+    return `<div class="learn-ch${dn?' done':''}${isCur?' cur':''}"><button type="button" class="learn-row" onclick="${go}"><span class="learn-num">${dn?'✓':j+1}</span><span class="learn-row-tx"><b>${esc(tx(c,'title'))}</b><small>${esc(tx(c,'sub'))}</small></span><span class="learn-go">${c.lessons.length?`${n}/${c.lessons.length}`:''}${isCur?` · ${en?'GO':'GO'}`:''} ›</span></button>${sub}</div>`};
   return `<div class="learn-page"><div class="rules-crumb"><a href="#" onclick="navigateApp(APP_ROUTES.rules);return false;">${en?'Rules':'Règles'}</a><span class="sep">›</span><span class="cur">${en?'Learn to play':'Apprendre à jouer'}</span></div>
-  <h1 class="learn-title">${en?'Learn to play':'Apprendre à jouer'}</h1><p class="learn-intro">${en?`${n} short lessons, 3 minutes each. Each one ends with a small dice exercise.`:`${n} leçons courtes, 3 minutes chacune. Chaque leçon finit par un petit exercice au dé.`}</p>
-  <div class="learn-progress"><div class="learn-bar"><i style="width:${Math.round(k/n*100)}%"></i></div><span>${k} / ${n}</span></div>
-  <div class="learn-list">${LEARN_LESSONS.map((l,j)=>{const d=done.has(l.id),cur=next&&next.id===l.id;return `<button type="button" class="learn-row${d?' done':''}${cur?' cur':''}" onclick="learnOpen('${l.id}')"><span class="learn-num">${d?'✓':j+1}</span><span class="learn-row-tx"><b>${esc(learnTx(l,'title'))}</b><small>${esc(learnTx(l,'sub'))}</small></span><span class="learn-go">${cur&&k?(en?'CONTINUE':'REPRENDRE'):'›'}</span></button>`}).join('')}</div>
-  <div class="learn-tip">${en?'Ready? Open <b>Play</b>: the app shows the phases of the turn as you play.':'Prêt ? Ouvre <b>Play</b> : l’app affiche les phases du tour pendant la partie.'}</div>
-  ${k?`<button type="button" class="button secondary small learn-reset" onclick="learnSave({done:[]});learn()">${en?'Start again':'Tout recommencer'}</button>`:''}</div>`}
+  <h1 class="learn-title">${en?'Learn to play':'Apprendre à jouer'}</h1><p class="learn-intro">${en?`A path in ${chs.length} chapters. Each lesson takes 3 minutes and ends with a question and a dice to roll. All chapters stay open: the order is only a suggestion.`:`Un parcours en ${chs.length} chapitres. Chaque leçon prend 3 minutes et finit par une question et un dé à lancer. Tous les chapitres restent ouverts : l’ordre est seulement conseillé.`}</p>
+  <div class="learn-progress"><div class="learn-bar"><i style="width:${Math.round(k/chs.length*100)}%"></i></div><span>${en?`${k} of ${chs.length} chapters`:`${k} chapitre${k>1?'s':''} sur ${chs.length}`}${k?` · 🏅 ${k}`:''}</span></div>
+  <div class="learn-list">${chs.map(row).join('')}</div>
+  ${done.size||learnState().train?`<button type="button" class="button secondary small learn-reset" onclick="learnSave({done:[],train:false});learn()">${en?'Start again':'Tout recommencer'}</button>`:''}</div>`}
+function learnTrainGo(){learnSave({train:true});try{coachToggle(true)}catch(e){}navigateApp(APP_ROUTES.playMode);toast(siteLanguage==='en'?'“My first game” is on: it guides you turn by turn.':'« Ma première partie » est activé : il te guide tour par tour.')}
 function learnLessonMarkup(i){const en=siteLanguage==='en';const l=LEARN_LESSONS[i];const n=LEARN_LESSONS.length;const prev=LEARN_LESSONS[i-1],next=LEARN_LESSONS[i+1];const rule=(typeof RULES_BOOK!=='undefined'?RULES_BOOK:[]).find(s=>s.id===l.rule);
   const opt=o=>Array.isArray(o)?helpT(o):String(o);const picked=learnUi.pick;const answered=picked!=null;const right=answered&&picked===l.a;
   const opts=l.opts.map((o,j)=>{const cls=answered?(j===l.a?' right':j===picked?' wrong':' dim'):'';return `<button type="button" class="learn-opt${cls}" ${answered&&right?'disabled':''} onclick="learnPick(${j})">${esc(opt(o))}${answered&&j===l.a?' ✓':''}</button>`}).join('');
   const verdict=answered?`<div class="learn-why ${right?'ok':'ko'}"><b>${right?(en?'Right!':'Bonne réponse !'):(en?'Not quite.':'Pas tout à fait.')}</b> ${esc(learnTx(l,'why'))}</div>`:'';
   const rollBox=l.roll&&right?`<div class="learn-roll">${learnUi.roll?learnRollMarkup(l):''}<button type="button" class="button ${learnUi.roll?'secondary':'primary'} learn-roll-btn" onclick="learnRoll()">🎲 ${learnUi.roll?(en?'Roll again':'Relancer'):(en?'Roll the dice':'Lancer le dé')}</button></div>`:'';
-  return `<div class="learn-page"><div class="rules-crumb"><a href="#" onclick="learnOpen('');return false;">${en?'Learn to play':'Apprendre à jouer'}</a><span class="sep">›</span><span class="cur">${en?'Lesson':'Leçon'} ${i+1} / ${n}</span></div>
+  return `<div class="learn-page"><div class="rules-crumb"><a href="#" onclick="learnOpen('');return false;">${en?'Learn to play':'Apprendre à jouer'}</a><span class="sep">›</span>${(()=>{const c=learnChapterOf(l.id);return c?`<span class="sep">›</span><span>${en?'Chapter':'Chapitre'} ${LEARN_CHAPTERS.indexOf(c)+1} · ${esc(hx(`learn.ch.${c.id}.title`,c.title))}</span>`:''})()}<span class="sep">›</span><span class="cur">${en?'Lesson':'Leçon'} ${i+1} / ${n}</span></div>
   <h1 class="learn-title">${esc(learnTx(l,'title'))}</h1>${l.svg||''}
   <div class="learn-body">${learnFormat(learnTx(l,'body'))}</div>
   ${rule?`<button type="button" class="learn-rule" onclick="learnRuleGo('${esc(rule.id)}')">${en?'Read the full rule':'Lire la règle complète'} : ${esc(rule.title)}</button>`:''}
@@ -20454,9 +20490,10 @@ function learnLessonMarkup(i){const en=siteLanguage==='en';const l=LEARN_LESSONS
   <div class="learn-nav">${prev?`<a href="#" onclick="learnOpen('${prev.id}');return false;">‹ ${esc(learnTx(prev,'title'))}</a>`:'<span></span>'}${next?`<a href="#" onclick="learnOpen('${next.id}');return false;">${esc(learnTx(next,'title'))} ›</a>`:''}</div></div>`}
 function learnPick(j){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l)return;learnUi.pick=j;learnUi.roll=null;if(j===l.a){const d=learnDone();d.add(l.id);learnSave({done:[...d]})}learn()}
 function learnD6(){return 1+Math.floor(Math.random()*6)}
-function learnRoll(){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l?.roll)return;learnUi.roll=l.roll.k==='priority'?{a:learnD6(),b:learnD6()}:{a:learnD6()};learn()}
+function learnRoll(){const l=LEARN_LESSONS.find(x=>x.id===learnUi.id);if(!l?.roll)return;learnUi.roll=l.roll.k==='priority'?{a:learnD6(),b:learnD6()}:l.roll.k==='check'&&l.roll.dice===2?{a:learnD6(),b:learnD6()}:{a:learnD6()};learn()}
 function learnRollMarkup(l){const en=siteLanguage==='en';const r=l.roll,v=learnUi.roll;const die=n=>`<span class="learn-die">${n}</span>`;let res='',ok=true,steps=[];
   if(r.k==='priority'){ok=v.a>v.b;steps=[en?`You roll ${v.a}, your opponent ${v.b}.`:`Tu fais ${v.a}, ton adversaire ${v.b}.`,v.a===v.b?(en?'Tie: both players roll again.':'Égalité : les deux joueurs relancent.'):(en?`The highest roll takes Priority: ${ok?'you':'your opponent'}.`:`Le plus haut prend la Priorité : ${ok?'toi':'ton adversaire'}.`)];res=v.a===v.b?(en?'Tie':'Égalité'):ok?(en?'You have Priority':'Tu as la Priorité'):(en?'Your opponent has it':'Ton adversaire l’a');return `<div class="learn-dice">${die(v.a)}<span class="learn-vs">${en?'vs':'contre'}</span>${die(v.b)}<div class="learn-res ${v.a===v.b?'':ok?'ok':'ko'}">${res}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}
+  if(r.k==='check'){const two=r.dice===2;const t=two?v.a+v.b:v.a;const nm=helpT(r.name);ok=t<=r.v&&!(!two&&v.a===6&&/initiative/i.test(nm));steps=[two?(en?`2 dice: ${v.a} + ${v.b} = ${t}.`:`2 dés : ${v.a} + ${v.b} = ${t}.`):(en?`The dice gives ${t}.`:`Le dé donne ${t}.`),en?`${nm} ${r.v}: ${t} ${t<=r.v?'is equal or lower':'is higher'}.`:`${nm} ${r.v} : ${t} ${t<=r.v?'est égal ou plus bas':'est plus haut'}.`];res=ok?(en?'Check passed':'Test réussi'):(en?'Check failed':'Test raté');return `<div class="learn-dice">${die(v.a)}${two?die(v.b):''}<div class="learn-res ${ok?'ok':'ko'}">${esc(res)}</div></div><ol class="learn-steps">${steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`}
   if(r.k==='rout'){const t=v.a+r.down;ok=t<=r.crew;steps=[en?`The dice gives ${v.a}.`:`Le dé donne ${v.a}.`,en?`Add the ${r.down} fighters down: ${v.a} + ${r.down} = ${t}.`:`On ajoute les ${r.down} combattants tombés : ${v.a} + ${r.down} = ${t}.`,en?`Started with ${r.crew}: ${t} ${ok?'is not higher':'is higher'}.`:`Départ à ${r.crew} : ${t} ${ok?'ne dépasse pas':'dépasse'}.`];res=ok?(en?'The warband holds':'La bande tient'):(en?'The warband flees':'La bande fuit')}
   else{const t=v.a+(r.mod||0);ok=v.a!==1&&t>=r.need;steps=[en?`The dice gives ${v.a}.`:`Le dé donne ${v.a}.`];if(v.a===1)steps.push(en?'A 1 always fails.':'Un 1 rate toujours.');else{if(r.mod)steps.push(`${en?'Modifier':'Modificateur'} (${helpT(r.modWhy||['',''])}) : ${r.mod>0?'+':''}${r.mod} → ${t}.`);steps.push(en?`You need ${r.need} or more: ${t} ${ok?'is enough':'is not enough'}.`:`Il faut ${r.need} ou plus : ${t} ${ok?'suffit':'ne suffit pas'}.`)}res=helpT(ok?r.ok:r.ko)}
   return `<div class="learn-dice">${die(v.a)}<div class="learn-res ${ok?'ok':'ko'}">${esc(res)}</div></div><ol class="learn-steps">${steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>`}

@@ -1340,7 +1340,7 @@ await test('[mobile] tapping a skill name inside the skill picker shows its rule
 });
 await test('[mobile] learn to play: lessons list, answer, dice explained, progress kept',null,async page=>{
   await page.evaluate(()=>{localStorage.removeItem('mu_learn');learnOpen('')});await page.waitForSelector('.learn-row');
-  const rows=await page.$$eval('.learn-row',a=>a.length);expect(rows===8,'expected 8 lessons, got '+rows);
+  const rows=await page.$$eval('.learn-row',a=>a.length);expect(rows===9,'expected 9 chapters, got '+rows);expect(await page.evaluate(()=>LEARN_LESSONS.length===11&&LEARN_LESSONS[2].id==='checks'),'11 lessons in chapter order');
   await page.evaluate(()=>learnOpen('shoot'));await page.waitForSelector('.learn-opt');
   expect(await page.evaluate(()=>location.pathname)==='/rules/learn/shoot','the lesson has its own address');
   await page.click('.learn-opt:nth-child(2)');await page.waitForSelector('.learn-why.ko');
@@ -1349,7 +1349,10 @@ await test('[mobile] learn to play: lessons list, answer, dice explained, progre
   const out=await page.evaluate(()=>({steps:document.querySelectorAll('.learn-steps li').length,res:document.querySelector('.learn-res')?.textContent||'',done:JSON.parse(localStorage.getItem('mu_learn')||'{}').done||[]}));
   expect(out.steps>=2&&/Hit|Miss|Touché|Raté/.test(out.res),'the dice result is not explained: '+JSON.stringify(out));
   expect(out.done.includes('shoot'),'the lesson is not marked done: '+JSON.stringify(out));
-  await page.evaluate(()=>learnOpen(''));await page.waitForSelector('.learn-row.done');
+  await page.evaluate(()=>learnOpen(''));await page.waitForSelector('.learn-ch.done');
+  await page.evaluate(()=>learnOpen('psych'));await page.waitForSelector('.learn-opt');await page.click('.learn-opt:nth-child(2)');await page.waitForSelector('.learn-why.ok');await page.click('.learn-roll-btn');await page.waitForSelector('.learn-die');
+  const ck=await page.evaluate(()=>({dice:document.querySelectorAll('.learn-die').length,res:document.querySelector('.learn-res')?.textContent||'',crumb:/Chap/.test(document.querySelector('.rules-crumb')?.textContent||'')}));expect(ck.dice===2&&/passed|failed|réussi|raté/i.test(ck.res)&&ck.crumb,'2D6 check lesson: '+JSON.stringify(ck));
+  await page.evaluate(()=>learnOpen(''));await page.waitForSelector('.learn-ch');
   const w=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1);expect(w,'the lessons page scrolls sideways on a phone');
 });
 await test('[desktop] Play: "My first game" guide — phases, who acted, rout worked out, next turn',null,async page=>{
@@ -1494,7 +1497,10 @@ await test('[desktop] faction quick editor: difficulty, keywords, intro and Begi
     api.adminSaveHelpTexts=async b=>{sent=b;return {help:b}};
     try{openFactionHelpEditor(f.id);await new Promise(z=>setTimeout(z,100));document.getElementById('feDiff').value='3';document.getElementById('feTagsFr').value='brutal, lent';document.getElementById('feTagsEn').value='brutal, slow';document.getElementById('feBlurbFr').value='Une bande test.';document.getElementById('feBeg').checked=true;
       await saveFactionHelpEditor(f.id);const tr=factionTraits(f);const mk=factionTraitsMarkup(f,true);
-      return {sent:!!sent&&sent.texts[`faction.${f.id}.diff`]?.fr==='3'&&sent.beginner.includes(f.id),diff:tr.diff===3,tags:tr.tags.length===2,stars:/★★★/.test(mk),blurb:helpFactionBlurb(f)==='Une bande test.'||siteLanguage==='en'}}
+      const ow={id:'ofw-test',name:'Test Officials',displayName:'Test Officials',__official:true,warriors:[{id:'tw',name:'T',type:'Henchman',cost:20,profile:[5,3,3,3,3,1,3,1,7,7,7,7]}],equipment:[{name:'Weird Bow',profile:{range:'24',strength:'3',ap:'-',damage:'1',traits:''}},{name:'Odd Gun',profile:{range:'18',strength:'4',ap:'-',damage:'1',traits:''}},{name:'Sling2',profile:{range:'12',strength:'3',ap:'-',damage:'1',traits:''}},{name:'Xbow2',profile:{range:'30',strength:'4',ap:'-',damage:'1',traits:''}}]};D.factions.push(ow);
+      const otr=factionTraits(ow);openFactionHelpEditor('nope','Test Officials');await new Promise(z=>setTimeout(z,50));const offEd=/Test Officials/.test(document.querySelector('.fac-edit')?.textContent||'');closeModal();const inEditor=helpAllTexts().some(x=>x.key===`faction.${ow.id}.diff`);D.factions=D.factions.filter(x=>x!==ow);
+      return {official:otr.tags.length>0&&(otr.tags.includes('tir')||otr.tags.includes('shooting'))&&otr.tags.some(t=>/rapide|fast/.test(t)),offEd,inEditor,
+      sent:!!sent&&sent.texts[`faction.${f.id}.diff`]?.fr==='3'&&sent.beginner.includes(f.id),diff:tr.diff===3,tags:tr.tags.length===2,stars:/★★★/.test(mk),blurb:helpFactionBlurb(f)==='Une bande test.'||siteLanguage==='en'}}
     finally{api.adminSaveHelpTexts=orig;helpOverrides=keep}});
   expect(Object.values(out).every(Boolean),'faction editor: '+JSON.stringify(out));
 });

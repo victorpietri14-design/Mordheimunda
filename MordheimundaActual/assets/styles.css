@@ -6205,3 +6205,9 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .fac-blurb{margin:6px 0 0;font-size:13px;color:var(--muted);max-width:620px}
 .fac-edit-btn{margin-top:8px}
 .fe-beg{display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+/* V-LEARNCH */
+.learn-ch{display:grid}
+.learn-ch.cur>.learn-row{border-color:var(--wip,#e0b04a)}
+.learn-sub{display:grid;gap:4px;margin:4px 0 8px 40px}
+.learn-subrow{all:unset;cursor:pointer;font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--line)}
+.learn-subrow.done{color:var(--muted)}
