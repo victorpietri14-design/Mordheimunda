@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0843.0';
+const APP_BUILD='110.0844.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -19409,11 +19409,13 @@ function printWarbandSheet(blank){const en=siteLanguage==='en';const r=blank?nul
 function openPrintChooser(){const en=siteLanguage==='en';const r=activeRoster();const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
   openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><div class="warroom-more-list">${r?btn('▤ '+(en?'Warband sheet (A4)':'Feuille de bande (A4)'),'printWarbandSheet(false)'):''}${r?btn('☰ '+(en?'Compact list (one page, for the table)':'Liste compacte (une page, pour la table)'),'printWarbandList()'):''}${btn('▢ '+(en?'Blank sheet, to fill in by hand':'Fiche vierge, à remplir à la main'),'printWarbandSheet(true)')}${btn('⎙ '+(en?'This page as it is':'Cette page telle quelle'),'window.print()')}</div></div>`)}
 // V-PREGAME: before picking the fighters, what still needs doing.
-function playPreGameReminder(r){try{const en=siteLanguage==='en';const fx=r.fighters||[];const rec=fx.filter(x=>fighterStatus(x).recovery&&!fighterStatus(x).dead).length;const adv=fx.filter(x=>homeCanAdvance(x)).length;const gold=Math.round(Number(r.gold||0));const items=[];
+const preGameLater=new Set();
+function preGameHide(rid,forever){if(forever){try{localStorage.setItem('mu_pregame_off','1')}catch(e){}}else preGameLater.add(rid);render('playMode')}
+function playPreGameReminder(r){try{const en=siteLanguage==='en';if(preGameLater.has(r.id))return '';try{if(localStorage.getItem('mu_pregame_off')==='1')return ''}catch(e){}const fx=r.fighters||[];const rec=fx.filter(x=>fighterStatus(x).recovery&&!fighterStatus(x).dead).length;const adv=fx.filter(x=>homeCanAdvance(x)).length;const gold=Math.round(Number(r.gold||0));const items=[];
   if(rec)items.push(en?`${rec} in recovery — they miss this game`:`${rec} en convalescence — ${rec>1?'ils ratent':'il rate'} cette partie`);
   if(adv)items.push(en?`${adv} advancement${adv>1?'s':''} waiting`:`${adv} avancement${adv>1?'s':''} en attente`);
   if(gold>=10)items.push(en?`${gold} GC to spend`:`${gold} GC à dépenser`);
-  if(!items.length)return '';return `<div class="pregame"><b>${en?'Before the game':'Avant la partie'}</b><ul>${items.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><button type="button" class="button secondary small" onclick="state.active='${esc(r.id)}';navigateApp(warbandPath('${esc(r.id)}'))">${en?'Open the warband':'Ouvrir la bande'} →</button></div>`}catch(e){return ''}}
+  if(!items.length)return '';return `<div class="pregame"><b>${en?'Before the game':'Avant la partie'}</b><ul>${items.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><div class="remind-acts"><button type="button" class="button secondary small" onclick="state.active='${esc(r.id)}';navigateApp(warbandPath('${esc(r.id)}'))">${en?'Open the warband':'Ouvrir la bande'} →</button><button type="button" class="remind-act" onclick="preGameHide('${esc(r.id)}',false)">${en?'Later':'Plus tard'}</button><button type="button" class="remind-act" onclick="preGameHide('${esc(r.id)}',true)">${en?'Don’t show again':'Ne plus afficher'}</button></div></div>`}catch(e){return ''}}
 // ============ V-RARITY: gem by rarity ===================================
 function rarityTier(w){const t=String(w?.rarity||w?.availability||'');if(!t||/common|commun/i.test(t)||t==='—')return 'common';const n=Number((t.match(/\d+/)||[])[0]);if(!n)return 'common';return n>=11?'legend':n>=9?'epic':'rare'}
 function rarityGemMarkup(w){const t=rarityTier(w);const c={common:'#8a8984',rare:'#5fa8e0',epic:'#b06bc9',legend:'#e0b04a'}[t];return `<svg class="rar-gem" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 7-8 13-8-13z" fill="${c}"/></svg>`}
@@ -19559,7 +19561,7 @@ function openFighterAdvance(inst){const r=(state.rosters||[]).find(q=>(q.fighter
 // ============ V-REMIND: things waiting, on the home page ============
 const REMIND_KEY='mu_ui_reminders_hidden';
 function remindHidden(){try{const o=JSON.parse(localStorage.getItem(REMIND_KEY)||'{}');const now=Date.now();Object.keys(o).forEach(k=>{if(o[k]<now)delete o[k]});return o}catch(e){return {}}}
-function remindHide(k){const o=remindHidden();o[k]=Date.now()+7*864e5;try{localStorage.setItem(REMIND_KEY,JSON.stringify(o))}catch(e){}render('dashboard')}
+function remindHide(k,days){const o=remindHidden();o[k]=Date.now()+(Number(days)||7)*864e5;try{localStorage.setItem(REMIND_KEY,JSON.stringify(o))}catch(e){}render('dashboard')}
 function homeReminders(){const en=siteLanguage==='en';const out=[];const day=864e5;const now=Date.now();
   (state.rosters||[]).filter(Boolean).forEach(r=>{let f=null;try{f=faction(r)}catch(e){}if(!f)return;
     try{const p=r.postBattle;const g=p?.guide;if(homePostBattleOpen(r)){const d=g?.startedAt?Math.floor((now-g.startedAt)/day):0;out.push({k:'pb:'+r.id,ic:'◈',txt:en?`${r.name}: post-battle to finish${d>=2?` (started ${d} days ago)`:''}`:`${r.name} : après-bataille à finir${d>=2?` (commencé il y a ${d} j)`:''}`,go:`homeOpen('${esc(r.id)}','postbattle')`,w:d>=5?2:1})}}catch(e){}
@@ -19568,7 +19570,7 @@ function homeReminders(){const en=siteLanguage==='en';const out=[];const day=864
   });
   const hid=remindHidden();return out.filter(x=>!hid[x.k]).sort((a,b)=>b.w-a.w)}
 function homeRemindersMarkup(){const en=siteLanguage==='en';let list=[];try{list=homeReminders()}catch(e){}if(!list.length)return '';
-  return `<section class="home-remind" aria-label="${en?'To do':'À faire'}"><div class="home-remind-head">${en?'TO DO':'À FAIRE'} <span>${list.length}</span></div>${list.slice(0,5).map(x=>`<div class="home-remind-row"><button type="button" class="home-remind-go" onclick="${x.go}"><i>${x.ic}</i><span>${esc(x.txt)}</span></button><button type="button" class="home-remind-x" aria-label="${en?'Hide for a week':'Masquer une semaine'}" title="${en?'Hide for a week':'Masquer une semaine'}" onclick="remindHide('${esc(x.k)}')">×</button></div>`).join('')}</section>`}
+  return `<section class="home-remind" aria-label="${en?'To do':'À faire'}"><div class="home-remind-head">${en?'TO DO':'À FAIRE'} <span>${list.length}</span></div>${list.slice(0,5).map(x=>`<div class="home-remind-row"><button type="button" class="home-remind-go" onclick="${x.go}"><i>${x.ic}</i><span>${esc(x.txt)}</span><b class="remind-go-tag">${en?'Go ›':'Aller ›'}</b></button><div class="remind-acts"><button type="button" class="remind-act" onclick="remindHide('${esc(x.k)}',1)">${en?'Later':'Plus tard'}</button><button type="button" class="remind-act" onclick="remindHide('${esc(x.k)}',36500)">${en?'Don’t show again':'Ne plus afficher'}</button></div></div>`).join('')}</section>`}
 // ============ V-TABLEMODE: two warbands side by side on a tablet ============
 let playTableMode=false,playTableFlip=false;try{playTableMode=localStorage.getItem('mu_ui_tableMode')==='1';playTableFlip=localStorage.getItem('mu_ui_tableFlip')==='1'}catch(e){}
 function playTableToggle(){playTableMode=!playTableMode;try{localStorage.setItem('mu_ui_tableMode',playTableMode?'1':'0')}catch(e){}render('playMode')}
@@ -20109,12 +20111,17 @@ function helpTipFor(view){const r=(view==='builder'||view==='fighter')?rawActive
  if(view==='fighter'&&r)return 'rare';
  if(view==='playMode'&&ps){if(document.querySelector('.rout-row.warn'))return 'rout';if(Object.values(ps.ooa||{}).some(a=>(a||[]).length))return 'ooa'}
  if(view==='campaignHub')return 'campaign';return null}
+// V-REMIND2: a tip can be sent away for now (comes back next visit) or for good.
+const helpTipLater=new Set();
+const HELP_TIP_GO={recruit:"openRecruitPanel()",levelup:"(()=>{const r=rawActiveRoster();const x=(r?.fighters||[]).find(y=>{try{return homeCanAdvance(y)}catch(e){return false}});if(x)openFighterAdvance(x.instance)})()",lowgold:"(()=>{try{setGangTab('postbattle')}catch(e){}})()"};
+function helpTipLaterClose(id){helpTipLater.add(id);document.getElementById('helpTip')?.remove()}
+function helpTipGo(id){const go=HELP_TIP_GO[id];helpTipLaterClose(id);if(go)try{(new Function(go))()}catch(e){}}
 function helpTipClose(id){const st=helpState();helpSave({tipsSeen:{...(st.tipsSeen||{}),[id]:1}});document.getElementById('helpTip')?.remove()}
 function helpAfterRender(){try{helpBtnSync();const st=helpState();const view=currentViewName();
  if(!st.welcomed&&!st.level&&helpAuto()&&view!=='admin'&&!helpWelcomeShown){helpWelcomeShown=true;setTimeout(helpWelcomeOpen,600);return}
- if(st.level!=='new'||!helpAuto()||helpTour||st.guide?.on){document.getElementById('helpTip')?.remove();return}const seen=st.tipsSeen||{};const all=[helpTipFor(view)].filter(id=>id&&!seen[id]);const old=document.getElementById('helpTip');
+ if(st.level!=='new'||!helpAuto()||helpTour||st.guide?.on){document.getElementById('helpTip')?.remove();return}const seen=st.tipsSeen||{};const all=[helpTipFor(view)].filter(id=>id&&!seen[id]&&!helpTipLater.has(id));const old=document.getElementById('helpTip');
  if(!all.length){old?.remove();return}const id=all[0];if(old&&old.dataset.id===id)return;old?.remove();const t=HELP_TIPS[id];const en=siteLanguage==='en';
- const d=document.createElement('div');d.id='helpTip';d.className='help-tip';d.dataset.id=id;d.setAttribute('role','status');d.innerHTML=`<span class="help-tip-i">!</span><div><b>${esc(hx(`tip.${id}.title`,t.title))}</b><span>${esc(hx(`tip.${id}.text`,t.text))}</span><button type="button" onclick="helpTipClose('${id}')">${en?'Got it':'Compris'}</button></div>`;document.body.appendChild(d)}catch(e){}}
+ const d=document.createElement('div');d.id='helpTip';d.className='help-tip';d.dataset.id=id;d.setAttribute('role','status');d.innerHTML=`<span class="help-tip-i">!</span><div><b>${esc(hx(`tip.${id}.title`,t.title))}</b><span>${esc(hx(`tip.${id}.text`,t.text))}</span><div class="help-tip-acts">${HELP_TIP_GO[id]?`<button type="button" class="ht-go" onclick="helpTipGo('${id}')">${en?'Go ›':'Aller ›'}</button>`:''}<button type="button" onclick="helpTipLaterClose('${id}')">${en?'Later':'Plus tard'}</button><button type="button" onclick="helpTipClose('${id}')">${en?'Don’t show again':'Ne plus afficher'}</button></div></div>`;document.body.appendChild(d)}catch(e){}}
 (function(){const o=renderOriginal;renderOriginal=function(...a){const res=o.apply(this,a);setTimeout(helpAfterRender,0);return res}})();
 // ===================== V-GUIDE: beginner guide =====================
 // The admin can rewrite any help text (Admin › help editor): hx(key,[en,fr])
