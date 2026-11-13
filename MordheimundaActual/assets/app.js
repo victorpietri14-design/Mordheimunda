@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0828.0';
+const APP_BUILD='110.0829.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6825,10 +6825,18 @@ function searchScore(q,name,body){
   if(!body||qn.length<3)return 0;
   const bn=' '+searchNorm(body)+' ';
   if(bn.includes(' '+qn+' ')||(toks.length>1&&bn.includes(' '+qn)))return 20;
+  const stem=t=>t.length>3&&t.endsWith('s')&&!t.endsWith('ss')?t.slice(0,-1):t;const qs=toks.map(stem).join(' ');if(qs!==qn&&bn.includes(' '+qs))return 18;
   if(toks.length>1&&toks.every(t=>t.length>=3&&bn.includes(' '+t)))return 8;
   return 0;
 }
 function searchSnippet(body,q){const b=String(body||'').replace(/\[\/?[A-Z]+\]/g,'').replace(/\s+/g,' ');const qn=searchNorm(q).split(' ')[0];if(!qn)return '';const i=searchNorm(b).indexOf(qn);if(i<0)return b.slice(0,90);const st=Math.max(0,i-40);return (st?'…':'')+b.slice(st,st+110)+'…'}
+// V-SEARCHHEAD: a [SUBHEAD] or [SUBHEAD color=…] title line (the admin editor
+// writes the coloured form), with any **bold** marks removed.
+function searchSubhead(t){const m=String(t||'').trim().match(/^\[SUBHEAD(?:\s[^\]]*)?\](.*?)\[\/SUBHEAD\]$/i);return m?m[1].replace(/\*\*/g,'').trim():null}
+// Splits a page text into its titled parts, for campaign pages.
+function searchTextHeads(text){const out=[];let cur=null;String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const sub=searchSubhead(t);
+  if(sub||(i>0&&/^[A-ZÀ-Ý][A-ZÀ-ÝŒ0-9'’&\- ]{2,}$/.test(t)&&t.length<90)){cur={label:sub||t,body:''};out.push(cur)}else if(cur)cur.body+=t+' '});return out}
+function searchFlashHeading(label){setTimeout(()=>{const want=searchNorm(label);const root=document.querySelector('main')||document.body;const el=[...root.querySelectorAll('[id^="rh-"],.rule-heading,.rule-subheading,.rule-subhead,h1,h2,h3,h4,h5,strong,b,div,span')].find(x=>x.children.length<=2&&searchNorm(x.textContent)===want);if(!el)return;try{revealRuleAnchor(el)}catch(e){}el.scrollIntoView({block:'start',behavior:'smooth'});el.classList.add('search-flash');setTimeout(()=>el.classList.remove('search-flash'),1800)},120)}
 // Rule book split by heading: title, [SUBHEAD] lines and all-caps lines.
 let searchRulesIndexCache=null;
 function searchRulesIndex(){
@@ -6837,8 +6845,8 @@ function searchRulesIndex(){
     const title=String(sec.title||'').replace(/^[\d.]+\s*/,'');out.push({sec:sec.id,page:null,label:title,section:title,body:''});
     (sec.content||[]).forEach(pg=>{let text=pg.text;try{const o=ruleEffectiveText(sec.id,pg.page);if(o!=null)text=o}catch(e){}
       let cur={sec:sec.id,page:pg.page,label:title,section:title,body:''};out.push(cur);
-      String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const sub=t.match(/^\[SUBHEAD\](.*)\[\/SUBHEAD\]$/);
-        if(sub||(/^[A-ZÀ-Ý][A-ZÀ-ÝŒ0-9'’&\- ]{2,}$/.test(t)&&t.length<90&&i>0)){cur={sec:sec.id,page:pg.page,label:(sub?sub[1]:t).trim(),section:title,body:''};out.push(cur)}
+      String(text||'').split('\n').forEach((line,i)=>{const t=line.trim();const sub=searchSubhead(t);
+        if(sub||(/^[A-ZÀ-Ý][A-ZÀ-ÝŒ0-9'’&\- ]{2,}$/.test(t)&&t.length<90&&i>0)){cur={sec:sec.id,page:pg.page,label:(sub||t).trim(),section:title,body:''};out.push(cur)}
         else cur.body+=t+' '});
     });
   });
@@ -6882,7 +6890,8 @@ function searchMoreGroups(q,en,add){
   add('hiredSwords','Hired Swords · Dramatis Personae',tr(()=>hiredSwordRawList().map(w=>{const rules=(Array.isArray(w.dpRules)?w.dpRules:[]).map(r=>`${r.name||''} ${r.text||''}`).join(' ');const body=[rules,w.dpLore||'',w.specialRules&&searchDeepText(w.specialRules),(w.defaultEquipment||[]).map(e=>e?.name||e).join(' '),(Array.isArray(w.dpWeapons)?w.dpWeapons:[]).map(d=>`${d.name||''} ${d.rulesText||''}`).join(' '),(w.skills||[]).map(e=>e?.name||e).join(' ')].join(' ');const sc=searchScore(q,w.name,body);return {score:sc?sc+3:0,title:w.name,sub:(w.dramatis?'Dramatis Personae':'Hired Sword')+(sc<50?' · '+searchSnippet(body,q):''),go:()=>navigateApp('/rules/warbands/'+(w.dramatis?'dramatis-personae':'hired-swords'))}})));
   const camp=[];tr(()=>campaignListAll()).forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;const d=c.definition||{};const base='/rules/campaign/'+encodeURIComponent(c.id);
     const sc=searchScore(q,c.name||c0.name||'',d.description);if(sc)camp.push({score:sc,title:c.name||c0.name,sub:(en?'Campaign':'Campagne')+(sc<50?' · '+searchSnippet(d.description,q):''),go:()=>navigateApp(base)});
-    (Array.isArray(d.pages)?d.pages:[]).forEach((p,i)=>{const t=String(p.title||'');const s=searchScore(q,t.replace(/^[\d.]+\s*/,''),p.text);if(s)camp.push({score:s,title:t,sub:(c.name||'')+(s<50?' · '+searchSnippet(p.text,q):''),go:()=>navigateApp(base+'/'+encodeURIComponent('rule-'+(p.id||i)))})});
+    (Array.isArray(d.pages)?d.pages:[]).forEach((p,i)=>{const t=String(p.title||'');const url=base+'/'+encodeURIComponent('rule-'+(p.id||i));const s=searchScore(q,t.replace(/^[\d.]+\s*/,''),p.text);if(s)camp.push({score:s,title:t,sub:(c.name||'')+(s<50?' · '+searchSnippet(p.text,q):''),go:()=>navigateApp(url)});
+      searchTextHeads(p.text).forEach(h=>{const hs=searchScore(q,h.label,h.body);if(hs>=50)camp.push({score:hs+1,title:h.label,sub:`${c.name||''} · ${t}`,go:()=>{navigateApp(url);searchFlashHeading(h.label)}})})});
     (Array.isArray(d.artifacts)?d.artifacts:[]).forEach(a=>{const b=searchDeepText(a);const s=searchScore(q,a?.name||'',b);if(s)camp.push({score:s,title:a.name,sub:`${c.name||''} · ${en?'Artifact':'Artefact'}`+(s<50?' · '+searchSnippet(b,q):''),go:()=>navigateApp(base+'/artifacts')})});
     (Array.isArray(d.settlements)?d.settlements:[]).forEach(a=>{const b=searchDeepText(a);const s=searchScore(q,a?.name||'',b);if(s)camp.push({score:s,title:a.name,sub:`${c.name||''} · ${en?'Settlement':'Colonie'}`+(s<50?' · '+searchSnippet(b,q):''),go:()=>navigateApp(base+'/settlements')})});
   });
@@ -11460,18 +11469,29 @@ function pbgXpMarkup(r,en){const g=pbGuide(r);const xs=(r.fighters||[]).filter(f
   return pbgXpTableMarkup(r,en)+`<details class="pbg-manual"><summary>${en?'Free correction (− / +)':'Correction libre (− / +)'}</summary><div class="pbg-list">${xs.map(x=>{const now=Number(x.xp||0),start=Number(g.startXp?.[x.instance]??now),diff=now-start;let can=false;try{can=homeCanAdvance(x)}catch(e){}
     return `<div class="pbg-row"><div class="pbg-who"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))} · ${now} XP${diff?` <em class="pbg-diff">(${diff>0?'+':''}${diff} ${en?'here':'ici'})</em>`:''}${can?` · <span class="pbg-ok">${en?'can advance':'peut progresser'}</span>`:''}</small></div><div class="pbg-xp"><button type="button" class="pbg-chip" aria-label="${en?'Remove 1 XP from':'Retirer 1 XP à'} ${esc(x.name)}" onclick="pbgXp('${esc(x.instance)}',-1)">−</button><b class="pbg-xpv">${now}</b><button type="button" class="pbg-chip" aria-label="${en?'Add 1 XP to':'Ajouter 1 XP à'} ${esc(x.name)}" onclick="pbgXp('${esc(x.instance)}',1)">＋</button></div></div>`}).join('')||`<div class="empty compact">${en?'No fighter earns experience.':'Aucun combattant ne gagne d’expérience.'}</div>`}</div></details>`}
 // --- summary + finish
-function pbgSummaryMarkup(r,en){const g=pbGuide(r);const p=ensurePostBattleData(r);
+function pbgSummaryData(r,en){const g=pbGuide(r);const p=ensurePostBattleData(r);
   const xpGain=(r.fighters||[]).reduce((n,x)=>n+Math.max(0,Number(x.xp||0)-Number(g.startXp?.[x.instance]??x.xp??0)),0);
-  const hurt=(r.fighters||[]).filter(x=>{const s=fighterStatus(x);return s.dead||s.captured||s.recovery||s.critical}).map(x=>{const s=fighterStatus(x);return `${esc(x.name)} (${s.dead?(en?'dead':'mort'):s.captured?(en?'captured':'capturé'):s.critical?(en?'critical':'critique'):(en?'recovery':'convalescence')})`});
-  const rows=[[en?'Treasury':'Trésor',`${g.startGold} → ${Number(r.gold||0)} GC`],[en?'Wyrdstone in stash':'Wyrdstone en réserve',`${g.startWyrd} → ${Number(r.wyrdstone||0)}`],[en?'Shards sold':'Éclats vendus',String(Number(p.soldShards||0))],[en?'XP added after the game':'XP ajoutée après la partie',`+${xpGain}`],[en?'Injured, captured or dead':'Blessés, capturés ou morts',hurt.join(', ')||'—'],[en?'Actions':'Actions',(p.actionsLog||[]).map(esc).join(' · ')||'—']];
-  return `<div class="pbg-summary">${rows.map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')}</div><button type="button" class="button primary pbg-finish" onclick="pbgFinish()">${en?'Finish the post-battle':'Terminer l’après-bataille'}</button><small class="pbg-hint">${en?'Closes this post-battle and records it in the warband history. Everything gained stays; the next post-battle starts from scratch.':'Clôt cet après-bataille et l’enregistre dans l’historique de la bande. Tout ce qui a été gagné reste ; le prochain après-bataille repart de zéro.'}</small>`}
+  const hurt=(r.fighters||[]).filter(x=>{const s=fighterStatus(x);return s.dead||s.captured||s.recovery||s.critical}).map(x=>{const s=fighterStatus(x);return `${x.name} (${s.dead?(en?'dead':'mort'):s.captured?(en?'captured':'capturé'):s.critical?(en?'critical':'critique'):(en?'recovery':'convalescence')})`});
+  return {gold:[Number(g.startGold)||0,Number(r.gold||0)],wyrd:[Number(g.startWyrd)||0,Number(r.wyrdstone||0)],shards:Number(p.soldShards||0),xp:xpGain,hurt,actions:(p.actionsLog||[]).map(String)}}
+function pbgSummaryRows(d,en){return `<div class="pbg-summary">${[[en?'Treasury':'Trésor',`${d.gold[0]} → ${d.gold[1]} GC`],[en?'Wyrdstone in stash':'Wyrdstone en réserve',`${d.wyrd[0]} → ${d.wyrd[1]}`],[en?'Shards sold':'Éclats vendus',String(d.shards)],[en?'XP added after the game':'XP ajoutée après la partie',`+${d.xp}`],[en?'Injured, captured or dead':'Blessés, capturés ou morts',(d.hurt||[]).map(esc).join(', ')||'—'],[en?'Actions':'Actions',(d.actions||[]).map(esc).join(' · ')||'—']].map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')}</div>`}
+function pbgSummaryMarkup(r,en){return `${pbgSummaryRows(pbgSummaryData(r,en),en)}<button type="button" class="button primary pbg-finish" onclick="pbgFinish()">${en?'Finish the post-battle':'Terminer l’après-bataille'}</button><small class="pbg-hint">${en?'Closes this post-battle and records it in the warband history. Everything gained stays; the next post-battle starts from scratch.':'Clôt cet après-bataille et l’enregistre dans l’historique de la bande. Tout ce qui a été gagné reste ; le prochain après-bataille repart de zéro.'}</small>`}
 async function pbgFinish(){const en=siteLanguage==='en';const r=activeRoster();if(!r)return;if(!await siteConfirm(en?'Finish this post-battle? It is recorded in the history and the tab starts again from scratch.':'Terminer cet après-bataille ? Il est enregistré dans l’historique et l’onglet repart de zéro.'))return;
-  const g=pbGuide(r);const p=ensurePostBattleData(r);
+  const g=pbGuide(r);const p=ensurePostBattleData(r);const sum=pbgSummaryData(r,en);
   logHistory(r,'postbattle',en?`Post-battle finished — treasury ${g.startGold} → ${Number(r.gold||0)} GC, ${Number(p.soldShards||0)} shard(s) sold`:`Après-bataille terminé — trésor ${g.startGold} → ${Number(r.gold||0)} GC, ${Number(p.soldShards||0)} éclat(s) vendu(s)`);
   delete r.underdogExplore;delete r.lastGame;delete r.lastSummary;residenceGrantMove(r);
-  r.postBattle={heroCount:0,extraDice:0,winner:false,dice:[],bonusDice:[],shards:0,shardsCashed:false,soldShards:0,income:0,incomeApplied:false,survivingHeroIds:[],exploration:{resolved:false,rewards:[],notes:[],rolls:[],bonuses:[],history:[]},explorationBonuses:p.explorationBonuses||[]};
-  save(true);render('builder');toast(en?'Post-battle finished':'Après-bataille terminé')}
-function postBattleGuidedView(r,f){const en=siteLanguage==='en';const g=pbGuide(r);const steps=pbGuideSteps(r);const i=Math.max(0,Math.min(steps.length-1,Number(g.step||0)));const k=steps[i];
+  r.postBattle={heroCount:0,extraDice:0,winner:false,dice:[],bonusDice:[],shards:0,shardsCashed:false,soldShards:0,income:0,incomeApplied:false,survivingHeroIds:[],exploration:{resolved:false,rewards:[],notes:[],rolls:[],bonuses:[],history:[]},explorationBonuses:p.explorationBonuses||[],done:{at:Date.now(),sum}};
+  save(true);render('builder');window.scrollTo({top:Math.max(0,(document.querySelector('.pbg')?.getBoundingClientRect().top||0)+window.scrollY-80),behavior:'auto'});toast(en?'Post-battle finished':'Après-bataille terminé')}
+// V-PBDONE: after "Finish", show a clear "done" screen instead of looping
+// straight back to step 1. A new game played since then (lastGame) or the
+// "start a new post-battle" button opens the steps again.
+function pbgDoneOf(r){const d=r?.postBattle?.done;if(!d||typeof d!=='object')return null;if(Number(r.lastGame?.at||0)>Number(d.at||0))return null;return d}
+function pbgRestart(){const r=activeRoster();if(!r?.postBattle)return;delete r.postBattle.done;delete r.postBattle.guide;save(true);render('builder')}
+function pbgDoneMarkup(r,d,en){const when=(()=>{try{return new Date(d.at).toLocaleDateString(en?'en-GB':'fr-FR',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}})();
+  return `<div class="pbg pbg-done"><div class="pbg-done-head"><span class="pbg-done-check" aria-hidden="true">✓</span><div><div class="pbg-kick">${en?'Post-battle':'Après-bataille'}</div><h3 class="pbg-title">${en?'Finished':'Terminé'}</h3>${when?`<small class="muted">${esc(when)}</small>`:''}</div></div>
+  <p class="pbg-do">${en?'This post-battle is done and saved in the warband history. Nothing more to do here until your next game.':'Cet après-bataille est fini et enregistré dans l’historique de la bande. Plus rien à faire ici avant ta prochaine partie.'}</p>
+  ${d.sum?pbgSummaryRows(d.sum,en):''}
+  <div class="pbg-done-next"><span class="micro-label">${en?'NEXT GAME PLAYED?':'PROCHAINE PARTIE JOUÉE ?'}</span><button type="button" class="button secondary" onclick="pbgRestart()">${en?'Start a new post-battle':'Commencer un nouvel après-bataille'}</button></div></div>`}
+function postBattleGuidedView(r,f){const en=siteLanguage==='en';const done=pbgDoneOf(r);if(done)return pbgDoneMarkup(r,done,en);const g=pbGuide(r);const steps=pbGuideSteps(r);const i=Math.max(0,Math.min(steps.length-1,Number(g.step||0)));const k=steps[i];
   const n=steps.filter(s=>s!=='summary').length;const num=k==='summary'?n:i+1;
   const T={eye:[en?'Eye of the Gods':'Œil des Dieux',en?'Roll for your Leader if your warband allows it.':'Fais le jet de ton Leader si ta bande y a droit.'],
    injuries:[en?'Injured and dead':'Blessés et morts',en?'Check what happened during the game. Normally done in the game: fix or complete here if needed.':'Vérifie ce qui s’est passé pendant la partie. Normalement fait en jeu : corrige ou complète ici si besoin.'],
