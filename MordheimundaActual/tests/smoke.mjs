@@ -1314,7 +1314,7 @@ await test('[desktop] mutations: bought at recruitment, 2nd at double price, nor
   expect(del.names.join()==='Scorpion Tail'&&del.m===0,'deleting did not undo the mutation: '+JSON.stringify(del));
   await page.evaluate(()=>{const r=activeRoster();const x=r.fighters[editingIndex];x.skills=[...(x.skills||[]),'Dodge'];save(true);render('fighter')});
   await page.waitForSelector('.mut-dialog .mutPick');
-  expect(await page.evaluate(()=>fighterMutationGrantsOpen({skills:['Mutation'],mutationGrantsDone:0}).length===1),'a skill named Mutation must give a mutation without setup');
+  expect(await page.evaluate(()=>(()=>{const x=activeRoster().fighters[editingIndex];return fighterMutationGrantsOpen({...x,skills:['Mutation'],mutationGrantsDone:0}).length===1})()),'a skill named Mutation must give a mutation without setup, on a profile that can mutate');
   await page.check('.mutPick[value="claw"]');await page.click('#mutGo');await page.waitForTimeout(300);
   const g=await page.evaluate(g0=>{const r=activeRoster(),f=faction(r);const x=r.fighters[editingIndex];return {names:fighterMutations(x).map(m=>m.name),spent:g0-r.gold,banner:!!document.querySelector('.mut-grant'),extra:fighterValue(x,f)-liveFighterCost(x,f)}},del.gold);
   expect(g.names.join()==='Scorpion Tail,Great Claw'&&g.spent===0&&g.extra===40&&!g.banner,'a skill mutation must be free, add no value and close the prompt: '+JSON.stringify(g));
@@ -1525,6 +1525,18 @@ await test('[desktop] NEW badge: a custom item added this week shows NEW in Refe
     state.customTraits=state.customTraits.filter(x=>x!==old&&x!==fresh);if(keepI!==undefined)state.addedAtInit=keepI;
     return {oldOk,freshOk,badge,week,pub}});
   expect(Object.values(out).every(Boolean),'NEW badge: '+JSON.stringify(out));
+});
+await test('[desktop] quick fixes: Resolute becomes Nerves of Steel, mutation skill only for mutable profiles, lesson answers and dice editable',null,async page=>{
+  const out=await page.evaluate(()=>{const f=D.factions.find(x=>x.warriors?.some(w=>w.type==='Henchman'));const w=f.warriors.find(w=>w.type==='Henchman');
+    const a={...JSON.parse(JSON.stringify(w)),wid:w.id,instance:'rz1',skills:['Resolute','Sprint'],equipmentSelected:[],status:{}};const b={...JSON.parse(JSON.stringify(w)),wid:w.id,instance:'rz2',skills:['Resolute','Nerves of Steel'],equipmentSelected:[],status:{}};
+    state.rosters=[{id:'rz',name:'RZ',factionId:f.id,gold:0,fighters:[a,b]}];state.active='rz';const n=migrateResoluteSkill();const x1=activeRoster().fighters[0],x2=activeRoster().fighters[1];
+    const res=n===2&&x1.skills.join(',')==='Nerves of Steel,Sprint'&&x2.skills.join(',')==='Nerves of Steel';
+    const keepLib=mutationLibrary;mutationLibrary={mutations:[{id:'m1',name:'Extra arm',cost:10}],grantSkills:[]};x1.skills.push('Mutation');const noRule=fighterMutationGrantsOpen(x1).length===0&&!skillAllowedForFighter(x1,'Mutation')&&skillAllowedForFighter(x1,'Sprint');mutationLibrary=keepLib;
+    const keep=JSON.parse(JSON.stringify(helpOverrides));const l=LEARN_LESSONS.find(z=>z.id==='shoot');helpOverrides.texts={...(helpOverrides.texts||{}),'learn.shoot.opts':{en:'2+\n6+',fr:'2+\n6+'},'learn.shoot.a':{en:'2',fr:'2'},'learn.shoot.roll':{en:'need=6',fr:'need=6'}};
+    const e=learnEff(l);const edit=e.opts.length===2&&e.opts[1]==='6+'&&e.a===1&&e.roll.need===6&&learnEff(l).roll.mod===l.roll.mod;helpOverrides=keep;const back=learnEff(l).opts.length===l.opts.length&&learnEff(l).a===l.a;
+    const inEditor=helpAllTexts().some(z=>z.key==='learn.shoot.opts')&&helpAllTexts().some(z=>z.key==='learn.shoot.roll');
+    return {res,noRule,edit,back,inEditor}});
+  expect(Object.values(out).every(Boolean),'quick fixes: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
