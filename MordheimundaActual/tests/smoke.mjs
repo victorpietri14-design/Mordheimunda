@@ -1497,7 +1497,10 @@ await test('[desktop] faction quick editor: difficulty, keywords, intro and Begi
     api.adminSaveHelpTexts=async b=>{sent=b;return {help:b}};
     try{openFactionHelpEditor(f.id);await new Promise(z=>setTimeout(z,100));document.getElementById('feDiff').value='3';document.getElementById('feTagsFr').value='brutal, lent';document.getElementById('feTagsEn').value='brutal, slow';document.getElementById('feBlurbFr').value='Une bande test.';document.getElementById('feBeg').checked=true;
       await saveFactionHelpEditor(f.id);const tr=factionTraits(f);const mk=factionTraitsMarkup(f,true);
-      return {sent:!!sent&&sent.texts[`faction.${f.id}.diff`]?.fr==='3'&&sent.beginner.includes(f.id),diff:tr.diff===3,tags:tr.tags.length===2,stars:/★★★/.test(mk),blurb:helpFactionBlurb(f)==='Une bande test.'||siteLanguage==='en'}}
+      const ow={id:'ofw-test',name:'Test Officials',displayName:'Test Officials',__official:true,warriors:[{id:'tw',name:'T',type:'Henchman',cost:20,profile:[5,3,3,3,3,1,3,1,7,7,7,7]}],equipment:[{name:'Weird Bow',profile:{range:'24',strength:'3',ap:'-',damage:'1',traits:''}},{name:'Odd Gun',profile:{range:'18',strength:'4',ap:'-',damage:'1',traits:''}},{name:'Sling2',profile:{range:'12',strength:'3',ap:'-',damage:'1',traits:''}},{name:'Xbow2',profile:{range:'30',strength:'4',ap:'-',damage:'1',traits:''}}]};D.factions.push(ow);
+      const otr=factionTraits(ow);openFactionHelpEditor('nope','Test Officials');await new Promise(z=>setTimeout(z,50));const offEd=/Test Officials/.test(document.querySelector('.fac-edit')?.textContent||'');closeModal();const inEditor=helpAllTexts().some(x=>x.key===`faction.${ow.id}.diff`);D.factions=D.factions.filter(x=>x!==ow);
+      return {official:otr.tags.length>0&&(otr.tags.includes('tir')||otr.tags.includes('shooting'))&&otr.tags.some(t=>/rapide|fast/.test(t)),offEd,inEditor,
+      sent:!!sent&&sent.texts[`faction.${f.id}.diff`]?.fr==='3'&&sent.beginner.includes(f.id),diff:tr.diff===3,tags:tr.tags.length===2,stars:/★★★/.test(mk),blurb:helpFactionBlurb(f)==='Une bande test.'||siteLanguage==='en'}}
     finally{api.adminSaveHelpTexts=orig;helpOverrides=keep}});
   expect(Object.values(out).every(Boolean),'faction editor: '+JSON.stringify(out));
 });

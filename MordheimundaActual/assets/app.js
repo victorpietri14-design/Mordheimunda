@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0838.0';
+const APP_BUILD='110.0839.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -9573,7 +9573,7 @@ function warbandSectionMarkup(f,page,titleEn,titleFr,defaultRichHtml,defaultPlai
 // V-FACEDIT: quick admin editor for one faction: difficulty, keywords, the
 // one-line intro (FR/EN) and the Beginner badge. Saved in the help texts
 // (same data as Admin › Help texts › Factions), so creation and Rules match.
-function openFactionHelpEditor(fid){const en=siteLanguage==='en';const f=(D.factions||[]).find(x=>x.id===fid);if(!f)return;const T=helpOverrides.texts||{};const get=(k,l)=>T[k]?.[l]||'';
+function openFactionHelpEditor(fid,name){const en=siteLanguage==='en';const f=(D.factions||[]).find(x=>x.id===fid)||(name?(D.factions||[]).find(x=>normName(x.displayName||x.name)===normName(name)):null);if(!f){toast(en?'Warband not loaded yet':'Warband pas encore chargée');return}fid=f.id;const T=helpOverrides.texts||{};const get=(k,l)=>T[k]?.[l]||'';
   const auto=factionTraits({...f,id:'__auto'});const beg=new Set(helpBeginnerIds()).has(f.id);const d=get(`faction.${f.id}.diff`,'fr')||get(`faction.${f.id}.diff`,'en');
   const def=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`))?.[1]||['',''];
   openModal(`<div class="wc-dialog fac-edit"><div class="eyebrow">ADMIN · ${en?'FACTION':'FACTION'}</div><h2>${esc(f.displayName||f.name)}</h2>
@@ -9584,7 +9584,7 @@ function openFactionHelpEditor(fid){const en=siteLanguage==='en';const f=(D.fact
    <label class="custom-field"><span>${en?'Intro line (EN)':'Présentation (EN)'}</span><textarea id="feBlurbEn" rows="2" placeholder="${esc(def[0])}">${esc(get(`faction.${f.id}`,'en'))}</textarea></label>
    <label class="fe-beg"><input type="checkbox" id="feBeg" ${beg?'checked':''}> ${en?'Beginner badge (suggested for a first warband)':'Badge Débutant (conseillée pour une première bande)'}</label>
    <p class="muted" style="font-size:12px">${en?'Same data as Admin › Help texts › Factions. An empty field keeps the automatic value.':'Mêmes données que Admin › Textes de l’aide › Factions. Un champ vide garde la valeur automatique.'}</p>
-   <div class="account-actions"><button type="button" class="button primary" onclick="saveFactionHelpEditor('${esc(f.id)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`)}
+   <div class="account-actions"><button type="button" class="button primary" onclick="saveFactionHelpEditor('${esc(fid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`)}
 async function saveFactionHelpEditor(fid){const en=siteLanguage==='en';const v=id=>String(document.getElementById(id)?.value||'').trim();const texts=JSON.parse(JSON.stringify(helpOverrides.texts||{}));
   const put=(k,fr,enV)=>{if(fr||enV)texts[k]={fr,en:enV};else delete texts[k]};const dv=v('feDiff');
   put(`faction.${fid}.diff`,dv,dv);put(`faction.${fid}.tags`,v('feTagsFr'),v('feTagsEn'));put(`faction.${fid}`,v('feBlurbFr'),v('feBlurbEn'));
@@ -20188,7 +20188,7 @@ let helpGuideScrolled='';
 // admin can override them with help texts faction.<id>.diff (1-3) and
 // faction.<id>.tags (comma separated).
 function factionTraits(f){const en=siteLanguage==='en';const ws=(f.warriors||[]).filter(w=>Array.isArray(w.profile));const avg=i=>ws.length?ws.reduce((n,w)=>n+Number(w.profile[i]||0),0)/ws.length:0;
-  const pool=[...(D.weapons||[])];const ranged=(f.equipment||[]).map(e=>typeof e==='string'?e:e?.name).filter(Boolean).filter(n=>{const w=pool.find(x=>normName(x.name)===normName(n));return w&&weaponIsRanged(w.profile)}).length;
+  let pool=[...(D.weapons||[])];try{pool=pool.concat(allCustomEquipmentList())}catch(e){}const ranged=(f.equipment||[]).filter(Boolean).filter(e=>{const w=(e&&typeof e==='object'&&e.profile)?e:pool.find(x=>normName(x.name)===normName(typeof e==='string'?e:e?.name));return w&&weaponIsRanged(w.profile)}).length;
   const hench=ws.filter(w=>w.type==='Henchman').map(w=>Number(w.cost)||0).filter(Boolean);const cheap=hench.length?Math.min(...hench):0;
   const tags=[];if(avg(0)>=5)tags.push(en?'fast':'rapide');if(avg(1)>=3.8)tags.push(en?'close combat':'corps à corps');if(ranged>=4)tags.push(en?'shooting':'tir');else if(ranged<=1)tags.push(en?'little shooting':'peu de tir');if(cheap&&cheap<=25)tags.push(en?'numerous':'nombreux');if(avg(4)>=3.8)tags.push(en?'tough':'résistant');
   const any=k=>{const o=helpOverrides?.texts?.[k];return o?(o[en?'en':'fr']||o.fr||o.en||''):''};const own=any(`faction.${f.id}.tags`);const dOwn=Number(String(any(`faction.${f.id}.diff`)).trim());
@@ -20196,7 +20196,7 @@ function factionTraits(f){const en=siteLanguage==='en';const ws=(f.warriors||[])
 function factionTraitsMarkup(f,beginner){const en=siteLanguage==='en';const t=factionTraits(f);const d=t.diff||(beginner?1:2);
   return `<span class="fac-traits"><span class="fac-diff" title="${en?'Difficulty':'Difficulté'}">${'★'.repeat(d)}${'☆'.repeat(3-d)} <small>${[en?'easy':'facile',en?'medium':'moyen',en?'hard':'difficile'][d-1]}</small></span>${t.tags.map(x=>`<span class="fac-tag">${esc(x)}</span>`).join('')}</span>`}
 function helpDecorateFactions(){if(currentViewName()!=='create')return;const en=siteLanguage==='en';const beg=new Set(helpBeginnerIds());const grid=document.querySelector('.mu-create-page .faction-grid');if(!grid)return;const guide=!!helpGuide()?.on;
- [...grid.querySelectorAll('.faction-choice[data-faction]')].forEach(b=>{const f=D.factions.find(x=>x.id===b.dataset.faction);if(!f||b.dataset.helpDone)return;b.dataset.helpDone='1';const tx=b.querySelector('.bn-tx')||b;const bl=helpFactionBlurb(f);if(bl)tx.insertAdjacentHTML('beforeend',`<span class="help-blurb">${esc(bl)}</span>`);try{tx.insertAdjacentHTML('beforeend',factionTraitsMarkup(f,beg.has(f.id)))}catch(e){}if(beg.has(f.id)){b.classList.add('help-beginner');tx.insertAdjacentHTML('beforeend',`<span class="help-beg">${en?'BEGINNER':'DÉBUTANT'}</span>`);if(guide)grid.prepend(b)}})}
+ [...grid.querySelectorAll('.faction-choice[data-faction]')].forEach(b=>{const f=(b.dataset.supp&&D.factions.find(x=>x.packId===b.dataset.supp))||D.factions.find(x=>x.id===b.dataset.faction);if(!f||b.dataset.helpDone)return;b.dataset.helpDone='1';const tx=b.querySelector('.bn-tx')||b;const bl=helpFactionBlurb(f);if(bl)tx.insertAdjacentHTML('beforeend',`<span class="help-blurb">${esc(bl)}</span>`);try{tx.insertAdjacentHTML('beforeend',factionTraitsMarkup(f,beg.has(f.id)))}catch(e){}if(beg.has(f.id)){b.classList.add('help-beginner');tx.insertAdjacentHTML('beforeend',`<span class="help-beg">${en?'BEGINNER':'DÉBUTANT'}</span>`);if(guide)grid.prepend(b)}})}
 (function(){const o=window.selectFaction;if(typeof o!=='function')return;window.selectFaction=function(...a){const r=o.apply(this,a);try{const g=helpGuide();if(g?.on&&!g.faction){g.faction=true;helpSave({guide:g});helpGuideApply()}}catch(e){}return r}})();
 // ---- "Rules: what to read first" ----
 const HELP_READING=[
@@ -20223,7 +20223,7 @@ function helpAllTexts(){const L=[];const add=(g,key,label,def)=>{if(def&&helpT(d
  HELP_NEWS.forEach(n=>add('news',`news.${n.id}`,n.id,n.text));
  Object.keys(COACH_TEXTS).forEach(k=>add('learn',`coach.${k}`,`Ma première partie · ${k}`,COACH_TEXTS[k]));
  LEARN_CHAPTERS.forEach((c,i)=>['title','sub'].forEach(f=>add('learn',`learn.ch.${c.id}.${f}`,`chapitre ${i+1} · ${f==='title'?'titre':'sous-titre'}`,c[f])));LEARN_LESSONS.forEach((l,i)=>['title','sub','body','q','why'].forEach(f=>add('learn',`learn.${l.id}.${f}`,`${i+1} · ${({title:'titre',sub:'sous-titre',body:'texte',q:'question',why:'explication'})[f]}`,l[f])));
- (D.factions||[]).filter(f=>!f.packId&&!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['','']);add('factions',`faction.${f.id}.diff`,`${f.displayName||f.id} · difficulté (1 facile, 2 moyen, 3 difficile — vide = automatique)`,['','']);add('factions',`faction.${f.id}.tags`,`${f.displayName||f.id} · mots-clés, séparés par des virgules (vide = automatique)`,['',''])});
+ (D.factions||[]).filter(f=>!(typeof isContentPoolFaction==='function'&&isContentPoolFaction(f))&&!String(f.id||'').startsWith('custom-warband-')).forEach(f=>{const d=HELP_FACTION_BLURBS.find(([re])=>re.test(`${f.displayName||''} ${f.name||''} ${f.id}`));add('factions',`faction.${f.id}`,f.displayName||f.id,d?d[1]:['','']);add('factions',`faction.${f.id}.diff`,`${f.displayName||f.id} · difficulté (1 facile, 2 moyen, 3 difficile — vide = automatique)`,['','']);add('factions',`faction.${f.id}.tags`,`${f.displayName||f.id} · mots-clés, séparés par des virgules (vide = automatique)`,['',''])});
  return L}
 function openHelpTextsEditor(...a){return adminLazyCall('openHelpTextsEditor',this,a)}
 try{openHelpTextsEditor.__adminStub=true}catch(e){}
