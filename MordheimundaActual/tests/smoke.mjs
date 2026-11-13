@@ -671,12 +671,16 @@ await test('[mobile] guided post-battle: steps keep what was done, back and fort
   await page.evaluate(()=>{pbGuideJump(0);const x=activeRoster().fighters[0];pbgSetStatus(x.instance,'recovery');pbGuideGo(1);pbgXp(x.instance,2);pbGuideGo(1);pbGuideGo(-1);pbGuideGo(-1)});await page.waitForTimeout(300);
   const kept=await page.evaluate(()=>{const r=activeRoster(),x=r.fighters[0];return {rec:fighterStatus(x).recovery,xp:Number(x.xp)-Number(r.postBattle.guide.startXp[x.instance]),step:r.postBattle.guide.step,checked:!!document.querySelector('.pbg-chip.warn.on')}});
   await page.evaluate(()=>{pbGuideJump(pbGuideSteps(activeRoster()).length-1);pbgFinish()});await page.waitForTimeout(300);await page.evaluate(()=>siteDialogOk());await page.waitForTimeout(400);
-  const after=await page.evaluate(()=>{const r=activeRoster();return {fresh:Number(r.postBattle?.guide?.step||0)===0&&!(r.postBattle?.dice||[]).length&&!r.postBattle?.actionsApplied,rec:fighterStatus(r.fighters[0]).recovery,hist:(r.history||[]).some(h=>/post-battle finished|après-bataille terminé/i.test(h.text))}});
+  const after=await page.evaluate(()=>{const r=activeRoster();return {fresh:Number(r.postBattle?.guide?.step||0)===0&&!(r.postBattle?.dice||[]).length&&!r.postBattle?.actionsApplied,rec:fighterStatus(r.fighters[0]).recovery,hist:(r.history||[]).some(h=>/post-battle finished|après-bataille terminé/i.test(h.text)),doneScreen:!!document.querySelector('.pbg-done')&&!document.querySelector('.pbg-bars')&&/Start a new post-battle/.test(document.querySelector('.pbg-done')?.textContent||'')}});
+  const restart=await page.evaluate(async()=>{pbgRestart();await new Promise(z=>setTimeout(z,200));const a=!document.querySelector('.pbg-done')&&document.querySelector('.pbg-title')?.textContent==='Injured and dead';
+    const r=activeRoster();r.postBattle.done={at:Date.now()-1000};r.lastGame={at:Date.now()};render('builder');await new Promise(z=>setTimeout(z,200));const b=!document.querySelector('.pbg-done')&&!!document.querySelector('.pbg-bars');return {a,b}});
   await page.evaluate(()=>setPbMode('all'));
   expect(all,'"All on one page" keeps the current layout');
   expect(titles[0]==='Injured and dead'&&titles.includes('Exploration')&&titles.includes('Trading Post')&&titles[7]==='Summary','guided steps in order: '+JSON.stringify(titles));
   expect(kept.rec&&kept.xp===2&&kept.step===0&&kept.checked,'back and forth keeps what was done: '+JSON.stringify(kept));
   expect(after.fresh&&after.rec&&after.hist,'finish records history, keeps the results and starts the tab again: '+JSON.stringify(after));
+  expect(after.doneScreen,'after Finish a clear "done" screen is shown, not step 1 again: '+JSON.stringify(after));
+  expect(restart.a&&restart.b,'"Start a new post-battle" or a new game opens the steps again: '+JSON.stringify(restart));
 });
 await test('[mobile] guided post-battle XP step: same XP & quest table as Play mode, writes to the fighter, stays on the warband',null,async page=>{
   await page.setViewportSize({width:390,height:844});await seed(page);
@@ -1419,6 +1423,12 @@ await test('[desktop] game XP on a warband that is not the open one is stamped, 
     const merged=mergeAccountData({rosters:[rb]},remote);const kept=merged.rosters.find(r=>r.id==='rb').fighters[0].xp;
     state.playSession=null;state.rosters=[];return {stamped,kept,xp:rb.fighters[0].xp}});
   expect(out.skip||(out.stamped&&out.kept===out.xp&&out.xp>0),'game XP lost on sync: '+JSON.stringify(out));
+});
+await test('[desktop] search lists rule titles, coloured [SUBHEAD] and titles inside campaign pages',null,async page=>{
+  const out=await page.evaluate(()=>{campaignDetailCache.set('cx',{id:'cx',name:'Lustria test',definition:{pages:[{id:'p1',title:'2. Terrain',text:'Terrain\nIntro.\n[SUBHEAD color=wip]VERY DIFFICULT GROUND[/SUBHEAD]\nModels move at 1/4 speed.\n[SUBHEAD]Critical Hits[/SUBHEAD]\nOn a 6 to wound.'}]}});
+    const ca=campaignListAll;campaignListAll=()=>[{id:'cx',name:'Lustria test'}];const first=q=>{const g=searchRun(q)[0];return g?g.items[0].title:''};
+    const r={crit:first('critical hits'),vdg:first('very difficult ground'),fall:searchRun('falling').some(g=>g.key==='rules'&&/^falling$/i.test(g.items[0].title)),sub:searchSubhead('[SUBHEAD color=danger]FIGHTING[/SUBHEAD]'),plural:searchScore('critical hits','Marksman','causes a critical hit on a 6')>0};campaignListAll=ca;return r});
+  expect(out.crit==='Critical Hits'&&out.vdg==='VERY DIFFICULT GROUND'&&out.fall&&out.sub==='FIGHTING'&&out.plural,'rule titles are search results: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

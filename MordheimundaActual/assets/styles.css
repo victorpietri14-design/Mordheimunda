@@ -5065,6 +5065,10 @@ html[data-comfort="xlarge"] .sheet-name{font-size:22px}
 .pbg-summary div:last-child{border-bottom:0}.pbg-summary b{text-align:right}
 .pbg-finish{min-height:48px;width:100%}
 .pbg-hint{font-size:12px;color:var(--muted2)}
+.pbg-done{display:grid;gap:14px}
+.pbg-done-head{display:flex;gap:14px;align-items:center}
+.pbg-done-check{flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-weight:800;background:var(--accent);color:var(--chip-bg)}
+.pbg-done-next{display:grid;gap:8px;border:1px dashed var(--line);border-radius:10px;padding:12px 14px}
 .pbg-explore .postbattle-toolbar>div{display:none}
 .pbg-explore .postbattle-toolbar{justify-content:flex-end}
 .pbg-xptable{display:grid;gap:10px}
@@ -5773,7 +5777,7 @@ button.pc-fav.has-img{display:flex;flex-direction:row;align-items:center;justify
 .help-n{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(157,250,60,.12);color:var(--accent);font:800 11.5px 'IBM Plex Sans',sans-serif}
 .help-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .help-go,.help-ghost{flex:1;min-height:44px;border-radius:10px;font:800 13px 'IBM Plex Sans',sans-serif;cursor:pointer;padding:0 14px}
-.help-go{border:0;background:var(--accent,#9dfa3c);color:#132007}
+.help-go{border:0;background:var(--accent);color:var(--chip-bg)}
 .help-ghost{border:1px solid var(--line);background:none;color:var(--text);font-weight:700}
 .help-go.wide{width:100%;flex:none;margin-top:12px;min-height:50px}
 .help-links{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:12px}
