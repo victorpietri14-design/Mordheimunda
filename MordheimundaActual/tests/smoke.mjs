@@ -1446,6 +1446,17 @@ await test('[desktop] artifacts are items: weapon with its profile, equipment ot
   const cards=await page.evaluate(()=>document.querySelectorAll('.art-ref .art-item').length);
   expect(cards>=30,'References › Artifacts lists the artifacts by campaign: '+cards);
 });
+await test('[mobile] warband assistant: live checklist on a new warband, ready-to-play summary, hidden once played',null,async page=>{
+  await page.setViewportSize({width:390,height:844});
+  const out=await page.evaluate(async()=>{const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors?.some(w=>w.type==='Henchman'));const L=f.warriors.find(w=>w.type==='Leader');
+    const hero={...JSON.parse(JSON.stringify(L)),wid:L.id,instance:'h1',equipmentSelected:[],status:{}};
+    state.rosters=[{id:'wa',name:'WA',factionId:f.id,gold:380,fighters:[hero],reserve:[],history:[]}];state.active='wa';navigateApp(warbandPath('wa'));await new Promise(z=>setTimeout(z,500));
+    const rows=()=>[...document.querySelectorAll('.wba-row')].map(x=>x.className.replace('wba-row ',''));const first=rows();const leaderOk=document.querySelector('.wba-row.ok b')?.textContent||'';
+    openReadyCheck();await new Promise(z=>setTimeout(z,200));const ready=document.querySelector('.wb-ready')?.textContent||'';closeModal();
+    const r=activeRoster();r.lastGame={at:Date.now()};render('builder');await new Promise(z=>setTimeout(z,300));const goneAfterGame=!document.getElementById('wbAssist');
+    return {shown:first.length===7,leaderOk:/Leader/.test(leaderOk),todo:first.filter(c=>c!=='ok'&&c!=='info').length>=3,almost:/ALMOST READY|PRESQUE PRÊT/i.test(ready)&&/STILL TO DO|ENCORE À FAIRE/i.test(ready),goneAfterGame}});
+  expect(Object.values(out).every(Boolean),'warband assistant: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
