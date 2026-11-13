@@ -6219,3 +6219,24 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .train-end{display:grid;gap:8px;margin-top:10px}
 .train-page .learn-roll-btn,.train-page .learn-next{margin-top:10px}
 .new-tag{background:var(--accent);color:var(--chip-bg);border-color:var(--accent);font-weight:800;letter-spacing:.8px;margin-left:6px}
+/* V-GUIDE2 */
+.guide-banner{all:unset;cursor:pointer;display:flex;gap:10px;align-items:center;border:1.5px solid var(--accent);border-radius:12px;padding:10px 12px;margin:6px 0 12px;font-size:20px}
+.guide-banner span{flex:1;font-size:13px}.guide-banner b{display:block;font-size:14px}.guide-banner small{color:var(--muted);font-size:12px}
+.guide-start{border:1.5px solid var(--accent);border-radius:14px;padding:12px;background:var(--panel);display:grid;gap:8px;margin-bottom:14px}
+.guide-kick{display:flex;justify-content:space-between;font-size:11px;letter-spacing:1.4px;font-weight:700;color:var(--accent)}
+.guide-kick.muted-kick{color:var(--muted);margin:6px 0}
+.guide-lead{margin:0;font-size:13px}
+.guide-steps,.guide-mores,.guide-todo{display:grid;gap:7px}
+.guide-step,.guide-more{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:9px 11px}
+.guide-step.cur{border-color:var(--wip,#e0b04a)}.guide-step.done .learn-row-tx b{color:var(--muted)}
+.gm-ic{font-size:18px}
+.guide-essential{border:1.5px solid var(--wip,#e0b04a);border-radius:12px;padding:11px 12px;display:grid;gap:7px;margin-bottom:10px}
+.guide-essential .guide-kick{color:var(--wip,#e0b04a)}
+.ge-pt{display:flex;gap:8px;font-size:13.5px;line-height:1.5}.ge-pt span:first-child{color:var(--accent)}
+.gt-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13.5px}
+.gt-dot{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--wip,#e0b04a);display:grid;place-items:center;font-size:11px;font-weight:800}
+.gt-row.done .gt-dot{background:var(--accent);border-color:var(--accent);color:var(--chip-bg)}.gt-row.done>span:nth-child(2){color:var(--muted)}
+.gt-go{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--accent);white-space:nowrap}
+.guide-note{font-size:12px;margin:6px 0 10px}
+.guide-deep{all:unset;cursor:pointer;display:block;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+.guide-nav{display:flex;gap:8px}.guide-nav .button{flex:1}

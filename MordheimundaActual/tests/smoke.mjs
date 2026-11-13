@@ -1114,7 +1114,7 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
     return {n:list.length,missing,check,done1,done2,sheet,tip,ring,welcome,menu,statRows,notes,starts,bar1,bar2,reading,keys,ov}});
   expect(out.n>15&&!out.missing.length,'every page has a help entry (add it to HELP_PAGES): '+JSON.stringify(out));
   expect(out.check&&out.done1===1&&out.done2===2,'first steps tick themselves: '+JSON.stringify(out));
-  expect(out.statRows===8&&out.notes===1&&out.starts===4&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
+  expect(out.statRows===8&&out.notes===1&&out.starts===5&&out.bar1&&/5|6|7|8/.test(out.bar2)&&out.reading===5&&out.keys>100&&out.ov==='X','beginner guide: cards, start, creation guide, reading, editable texts: '+JSON.stringify(out));
   expect(out.sheet&&out.tip&&out.ring&&out.welcome===3&&out.menu>=6,'help sheet, tip, tour, welcome, menu: '+JSON.stringify(out));
 });
 await test('[desktop] rules warbands: race banners, sub-factions, categories apart (Dramatis, agents, neutral creatures)',null,async page=>{
@@ -1537,6 +1537,20 @@ await test('[desktop] quick fixes: Resolute becomes Nerves of Steel, mutation sk
     const inEditor=helpAllTexts().some(z=>z.key==='learn.shoot.opts')&&helpAllTexts().some(z=>z.key==='learn.shoot.roll');
     return {res,noRule,edit,back,inEditor}});
   expect(Object.values(out).every(Boolean),'quick fixes: '+JSON.stringify(out));
+});
+await test('[mobile] player guide: 2 levels, steps tick themselves from the warband, reachable from help and lessons',null,async page=>{
+  await page.setViewportSize({width:390,height:844});
+  const out=await page.evaluate(async()=>{localStorage.removeItem('mu_guide');state.rosters=[];guideOpen(null);await new Promise(z=>setTimeout(z,300));
+    const hub=document.querySelectorAll('.guide-step').length===4&&document.querySelectorAll('.guide-more').length===4&&location.pathname==='/rules/learn/guide';
+    const empty=guideSteps()[1].todo.every(t=>!t.done);
+    const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors?.some(w=>w.type==='Henchman'));state.rosters=[{id:'gd',name:'GD',factionId:f.id,gold:1000,fighters:[],reserve:[],history:[]}];state.active='gd';
+    const chose=guideSteps()[1].todo[0].done&&!guideSteps()[1].todo[1].done;
+    navigateApp(warbandPath('gd'));await new Promise(z=>setTimeout(z,300));wbStarterFill();await new Promise(z=>setTimeout(z,200));const recruited=guideSteps()[1].todo[1].done;
+    guideOpen(1);await new Promise(z=>setTimeout(z,200));const step=document.querySelectorAll('.gt-row').length===4&&!!document.querySelector('.guide-essential');
+    helpStartOpen();await new Promise(z=>setTimeout(z,100));const inHelp=/guide/i.test(document.querySelector('.help-start')?.textContent||'')&&helpStartPick==='all';closeModal();
+    learnOpen('');await new Promise(z=>setTimeout(z,200));const inLearn=!!document.querySelector('.guide-banner');
+    return {hub,empty,chose,recruited,step,inHelp,inLearn}});
+  expect(Object.values(out).every(Boolean),'player guide: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
