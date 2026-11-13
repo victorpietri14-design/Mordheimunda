@@ -6249,3 +6249,11 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .help-tip-acts button{margin:0}
 .help-tip-acts .ht-go{font-weight:700}
 .home-remind-row .remind-acts{width:100%;margin:0 0 8px 30px}
+/* V-WBFILE: warband file save / open */
+.wbfile-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.wbfile .wbfile-import{width:100%;margin:6px 0 14px}
+.wbfile-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 0 6px}
+.wbfile-list{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+.wbfile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer}
+.wbfile-row span{display:flex;flex-direction:column;min-width:0}.wbfile-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wbfile-row small{color:var(--muted)}
+.wbfile-row i{font-style:normal;font-size:18px}
