@@ -13,7 +13,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const req=createRequire(path.join(process.env.TOOLS_DIR||root,'package.json'));
 const acorn=req('acorn');
 const read=f=>fs.readFileSync(path.join(root,f),'utf8');
-const files=['assets/app.js','assets/admin.js'];
+const files=['assets/app.js','assets/admin.js','assets/more.js'];
 const others=['index.html','tests/smoke.mjs',...fs.readdirSync(path.join(root,'assets/core')).map(f=>'assets/core/'+f),...fs.readdirSync(path.join(root,'data'),{recursive:true}).filter(f=>/\.js$/.test(f)&&!/catalog-book|rules-book/.test(f)).map(f=>'data/'+f)];
 const words=new Map();const count=t=>{for(const m of t.matchAll(/[A-Za-z_$][\w$]*/g))words.set(m[0],(words.get(m[0])||0)+1)};
 for(const f of [...files,...others])count(read(f));
