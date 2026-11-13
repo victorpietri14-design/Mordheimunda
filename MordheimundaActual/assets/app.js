@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0842.0';
+const APP_BUILD='110.0843.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -20123,11 +20123,11 @@ let helpOverrides={texts:{},beginner:null},helpOverridesLoaded=false;
 function loadHelpTexts(){if(helpOverridesLoaded||!window.MordheimundaAPI?.helpTexts)return;helpOverridesLoaded=true;window.MordheimundaAPI.helpTexts().then(r=>{if(r?.help){helpOverrides={texts:r.help.texts||{},beginner:Array.isArray(r.help.beginner)?r.help.beginner:null};try{if(document.querySelector('.help-card,.help-guide,.help-read,.faction-grid'))renderCurrentRoute()}catch(e){}}}).catch(()=>{})}
 function hx(key,def){const o=helpOverrides.texts?.[key];const l=siteLanguage==='en'?'en':'fr';return (o&&o[l])||helpT(def)}
 // ---- "Where to start?" ----
-let helpStartPick='cards';
-function helpStartMarkup(){const en=siteLanguage==='en';const o=[['cards','▶',en?'The game in 2 minutes':'Le jeu en 2 minutes',en?'9 short cards to understand how a game is played.':'9 cartes courtes pour comprendre comment se joue une partie.',true],['learn','🎓',en?'Learn to play':'Apprendre à jouer',en?'8 short lessons, each with a dice exercise.':'8 leçons courtes, chacune avec un exercice au dé.'],['guide','⚔',en?'Create my warband step by step':'Créer ma bande pas à pas',en?'We guide you from the race to the equipment, in 8 steps.':'On te guide de la race jusqu’à l’équipement, en 8 étapes.'],['read','📖',en?'Read the rules':'Lire les règles',en?'The 5 chapters to read first, ticked as you go.':'Les 5 chapitres à lire d’abord, cochés au fur et à mesure.']];
+let helpStartPick='all';
+function helpStartMarkup(){const en=siteLanguage==='en';const o=[['all','🧭',en?'The player’s guide':'Le guide du joueur',en?'Everything step by step, from zero to your first game.':'Tout, étape par étape, de zéro à ta première partie.',true],['cards','▶',en?'The game in 2 minutes':'Le jeu en 2 minutes',en?'9 short cards to understand how a game is played.':'9 cartes courtes pour comprendre comment se joue une partie.'],['learn','🎓',en?'Learn to play':'Apprendre à jouer',en?'9 chapters of short lessons, each with a dice exercise.':'9 chapitres de leçons courtes, chacune avec un exercice au dé.'],['guide','⚔',en?'Create my warband step by step':'Créer ma bande pas à pas',en?'We guide you from the race to the equipment, in 8 steps.':'On te guide de la race jusqu’à l’équipement, en 8 étapes.'],['read','📖',en?'Read the rules':'Lire les règles',en?'The 5 chapters to read first, ticked as you go.':'Les 5 chapitres à lire d’abord, cochés au fur et à mesure.']];
  return `<div class="help-welcome help-start"><div class="help-kicker">${en?'NEW TO THE GAME':'JE DÉCOUVRE LE JEU'}</div><h2>${en?'Where to start?':'Par où commencer ?'}</h2><p>${en?'Do them in any order. Everything is in Account › Help afterwards.':'Fais-les dans l’ordre que tu veux. Tout se retrouve ensuite dans Compte › Aide.'}</p>${o.map(([k,ic,t,d,rec])=>`<button type="button" class="help-opt${helpStartPick===k?' on':''}" aria-pressed="${helpStartPick===k}" onclick="helpStartPick='${k}';document.querySelector('.help-start').outerHTML=helpStartMarkup()"><span class="help-ico">${ic}</span><span><b>${t}${rec?` <i class="help-tag">${en?'RECOMMENDED':'CONSEILLÉ'}</i>`:''}</b><small>${d}</small></span></button>`).join('')}<button type="button" class="help-go wide" onclick="helpStartGo()">${en?'Continue':'Continuer'}</button><button type="button" class="help-link help-later" onclick="closeModal()">${en?'Later':'Plus tard'}</button></div>`}
-function helpStartOpen(){helpStartPick='cards';openModal(helpStartMarkup())}
-function helpStartGo(){const k=helpStartPick;closeModal();if(k==='learn'){learnOpen('');return}if(k==='cards')setTimeout(()=>helpCardsOpen(0),150);else if(k==='guide')helpGuideStart();else helpReadingShow()}
+function helpStartOpen(){helpStartPick='all';openModal(helpStartMarkup())}
+function helpStartGo(){const k=helpStartPick;closeModal();if(k==='all'){guideOpen(null);return}if(k==='learn'){learnOpen('');return}if(k==='cards')setTimeout(()=>helpCardsOpen(0),150);else if(k==='guide')helpGuideStart();else helpReadingShow()}
 // ---- "The game in 2 minutes": short cards, following the app's M17 rules ----
 const HELP_CARDS=[
  {title:['What is Mordheim?','Mordheim, c’est quoi ?'],body:['A ruined city struck by a comet. Rival warbands fight there for wyrdstone, shards of magic stone worth a fortune. Each player leads a small warband of models.','Une cité en ruines frappée par une comète. Des bandes rivales s’y battent pour la wyrdstone, des éclats de pierre magique qui valent une fortune. Chaque joueur dirige une petite bande de figurines.'],rule:'firstprinciples'},
@@ -20485,7 +20485,7 @@ let learnUi={id:null,pick:null,roll:null};
 function learnDone(){return new Set(Array.isArray(learnState().done)?learnState().done:[])}
 function learnOpen(id){learnUi={id,pick:null,roll:null};learnSave({last:id||learnState().last||null});navigateApp(id?`/rules/learn/${id}`:'/rules/learn')}
 function learnRuleGo(id){rulesOpen=id;try{persistUiState('rulesOpen',id)}catch(e){}navigateApp(APP_ROUTES.rules)}
-function learn(){const en=siteLanguage==='en';const id=parseAppRoute().lesson||'';if(id==='train'){$('#content').innerHTML=trainMarkup();return}const i=LEARN_LESSONS.findIndex(l=>l.id===id);
+function learn(){const en=siteLanguage==='en';const id=parseAppRoute().lesson||'';if(id==='train'){$('#content').innerHTML=trainMarkup();return}if(id==='guide'){$('#content').innerHTML=guideMarkup();return}const i=LEARN_LESSONS.findIndex(l=>l.id===id);
   if(i<0){learnUi.id=null;$('#content').innerHTML=learnListMarkup();return}
   if(learnUi.id!==id)learnUi={id,pick:null,roll:null};
   $('#content').innerHTML=learnLessonMarkup(i)}
@@ -20496,10 +20496,65 @@ function learnListMarkup(){const en=siteLanguage==='en';const done=learnDone();c
     const sub=isCur&&c.lessons.length>1?`<div class="learn-sub">${c.lessons.map(id=>{const l=LEARN_LESSONS.find(x=>x.id===id);return l?`<button type="button" class="learn-subrow${done.has(id)?' done':''}" onclick="learnOpen('${id}')">${done.has(id)?'✓':'·'} ${esc(learnTx(l,'title'))}</button>`:''}).join('')}</div>`:'';
     return `<div class="learn-ch${dn?' done':''}${isCur?' cur':''}"><button type="button" class="learn-row" onclick="${go}"><span class="learn-num">${dn?'✓':j+1}</span><span class="learn-row-tx"><b>${esc(tx(c,'title'))}</b><small>${esc(tx(c,'sub'))}</small></span><span class="learn-go">${c.lessons.length?`${n}/${c.lessons.length}`:''}${isCur?` · ${en?'GO':'GO'}`:''} ›</span></button>${sub}</div>`};
   return `<div class="learn-page"><div class="rules-crumb"><a href="#" onclick="navigateApp(APP_ROUTES.rules);return false;">${en?'Rules':'Règles'}</a><span class="sep">›</span><span class="cur">${en?'Learn to play':'Apprendre à jouer'}</span></div>
-  <h1 class="learn-title">${en?'Learn to play':'Apprendre à jouer'}</h1><p class="learn-intro">${en?`A path in ${chs.length} chapters. Each lesson takes 3 minutes and ends with a question and a dice to roll. All chapters stay open: the order is only a suggestion.`:`Un parcours en ${chs.length} chapitres. Chaque leçon prend 3 minutes et finit par une question et un dé à lancer. Tous les chapitres restent ouverts : l’ordre est seulement conseillé.`}</p>
+  <button type="button" class="guide-banner" onclick="guideOpen(null)">🧭 <span><b>${en?'New to the game? The player’s guide':'Nouveau ? Le guide du joueur'}</b><small>${en?'Everything step by step, from zero to your first game.':'Tout, étape par étape, de zéro à ta première partie.'}</small></span> ›</button><h1 class="learn-title">${en?'Learn to play':'Apprendre à jouer'}</h1><p class="learn-intro">${en?`A path in ${chs.length} chapters. Each lesson takes 3 minutes and ends with a question and a dice to roll. All chapters stay open: the order is only a suggestion.`:`Un parcours en ${chs.length} chapitres. Chaque leçon prend 3 minutes et finit par une question et un dé à lancer. Tous les chapitres restent ouverts : l’ordre est seulement conseillé.`}</p>
   <div class="learn-progress"><div class="learn-bar"><i style="width:${Math.round(k/chs.length*100)}%"></i></div><span>${en?`${k} of ${chs.length} chapters`:`${k} chapitre${k>1?'s':''} sur ${chs.length}`}${k?` · 🏅 ${k}`:''}</span></div>
   <div class="learn-list">${chs.map(row).join('')}</div>
   ${done.size||learnState().train?`<button type="button" class="button secondary small learn-reset" onclick="learnSave({done:[],train:false});learn()">${en?'Start again':'Tout recommencer'}</button>`:''}</div>`}
+// ===================== V-GUIDE2: the player's guide =====================
+// Everything in one place, in two levels: "To get started" (4 steps in order:
+// the essential in 3 points, what to do with a button each — ticked by
+// themselves from the player's data — and an optional "Go deeper"), then
+// "Going further" (lessons, campaigns, custom content, rules) à la carte.
+const GUIDE_KEY='mu_guide';
+function guideState(){try{const v=JSON.parse(localStorage.getItem(GUIDE_KEY)||'{}');return v&&typeof v==='object'?v:{}}catch(e){return {}}}
+function guideSave(p){try{localStorage.setItem(GUIDE_KEY,JSON.stringify({...guideState(),...p}))}catch(e){}}
+let guideStep=null;
+function guideOpen(i){guideStep=i==null?null:i;if(i!=null)guideSave({last:i});navigateApp('/rules/learn/guide');window.scrollTo({top:0})}
+function guideRoster(){const rs=(state.rosters||[]).filter(Boolean);return rs.find(r=>r.id===state.active)||rs[rs.length-1]||null}
+function guideGoRoster(tab){const r=guideRoster();if(!r){navigateApp(APP_ROUTES.create);return}state.active=r.id;navigateApp(warbandPath(r.id));if(tab)setTimeout(()=>{try{setGangTab(tab)}catch(e){}},80)}
+function guidePlayed(){return (state.rosters||[]).some(r=>r&&(r.lastGame||(r.history||[]).some(h=>h&&(h.type==='battle'||h.type==='postbattle'))))}
+function guideSteps(){const en=siteLanguage==='en';const g=guideState();const r=guideRoster();const fs=r?wbFightersInPlay(r):[];let checks=[];try{checks=r?wbAssistChecks(r):[]}catch(e){}const ok=k=>checks.find(c=>c.k===k)?.ok;
+  return [
+   {id:'game',title:[ 'Understand the game','Comprendre le jeu'],sub:['The game in 2 minutes','Le jeu en 2 minutes'],
+    pts:[['A game is played in turns: Priority, then each player activates a fighter in turn, then the end of the turn.','Une partie se joue en tours : Priorité, puis chacun active un combattant à tour de rôle, puis la fin du tour.'],['Each fighter makes 2 actions: move, shoot, fight… A Charge takes both.','Chaque combattant fait 2 actions : bouger, tirer, combattre… Une Charge prend les deux.'],['You win the scenario, or the enemy flees after a failed Rout test.','Tu gagnes le scénario, ou l’ennemi fuit après un test de déroute raté.']],
+    todo:[{t:['Read the game in 2 minutes','Lire le jeu en 2 minutes'],done:!!g.cards,run:"guideSave({cards:true});helpCardsOpen(0)",btn:['Read','Lire']}],
+    deep:{t:['The lessons (9 chapters)','Les leçons (9 chapitres)'],run:"learnOpen('')"}},
+   {id:'band',title:['Create your warband','Créer ta bande'],sub:['Easy faction, ready-made warband, weapons','Faction facile, bande type, armes'],
+    pts:[['Your warband: a Leader, 1 or 2 Champions and Henchmen.','Ta bande : un Leader, 1 ou 2 Champions et des hommes de main.'],['You have 1000 GC to recruit and equip.','Tu as 1000 co pour recruter et équiper.'],['Take a ★☆☆ easy faction to start.','Prends une faction ★☆☆ facile pour commencer.']],
+    todo:[{t:['Choose your faction','Choisis ta faction'],done:!!r,run:"navigateApp(APP_ROUTES.create)",btn:['Create','Créer']},
+     {t:['Recruit (a ready-made warband is fine)','Recrute (une bande type, ça marche)'],done:!!r&&ok('leader')&&ok('hench'),run:"guideGoRoster()",btn:['Recruit','Recruter']},
+     {t:['Give them weapons','Donne-leur des armes'],done:!!r&&fs.length>0&&ok('armed'),run:"guideGoRoster()",btn:['Equip','Équiper']},
+     {t:['Check: “Ready to play”','Vérifie : « Prêt à jouer »'],done:!!r&&(!!r.wbAssistDone||guidePlayed()),run:"guideGoRoster();setTimeout(()=>{try{openReadyCheck()}catch(e){}},200)",btn:['Check','Vérifier']}],
+    deep:{t:['Warbands and their rules','Les warbands et leurs règles'],run:"navigateApp(APP_ROUTES.rulesWarbands)"}},
+   {id:'play',title:['Play your first game','Jouer ta première partie'],sub:['The guide follows you turn by turn','Le guide te suit tour par tour'],
+    pts:[['In Play, pick your warband and a scenario, then tick the fighters who play.','Dans Jouer, choisis ta bande et un scénario, puis coche les combattants qui jouent.'],['“My first game” tells you what to do at each phase.','« Ma première partie » te dit quoi faire à chaque phase.'],['“What do I need to roll?” on each fighter gives the dice to roll.','« Que faut-il au dé ? » sur chaque combattant donne le chiffre à faire.']],
+    todo:[{t:['Turn on “My first game”','Active « Ma première partie »'],done:(()=>{try{return coachOn()}catch(e){return false}})(),run:"try{coachToggle(true)}catch(e){};learn()",btn:['Turn on','Activer']},
+     {t:['Play a game','Joue une partie'],done:guidePlayed(),run:"navigateApp(APP_ROUTES.playMode)",btn:['Play','Jouer']}],
+    deep:{t:['The training game','La partie d’entraînement'],run:"learnTrainGo()"}},
+   {id:'after',title:['After the battle','Après la bataille'],sub:['Injuries, XP, gold, step by step','Blessures, XP, or, pas à pas'],
+    pts:[['Fighters taken Out of Action roll for Lasting Injuries.','Les combattants hors de combat lancent pour les blessures durables.'],['They gain experience; enough XP gives an advance.','Ils gagnent de l’expérience ; assez d’XP donne une progression.'],['Your Heroes search the ruins, then you buy at the Trading Post.','Tes Héros fouillent les ruines, puis tu achètes au Trading Post.']],
+    todo:[{t:['Do the post-battle, step by step','Fais l’après-bataille, pas à pas'],done:(state.rosters||[]).some(x=>x&&((x.history||[]).some(h=>h&&h.type==='postbattle')||x.postBattle?.done)),run:"try{setPbMode('guided')}catch(e){};guideGoRoster('postbattle')",btn:['Open','Ouvrir']}],
+    deep:{t:['Lesson: after the battle','Leçon : après la bataille'],run:"learnOpen('after')"}}]}
+function guideStepDone(s){return s.todo.every(t=>t.done)}
+function guideMarkup(){const en=siteLanguage==='en';const steps=guideSteps();const T=v=>helpT(v);
+  if(guideStep!=null&&steps[guideStep])return guideStepMarkup(steps,guideStep);
+  const k=steps.filter(guideStepDone).length;const cur=steps.findIndex(s=>!guideStepDone(s));
+  const row=(s,i)=>{const d=guideStepDone(s),c=i===cur;return `<button type="button" class="guide-step${d?' done':''}${c?' cur':''}" onclick="guideOpen(${i})"><span class="learn-num">${d?'✓':i+1}</span><span class="learn-row-tx"><b>${esc(T(s.title))}</b><small>${esc(T(s.sub))}</small></span><span class="learn-go">${c?'GO ›':'›'}</span></button>`};
+  const more=(ic,t,sub,run)=>`<button type="button" class="guide-more" onclick="${run}"><span class="gm-ic">${ic}</span><span class="learn-row-tx"><b>${t}</b><small>${sub}</small></span><span class="learn-go">›</span></button>`;
+  return `<div class="learn-page guide-page"><div class="rules-crumb"><a href="#" onclick="learnOpen('');return false;">${en?'Learn to play':'Apprendre à jouer'}</a><span class="sep">›</span><span class="cur">${en?'Player’s guide':'Guide du joueur'}</span></div>
+  <h1 class="learn-title">${en?'The player’s guide':'Le guide du joueur'}</h1>
+  <section class="guide-start"><div class="guide-kick"><span>${en?'TO GET STARTED · ~15 MIN':'POUR TE LANCER · ~15 MIN'}</span><span>${k} / ${steps.length}</span></div><p class="guide-lead">${en?'Just what you need to play your first game. In order.':'Juste ce qu’il faut pour jouer ta première partie. Dans l’ordre.'}</p><div class="learn-bar"><i style="width:${Math.round(k/steps.length*100)}%"></i></div><div class="guide-steps">${steps.map(row).join('')}</div>${k===steps.length?`<div class="learn-why ok">🏅 ${en?'You know the essentials. Go further whenever you like.':'Tu connais l’essentiel. Va plus loin quand tu veux.'}</div>`:''}</section>
+  <div class="guide-kick muted-kick"><span>${en?'GOING FURTHER · À LA CARTE':'POUR ALLER PLUS LOIN · À LA CARTE'}</span></div>
+  <div class="guide-mores">${more('🎓',en?'Learn to play':'Apprendre à jouer',en?'9 chapters, lessons + dice, training game':'9 chapitres, leçons + dés, partie d’entraînement',"learnOpen('')")}${more('🗺',en?'Campaigns':'Les campagnes',en?'Join one, the map, settlements, artifacts':'Rejoindre, carte, colonies, artefacts',"navigateApp(APP_ROUTES.myCampaigns)")}${more('⚒',en?'Create content':'Créer du contenu',en?'Custom fighter, item, warband':'Combattant, objet, warband custom',"navigateApp(APP_ROUTES.custom)")}${more('📖',en?'The full rules':'Les règles complètes',en?'Read, search, bookmarks':'Lire, chercher, favoris',"navigateApp(APP_ROUTES.rules)")}</div></div>`}
+function guideStepMarkup(steps,i){const en=siteLanguage==='en';const s=steps[i];const T=v=>helpT(v);
+  return `<div class="learn-page guide-page"><div class="rules-crumb"><a href="#" onclick="guideOpen(null);return false;">${en?'Player’s guide':'Guide du joueur'}</a><span class="sep">›</span><span class="cur">${en?'Getting started':'Pour te lancer'} · ${i+1}</span></div>
+  <h1 class="learn-title">${esc(T(s.title))}</h1>
+  <div class="guide-essential"><div class="guide-kick"><span>${en?'THE ESSENTIAL':'L’ESSENTIEL'}</span></div>${s.pts.map(p=>`<div class="ge-pt"><span>•</span><span>${esc(T(p))}</span></div>`).join('')}</div>
+  <div class="guide-kick muted-kick"><span>${en?'TO DO':'À FAIRE'}</span></div>
+  <div class="guide-todo">${s.todo.map(t=>`<div class="gt-row${t.done?' done':''}"><span class="gt-dot">${t.done?'✓':''}</span><span>${esc(T(t.t))}</span><button type="button" class="gt-go" onclick="${t.run}">${esc(T(t.btn))} ›</button></div>`).join('')}</div>
+  <p class="muted guide-note">${en?'These boxes tick themselves as you go.':'Ces cases se cochent toutes seules quand tu avances.'}</p>
+  <button type="button" class="guide-deep" onclick="${s.deep.run}">📚 <b>${en?'Go deeper':'Approfondir'}</b> ${en?'(optional):':'(facultatif) :'} ${esc(T(s.deep.t))} ›</button>
+  <div class="guide-nav">${i>0?`<button type="button" class="button secondary" onclick="guideOpen(${i-1})">‹ ${en?'Step':'Étape'} ${i}</button>`:`<button type="button" class="button secondary" onclick="guideOpen(null)">‹ ${en?'The guide':'Le guide'}</button>`}${i<steps.length-1?`<button type="button" class="button primary" onclick="guideOpen(${i+1})">${en?'Step':'Étape'} ${i+2} ›</button>`:`<button type="button" class="button primary" onclick="guideOpen(null)">${en?'Back to the guide':'Retour au guide'} ›</button>`}</div></div>`}
 function learnTrainGo(){trainReset();navigateApp('/rules/learn/train')}
 function learnPlayFirstGame(){try{coachToggle(true)}catch(e){}navigateApp(APP_ROUTES.playMode);toast(siteLanguage==='en'?'“My first game” is on: it guides you turn by turn.':'« Ma première partie » est activé : il te guide tour par tour.')}
 // ===================== V-TRAIN: training game (Learn to play › chapter 9) =====================
