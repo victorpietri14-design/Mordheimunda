@@ -1608,6 +1608,35 @@ await test('[desktop] print: fighter cards, 63 × 88 mm, one per living fighter,
     return {cards:box.querySelectorAll('.c').length,dead:fighterStatus(activeRoster().fighters[3]).dead,size:/63mm/.test(html)&&/88mm/.test(html),misericordia:/Misericordia/.test(html),skill:/Strongman/.test(html),menu:/Fighter cards/.test(menu)}});
   expect(out.cards===(out.dead?3:4)&&out.size&&out.misericordia&&out.skill&&out.menu,'cards: '+JSON.stringify(out));
 });
+await test('[desktop] guide: Campaigns page from "Going further", boxes tick themselves',null,async page=>{
+  await seed(page);
+  await page.evaluate(()=>{siteLanguage='en';guideOpen(null)});await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});await page.waitForTimeout(400);
+  await page.click('.guide-more >> text=Campaigns');await page.waitForTimeout(400);
+  const a=await page.evaluate(()=>({title:document.querySelector('.learn-title')?.textContent,pts:document.querySelectorAll('.guide-essential .ge-pt').length,order:document.querySelectorAll('.guide-camp-order li').length,done:document.querySelectorAll('.gt-row.done').length}));
+  await page.evaluate(()=>{activeRoster().campaignId='c1';(activeRoster().history=activeRoster().history||[]).push({type:'postbattle',at:Date.now()});save(true);guideOpen('camp')});await page.waitForTimeout(300);
+  const b=await page.evaluate(()=>document.querySelectorAll('.gt-row.done').length);
+  expect(a.title==='Campaigns'&&a.pts>=5&&a.order===4&&a.done===0&&b===3,'campaign guide: '+JSON.stringify({a,b}));
+});
+await test('[desktop] help debrief: reopen assistant, starter list, dice bonuses, training back, hidden reminders',null,async page=>{
+  await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});
+  const out=await page.evaluate(async()=>{siteLanguage='en';const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    const f=D.factions.find(x=>!x.__official&&(x.warriors||[]).some(w=>w.type==='Leader')&&(x.warriors||[]).filter(w=>w.type==='Henchman').length>=2);
+    // 2 · admin starter list
+    const hs=f.warriors.filter(w=>w.type==='Henchman');const exp=hs.reduce((a,b)=>Number(b.cost)>Number(a.cost)?b:a);const L=f.warriors.find(w=>w.type==='Leader');
+    helpOverrides={texts:{...(helpOverrides?.texts||{}),[`faction.${f.id}.starter`]:{fr:`${L.id}:1,${exp.id}:2`,en:`${L.id}:1,${exp.id}:2`}},beginner:helpOverrides?.beginner||null};
+    state.rosters=[{id:'wb',name:'WB',factionId:f.id,gold:1000,fighters:[],reserve:[],history:[]}];state.active='wb';navigateApp(warbandPath('wb'));await wait(300);
+    wbStarterFill();await wait(300);const r=activeRoster();const starter=r.fighters.length===3&&r.fighters.filter(x=>x.wid===exp.id||x.sourceName===exp.name).length===2;
+    // 1 · reopen the assistant
+    wbAssistOff();await wait(200);const hidden=!document.getElementById('wbAssist');openWarroomMore();const inMenu=/Warband assistant/.test(document.querySelector('#modal')?.textContent||'');closeModal();wbAssistShow();await wait(300);const back=!!document.getElementById('wbAssist');
+    // 6 · dice bonuses
+    activeRoster().fighters[0].instance=activeRoster().fighters[0].instance||'i0';openDiceHelp(activeRoster().fighters[0].instance);const h0=diceHelpCalc().hit;diceMod('mh',1);diceMod('mh',1);const h2=diceHelpCalc().hit;for(let k=0;k<9;k++)diceMod('mh',1);const hMax=diceHelp.mh;closeModal();
+    // 8 · training back
+    trainReset();navigateApp('/rules/learn/train');await wait(300);trainNext();await wait(200);const hasBack=!!document.querySelector('.train-back');trainPrev();await wait(200);const step0=trainUi.step===0&&!document.querySelector('.train-back');
+    // 11 · hidden reminders come back
+    activeRoster().postBattle={guide:{startedAt:Date.now()}};save(true);const k=(homeReminders(true)[0]||{}).k;if(k)remindHide(k,7);const nh=remindHiddenCount();remindShowAll();const nh2=remindHiddenCount();
+    return {starter,hidden,inMenu,back,dice:h2===Math.max(2,h0-2)&&hMax===3,hasBack,step0,remind:!k||(nh>=1&&nh2===0)}});
+  expect(Object.values(out).every(Boolean),'debrief: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
