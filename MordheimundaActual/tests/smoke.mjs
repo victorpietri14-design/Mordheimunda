@@ -1599,6 +1599,15 @@ await test('[desktop] warband file: save one warband to a file and open it back 
   out.fname=dl.suggestedFilename();
   expect(out.fname==='Smoke_Test_Band.mordheimunda.json'&&out.n===1&&out.name==='Smoke Test Band (2)'&&out.newId&&out.fighters===1&&out.inst&&out.camp===null&&out.xp===3&&/not a Mordheimunda warband/.test(out.bad),'round trip: '+JSON.stringify(out));
 });
+await test('[desktop] print: fighter cards, 63 × 88 mm, one per living fighter, in the print menu',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);(f.warriors||[]).slice(0,4).forEach((w,i)=>r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'c'+i,name:'Card '+i,xp:i,equipmentSelected:[],skills:i?[]:['Strongman'],spells:[],advancements:[],injuries:[]}));
+    r.fighters[3].dead=true;r.fighters[3].status='dead';save(true);
+    const html=cardsDocument(activeRoster());const box=document.createElement('div');box.innerHTML=html.replace(/^[\s\S]*<body>|<\/body>[\s\S]*$/g,'');
+    openPrintChooser();const menu=document.querySelector('#modal')?.textContent||'';closeModal();
+    return {cards:box.querySelectorAll('.c').length,dead:fighterStatus(activeRoster().fighters[3]).dead,size:/63mm/.test(html)&&/88mm/.test(html),misericordia:/Misericordia/.test(html),skill:/Strongman/.test(html),menu:/Fighter cards/.test(menu)}});
+  expect(out.cards===(out.dead?3:4)&&out.size&&out.misericordia&&out.skill&&out.menu,'cards: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
