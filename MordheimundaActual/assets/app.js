@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0847.0';
+const APP_BUILD='110.0848.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10409,7 +10409,7 @@ function diceHelpMarkup(){const en=siteLanguage==='en';const c=diceHelpCalc();if
    <div class="dh-sum">${en?'Chance to wound per attack:':'Chance de blesser par attaque :'} <b>${pct(c.p)}</b>${c.attacks>1?`<br>${en?`With its ${c.attacks} attacks: about ${(c.p*c.attacks).toFixed(1)} wound(s)`:`Avec ses ${c.attacks} attaques : environ ${(c.p*c.attacks).toFixed(1).replace('.',',')} blessure(s)`}`:''}${advice?`<br><span class="muted">${advice}</span>`:''}</div>
    <p class="muted dh-note">${en?'A 1 always fails. Special rules and skills are not counted: check the sheet.':'Un 1 rate toujours. Les règles spéciales et compétences ne sont pas comptées : vérifie la fiche.'}</p>
    <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`}
-function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${esc(openRid)}','${esc(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${esc(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
+function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){if(playSimpleMode&&x)return playSimpleMarkup(x,f,badge,anchor,extraClass,openRid);let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${esc(openRid)}','${esc(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${esc(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
 function playFightersMarkup(ps){
   try{playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(e&&(e.picks||[]).length&&Number(e.total)!==playEngTotal(playEngEntry(ps,r),r))setTimeout(()=>{if(state.playSession)playEngPublish(state.playSession,r)},0)})}catch(err){}
   const en=siteLanguage==='en';const s=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId);const rows=playEngRows(ps);const std=playEngStandard(rows);
@@ -10446,7 +10446,7 @@ function playFightersMarkup(ps){
   });
   const waiting='';
   const allNames=groups.flatMap(g=>g.cards.map(c=>{const m=c.match(/id="(engc-[^"]+)"/);const n=c.match(/<h4>([^<]*)<\/h4>/);return m?[m[1],n?n[1]:'']:null}).filter(Boolean));
-  const cardsBox=`<section class="eng-box"><div class="roster-toolbar" style="margin-bottom:8px"><div><span class="micro-label">3 · ${en?'FIGHTERS IN PLAY':'COMBATTANTS EN JEU'}</span><h3>${en?'Engaged fighters':'Combattants engagés'}</h3></div>${groups.length?`<div class="roster-toolbar-actions">${playOwnRosters(ps).length>1?`<button type="button" class="button secondary small play-table-toggle" aria-pressed="${playTableMode}" onclick="playTableToggle()">⇆ ${en?'Table mode':'Mode table'}</button>`:''}<button type="button" class="button secondary small roster-compact-toggle" aria-pressed="${rosterCompact}" onclick="toggleRosterCompact()">${rosterCompact?(en?'▦ Detailed':'▦ Détaillé'):'☰ Compact'}</button></div>`:''}${allNames.length>1?`<div class="roster-toolbar-actions"><select class="roster-jump-select" onchange="playJumpCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${allNames.map(([id,n])=>`<option value="${esc(id)}">${n}</option>`).join('')}</select></div>`:''}</div>
+  const cardsBox=`<section class="eng-box"><div class="roster-toolbar" style="margin-bottom:8px"><div><span class="micro-label">3 · ${en?'FIGHTERS IN PLAY':'COMBATTANTS EN JEU'}</span><h3>${en?'Engaged fighters':'Combattants engagés'}</h3></div>${groups.length?`<div class="roster-toolbar-actions">${playOwnRosters(ps).length>1?`<button type="button" class="button secondary small play-table-toggle" aria-pressed="${playTableMode}" onclick="playTableToggle()">⇆ ${en?'Table mode':'Mode table'}</button>`:''}<div class="play-view-seg" role="group" aria-label="${en?'Card view':'Affichage des cartes'}">${[['detail',en?'Detailed':'Détaillé'],['compact','Compact'],['simple','Simple']].map(([k,l])=>{const on=playViewMode()===k;return `<button type="button" class="${on?'on':''}" aria-pressed="${on}" onclick="playViewSet('${k}')">${l}</button>`}).join('')}</div></div>`:''}${allNames.length>1?`<div class="roster-toolbar-actions"><select class="roster-jump-select" onchange="playJumpCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${allNames.map(([id,n])=>`<option value="${esc(id)}">${n}</option>`).join('')}</select></div>`:''}</div>
     ${groups.length>1?`<div class="roster-category-nav">${groups.map(g=>`<button type="button" class="button secondary" style="padding:5px 12px;font-size:11px" onclick="playJumpCard('${esc(g.id)}')">${esc(g.label)} <span class="muted">${g.cards.length}</span></button>`).join('')}</div>`:''}
     ${groups.length?playCardsLayout(ps,groups,en):`<div class="empty compact">${en?'No fighter engaged yet.':'Aucun combattant engagé pour l’instant.'}</div>`}
     <p class="muted eng-note">${en?'Only your own fighters are shown here; the other warbands appear by their engaged value in the Underdog table.':'Seuls tes combattants sont affichés ici ; les autres bandes apparaissent par leur valeur engagée dans le tableau Underdog.'}</p></section>`;
@@ -17934,6 +17934,35 @@ function homeReminders(){const en=siteLanguage==='en';const out=[];const day=864
   const hid=remindHidden();return out.filter(x=>!hid[x.k]).sort((a,b)=>b.w-a.w)}
 function homeRemindersMarkup(){const en=siteLanguage==='en';let list=[];try{list=homeReminders()}catch(e){}if(!list.length)return '';
   return `<section class="home-remind" aria-label="${en?'To do':'À faire'}"><div class="home-remind-head">${en?'TO DO':'À FAIRE'} <span>${list.length}</span></div>${list.slice(0,5).map(x=>`<div class="home-remind-row"><button type="button" class="home-remind-go" onclick="${x.go}"><i>${x.ic}</i><span>${esc(x.txt)}</span><b class="remind-go-tag">${en?'Go ›':'Aller ›'}</b></button><div class="remind-acts"><button type="button" class="remind-act" onclick="remindHide('${esc(x.k)}',1)">${en?'Later':'Plus tard'}</button><button type="button" class="remind-act" onclick="remindHide('${esc(x.k)}',36500)">${en?'Don’t show again':'Ne plus afficher'}</button></div></div>`).join('')}</section>`}
+// V-PLAYSIMPLE: the lightest in-game view — one short block per fighter with
+// only what is needed at the table: profile, weapons and gear, and its state
+// right now (standing, knocked down, stunned; Out of Action stays the
+// existing tag). Tapping the block still opens the full sheet.
+let playSimpleMode=false;try{playSimpleMode=localStorage.getItem('mu_ui_playSimple')==='1'}catch(e){}
+// One switch for the three in-game views: Detailed and Compact are the
+// warband page's own setting (shared with it), Simple is Play's own.
+function playViewMode(){return playSimpleMode?'simple':rosterCompact?'compact':'detail'}
+function playViewSet(k){playSimpleMode=k==='simple';try{localStorage.setItem('mu_ui_playSimple',playSimpleMode?'1':'0')}catch(e){}
+  if(k!=='simple'&&(k==='compact')!==rosterCompact){rosterCompact=k==='compact';persistUiState('rosterCompact',rosterCompact?'1':'0')}
+  const y=window.scrollY;render('playMode');try{window.scrollTo(0,y)}catch(e){}}
+function playCondOf(rid,inst){return state.playSession?.cond?.[rid]?.[inst]||''}
+function playCondSet(rid,inst,v){const ps=state.playSession;if(!ps)return;ps.cond=ps.cond&&typeof ps.cond==='object'?ps.cond:{};const m=ps.cond[rid]=ps.cond[rid]&&typeof ps.cond[rid]==='object'?ps.cond[rid]:{};
+  if(!v||m[inst]===v)delete m[inst];else m[inst]=v;try{haptic(10)}catch(e){}try{saveLocalOnly()}catch(e){}render('playMode')}
+function playSimpleMarkup(x,f,badge,anchor,extraClass,openRid){const en=siteLanguage==='en';const st=fighterStatus(x);
+  const eq=(x.equipmentSelected||[]).map(e=>{try{return liveEquipmentView(e)||e}catch(err){return e}}).filter(Boolean);
+  const weapons=[...eq.filter(isWeaponLike).map(e=>e.name),...(fighterHasMisericordia(x)?['Misericordia']:[])];
+  const other=eq.filter(e=>!isWeaponLike(e)).map(e=>e.name);
+  const nm=a=>[...new Set(a.filter(Boolean).map(n=>translateSiteText(String(n))))].map(esc).join(' · ');
+  const rid=openRid||'';const c=rid?playCondOf(rid,x.instance):'';const down=String(extraClass||'').includes('is-ooa');
+  badge=String(badge||'').replace(/<span class="eng-badge click ooa-tag[^"]*"[^>]*>[^<]*<\/span>/g,'');
+  const btn=(v,label)=>`<button type="button" class="ps-st${(c||'')===v?' on':''}" aria-pressed="${(c||'')===v}" onclick="event.stopPropagation();playCondSet('${esc(rid)}','${esc(x.instance)}','${v}')">${label}</button>`;
+  return `<div class="play-card play-simple${extraClass?' '+extraClass:''}${c?' cond-'+c:''}" id="${esc(anchor)}"${rid?` role="button" tabindex="0" title="${en?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${esc(rid)}','${esc(x.instance)}')"`:''}>
+    <div class="ps-head"><b>${esc(x.name||'—')}</b><small>${esc(advancementRole(x))}${Number(x.xp)?` · ${Number(x.xp)} XP`:''}</small></div>
+    ${badge?`<div class="ps-badges">${badge}</div>`:''}
+    <div class="ps-prof">${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}</div>
+    ${weapons.length?`<div class="ps-gear"><i>⚔</i><span>${nm(weapons)}</span></div>`:''}${other.length?`<div class="ps-gear"><i>✚</i><span>${nm(other)}</span></div>`:''}
+    ${rid&&!st.dead?(down?`<div class="ps-states one"><button type="button" class="ps-st" onclick="event.stopPropagation();playOoaToggle('${esc(rid)}','${esc(x.instance)}')">↺ ${en?'Back in play':'Revenu en jeu'}</button></div>`:`<div class="ps-states">${btn('',en?'Standing':'Debout')}${btn('down',en?'Down':'À terre')}${btn('stunned',en?'Stunned':'Sonné')}<button type="button" class="ps-st ps-ooa" onclick="event.stopPropagation();playCondSet('${esc(rid)}','${esc(x.instance)}','');playOoaToggle('${esc(rid)}','${esc(x.instance)}')">☠ ${en?'OOA':'HdC'}</button></div>`):''}
+  </div>`}
 // ============ V-TABLEMODE: two warbands side by side on a tablet ============
 let playTableMode=false,playTableFlip=false;try{playTableMode=localStorage.getItem('mu_ui_tableMode')==='1';playTableFlip=localStorage.getItem('mu_ui_tableFlip')==='1'}catch(e){}
 function playTableToggle(){playTableMode=!playTableMode;try{localStorage.setItem('mu_ui_tableMode',playTableMode?'1':'0')}catch(e){}render('playMode')}
@@ -17942,7 +17971,7 @@ function playCardsLayout(ps,groups,en){const sec=g=>`<div class="roster-section"
   const own=playOwnRosters(ps);
   if(playTableMode&&own.length>1){const cols=own.map(r=>({r,gs:groups.filter(g=>g.id.startsWith(`eng-${r.id}-`))})).filter(c=>c.gs.length);
     return `<div class="play-table-bar"><span>${en?'Table mode: one side per player.':'Mode table : un côté par joueur.'}</span><button type="button" class="button secondary small" aria-pressed="${playTableFlip}" onclick="playTableFlipToggle()">↻ ${en?'Face to face':'Face à face'}</button></div><div class="play-table${playTableFlip?' flip':''}">${cols.map((c,i)=>`<div class="play-table-col" style="--wb:${esc(warbandColor(c.r))}"><div class="play-table-name">${esc(c.r.name)}</div><div class="roster-sections play-cards roster-compact">${c.gs.map(g=>sec({...g,label:g.label.replace(c.r.name+' · ','')})).join('')}</div></div>`).join('')}</div>`}
-  return `<div class="roster-sections play-cards${rosterCompact?' roster-compact':''}">${groups.map(sec).join('')}</div>`}
+  return `<div class="roster-sections play-cards${rosterCompact?' roster-compact':''}${playSimpleMode?' play-simple-list':''}">${groups.map(sec).join('')}</div>`}
 // ============ V-ROSTERFILTER: find fighters by weapon, skill, injury… ============
 let rosterFilterQ='',rosterFilterRid=null;
 function rosterFighterHay(x,f){const parts=[x.name,x.type,x.profileName,x.sourceName,...(x.equipmentSelected||[]).map(e=>e.name),...(x.equipmentStash||[]).map(e=>e.name),...(x.skills||[]),...(x.spells||[]),...(x.injuries||[]).map(i=>typeof i==='object'?i.name:i)];try{parts.push(...fighterRuleNames(x,f))}catch(e){}try{parts.push(fighterRace(x,f))}catch(e){}try{const st=fighterStatus(x);if(st.dead)parts.push('dead mort');if(st.recovery)parts.push('recovery convalescence blessé');if(st.captured)parts.push('captured capturé')}catch(e){}return searchNorm(parts.filter(Boolean).join(' '))}
