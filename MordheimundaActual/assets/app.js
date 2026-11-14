@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0848.0';
+const APP_BUILD='110.0849.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -17770,7 +17770,7 @@ function printWarbandSheet(blank){const en=siteLanguage==='en';const r=blank?nul
   const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){const w=window.open('','_blank');if(w){w.document.write(sheetDocument(r,blank));w.document.close();w.print()}}};
   try{(fr.contentDocument.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}
 function openPrintChooser(){const en=siteLanguage==='en';const r=activeRoster();const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
-  openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><div class="warroom-more-list">${r?btn('▤ '+(en?'Warband sheet (A4)':'Feuille de bande (A4)'),'printWarbandSheet(false)'):''}${r?btn('☰ '+(en?'Compact list (one page, for the table)':'Liste compacte (une page, pour la table)'),'printWarbandList()'):''}${btn('▢ '+(en?'Blank sheet, to fill in by hand':'Fiche vierge, à remplir à la main'),'printWarbandSheet(true)')}${btn('⎙ '+(en?'This page as it is':'Cette page telle quelle'),'window.print()')}</div></div>`)}
+  openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><div class="warroom-more-list">${r?btn('▤ '+(en?'Warband sheet (A4)':'Feuille de bande (A4)'),'printWarbandSheet(false)'):''}${r?btn('☰ '+(en?'Compact list (one page, for the table)':'Liste compacte (une page, pour la table)'),'printWarbandList()'):''}${r?btn('🂠 '+(en?'Fighter cards (63 × 88 mm, 9 per A4)':'Cartes de combattants (63 × 88 mm, 9 par A4)'),'printWarbandCards()'):''}${btn('▢ '+(en?'Blank sheet, to fill in by hand':'Fiche vierge, à remplir à la main'),'printWarbandSheet(true)')}${btn('⎙ '+(en?'This page as it is':'Cette page telle quelle'),'window.print()')}</div></div>`)}
 // V-PREGAME: before picking the fighters, what still needs doing.
 const preGameLater=new Set();
 function preGameHide(rid,forever){if(forever){try{localStorage.setItem('mu_pregame_off','1')}catch(e){}}else preGameLater.add(rid);render('playMode')}
@@ -18204,6 +18204,44 @@ function printWarbandList(){const en=siteLanguage==='en';const r=activeRoster();
   const css=`@page{size:A4 landscape;margin:8mm}body{margin:0;font:10px/1.3 'IBM Plex Sans',Arial,sans-serif;color:#111}h1{font:800 18px Cinzel,Georgia,serif;margin:0}header{display:flex;justify-content:space-between;align-items:baseline;border-top:5px solid ${color};padding-top:4px;margin-bottom:6px}header span{color:#555}table{width:100%;border-collapse:collapse}th{font:700 8px Arial;color:#555;border-bottom:1.5px solid #333;padding:2px}td{border-bottom:1px solid #ccc;padding:3px 2px;text-align:center;font:700 11px Cinzel,Georgia,serif}td.n,td.w{text-align:left;font:500 10px 'IBM Plex Sans',Arial}td.n b{font:800 11px Cinzel,Georgia,serif;display:block}small{display:block;color:#666;font:9px Arial}tr{break-inside:avoid}`;
   const doc=`<!doctype html><html><head><meta charset="utf-8"><title>${sheetEsc(r.name)}</title><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=IBM+Plex+Sans:wght@400;500;700&display=swap" rel="stylesheet"><style>${css}</style></head><body><header><div><h1>${sheetEsc(r.name)}</h1><span>${sheetEsc(f?.displayName||'')} · ${total(r)} GC · ${xs.length} ${en?'fighters':'combattants'}</span></div><span>MORDHEIMUNDA</span></header><table><tr><th style="text-align:left">${en?'Fighter':'Combattant'}</th>${P.map(p=>`<th>${sheetEsc(p)}</th>`).join('')}<th style="text-align:left">${en?'Weapons & equipment · skills':'Armes & équipement · compétences'}</th></tr>${rows}</table></body></html>`;
   let fr=document.getElementById('sheetFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='sheetFrame';fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';document.body.appendChild(fr);const d=fr.contentDocument;d.open();d.write(doc);d.close();
+  const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){}};try{(d.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}
+// ============ V-CARDS: one card per fighter, playing-card size ============
+// 63 × 88 mm, 9 to an A4 page, with a thin outline to cut along: fits a
+// standard card sleeve. Profile, weapons with their numbers, skills, rules,
+// and XP boxes / an injuries line to fill in with a pencil.
+function sheetCardOf(x,f,en,color){const st=fighterStatus(x);
+  const ws=[...(x.equipmentSelected||[]).filter(e=>{try{return isWeaponLike(liveEquipmentView(e)||e)}catch(err){return false}}),...(fighterHasMisericordia(x)?[MISERICORDIA]:[])].map(e=>{let v=e;try{v=fighterWeaponView(x,e)||e}catch(err){}const p=v.profile||{};
+    const bits=[p.range,p.strength?'S'+String(p.strength).replace(/^S/,''):'',p.ap&&p.ap!=='-'?'AP'+p.ap:'',p.damage?'D'+p.damage:'',p.traits].filter(Boolean).map(String);
+    return `<div class="cw"><b>${sheetEsc(translateSiteText(v.name||e.name||''))}</b><span>${sheetEsc(bits.join(' · '))}</span></div>`});
+  const gear=(x.equipmentSelected||[]).filter(e=>{try{return !isWeaponLike(liveEquipmentView(e)||e)}catch(err){return true}}).map(e=>translateSiteText(e.name||'')).filter(Boolean);
+  const skills=[...(x.skills||[]),...(x.spells||[])].map(s=>typeof s==='object'?s?.name:s).filter(Boolean).map(s=>translateSiteText(String(s)));
+  const rules=(()=>{try{return fighterRuleNames(x,f)}catch(e){return []}})();
+  const inj=(x.injuries||[]).map(i=>typeof i==='object'?i.name:i).filter(Boolean);
+  const xp=Math.max(0,Number(x.xp)||0);const boxes=fighterCanEarnXp(x)?Array.from({length:20},(_,i)=>`<i class="${i<xp?'on':''}"></i>`).join(''):'';
+  return `<div class="c${st.dead?' dead':''}"><div class="ch"><b>${sheetEsc(x.name)}</b><span>${(()=>{try{return fighterValue(x,f)}catch(e){return ''}})()} GC</span></div>
+   <div class="ct">${sheetEsc(fighterTypeLabel(x).toUpperCase())}${(()=>{try{const r=fighterRace(x,f);return r?' · '+sheetEsc(String(r).toUpperCase()):''}catch(e){return ''}})()}${st.dead?` · <em>${en?'DEAD':'MORT'}</em>`:''}</div>
+   <div class="cp">${P.map(n=>`<span class="k">${sheetEsc(n)}</span>`).join('')}${P.map((n,i)=>`<span>${sheetEsc(x.profile?.[i]??'')}</span>`).join('')}</div>
+   ${ws.join('')}${gear.length?`<div class="cg">${gear.map(sheetEsc).join(', ')}</div>`:''}
+   <div class="cs">${skills.length?`<p><i>${en?'Skills':'Compétences'}</i> ${skills.map(sheetEsc).join(', ')}</p>`:''}${rules.length?`<p><i>${en?'Rules':'Règles'}</i> ${rules.map(s=>sheetEsc(translateSiteText(String(s)))).join(', ')}</p>`:''}</div>
+   <div class="cx">${boxes?`<div class="xp"><span>XP</span>${boxes}</div>`:''}<div class="inj"><span>${en?'Injuries':'Blessures'}</span> ${inj.map(sheetEsc).join(', ')}</div></div></div>`}
+function cardsDocument(r){const en=siteLanguage==='en';const f=faction(r);const color=warbandColor(r);
+  const xs=rosterGroupedIndices(r).flatMap(g=>g.indices.map(i=>r.fighters[i])).filter(x=>x&&!fighterStatus(x).dead&&!x.hsLeft);
+  const css=`@page{size:A4;margin:8mm}*{box-sizing:border-box}body{margin:0;font:7.6pt/1.25 'IBM Plex Sans',Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+   .sheet{display:grid;grid-template-columns:repeat(3,63mm);grid-auto-rows:88mm;gap:2mm;justify-content:center}
+   .c{border:.3mm solid #222;border-top:2.2mm solid ${color};border-radius:2mm;padding:1.8mm 2mm;display:flex;flex-direction:column;gap:.9mm;overflow:hidden;background:#fbf8f1;break-inside:avoid;outline:.2mm dashed #bbb;outline-offset:.8mm}
+   .ch{display:flex;justify-content:space-between;gap:1mm;align-items:baseline}.ch b{font:800 9.5pt/1.05 Cinzel,Georgia,serif}.ch span{font-weight:800;font-size:7.6pt;white-space:nowrap}
+   .ct{font-weight:700;font-size:6pt;letter-spacing:.6pt;color:#555}.ct em{font-style:normal;color:#a33}
+   .cp{display:grid;grid-template-columns:repeat(${P.length},1fr);text-align:center;border:.25mm solid #bbb;border-radius:1mm;padding:.5mm 0;font:800 8pt Cinzel,Georgia,serif}.cp .k{font:700 5pt Arial;color:#777}
+   .cw{display:flex;flex-direction:column;border-top:.2mm dotted #bbb;padding-top:.5mm}.cw b{font-size:7.6pt}.cw span{font-size:6.4pt;color:#444}
+   .cg{font-size:6.6pt;color:#333;border-top:.2mm dotted #bbb;padding-top:.5mm}
+   .cs{margin-top:auto;font-size:6.6pt}.cs p{margin:.4mm 0 0}.cs i{font-style:normal;font-weight:800;font-size:5.4pt;letter-spacing:.5pt;color:#777;text-transform:uppercase;margin-right:.6mm}
+   .cx{border-top:.25mm solid #ddd;padding-top:.6mm;font-size:6pt;color:#555}.xp{display:flex;gap:.5mm;align-items:center}.xp span,.inj span{font-weight:800;font-size:5.4pt;letter-spacing:.5pt;margin-right:.6mm}
+   .xp i{width:2.1mm;height:2.1mm;border:.2mm solid #888;border-radius:.4mm}.xp i:nth-of-type(5n){margin-right:.7mm}.xp i.on{background:${color};border-color:${color}}
+   .inj{margin-top:.6mm;min-height:3mm;border-bottom:.2mm solid #ccc}`;
+  return `<!doctype html><html lang="${en?'en':'fr'}"><head><meta charset="utf-8"><title>${sheetEsc(r.name)} · ${en?'cards':'cartes'}</title><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>${css}</style></head><body><div class="sheet">${xs.map(x=>sheetCardOf(x,f,en,color)).join('')}</div></body></html>`}
+function printWarbandCards(){const en=siteLanguage==='en';const r=activeRoster();if(!r){toast(en?'Open a warband first':'Ouvre d’abord une bande');return}
+  let fr=document.getElementById('sheetFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='sheetFrame';fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';document.body.appendChild(fr);
+  const d=fr.contentDocument;d.open();d.write(cardsDocument(r));d.close();
   const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){}};try{(d.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}
 // ============ V-SCNRULES: rules a scenario uses ============
 function scenarioRulesUsed(s){const g=glossaryMatcher();if(!g?.re)return [];const txt=searchDeepText(s);const out=new Map();g.re.lastIndex=0;let m;while((m=g.re.exec(txt))){if(m[0][0]===m[0][0].toLowerCase())continue;const t=g.find(m[0]);if(t&&!out.has(t.id))out.set(t.id,{...t,name:t.name})}return [...out.values()].slice(0,16)}
