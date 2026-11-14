@@ -1727,8 +1727,8 @@ function guideMarkup(){const en=siteLanguage==='en';const steps=guideSteps();con
   const more=(ic,t,sub,run)=>`<button type="button" class="guide-more" onclick="${run}"><span class="gm-ic">${ic}</span><span class="learn-row-tx"><b>${t}</b><small>${sub}</small></span><span class="learn-go">›</span></button>`;
   return `<div class="learn-page guide-page"><div class="rules-crumb"><a href="#" onclick="learnOpen('');return false;">${en?'Learn to play':'Apprendre à jouer'}</a><span class="sep">›</span><span class="cur">${en?'Player’s guide':'Guide du joueur'}</span></div>
   <h1 class="learn-title">${en?'The player’s guide':'Le guide du joueur'}</h1>
-  <section class="guide-start"><div class="guide-kick"><span>${en?'TO GET STARTED · ~15 MIN':'POUR TE LANCER · ~15 MIN'}</span><span>${k} / ${steps.length}</span></div><p class="guide-lead">${en?'Just what you need to play your first game. In order.':'Juste ce qu’il faut pour jouer ta première partie. Dans l’ordre.'}</p><div class="learn-bar"><i style="width:${Math.round(k/steps.length*100)}%"></i></div><div class="guide-steps">${steps.map(row).join('')}</div>${k===steps.length?`<div class="learn-why ok">🏅 ${en?'You know the essentials. Go further whenever you like.':'Tu connais l’essentiel. Va plus loin quand tu veux.'}</div>`:''}</section>
-  <div class="guide-kick muted-kick"><span>${en?'GOING FURTHER · À LA CARTE':'POUR ALLER PLUS LOIN · À LA CARTE'}</span></div>
+  <section class="guide-start"><div class="guide-kick"><span>${en?'TO GET STARTED · ~15 MIN':'POUR TE LANCER · ~15 MIN'}</span><span>${k} / ${steps.length}</span></div><p class="guide-lead">${en?'Just what you need to play your first game. In order.':'Juste ce qu’il faut pour jouer ta première partie. Dans l’ordre.'}</p><button type="button" class="guide-jump" onclick="document.getElementById('guideMore')?.scrollIntoView({behavior:'smooth',block:'start'})">${en?'Already played? Going further: campaigns, content, rules ↓':'Déjà joué ? Pour aller plus loin : campagnes, contenu, règles ↓'}</button><div class="learn-bar"><i style="width:${Math.round(k/steps.length*100)}%"></i></div><div class="guide-steps">${steps.map(row).join('')}</div>${k===steps.length?`<div class="learn-why ok">🏅 ${en?'You know the essentials. Go further whenever you like.':'Tu connais l’essentiel. Va plus loin quand tu veux.'}</div>`:''}</section>
+  <div class="guide-kick muted-kick" id="guideMore"><span>${en?'GOING FURTHER · À LA CARTE':'POUR ALLER PLUS LOIN · À LA CARTE'}</span></div>
   <div class="guide-mores">${more('🎓',en?'Learn to play':'Apprendre à jouer',en?'9 chapters, lessons + dice, training game':'9 chapitres, leçons + dés, partie d’entraînement',"learnOpen('')")}${more('🗺',en?'Campaigns':'Les campagnes',en?'How it works, join one, after each game':'Comment ça marche, rejoindre, après chaque partie',"guideOpen('camp')")}${more('⚒',en?'Create content':'Créer du contenu',en?'Custom fighter, item, warband':'Combattant, objet, warband custom',"navigateApp(APP_ROUTES.custom)")}${more('📖',en?'The full rules':'Les règles complètes',en?'Read, search, bookmarks':'Lire, chercher, favoris',"navigateApp(APP_ROUTES.rules)")}</div></div>`}
 // V-GUIDECAMP: "Going further › Campaigns" — the same shape as a step
 // (the essential, then boxes that tick themselves), for players who have
@@ -1767,7 +1767,10 @@ function trainBoard(){const t=trainUi;const S=14;const fig=(x,y,label,col,state)
    <div class="train-legend"><span><i style="background:${g}"></i>${en?'L Captain · S Shooter (yours)':'C Capitaine · T Tireur (à toi)'}</span><span><i style="background:${r}"></i>${en?'B Brute · A Archer (enemy)':'B Brute · A Archer (ennemis)'}</span></div>`}
 function trainAns(k,v){trainUi.ans[k]=v;learn()}
 function trainRoll(k,n){trainUi.rolls[k]=Array.from({length:n||1},trainD6);trainApply(k);learn()}
-function trainNext(){trainUi.step++;window.scrollTo({top:0});learn()}
+// Each step keeps a copy of the game as it was, so "Back" puts it exactly
+// as it stood (answers, dice, who is down) and the step can be played again.
+function trainNext(){const {hist,...snap}=trainUi;trainUi.hist=[...(hist||[]),JSON.parse(JSON.stringify(snap))];trainUi.step++;window.scrollTo({top:0});learn()}
+function trainPrev(){const h=trainUi?.hist||[];if(!h.length)return;const prev=h[h.length-1];trainUi={...prev,hist:h.slice(0,-1)};window.scrollTo({top:0});learn()}
 function trainApply(k){const t=trainUi,r=t.rolls[k];
   if(k==='shot'){const hit=r[0]!==1&&r[0]>=5;t.shotHit=hit}
   if(k==='shotWound'){t.shotWound=r[0]>=3}
@@ -1813,7 +1816,7 @@ function trainStepMarkup(){const en=siteLanguage==='en';const t=trainUi;const ok
 function trainMarkup(){const en=siteLanguage==='en';if(!trainUi)trainReset();const [title,body,foot]=trainStepMarkup();const total=6;const k=Math.min(trainUi.step,total);
   return `<div class="learn-page train-page"><div class="rules-crumb"><a href="#" onclick="learnOpen('');return false;">${en?'Learn to play':'Apprendre à jouer'}</a><span class="sep">›</span><span class="cur">${en?'Training game':'Partie d’entraînement'}</span></div>
   <div class="learn-progress"><div class="learn-bar"><i style="width:${Math.round(k/total*100)}%"></i></div><span>${k} / ${total}</span></div>
-  <h1 class="learn-title">${title}</h1>${trainBoard()}${body}${foot||''}</div>`}
+  <h1 class="learn-title">${title}</h1>${trainBoard()}${body}${foot||''}${(trainUi.hist||[]).length?`<button type="button" class="button secondary train-back" onclick="trainPrev()">‹ ${en?'Back':'Retour'}</button>`:''}</div>`}
 function learnLessonMarkup(i){const en=siteLanguage==='en';const l=learnEff(LEARN_LESSONS[i]);const n=LEARN_LESSONS.length;const prev=LEARN_LESSONS[i-1],next=LEARN_LESSONS[i+1];const rule=(typeof RULES_BOOK!=='undefined'?RULES_BOOK:[]).find(s=>s.id===l.rule);
   const opt=o=>Array.isArray(o)?helpT(o):String(o);const picked=learnUi.pick;const answered=picked!=null;const right=answered&&picked===l.a;
   const opts=l.opts.map((o,j)=>{const cls=answered?(j===l.a?' right':j===picked?' wrong':' dim'):'';return `<button type="button" class="learn-opt${cls}" ${answered&&right?'disabled':''} onclick="learnPick(${j})">${esc(opt(o))}${answered&&j===l.a?' ✓':''}</button>`}).join('');
