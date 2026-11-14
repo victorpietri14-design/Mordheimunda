@@ -6295,3 +6295,4 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .fe-starter{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow:auto}
 .fe-starter-h{font-size:12px;font-weight:700;color:var(--muted)}
 .fe-st-row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center;font-size:13px}.fe-st-row input{width:64px}
+.ph-pill{margin-left:auto;flex:none;cursor:pointer;padding:3px 10px;border-radius:999px;border:1px solid var(--accent);background:rgba(157,250,60,.08);color:var(--accent);font:700 12px "IBM Plex Sans",sans-serif;line-height:1.4}
