@@ -1637,6 +1637,12 @@ await test('[desktop] help debrief: reopen assistant, starter list, dice bonuses
     return {starter,hidden,inMenu,back,dice:h2===Math.max(2,h0-2)&&hMax===3,hasBack,step0,remind:!k||(nh>=1&&nh2===0)}});
   expect(Object.values(out).every(Boolean),'debrief: '+JSON.stringify(out));
 });
+await test('[desktop] buttons work with an apostrophe in a name (e.g. the spell "Eagle\'s Cry")',null,async page=>{
+  const out=await page.evaluate(()=>{window.__got=[];window.__take=v=>window.__got.push(v);const name="Eagle's Cry";
+    const box=document.createElement('div');box.innerHTML=`<button id="ap1" onclick="__take('${jsq(name)}')">a</button><button id="ap2" onclick="__take(decodeURIComponent('${encArg(name)}'))">b</button>`;document.body.appendChild(box);
+    document.getElementById('ap1').click();document.getElementById('ap2').click();box.remove();return window.__got});
+  expect(out.length===2&&out.every(v=>v==="Eagle's Cry"),'apostrophe names: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
