@@ -1608,6 +1608,15 @@ await test('[desktop] print: fighter cards, 63 × 88 mm, one per living fighter,
     return {cards:box.querySelectorAll('.c').length,dead:fighterStatus(activeRoster().fighters[3]).dead,size:/63mm/.test(html)&&/88mm/.test(html),misericordia:/Misericordia/.test(html),skill:/Strongman/.test(html),menu:/Fighter cards/.test(menu)}});
   expect(out.cards===(out.dead?3:4)&&out.size&&out.misericordia&&out.skill&&out.menu,'cards: '+JSON.stringify(out));
 });
+await test('[desktop] guide: Campaigns page from "Going further", boxes tick themselves',null,async page=>{
+  await seed(page);
+  await page.evaluate(()=>{siteLanguage='en';guideOpen(null)});await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});await page.waitForTimeout(400);
+  await page.click('.guide-more >> text=Campaigns');await page.waitForTimeout(400);
+  const a=await page.evaluate(()=>({title:document.querySelector('.learn-title')?.textContent,pts:document.querySelectorAll('.guide-essential .ge-pt').length,order:document.querySelectorAll('.guide-camp-order li').length,done:document.querySelectorAll('.gt-row.done').length}));
+  await page.evaluate(()=>{activeRoster().campaignId='c1';(activeRoster().history=activeRoster().history||[]).push({type:'postbattle',at:Date.now()});save(true);guideOpen('camp')});await page.waitForTimeout(300);
+  const b=await page.evaluate(()=>document.querySelectorAll('.gt-row.done').length);
+  expect(a.title==='Campaigns'&&a.pts>=5&&a.order===4&&a.done===0&&b===3,'campaign guide: '+JSON.stringify({a,b}));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

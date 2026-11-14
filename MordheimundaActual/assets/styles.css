@@ -6279,3 +6279,6 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .play-view-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .play-view-seg button{padding:6px 11px;font-size:12px;font-weight:700;background:var(--bg);color:var(--muted);border:0;border-left:1px solid var(--line);cursor:pointer}
 .play-view-seg button:first-child{border-left:0}.play-view-seg button.on{background:var(--accent);color:#111}
+/* V-GUIDECAMP */
+.guide-camp-order{margin:4px 0 12px;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.4}
+.guide-camp-order b{color:var(--text)}.guide-camp-order span{color:var(--muted)}

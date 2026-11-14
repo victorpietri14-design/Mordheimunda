@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0849.0';
+const APP_BUILD='110.0850.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18932,6 +18932,21 @@ function guideOpen(i){guideStep=i==null?null:i;if(i!=null)guideSave({last:i});na
 function guideRoster(){const rs=(state.rosters||[]).filter(Boolean);return rs.find(r=>r.id===state.active)||rs[rs.length-1]||null}
 function guideGoRoster(tab){const r=guideRoster();if(!r){navigateApp(APP_ROUTES.create);return}state.active=r.id;navigateApp(warbandPath(r.id));if(tab)setTimeout(()=>{try{setGangTab(tab)}catch(e){}},80)}
 function guidePlayed(){return (state.rosters||[]).some(r=>r&&(r.lastGame||(r.history||[]).some(h=>h&&(h.type==='battle'||h.type==='postbattle'))))}
+function guideCampTopic(){const g=guideState();const rs=(state.rosters||[]).filter(Boolean);const inCamp=rs.filter(r=>r.campaignId);
+  const played=inCamp.some(r=>r.lastGame||(r.history||[]).some(h=>h&&h.type==='battle'));const post=inCamp.some(r=>(r.history||[]).some(h=>h&&h.type==='postbattle'));const r0=inCamp[0]||null;
+  return {title:['Campaigns','Les campagnes'],sub:['Keep your warband from one game to the next.','Garder ta bande d’une partie à l’autre.'],
+   pts:[['A campaign links several games: your warband keeps its fighters, XP, injuries and gold from one game to the next.','Une campagne relie plusieurs parties : ta bande garde ses combattants, son XP, ses blessures et son or d’une partie à l’autre.'],
+    ['To join one, ask the organiser for the campaign code, then add your warband to it in My Campaigns.','Pour en rejoindre une, demande le code de la campagne à l’organisateur, puis inscris ta bande dans Mes campagnes.'],
+    ['You play the campaign’s scenarios in Play, as usual: choose “Campaign” instead of “Skirmish”.','Tu joues les scénarios de la campagne dans Jouer, comme d’habitude : choisis « Campagne » au lieu d’« Escarmouche ».'],
+    ['After each game comes the post-battle: the site guides you step by step, nothing to know by heart.','Après chaque partie vient l’après-bataille : le site te guide étape par étape, rien à retenir par cœur.'],
+    ['Some campaigns add a map, settlements to choose and artifacts to find: they are explained on the campaign’s page.','Certaines campagnes ajoutent une carte, des colonies à choisir et des artefacts à trouver : c’est expliqué sur la page de la campagne.'],
+    ['A weaker warband is not left behind: it gets Underdog points to spend before the game.','Une bande plus faible n’est pas laissée derrière : elle reçoit des points Underdog à dépenser avant la partie.']],
+   order:[[['Injuries','Blessures'],['for each fighter taken Out of Action.','pour chaque combattant mis Hors de combat.']],[['Experience','Expérience'],['XP earned, and advances when a box is reached.','l’XP gagnée, et les progressions quand une case est atteinte.']],[['Exploration','Exploration'],['the dice that find wyrdstone and other finds.','les dés qui trouvent de la wyrdstone et d’autres trouvailles.']],[['Income and trading','Revenus et commerce'],['sell, buy, recruit with the gold earned.','vendre, acheter, recruter avec l’or gagné.']]],
+   todo:[{t:['Join or create a campaign','Rejoindre ou créer une campagne'],done:inCamp.length>0,run:"navigateApp(APP_ROUTES.myCampaigns)",btn:['Campaigns','Campagnes']},
+    {t:['Play a campaign game','Jouer une partie de campagne'],done:played||post,run:"navigateApp(APP_ROUTES.playMode)",btn:['Play','Jouer']},
+    {t:['Do the post-battle','Faire l’après-bataille'],done:post,run:r0?`state.active='${esc(r0.id)}';navigateApp(warbandPath('${esc(r0.id)}'));setTimeout(()=>{try{setGangTab('postbattle')}catch(e){}},80)`:"navigateApp(APP_ROUTES.myCampaigns)",btn:['Open','Ouvrir']},
+    {t:['Read the campaign rules','Lire les règles de campagne'],done:!!g.campRules,run:"guideSave({campRules:true});navigateApp(APP_ROUTES.rulesCampaign)",btn:['Read','Lire']}],
+   deep:{t:['Rules: Campaign','Règles : Campagne'],run:"guideSave({campRules:true});navigateApp(APP_ROUTES.rulesCampaign)"}}}
 function guideSteps(){const en=siteLanguage==='en';const g=guideState();const r=guideRoster();const fs=r?wbFightersInPlay(r):[];let checks=[];try{checks=r?wbAssistChecks(r):[]}catch(e){}const ok=k=>checks.find(c=>c.k===k)?.ok;
   return [
    {id:'game',title:[ 'Understand the game','Comprendre le jeu'],sub:['The game in 2 minutes','Le jeu en 2 minutes'],

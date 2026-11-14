@@ -49,7 +49,7 @@ function references(){
   const totalBook=full.filter(e=>!e.custom).length,totalCustom=full.filter(e=>e.custom).length;
   $('#content').innerHTML=`<div class="ref-page">
 <div class="rules-head"><h1 class="rules-page-title">${en?'Reference':'Référentiel'}</h1><p>${en?'All skills, spells, gear, special rules and traits — quick search by name, grouped by category. Use the ▤ button to browse categories.':'Toutes les compétences, sorts, objets, règles spéciales et traits — recherche rapide par nom, classées par catégorie. Utilise le bouton ▤ pour parcourir les catégories.'}</p></div>
-<div class="ref-intro"><p>${en?'The Reference gathers everything ':'Le Référentiel regroupe tout ce qui est '}<b>${en?'official':'officiel'}</b>${en?': the core book rules and any custom rule officialized by an admin.':' : les règles du livre de base et toute règle personnalisée officialisée par un admin.'}${isAdminEditUI()?` <a href="#" onclick="render('codex');return false;">${en?'Open the full book →':'Ouvrir le livre complet →'}</a>`:''}</p></div>
+<div class="ref-intro"><p>${en?'The Reference gathers everything ':'Le Référentiel regroupe tout ce qui est '}<b>${en?'official':'officiel'}</b>${en?': the core book rules and any custom rule officialized by an admin.':' : les règles du livre de base et toute règle personnalisée officialisée par un admin.'}</p></div>
 <div class="ref-page-body">
 ${referenceSidebarMarkup()}
 <div class="ref-main">
@@ -1720,6 +1720,7 @@ function learnListMarkup(){const en=siteLanguage==='en';const done=learnDone();c
   ${done.size||learnState().train?`<button type="button" class="button secondary small learn-reset" onclick="learnSave({done:[],train:false});learn()">${en?'Start again':'Tout recommencer'}</button>`:''}</div>`}
 function guideStepDone(s){return s.todo.every(t=>t.done)}
 function guideMarkup(){const en=siteLanguage==='en';const steps=guideSteps();const T=v=>helpT(v);
+  if(guideStep==='camp')return guideCampMarkup();
   if(guideStep!=null&&steps[guideStep])return guideStepMarkup(steps,guideStep);
   const k=steps.filter(guideStepDone).length;const cur=steps.findIndex(s=>!guideStepDone(s));
   const row=(s,i)=>{const d=guideStepDone(s),c=i===cur;return `<button type="button" class="guide-step${d?' done':''}${c?' cur':''}" onclick="guideOpen(${i})"><span class="learn-num">${d?'✓':i+1}</span><span class="learn-row-tx"><b>${esc(T(s.title))}</b><small>${esc(T(s.sub))}</small></span><span class="learn-go">${c?'GO ›':'›'}</span></button>`};
@@ -1728,7 +1729,21 @@ function guideMarkup(){const en=siteLanguage==='en';const steps=guideSteps();con
   <h1 class="learn-title">${en?'The player’s guide':'Le guide du joueur'}</h1>
   <section class="guide-start"><div class="guide-kick"><span>${en?'TO GET STARTED · ~15 MIN':'POUR TE LANCER · ~15 MIN'}</span><span>${k} / ${steps.length}</span></div><p class="guide-lead">${en?'Just what you need to play your first game. In order.':'Juste ce qu’il faut pour jouer ta première partie. Dans l’ordre.'}</p><div class="learn-bar"><i style="width:${Math.round(k/steps.length*100)}%"></i></div><div class="guide-steps">${steps.map(row).join('')}</div>${k===steps.length?`<div class="learn-why ok">🏅 ${en?'You know the essentials. Go further whenever you like.':'Tu connais l’essentiel. Va plus loin quand tu veux.'}</div>`:''}</section>
   <div class="guide-kick muted-kick"><span>${en?'GOING FURTHER · À LA CARTE':'POUR ALLER PLUS LOIN · À LA CARTE'}</span></div>
-  <div class="guide-mores">${more('🎓',en?'Learn to play':'Apprendre à jouer',en?'9 chapters, lessons + dice, training game':'9 chapitres, leçons + dés, partie d’entraînement',"learnOpen('')")}${more('🗺',en?'Campaigns':'Les campagnes',en?'Join one, the map, settlements, artifacts':'Rejoindre, carte, colonies, artefacts',"navigateApp(APP_ROUTES.myCampaigns)")}${more('⚒',en?'Create content':'Créer du contenu',en?'Custom fighter, item, warband':'Combattant, objet, warband custom',"navigateApp(APP_ROUTES.custom)")}${more('📖',en?'The full rules':'Les règles complètes',en?'Read, search, bookmarks':'Lire, chercher, favoris',"navigateApp(APP_ROUTES.rules)")}</div></div>`}
+  <div class="guide-mores">${more('🎓',en?'Learn to play':'Apprendre à jouer',en?'9 chapters, lessons + dice, training game':'9 chapitres, leçons + dés, partie d’entraînement',"learnOpen('')")}${more('🗺',en?'Campaigns':'Les campagnes',en?'How it works, join one, after each game':'Comment ça marche, rejoindre, après chaque partie',"guideOpen('camp')")}${more('⚒',en?'Create content':'Créer du contenu',en?'Custom fighter, item, warband':'Combattant, objet, warband custom',"navigateApp(APP_ROUTES.custom)")}${more('📖',en?'The full rules':'Les règles complètes',en?'Read, search, bookmarks':'Lire, chercher, favoris',"navigateApp(APP_ROUTES.rules)")}</div></div>`}
+// V-GUIDECAMP: "Going further › Campaigns" — the same shape as a step
+// (the essential, then boxes that tick themselves), for players who have
+// played a game and want to keep their warband from one game to the next.
+function guideCampMarkup(){const en=siteLanguage==='en';const t=guideCampTopic();const T=v=>helpT(v);
+  return `<div class="learn-page guide-page"><div class="rules-crumb"><a href="#" onclick="guideOpen(null);return false;">${en?'Player’s guide':'Guide du joueur'}</a><span class="sep">›</span><span class="cur">${en?'Going further':'Pour aller plus loin'}</span></div>
+  <h1 class="learn-title">${esc(T(t.title))}</h1><p class="guide-lead">${esc(T(t.sub))}</p>
+  <div class="guide-essential"><div class="guide-kick"><span>${en?'THE ESSENTIAL':'L’ESSENTIEL'}</span></div>${t.pts.map(p=>`<div class="ge-pt"><span>•</span><span>${esc(T(p))}</span></div>`).join('')}</div>
+  <div class="guide-kick muted-kick"><span>${en?'AFTER EACH GAME, IN ORDER':'APRÈS CHAQUE PARTIE, DANS L’ORDRE'}</span></div>
+  <ol class="guide-camp-order">${t.order.map(o=>`<li><b>${esc(T(o[0]))}</b> <span>${esc(T(o[1]))}</span></li>`).join('')}</ol>
+  <div class="guide-kick muted-kick"><span>${en?'TO DO':'À FAIRE'}</span></div>
+  <div class="guide-todo">${t.todo.map(x=>`<div class="gt-row${x.done?' done':''}"><span class="gt-dot">${x.done?'✓':''}</span><span>${esc(T(x.t))}</span><button type="button" class="gt-go" onclick="${x.run}">${esc(T(x.btn))} ›</button></div>`).join('')}</div>
+  <p class="muted guide-note">${en?'These boxes tick themselves as you go.':'Ces cases se cochent toutes seules quand tu avances.'}</p>
+  <button type="button" class="guide-deep" onclick="${t.deep.run}">📚 <b>${en?'Go deeper':'Approfondir'}</b> ${en?'(optional):':'(facultatif) :'} ${esc(T(t.deep.t))} ›</button>
+  <div class="guide-nav"><button type="button" class="button secondary" onclick="guideOpen(null)">‹ ${en?'The guide':'Le guide'}</button></div></div>`}
 function guideStepMarkup(steps,i){const en=siteLanguage==='en';const s=steps[i];const T=v=>helpT(v);
   return `<div class="learn-page guide-page"><div class="rules-crumb"><a href="#" onclick="guideOpen(null);return false;">${en?'Player’s guide':'Guide du joueur'}</a><span class="sep">›</span><span class="cur">${en?'Getting started':'Pour te lancer'} · ${i+1}</span></div>
   <h1 class="learn-title">${esc(T(s.title))}</h1>
