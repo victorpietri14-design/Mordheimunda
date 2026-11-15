@@ -1701,7 +1701,7 @@ await test('[desktop] roll for me, weather rolled at launch, refreshed news with
     diceSet('t',5);const reset=diceHelp.rf===null;diceRollStep();const s1=!!diceHelp.rf.h&&!diceHelp.rf.w;diceRollStep();const s2=!!diceHelp.rf.w&&!diceHelp.rf.done;diceRollStep();const s3=diceHelp.rf.done;closeModal();
     const wm=playAutoRollsMarkup({conditions:{weather:{total:7,name:'Fog'}}},true);const none=playAutoRollsMarkup({},true)==='';
     openHelpMenu();const see=document.querySelectorAll('.help-news-go').length;helpSheetClose();
-    return {folded,all,reset,s1,s2,s3,weather:/Fog/.test(wm)&&/rollPlayWeather/.test(wm),none,first:HELP_NEWS[0].id,see}});
+    return {folded,all,reset,s1,s2,s3,weather:/Fog/.test(wm)&&/rollPlayWeather/.test(wm),none,first:HELP_NEWS.find(n=>n.id==='n-rollme')?'n-rollme':'',see}});
   expect(out.folded&&out.all&&out.reset,'roll for me is folded by default, rolls hit/wound/save, and resets when a value changes: '+JSON.stringify(out));
   expect(out.s1&&out.s2&&out.s3,'one step at a time rolls hit, then wound, then save: '+JSON.stringify(out));
   expect(out.weather&&out.none&&out.first==='n-rollme'&&out.see>=4,'weather shown with a reroll at launch, news newest first with See buttons: '+JSON.stringify(out));
@@ -1735,6 +1735,19 @@ await test('[desktop] report a problem: from the help menu, details only when ti
     return {inHub,dlg,checks,kind:p1.kind,tech:!!p1.build&&Array.isArray(p1.errors)&&!p1.roster,noTech:!p2.build&&!p2.errors,roster:!!p3.roster,q:q.length,closed,sent:sent.length,after,inManual:MANUAL_TOOLS.some(t=>t[1]==='Report a problem')}});
   expect(out.inHub&&out.dlg&&out.checks===2&&out.kind==='rule'&&out.tech&&out.noTech&&out.roster,'report dialog: kinds, technical details and warband copy only when ticked: '+JSON.stringify(out));
   expect(out.q===1&&out.closed&&out.sent===1&&out.after===0&&out.inManual,'a report that cannot leave waits on the device and leaves later: '+JSON.stringify(out));
+});
+await test('[desktop] warband journal: opponent and who went down kept, note editable, shareable text',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));const r=activeRoster();
+    r.lastGame={at:Date.now(),scenarioId:null,picks:[],ooa:['a','b'],opp:['Gork']};r.postBattle=null;save(true);
+    navigateApp(warbandPath(r.id));await wait(300);const p=ensurePostBattleData(r);setPostBattleResult('win');await wait(200);
+    const v=activeRoster().valueLog.slice(-1)[0];
+    gangTab='stats';render('builder');await wait(200);const txt=document.querySelector('.st-journal')?.textContent||'';
+    statsJournalNote(v.pb);document.getElementById('stJNote').value='Held the bridge';statsJournalNoteSave(v.pb);await wait(100);
+    const v2=activeRoster().valueLog.find(e=>e.pb===v.pb);const share=statsJournalText(activeRoster(),true);
+    return {opp:v.opp,ooa:v.ooa,shown:/against Gork/.test(txt)&&/2 of ours out of action/.test(txt)&&/WARBAND JOURNAL/.test(txt),note:v2.note,edited:v2.noteEdited,share:/Gork/.test(share)&&/Held the bridge/.test(share)}});
+  expect(out.opp?.[0]==='Gork'&&out.ooa===2&&out.shown,'the journal shows the opponent and who went down: '+JSON.stringify(out));
+  expect(out.note==='Held the bridge'&&out.edited&&out.share,'a game note can be written afterwards and the journal shared as text: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
