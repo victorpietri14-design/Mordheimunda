@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0861.0';
+const APP_BUILD='110.0863.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6736,8 +6736,8 @@ function openTabSheet(kind){
     html=`<div class="tab-sheet-label">${en?'RULES':'RÈGLES'}</div>`+tabSheetLink(APP_ROUTES.rules,'♞',en?'Rules: The Game':'Règles : Le Jeu')+tabSheetLink(APP_ROUTES.rulesWarbands,'⛨',en?'Rules: Warbands':'Règles : Warbands')+tabSheetLink(APP_ROUTES.rulesCampaign,'⚑',en?'Rules: Campaign':'Règles : Campagne')+tabSheetLink(APP_ROUTES.scenarios,'⚔',en?'Scenarios':'Scénarios')+tabSheetLink(APP_ROUTES.references,'▤',en?'Reference':'Référentiel')+readPinsSheetMarkup();
   }else{
     const admin=isAdminSession();
-    html=`<div class="tab-sheet-label">${en?'MORE':'PLUS'}</div>`+tabSheetLink(APP_ROUTES.custom,'✦',en?'Personal content':'Contenu perso')+tabSheetLink(APP_ROUTES.account,'👤',en?'Account':'Compte')+(admin?tabSheetLink(APP_ROUTES.admin,'⛉',en?'Admin panel':'Panneau admin'):'')
-     +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openHelpMenu()"><i>?</i><span>${en?'Help and tours':'Aide et visites'}</span></button>`+`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();shareWarbandImage()"><i>🖼</i><span>${en?'Share as a picture':'Partager en image'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openWarbandFiles()"><i>⇅</i><span>${en?'Warband file (save / open)':'Fichier de bande (enregistrer / ouvrir)'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
+    html=`<div class="tab-sheet-label">${en?'MORE':'PLUS'}</div><button type="button" class="tab-sheet-link tab-sheet-help" onclick="closeTabSheet();openHelpHub()"><i>❓</i><span>${en?'Help':'Aides'}${helpNewsUnseen().length?` <b class="help-pill">${helpNewsUnseen().length}</b>`:''}</span></button>`+tabSheetLink(APP_ROUTES.custom,'✦',en?'Personal content':'Contenu perso')+tabSheetLink(APP_ROUTES.account,'👤',en?'Account':'Compte')+(admin?tabSheetLink(APP_ROUTES.admin,'⛉',en?'Admin panel':'Panneau admin'):'')
+     +`<button type="button" class="tab-sheet-link" onclick="closeTabSheet();openPrintPicker()"><i>🖨</i><span>${en?'Print…':'Imprimer…'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();printWarbandSheet(true)"><i>▢</i><span>${en?'Blank roster sheet':'Fiche de bande vierge'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();shareWarbandImage()"><i>🖼</i><span>${en?'Share as a picture':'Partager en image'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openWarbandFiles()"><i>⇅</i><span>${en?'Warband file (save / open)':'Fichier de bande (enregistrer / ouvrir)'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openBackups()"><i>🛟</i><span>${en?'Backups on this device':'Sauvegardes sur ce téléphone'}</span></button><button type="button" class="tab-sheet-link" onclick="closeTabSheet();openErrorLog()"><i>🐞</i><span>${en?'Error report':'Rapport d’erreurs'}${errLogRead().length?` · ${errLogRead().length}`:''}</span></button>`+tabSheetLink(APP_ROUTES.printList||'/print','🗂',en?'Print list':'Liste d’impression')
      +`<div class="tab-sheet-sep"></div><label class="tab-sheet-row"><span>${en?'Day mode':'Mode jour'}</span><span class="theme-switch"><input type="checkbox" class="theme-toggle-input" ${siteTheme==='light'?'checked':''}><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Candle mode':'Mode bougie'}</span><span class="theme-switch"><input type="checkbox" class="candle-toggle-input" ${siteTheme==='candle'?'checked':''} onchange="toggleCandleTheme()"><i>✦</i></span></label><label class="tab-sheet-row"><span>${en?'Candle in the evening':'Bougie le soir'}</span><span class="theme-switch"><input type="checkbox" ${themeAutoOn()?'checked':''} onchange="setThemeAuto(this.checked)"><i>☾</i></span></label><label class="tab-sheet-row"><span>${en?'Animated background':'Fond animé'}</span>${ambientSelectMarkup(en)}</label>`
      +(admin?`<label class="tab-sheet-row"><span>${en?'Player view':'Vue Joueur'}</span><span class="theme-switch"><input type="checkbox" class="admin-view-toggle-input" ${adminViewMode==='player'?'checked':''}><i>🎭</i></span></label>`:'')
      +`<label class="tab-sheet-row"><span>${en?'Interface size':'Taille de l’interface'}</span>${comfortSelectMarkup(en)}</label>`
@@ -7719,7 +7719,7 @@ function playGenerateRandom(){
     const mid=playPerimeterPoint((d0+d1)/2,w,h);
     groupsOut.push({group:g,color,edge:playEdgeLabel(mid.x,mid.y,w,h,en),players:ps.slots.filter(s=>s.group===g).map(s=>({name:playSlotDisplayName(s,ps)||'—',owner:playSlotOwnerLabel(s,en)}))});
   });
-  ps.generated={shapes:{tableInches:{w:ts.w,h:ts.h},items:[...lines,...circles]},groups:groupsOut,source:'random'};
+  ps.generated={shapes:{tableInches:{w:ts.w,h:ts.h},items:[...lines,...circles]},groups:groupsOut,source:'random'};playAutoRolls(ps);
   playSetupManualOpen=null;
   save();render('playMode');
 }
@@ -7743,7 +7743,7 @@ function playGenerateExisting(){
   const shapes=deploymentMapHasShapes(map)?deploymentMapResizeShapes(map.shapes,ts.w,ts.h):null;
   const groups=playGroupNumbers(ps);
   const groupsOut=groups.map(g=>({group:g,color:playGroupColor(ps,g),edge:'',players:ps.slots.filter(s=>s.group===g).map(s=>({name:playSlotDisplayName(s,ps)||'—',owner:playSlotOwnerLabel(s,en)}))}));
-  ps.generated={shapes,image:map.image||'',groups:groupsOut,source:'existing',mapId:map.id,mapName:map.name,mapNumber:map.number};
+  ps.generated={shapes,image:map.image||'',groups:groupsOut,source:'existing',mapId:map.id,mapName:map.name,mapNumber:map.number};playAutoRolls(ps);
   playSetupManualOpen=null;
   save();render('playMode');
 }
@@ -7812,6 +7812,7 @@ function playAlliancesMarkup(ps,en){
 let playSetupManualOpen=null;
 function playSetupIsOpen(ps){return playSetupManualOpen===null?!ps?.generated:playSetupManualOpen}
 function togglePlaySetup(){playSetupManualOpen=!playSetupIsOpen(state.playSession);render('playMode')}
+function playAutoRollsMarkup(ps,en){const w=ps.conditions?.weather;if(!w)return '';return `<div class="auto-roll"><span><small>${en?'Weather':'Météo'} · 2D6 = ${w.total}</small><b>${esc(w.name)}</b></span><button type="button" class="button secondary tiny" onclick="rollPlayWeather()" title="${en?'Reroll the weather':'Relancer la météo'}">🎲 ${en?'Reroll':'Relancer'}</button><button type="button" class="button secondary tiny" onclick="setPlayCondTab('conditions')">${en?'Details':'Détails'}</button></div>`}
 function playDeploymentBlockMarkup(ps,s,en,sizes){
   const ready=playAllReady(ps);
   const sizeButtons=sizes.length>1?`<div style="display:flex;gap:6px">${sizes.map(k=>`<button type="button" style="${PM_PILL}${ps.tableSize===k?PM_PILL_ON:''}" onclick="playSetTableSize('${jsq(k)}')">${scenarioTableSizeLabel(k)}</button>`).join('')}</div>`:`<span class="chip">${scenarioTableSizeLabel(ps.tableSize)}</span>`;
@@ -7826,7 +7827,7 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
   const resultHtml=ps.generated?`<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:4px">
       <div style="flex:none;width:340px;cursor:zoom-in" onclick="openGeneratedMapLightbox()">${deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(imgSrc(ps.generated.image||''))}" alt="" style="width:100%;border-radius:6px;display:block">`}</div>
       <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:0">
-        ${sourceChip}
+        ${sourceChip}${playAutoRollsMarkup(ps,en)}
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:8px">${en?'Groups & table edges':'Groupes & bords de table'}</div>
         ${ps.generated.groups.map(g=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)">
           <span style="width:12px;height:12px;border-radius:50%;background:${deployColor(g.color)};margin-top:3px;flex:none"></span>
@@ -10391,8 +10392,25 @@ function diceWound(s,t){return s>=t*2?2:s>t?3:s===t?4:s*2<=t?6:5}
 function diceChance(n){return n>6?0:(7-Math.max(2,n))/6}
 function diceSaveOf(x){try{const p=armorSaveInfo(x)?.parts;const n=Number(Array.isArray(p)?p[0]:NaN);return Number.isFinite(n)&&n>=2&&n<=6?n:7}catch(e){return 7}}
 function openDiceHelp(inst){const f=diceFindFighter(inst);if(!f)return;const keep=diceHelp&&diceHelp.inst===inst?diceHelp:null;diceHelp={inst,wi:keep?.wi||0,tgt:keep?.tgt||'',ws:keep?.ws||3,t:keep?.t||3,sv:keep?.sv||7,cover:!!keep?.cover,mh:keep?.mh||0,mw:keep?.mw||0,ms:keep?.ms||0};const tg=diceTargets(f.r);if(!diceHelp.tgt||(diceHelp.tgt!=='manual'&&!tg.some(t=>t.key===diceHelp.tgt)))diceHelp.tgt=tg[0]?.key||'manual';openModal(diceHelpMarkup())}
-function diceMod(k,dv){if(!diceHelp)return;diceHelp[k]=Math.max(-3,Math.min(3,(Number(diceHelp[k])||0)+dv));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
-function diceSet(k,v){if(!diceHelp)return;diceHelp[k]=k==='cover'?!!v:(k==='tgt'?String(v):Number(v));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceMod(k,dv){if(!diceHelp)return;diceHelp.rf=null;diceHelp[k]=Math.max(-3,Math.min(3,(Number(diceHelp[k])||0)+dv));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceSet(k,v){if(!diceHelp)return;diceHelp.rf=null;diceHelp[k]=k==='cover'?!!v:(k==='tgt'?String(v):Number(v));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+// V-ROLLFORME: "No dice at hand? Roll for me", folded away by default — real
+// dice stay the rule. Rolls to hit (one die per attack), then to wound with
+// the hits, then the enemy's saves; nothing is recorded anywhere.
+function diceRollStage(c,rf,k){const roll=n=>Array.from({length:Math.max(0,n)},()=>1+Math.floor(Math.random()*6));const ok=(v,need)=>need<7&&v!==1&&v>=need;
+  if(k==='h'){rf.h=roll(c.attacks);rf.hn=rf.h.filter(v=>ok(v,c.hit)).length}
+  else if(k==='w'){rf.w=roll(rf.hn);rf.wn=rf.w.filter(v=>ok(v,c.wound)).length}
+  else{rf.s=c.save>=7?[]:roll(rf.wn);rf.sn=rf.s.filter(v=>ok(v,c.save)).length;rf.done=true}}
+function diceRedraw(){const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceRollAll(){if(!diceHelp)return;const c=diceHelpCalc();if(!c)return;const rf={};diceRollStage(c,rf,'h');diceRollStage(c,rf,'w');diceRollStage(c,rf,'s');diceHelp.rf=rf;diceHelp.rfOpen=true;diceRedraw()}
+function diceRollStep(){if(!diceHelp)return;const c=diceHelpCalc();if(!c)return;let rf=diceHelp.rf;if(!rf||rf.done)rf={};const k=!rf.h?'h':!rf.w?'w':'s';diceRollStage(c,rf,k);diceHelp.rf=rf;diceHelp.rfOpen=true;diceRedraw()}
+function diceRollMarkup(c,en){const d=diceHelp;const rf=d.rf;const need=n=>n>=7?'—':n+'+';
+  const dice=(vals,n)=>`<span class="dh-dice">${vals.map(v=>`<i class="${n<7&&v!==1&&v>=n?'ok':''}">${v}</i>`).join('')||`<small class="muted">${en?'no dice':'aucun dé'}</small>`}</span>`;
+  const line=(l,vals,n,res)=>`<div class="dh-rline"><span>${l} ${need(n)}</span>${dice(vals,n)}<b>${res}</b></div>`;
+  let body='';if(rf){if(rf.h)body+=line(en?'Hit':'Toucher',rf.h,c.hit,`${rf.hn} ✓`);if(rf.w)body+=line(en?'Wound':'Blesser',rf.w,c.wound,`${rf.wn} ✓`);if(rf.s&&rf.done&&c.save<7)body+=line(en?'Save':'Sauv.',rf.s,c.save,en?`${rf.sn} saved`:`${rf.sn} sauvée${rf.sn>1?'s':''}`);
+    if(rf.done){const n=rf.wn-(rf.sn||0);const dmg=String(c.w?.profile?.damage||'1').trim();body+=`<div class="dh-rres"><b>${en?`Result: ${n} wound${n>1?'s':''}`:`Résultat : ${n} blessure${n>1?'s':''}`}</b>${n?` <span class="muted">(${en?'damage':'dégâts'} ${esc(dmg)} ${en?'each':'chacune'})</span>`:''}</div>`}}
+  const stepLbl=!rf||rf.done?(en?'One step at a time':'Une étape à la fois'):!rf.w?(en?'Next: wound ›':'Ensuite : blesser ›'):(en?'Next: save ›':'Ensuite : sauvegarde ›');
+  return `<details class="dh-rollme"${d.rfOpen?' open':''} ontoggle="if(diceHelp)diceHelp.rfOpen=this.open"><summary>🎲 ${en?'No dice at hand? Roll for me':'Pas de dés sous la main ? Lancer pour moi'}</summary><div class="dh-rbody">${body}<div class="dh-rbtns"><button type="button" class="button secondary" onclick="diceRollAll()">🎲 ${rf?(en?'Roll again':'Relancer'):(en?'Roll everything':'Tout lancer')}</button><button type="button" class="button secondary" onclick="diceRollStep()">${stepLbl}</button></div><small class="muted">${en?'Real dice stay the rule: this is a die, not a referee, and nothing is recorded.':'Les vrais dés restent la règle : c’est un dé, pas un arbitre, et rien n’est enregistré.'}</small></div></details>`}
 function diceHelpCalc(){const d=diceHelp;const f=diceFindFighter(d.inst);if(!f)return null;const x=f.x;const P0=x.profile||[];const weapons=wbWeapons(x);const w=weapons[d.wi]||null;
   const ranged=!!(w&&weaponIsRanged(w.profile));const S=Number(P0[3])||3;let fx=null;try{fx=w?weaponEffectPack(x,w):null}catch(e){}
   const str=diceStrength(w?.profile?.strength,S)+(Number(fx?.strength)||0);const ap=w?diceAp(w.profile?.ap)+(Number(fx?.ap)||0):0;
@@ -10417,6 +10435,7 @@ function diceHelpMarkup(){const en=siteLanguage==='en';const c=diceHelpCalc();if
    <details class="dh-mods"${d.mh||d.mw||d.ms?' open':''}><summary>${en?'Bonuses and penalties (skills, spells, scenario…)':'Bonus et malus (compétences, sorts, scénario…)'}${d.mh||d.mw||d.ms?` · <b>${[d.mh,d.mw,d.ms].filter(Boolean).length}</b>`:''}</summary><div class="dh-mod-list">${[['mh',en?'To hit':'Pour toucher'],['mw',en?'To wound':'Pour blesser'],['ms',en?'Enemy save':'Sauvegarde ennemie']].map(([k,l])=>`<div class="dh-mod"><span>${l}</span><button type="button" onclick="diceMod('${jsq(k)}',-1)" aria-label="−1">−</button><b>${d[k]>0?'+':''}${d[k]||0}</b><button type="button" onclick="diceMod('${jsq(k)}',1)" aria-label="+1">+</button></div>`).join('')}<small class="muted">${en?'+1 = easier roll. Add up every source: e.g. +1 skill and −1 spell = 0.':'+1 = jet plus facile. Additionne toutes les sources : ex. +1 compétence et −1 sort = 0.'}</small></div></details>
    <div class="dh-rows">${row('1',en?'Hit':'Toucher',need(c.hit),c.ranged?`${en?'BS':'CT'} ${c.x.profile?.[2]}${d.cover?(en?', cover':', couvert'):''}`:`${en?'WS':'CC'} ${c.x.profile?.[1]} ${en?'against':'contre'} ${c.tWS}`)}${row('2',en?'Wound':'Blesser',need(c.wound),`${en?'S':'F'} ${c.str} ${en?'against T':'contre E'} ${c.tT}`)}${row('3',en?'Enemy save':'Sauvegarde ennemie',c.save>=7?(en?'none':'aucune'):need(c.save),c.save>=7?(en?'no save':'pas de sauvegarde'):`Sv ${c.tSv}+${c.ap?` ${en?'with AP':'avec PA'} ${c.ap>0?'+':''}${c.ap}`:''}`)}</div>
    <div class="dh-sum">${en?'Chance to wound per attack:':'Chance de blesser par attaque :'} <b>${pct(c.p)}</b>${c.attacks>1?`<br>${en?`With its ${c.attacks} attacks: about ${(c.p*c.attacks).toFixed(1)} wound(s)`:`Avec ses ${c.attacks} attaques : environ ${(c.p*c.attacks).toFixed(1).replace('.',',')} blessure(s)`}`:''}${advice?`<br><span class="muted">${advice}</span>`:''}</div>
+   ${diceRollMarkup(c,en)}
    <p class="muted dh-note">${en?'A 1 always fails. Special rules and skills are not counted: add them under “Bonuses and penalties”.':'Un 1 rate toujours. Les règles spéciales et compétences ne sont pas comptées : ajoute-les dans « Bonus et malus ».'}</p>
    <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`}
 function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){if(playSimpleMode&&x)return playSimpleMarkup(x,f,badge,anchor,extraClass,openRid);let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="openCombatSheet('${jsq(openRid)}','${jsq(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${jsq(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
@@ -10579,7 +10598,12 @@ function playHazardUnits(r,ps=state.playSession){
   return out;
 }
 function playConditions(ps){if(!ps.conditions||typeof ps.conditions!=='object')ps.conditions={rolls:{},hazards:[],manual:{}};const c=ps.conditions;c.rolls=c.rolls||{};c.hazards=c.hazards||[];c.manual=c.manual||{};return c}
-function rollPlayWeather(){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;const pc=playConditions(ps);const d=[postBattleRoll(),postBattleRoll()];const total=d[0]+d[1];const w=(camp.definition.conditions.weather||[]).find(x=>total>=x.min&&total<=x.max)||null;const sub=w?.sub?postBattleRoll():null;pc.weather={dice:d,total,name:w?.name||'—',text:w?.text||'',sub,subText:w?.sub?(w.sub.find(s=>sub>=s[0]&&sub<=s[1])||[])[2]||'':''};save();render('playMode')}
+// V-AUTOROLLS: what can be rolled without knowing the engaged fighters
+// (the campaign weather) is rolled as soon as the deployment is generated,
+// and can be rerolled as before; hazards still wait for the fighters.
+function playAutoRolls(ps){try{const camp=playConditionsCampaign(ps);if(!camp||!(camp.definition?.conditions?.weather||[]).length)return;if(!playConditions(ps).weather)playWeatherRoll(ps,camp)}catch(e){}}
+function playWeatherRoll(ps,camp){const pc=playConditions(ps);const d=[postBattleRoll(),postBattleRoll()];const total=d[0]+d[1];const w=(camp.definition.conditions.weather||[]).find(x=>total>=x.min&&total<=x.max)||null;const sub=w?.sub?postBattleRoll():null;pc.weather={dice:d,total,name:w?.name||'—',text:w?.text||'',sub,subText:w?.sub?(w.sub.find(s=>sub>=s[0]&&sub<=s[1])||[])[2]||'':''}}
+function rollPlayWeather(){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;playWeatherRoll(ps,camp);save();render('playMode')}
 function setPlayManualUnits(i,v){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;playConditions(ps).manual[i]=Math.max(0,Math.min(30,Math.floor(Number(v)||0)));save();render('playMode')}
 function rollPlayHazards(){
   if(playGuestBlocked())return;
@@ -18601,9 +18625,19 @@ const HELP_TIPS={
  campaign:{title:['Choose your residence','Choisis ta résidence'],text:['Where your warband lives on the map changes some events and scenarios.','L’endroit où vit ta bande sur la carte change certains évènements et scénarios.']}
 };
 // "What's new": newest first; a short line each.
+// V-NEWS: newest first. `go` (optional) opens the tool, like "Show me" in
+// the user guide. Add a line here with each new tool.
 const HELP_NEWS=[
- {id:'help-1',text:['New: a ? on every page, a guided tour and “First steps” for new players (Account › Help).','Nouveau : un ? sur chaque page, une visite guidée et « Premiers pas » pour bien démarrer (Compte › Aide).']},
- {id:'scn-groups',text:['Scenarios are now split into Preparation, Play and Ending, with their picture.','Les scénarios sont rangés en Préparation, Jeu et Fin, avec leur image.']}
+ {id:'n-rollme',date:'2026-11-16',text:['“Roll for me” in “What do I need to roll?”: when no dice are at hand (real dice stay the rule).','« Lancer pour moi » dans « Que faut-il au dé ? » : quand on n’a pas de dés sous la main (les vrais dés restent la règle).']},
+ {id:'n-weather',date:'2026-11-16',text:['Campaign weather is rolled as soon as the deployment is generated (reroll stays possible).','La météo de campagne est tirée dès que le déploiement est généré (on peut toujours relancer).']},
+ {id:'n-wcmp',date:'2026-11-15',text:['Compare weapons: in a fighter’s shop, “⚖ Compare” shows which weapon wounds the most.','Comparer des armes : dans les achats d’un combattant, « ⚖ Comparer » montre quelle arme blesse le plus.'],go:"guideGoRoster()"},
+ {id:'n-manual',date:'2026-11-15',text:['User guide: every tool of the site, by moment, with “Show me”.','Mode d’emploi : tous les outils du site, par moment, avec « Montre-moi ».'],go:"manualOpen()"},
+ {id:'n-combat',date:'2026-11-14',text:['Combat sheet: in a game, tap a fighter for its rules, save and attacks.','Fiche de combat : en partie, touche un combattant pour voir ses règles, sa sauvegarde et ses attaques.'],go:"navigateApp(APP_ROUTES.playMode)"},
+ {id:'n-cards',date:'2026-11-14',text:['Fighter cards to print: 63 × 88 mm, 9 per A4 page.','Cartes de combattants à imprimer : 63 × 88 mm, 9 par page A4.'],go:"guideGoRoster();setTimeout(()=>{try{openPrintChooser()}catch(e){}},250)"},
+ {id:'n-simple',date:'2026-11-13',text:['Play: Detailed · Compact · Simple views for the fighter cards.','Jouer : vues Détaillé · Compact · Simple pour les cartes des combattants.'],go:"navigateApp(APP_ROUTES.playMode)"},
+ {id:'n-file',date:'2026-11-13',text:['Warband file: save a warband to a file, or open one.','Fichier de bande : enregistrer une bande dans un fichier, ou en ouvrir un.'],go:"openWarbandFiles()"},
+ {id:'help-1',text:['A ? on every page, a guided tour and “First steps” for new players.','Un ? sur chaque page, une visite guidée et « Premiers pas » pour bien démarrer.']},
+ {id:'scn-groups',text:['Scenarios are split into Preparation, Play and Ending, with their picture.','Les scénarios sont rangés en Préparation, Jeu et Fin, avec leur image.']}
 ];
 const HELP_KEY='mu_help';
 function helpState(){try{return JSON.parse(localStorage.getItem(HELP_KEY)||'{}')||{}}catch(e){return {}}}
@@ -18613,31 +18647,89 @@ function helpAuto(){try{if(navigator.webdriver&&!localStorage.getItem('mu_help_d
 function helpPageKey(){const v=currentViewName();if(v==='builder'&&gangTab==='postbattle')return 'postbattle';return HELP_PAGES[v]?v:(HELP_ALIASES[v]||'dashboard')}
 function helpMissingPages(views){return views.filter(v=>!HELP_PAGES[v]&&!HELP_ALIASES[v])}
 function helpNewsUnseen(){const seen=new Set(helpState().newsSeen||[]);return HELP_NEWS.filter(n=>!seen.has(n.id))}
-function helpBtnSync(){const b=document.getElementById('helpBtn');if(!b)return;const en=siteLanguage==='en';b.setAttribute('aria-label',en?'Help for this page':'Aide de cette page');b.title=en?'Help for this page':'Aide de cette page';const l=b.querySelector('.hb-lbl');if(l)l.textContent=en?'Help for this page':'Aide de cette page';b.classList.toggle('has-news',helpNewsUnseen().length>0&&!!helpState().level&&helpState().level!=='off')}
+function helpBtnSync(){const b=document.getElementById('helpBtn');if(!b)return;const en=siteLanguage==='en';b.setAttribute('aria-label',en?'Help':'Aides');b.title=en?'Help: this page and every tool':'Aides : cette page et tous les outils';const l=b.querySelector('.hb-lbl');if(l)l.textContent=en?'Help':'Aide';b.classList.toggle('has-news',helpNewsUnseen().length>0&&!!helpState().level&&helpState().level!=='off')}
 // ---- "?" sheet ----
 function helpSheetClose(){document.getElementById('helpSheet')?.remove()}
 function helpSheetOpen(html){helpSheetClose();const w=document.createElement('div');w.id='helpSheet';w.className='help-sheet-wrap';w.onclick=e=>{if(e.target===w)helpSheetClose()};w.innerHTML=`<div class="help-sheet" role="dialog" aria-modal="true"><div class="help-grip"></div>${html}</div>`;document.body.appendChild(w);w.querySelector('button')?.focus()}
-function openPageHelp(){const en=siteLanguage==='en';const k=helpPageKey();const pg=HELP_PAGES[k]||HELP_PAGES.dashboard;const news=helpNewsUnseen();
- helpSheetOpen(`<div class="help-kicker">${en?'HELP · THIS PAGE':'AIDE · CETTE PAGE'}</div><h3>${esc(hx(`page.${k}.title`,pg.title))}</h3><ol class="help-points">${pg.points.map((p,i)=>`<li><span class="help-n">${i+1}</span><span>${esc(hx(`page.${k}.p${i}`,p))}</span></li>`).join('')}</ol>
- <div class="help-actions">${pg.tour?`<button type="button" class="help-go" onclick="helpSheetClose();helpTourStart('${jsq(k)}')">▶ ${en?'Tour of this page':'Visite de cette page'}</button>`:''}<button type="button" class="help-ghost" onclick="helpSheetClose()">${en?'Close':'Fermer'}</button></div>
- <div class="help-links"><button type="button" onclick="helpSheetClose();openSiteSearch()">${en?'A rules question? Search the rules':'Une question de règle ? Chercher dans les règles'}</button><button type="button" onclick="helpSheetClose();openHelpMenu()">${en?'More help':'Plus d’aide'}${news.length?` <b class="help-pill">${news.length} ${en?'new':(news.length>1?'nouveautés':'nouveauté')}</b>`:''}</button>${isAdminEditUI()?`<button type="button" onclick="helpSheetClose();openHelpTextsEditor()">✎ ${en?'Edit the help texts (admin)':'Modifier les textes de l’aide (admin)'}</button>`:''}</div>`)}
-// ---- help menu (More sheet, Account) ----
-function openHelpMenu(){const en=siteLanguage==='en';const st=helpState();const lv=st.level||'off';const seen=new Set(st.newsSeen||[]);
- helpSheetOpen(`<div class="help-kicker">${en?'HELP':'AIDE'}</div><h3>${en?'Help and tours':'Aide et visites'}</h3>
- <div class="help-menu">
-  <button type="button" onclick="manualOpen()"><i>📘</i><span><b>${en?'User guide: every tool':'Mode d’emploi : tous les outils'}</b><small>${en?'Everything the site can do, by moment, with “Show me”.':'Tout ce que le site sait faire, par moment, avec « Montre-moi ».'}</small></span></button><button type="button" onclick="helpSheetClose();helpTourStart('general')"><i>▶</i><span><b>${en?'General tour':'Visite générale'}</b><small>${en?'The main screens, in 4 steps.':'Les écrans principaux, en 4 étapes.'}</small></span></button>
-  <button type="button" onclick="helpSheetClose();learnOpen('')"><i>🎓</i><span><b>${en?'Learn to play':'Apprendre à jouer'}</b><small>${en?'8 short lessons with a dice exercise.':'8 leçons courtes avec un exercice au dé.'}</small></span></button>
-  <button type="button" onclick="helpSheetClose();helpCardsOpen(0)"><i>◆</i><span><b>${en?'The game in 2 minutes':'Le jeu en 2 minutes'}</b><small>${en?'9 short cards on how a game is played.':'9 cartes courtes pour comprendre une partie.'}</small></span></button>
-  <button type="button" onclick="helpSheetClose();helpGuideStart()"><i>⚔</i><span><b>${en?'Create my warband step by step':'Créer ma bande pas à pas'}</b><small>${en?'From the race to the equipment, in 8 steps.':'De la race à l’équipement, en 8 étapes.'}</small></span></button>
-  <button type="button" onclick="helpSheetClose();helpReadingShow()"><i>📖</i><span><b>${en?'Rules: what to read first':'Règles : quoi lire d’abord'}</b><small>${en?'5 chapters, ticked as you go.':'5 chapitres, cochés au fur et à mesure.'}</small></span></button>
-  <button type="button" onclick="helpSheetClose();helpChecklistShow()"><i>✓</i><span><b>${en?'First steps':'Premiers pas'}</b><small>${en?'Show the list on the home page again.':'Réafficher la liste sur l’accueil.'}</small></span></button>
-  <button type="button" onclick="helpTipsReset()"><i>!</i><span><b>${en?'See the tips again':'Revoir les astuces'}</b><small>${en?'The one-time tips will show again.':'Les astuces affichées une fois reviendront.'}</small></span></button>
-  ${isAdminEditUI()?`<button type="button" onclick="helpSheetClose();helpPreviewStart()"><i>👁</i><span><b>${en?'See it as a new player':'Voir comme un nouveau joueur'}</b><small>${en?'Welcome, first steps, tips — your own settings come back when you leave.':'Accueil, premiers pas, astuces — tes réglages reviennent quand tu quittes.'}</small></span></button>`:''}
-  <label class="help-level"><span><b>${en?'Help level':'Niveau d’aide'}</b></span><select onchange="helpSetLevel(this.value)"><option value="new" ${lv==='new'?'selected':''}>${en?'New to the game':'Je découvre le jeu'}</option><option value="vet" ${lv==='vet'?'selected':''}>${en?'I know Mordheim':'Je connais Mordheim'}</option><option value="off" ${lv==='off'?'selected':''}>${en?'No automatic help':'Pas d’aide automatique'}</option></select></label>
- </div>
- <div class="help-kicker" style="margin-top:12px">${en?'WHAT’S NEW':'NOUVEAUTÉS'}</div><ul class="help-news">${HELP_NEWS.map(n=>`<li>${seen.has(n.id)?'':`<b class="help-pill">${en?'New':'Nouveau'}</b> `}${esc(hx(`news.${n.id}`,n.text))}</li>`).join('')}</ul>
- <div class="help-actions"><button type="button" class="help-ghost" onclick="helpSheetClose()">${en?'Close':'Fermer'}</button></div>`);
- helpSave({newsSeen:HELP_NEWS.map(n=>n.id)});helpBtnSync()}
+// ============ V-HELPHUB: one help menu, opened by "? Help" on every page ============
+// It replaces the old "?" sheet + "More help" menu: first what helps on the
+// page you are on, then the beginner paths, then every tool by moment (the
+// same list as the "All help" page), what's new and the help settings.
+const MANUAL_GROUPS=[['create',['Create a warband','Créer sa bande']],['manage',['Manage the warband','Gérer sa bande']],['play',['Play','Jouer']],['after',['After the battle · Campaigns','Après la bataille · Campagnes']],['rules',['Rules','Règles']],['share',['Print · Share · Save','Imprimer · Partager · Sauvegarder']],['help',['Account · Help','Compte · Aide']]];
+const MANUAL_TOOLS=[
+ ['create','Create my warband step by step','Créer ma bande pas à pas','The guided tour, from the race to the equipment.','La visite guidée, de la race à l’équipement.',"helpGuideStart()"],
+ ['create','Compare the factions','Comparer les factions','Difficulty, strengths and a beginner badge on every faction.','Difficulté, points forts et badge Débutant sur chaque faction.',"navigateApp(APP_ROUTES.rulesWarbands)"],
+ ['create','Ready-made warband','Bande type','A recommended warband in one tap, then just equip it.','Une bande recommandée en un toucher, il ne reste qu’à l’équiper.',"navigateApp(APP_ROUTES.create)"],
+ ['create','Warband assistant','Assistant de bande','The checklist that says what is still missing.','La liste à cocher qui dit ce qu’il manque.',"guideGoRoster();setTimeout(()=>{try{wbAssistShow()}catch(e){}},250)"],
+ ['create','Ready to play?','Prêt à jouer ?','A last check before the first game: strengths, weaknesses, what is missing.','Un dernier contrôle avant la partie : forces, faiblesses, oublis.',"guideGoRoster();setTimeout(()=>{try{openReadyCheck()}catch(e){}},250)"],
+ ['create','Personal content','Contenu perso','Your own fighters, items, skills, spells and warbands.','Tes propres combattants, objets, compétences, sorts et bandes.',"navigateApp(APP_ROUTES.custom)"],
+ ['manage','Understand a profile','Comprendre un profil','On a fighter sheet, “? Profile” explains each characteristic with the dice to roll.','Sur une fiche, « ? Profil » explique chaque caractéristique avec le jet à faire.',"guideGoRoster()"],
+ ['manage','Compare weapons','Comparer des armes','On a fighter sheet, in the shop: “⚖ Compare” shows which weapon wounds the most, and its catches.','Sur une fiche, dans les achats : « ⚖ Comparer » montre quelle arme blesse le plus, et ses contreparties.',"guideGoRoster()",'2026-11-15'],
+ ['manage','Check and repair the warband','Vérifier et réparer la bande','Finds mistakes and fixes them step by step.','Trouve les erreurs et les corrige pas à pas.',"guideGoRoster();setTimeout(()=>{try{openRosterCheck()}catch(e){}},250)"],
+ ['manage','Undo recent changes','Annuler des changements','Go back on the last edits of the warband.','Revenir sur les dernières modifications de la bande.',"guideGoRoster();setTimeout(()=>{try{openUndoHistory()}catch(e){}},250)"],
+ ['manage','History and versions','Historique et versions','Everything that happened to the warband, and older versions to restore.','Tout ce qui est arrivé à la bande, et ses anciennes versions à restaurer.',"guideGoRoster();setTimeout(()=>{try{openWarroomMore()}catch(e){}},250)"],
+ ['manage','Warband statistics','Statistiques de la bande','Wins, kills, gold, value over time.','Victoires, mises hors de combat, or, valeur au fil du temps.',"guideGoRoster('stats')"],
+ ['play','Combat sheet','Fiche de combat','In a game, tap a fighter: rules to watch, save, attacks.','En partie, touche un combattant : règles à surveiller, sauvegarde, attaques.',"navigateApp(APP_ROUTES.playMode)",'2026-11-15'],
+ ['play','What do I need to roll?','Que faut-il au dé ?','The number to roll to hit, wound and save, with bonuses and penalties. No dice at hand? “Roll for me”.','Le chiffre à faire pour toucher, blesser, sauvegarder, avec bonus et malus. Pas de dés ? « Lancer pour moi ».',"navigateApp(APP_ROUTES.playMode)",'2026-11-16'],
+ ['play','Detailed · Compact · Simple','Détaillé · Compact · Simple','Choose how much is shown on each card during a game.','Choisir combien d’infos sur chaque carte en partie.',"navigateApp(APP_ROUTES.playMode)"],
+ ['play','My first game','Ma première partie','The site guides you phase by phase.','Le site te guide phase par phase.',"learnPlayFirstGame()"],
+ ['play','Rout test and Out of Action','Test de déroute et hors de combat','Mark fighters out of action; the rout threshold is worked out.','Marque les hors de combat ; le seuil de déroute est calculé.',"navigateApp(APP_ROUTES.playMode)"],
+ ['play','Table mode and screen on','Mode table et écran allumé','Two warbands side by side on a tablet; the screen stays on.','Deux bandes côte à côte sur tablette ; l’écran reste allumé.',"navigateApp(APP_ROUTES.playMode)"],
+ ['play','Game note','Note de partie','A free note kept with the game and its report.','Une note libre gardée avec la partie et son compte rendu.',"navigateApp(APP_ROUTES.playMode)"],
+ ['play','The game in 2 minutes','Le jeu en 2 minutes','Turns, actions and how to win, in a few cards.','Les tours, les actions et comment gagner, en quelques cartes.',"helpCardsOpen(0)"],
+ ['play','Learn to play','Apprendre à jouer','Short lessons with a dice exercise, in 9 chapters.','Des leçons courtes avec un exercice au dé, en 9 chapitres.',"learnOpen('')"],
+ ['play','Training game','Partie d’entraînement','A whole turn played step by step, with Back.','Un tour complet joué pas à pas, avec retour arrière.',"learnTrainGo()"],
+ ['after','Guided post-battle','Après-bataille guidé','Injuries, experience, exploration, trading: one step at a time.','Blessures, XP, exploration, commerce : une étape à la fois.',"guideGoRoster('postbattle')"],
+ ['after','How a campaign works','Comment marche une campagne','Join, play, and what happens after each game.','Rejoindre, jouer, et ce qui se passe après chaque partie.',"guideOpen('camp')"],
+ ['after','My campaigns','Mes campagnes','Join with the organiser’s code, map, settlements, standings.','Rejoindre avec le code de l’organisateur, carte, colonies, classement.',"navigateApp(APP_ROUTES.myCampaigns)"],
+ ['after','Scenarios','Scénarios','Every scenario with its set-up, rules and victory conditions.','Tous les scénarios avec leur mise en place, règles et conditions de victoire.',"navigateApp(APP_ROUTES.scenarios)"],
+ ['rules','Rules: what to read first','Règles : quoi lire d’abord','The reading order for a new player.','L’ordre de lecture pour un nouveau joueur.',"helpReadingShow()"],
+ ['rules','Site search','Recherche du site','Rules, titles, warbands, scenarios and your own content.','Règles, titres, bandes, scénarios et ton contenu perso.',"navigateApp(APP_ROUTES.rules)"],
+ ['rules','Words explained on tap','Mots expliqués au toucher','Tap an underlined game word to read its rule.','Touche un mot de jeu souligné pour lire sa règle.',"navigateApp(APP_ROUTES.rules)"],
+ ['rules','Reference','Référentiel','Every skill, spell, item, trait and artifact.','Toutes les compétences, sorts, objets, traits et artefacts.',"navigateApp(APP_ROUTES.references)"],
+ ['share','Print the warband','Imprimer la bande','A4 sheet, compact list, blank sheet.','Feuille A4, liste compacte, fiche vierge.',"guideGoRoster();setTimeout(()=>{try{openPrintChooser()}catch(e){}},250)"],
+ ['share','Fighter cards','Cartes de combattants','To print: 63 × 88 mm, 9 per A4 page, to cut out.','À imprimer : 63 × 88 mm, 9 par page A4, à découper.',"guideGoRoster();setTimeout(()=>{try{openPrintChooser()}catch(e){}},250)",'2026-11-14'],
+ ['share','Share as a picture','Partager en image','The warband as one picture to send.','La bande en une image à envoyer.',"guideGoRoster();setTimeout(()=>{try{shareWarbandImage()}catch(e){}},250)"],
+ ['share','Read-only link','Lien en lecture seule','A link to show your warband without letting anyone change it.','Un lien pour montrer ta bande sans qu’on puisse la modifier.',"guideGoRoster();setTimeout(()=>{try{openWarbandShare()}catch(e){}},250)"],
+ ['share','Warband file','Fichier de bande','Save a warband to a file, or open one: to keep it or send it.','Enregistrer une bande dans un fichier, ou en ouvrir un : pour la garder ou l’envoyer.',"openWarbandFiles()",'2026-11-13'],
+ ['share','Backups on this device','Sauvegardes sur ce téléphone','Dated copies of your warbands, kept on the device.','Des copies datées de tes bandes, gardées sur l’appareil.',"openBackups()"],
+ ['help','Account and sync','Compte et synchro','Your warbands on every device, even offline.','Tes bandes sur tous tes appareils, même hors ligne.',"navigateApp(APP_ROUTES.account)"],
+ ['help','To do (reminders)','À faire (rappels)','On the home page: what is waiting, with Go, Later or Don’t show again.','Sur l’accueil : ce qui attend, avec Aller, Plus tard ou Ne plus afficher.',"navigateApp('/')"],
+ ['help','The player’s guide','Le guide du joueur','Everything step by step, from zero to your first game.','Tout, étape par étape, de zéro à ta première partie.',"guideOpen(null)"],
+ ['help','General tour','Visite générale','The main screens, in 4 steps.','Les écrans principaux, en 4 étapes.',"helpTourStart('general')"],
+ ['help','First steps','Premiers pas','The checklist on the home page.','La liste à cocher sur l’accueil.',"helpChecklistShow()"]
+];
+function manualIsNew(d){const t=Date.parse(d||'');return Number.isFinite(t)&&Date.now()-t<14*864e5}
+function manualRun(i){const t=MANUAL_TOOLS[i];if(!t)return;try{(new Function(t[5]))()}catch(e){console.warn(e)}}
+const HELP_PAGE_TOOLS={dashboard:['Create my warband step by step','To do (reminders)','The player’s guide'],rosters:['Ready-made warband','Warband file','Backups on this device'],create:['Compare the factions','Ready-made warband','Create my warband step by step'],builder:['Warband assistant','Check and repair the warband','Ready to play?','Print the warband'],postbattle:['Guided post-battle','How a campaign works'],fighter:['Understand a profile','Compare weapons','Check and repair the warband'],playMode:['Combat sheet','What do I need to roll?','Detailed · Compact · Simple','My first game'],myCampaigns:['How a campaign works','My campaigns'],campaignHub:['How a campaign works','Guided post-battle'],rules:['Rules: what to read first','Site search','Words explained on tap'],references:['Reference','Site search'],scenarios:['Scenarios','My first game'],account:['Account and sync','Backups on this device'],custom:['Personal content'],learn:['Learn to play','Training game','The game in 2 minutes'],printList:['Print the warband','Fighter cards']};
+let helpHubQ='',helpHubGroups=new Set();
+function helpToolRun(i){helpSheetClose();try{closeModal()}catch(e){}manualRun(i)}
+function helpHubRow(t,i,en){const L=(a,b)=>en?a:b;return `<div class="hh-row"><span><b>${esc(L(t[1],t[2]))}</b>${manualIsNew(t[6])?` <i class="man-new">${L('NEW','NOUVEAU')}</i>`:''}<small>${esc(L(t[3],t[4]))}</small></span><button type="button" class="hh-go" onclick="helpToolRun(${i})">${L('Show me','Montre-moi')}</button></div>`}
+function helpHubBody(){const en=siteLanguage==='en';const L=(a,b)=>en?a:b;const q=normName(helpHubQ.trim());const tools=MANUAL_TOOLS.map((t,i)=>({t,i}));
+  if(q){const hits=tools.filter(o=>normName(`${o.t[1]} ${o.t[2]} ${o.t[3]} ${o.t[4]}`).includes(q));return `${hits.length?`<div class="hh-box">${hits.map(o=>helpHubRow(o.t,o.i,en)).join('')}</div>`:`<p class="muted">${L('No help tool found.','Aucune aide trouvée.')}</p>`}<button type="button" class="hh-link" onclick="helpSheetClose();siteSearchQuery=${esc(JSON.stringify(helpHubQ.trim()))};openSiteSearch()">🔍 ${L('Search the rules for','Chercher dans les règles :')} « ${esc(helpHubQ.trim())} »</button>`}
+  const k=helpPageKey();const pg=HELP_PAGES[k]||HELP_PAGES.dashboard;const mine=(HELP_PAGE_TOOLS[k]||[]).map(n=>tools.find(o=>o.t[1]===n)).filter(Boolean);
+  const unseen=helpNewsUnseen();const st=helpState();const lv=st.level||'off';
+  const tile=(ic,t,s,run)=>`<button type="button" class="hh-tile" onclick="helpSheetClose();${run}"><span>${ic}</span><b>${t}</b><small>${s}</small></button>`;
+  return `<div class="hh-kick">${L('ON THIS PAGE','SUR CETTE PAGE')} · ${esc(hx(`page.${k}.title`,pg.title)).toUpperCase()}</div>
+  ${mine.length?`<div class="hh-box">${mine.map(o=>helpHubRow(o.t,o.i,en)).join('')}</div>`:''}
+  <div class="hh-pageacts">${pg.tour?`<button type="button" class="help-go" onclick="helpSheetClose();helpTourStart('${jsq(k)}')">▶ ${L('Tour of this page','Visite de cette page')}</button>`:''}<details class="hh-points"><summary>📄 ${L(`This page in ${pg.points.length} points`,`La page en ${pg.points.length} points`)}</summary><ol class="help-points">${pg.points.map((p,i)=>`<li><span class="help-n">${i+1}</span><span>${esc(hx(`page.${k}.p${i}`,p))}</span></li>`).join('')}</ol></details></div>
+  <div class="hh-kick">${L('I AM NEW','JE DÉBUTE')}</div>
+  <div class="hh-tiles">${tile('🧭',L('The guide','Le guide'),L('From zero to the first game','De zéro à la 1re partie'),'guideOpen(null)')}${tile('◆',L('The game in 2 min','Le jeu en 2 min'),L('9 short cards','9 cartes courtes'),'helpCardsOpen(0)')}${tile('🎓',L('Learn to play','Apprendre à jouer'),L('Lessons with dice','Leçons avec dés'),"learnOpen('')")}</div>
+  <div class="hh-kick">${L('ALL HELP','TOUTES LES AIDES')}</div>
+  <div class="hh-groups">${MANUAL_GROUPS.map(([g,title])=>{const rows=tools.filter(o=>o.t[0]===g);if(!rows.length)return '';const nw=rows.some(o=>manualIsNew(o.t[6]));return `<details class="hh-group"${helpHubGroups.has(g)?' open':''} ontoggle="this.open?helpHubGroups.add('${g}'):helpHubGroups.delete('${g}')"><summary><b>${esc(L(title[0],title[1]))}</b>${nw?` <i class="man-new">${L('NEW','NOUVEAU')}</i>`:''}<span>${rows.length} ›</span></summary><div class="hh-box">${rows.map(o=>helpHubRow(o.t,o.i,en)).join('')}</div></details>`}).join('')}</div>
+  <button type="button" class="hh-link" onclick="manualOpen()">${L('All help on one page ›','Toutes les aides sur une page ›')}</button>
+  <details class="hh-news" ontoggle="if(this.open){helpSave({newsSeen:HELP_NEWS.map(n=>n.id)});helpBtnSync()}"><summary>✨ <b>${L('What’s new','Nouveautés')}</b>${unseen.length?` <b class="help-pill">${unseen.length}</b>`:''}</summary><ul class="help-news">${HELP_NEWS.slice(0,8).map(n=>`<li>${unseen.includes(n)?`<b class="help-pill">${L('New','Nouveau')}</b> `:''}${esc(hx(`news.${n.id}`,n.text))}${n.go?` <button type="button" class="help-news-go" onclick="helpSheetClose();${esc(n.go)}">${L('See','Voir')}</button>`:''}</li>`).join('')}</ul></details>
+  <details class="hh-settings"><summary>⚙ ${L('Help settings','Réglages de l’aide')}</summary><div class="help-menu">
+   <button type="button" onclick="helpSheetClose();helpTourStart('general')"><i>▶</i><span><b>${L('General tour','Visite générale')}</b><small>${L('The main screens, in 4 steps.','Les écrans principaux, en 4 étapes.')}</small></span></button>
+   <button type="button" onclick="helpSheetClose();helpChecklistShow()"><i>✓</i><span><b>${L('First steps','Premiers pas')}</b><small>${L('Show the list on the home page again.','Réafficher la liste sur l’accueil.')}</small></span></button>
+   <button type="button" onclick="helpTipsReset()"><i>!</i><span><b>${L('See the tips again','Revoir les astuces')}</b><small>${L('The one-time tips will show again.','Les astuces affichées une fois reviendront.')}</small></span></button>
+   ${isAdminEditUI()?`<button type="button" onclick="helpSheetClose();helpPreviewStart()"><i>👁</i><span><b>${L('See it as a new player','Voir comme un nouveau joueur')}</b><small>${L('Welcome, first steps, tips — your own settings come back when you leave.','Accueil, premiers pas, astuces — tes réglages reviennent quand tu quittes.')}</small></span></button><button type="button" onclick="helpSheetClose();openHelpTextsEditor()"><i>✎</i><span><b>${L('Edit the help texts (admin)','Modifier les textes de l’aide (admin)')}</b><small>${L('Page points, cards, news…','Points des pages, cartes, nouveautés…')}</small></span></button>`:''}
+   <label class="help-level"><span><b>${L('Help level','Niveau d’aide')}</b></span><select onchange="helpSetLevel(this.value)"><option value="new" ${lv==='new'?'selected':''}>${L('New to the game','Je découvre le jeu')}</option><option value="vet" ${lv==='vet'?'selected':''}>${L('I know Mordheim','Je connais Mordheim')}</option><option value="off" ${lv==='off'?'selected':''}>${L('No automatic help','Pas d’aide automatique')}</option></select></label>
+  </div></details>`}
+function openHelpHub(){const en=siteLanguage==='en';helpHubQ='';
+  helpSheetOpen(`<div class="help-hub"><div class="hh-head"><h3>${en?'Help':'Aides'}</h3><button type="button" class="help-ghost hh-close" onclick="helpSheetClose()" aria-label="${en?'Close':'Fermer'}">✕</button></div><label class="hh-search"><span aria-hidden="true">🔍</span><input type="search" id="helpHubSearch" placeholder="${en?'A help, a tool or a rule…':'Une aide, un outil ou une règle…'}" oninput="helpHubQ=this.value;const b=document.getElementById('hhBody');if(b)b.innerHTML=helpHubBody()"></label><div id="hhBody">${helpHubBody()}</div></div>`)}
+function openPageHelp(){openHelpHub()}
+function openHelpMenu(){openHelpHub()}
 function helpSetLevel(v){helpSave({level:v,welcomed:true});if(v==='new')helpSave({checklistHidden:false});toast(siteLanguage==='en'?'Help level saved':'Niveau d’aide enregistré');try{renderCurrentRoute()}catch(e){}}
 function helpTipsReset(){helpSave({tipsSeen:{}});toast(siteLanguage==='en'?'Tips will show again':'Les astuces vont revenir')}
 // ---- welcome (first visit) ----
