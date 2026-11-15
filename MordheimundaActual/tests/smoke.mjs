@@ -1693,6 +1693,19 @@ await test('[desktop] weapon comparator: opens from the shop, ranks weapons, swi
   expect(out.weaker&&out.added&&out.removed,'a tougher target lowers the numbers, weapons can be added and removed: '+JSON.stringify(out));
   expect(out.shoot==='Shooting'&&JSON.stringify(out.dmg)==='[1,2,2,4.5]'&&out.inManual,'shooting mode, damage averages and the user-guide entry: '+JSON.stringify(out));
 });
+await test('[desktop] roll for me, weather rolled at launch, refreshed news with See buttons',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const w=(f.warriors||[]).find(q=>q.type==='Leader')||f.warriors[0];r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'rf1',name:'Roller',xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});save(true);
+    openDiceHelp('rf1');const folded=!document.querySelector('.dh-rollme')?.open;const c=diceHelpCalc();
+    diceRollAll();const a=diceHelp.rf;const all=a.done&&a.h.length===c.attacks&&a.w.length===a.hn&&!!document.querySelector('.dh-rres');
+    diceSet('t',5);const reset=diceHelp.rf===null;diceRollStep();const s1=!!diceHelp.rf.h&&!diceHelp.rf.w;diceRollStep();const s2=!!diceHelp.rf.w&&!diceHelp.rf.done;diceRollStep();const s3=diceHelp.rf.done;closeModal();
+    const wm=playAutoRollsMarkup({conditions:{weather:{total:7,name:'Fog'}}},true);const none=playAutoRollsMarkup({},true)==='';
+    openHelpMenu();const see=document.querySelectorAll('.help-news-go').length;helpSheetClose();
+    return {folded,all,reset,s1,s2,s3,weather:/Fog/.test(wm)&&/rollPlayWeather/.test(wm),none,first:HELP_NEWS[0].id,see}});
+  expect(out.folded&&out.all&&out.reset,'roll for me is folded by default, rolls hit/wound/save, and resets when a value changes: '+JSON.stringify(out));
+  expect(out.s1&&out.s2&&out.s3,'one step at a time rolls hit, then wound, then save: '+JSON.stringify(out));
+  expect(out.weather&&out.none&&out.first==='n-rollme'&&out.see>=4,'weather shown with a reroll at launch, news newest first with See buttons: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

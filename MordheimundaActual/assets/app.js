@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0861.0';
+const APP_BUILD='110.0862.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7719,7 +7719,7 @@ function playGenerateRandom(){
     const mid=playPerimeterPoint((d0+d1)/2,w,h);
     groupsOut.push({group:g,color,edge:playEdgeLabel(mid.x,mid.y,w,h,en),players:ps.slots.filter(s=>s.group===g).map(s=>({name:playSlotDisplayName(s,ps)||'—',owner:playSlotOwnerLabel(s,en)}))});
   });
-  ps.generated={shapes:{tableInches:{w:ts.w,h:ts.h},items:[...lines,...circles]},groups:groupsOut,source:'random'};
+  ps.generated={shapes:{tableInches:{w:ts.w,h:ts.h},items:[...lines,...circles]},groups:groupsOut,source:'random'};playAutoRolls(ps);
   playSetupManualOpen=null;
   save();render('playMode');
 }
@@ -7743,7 +7743,7 @@ function playGenerateExisting(){
   const shapes=deploymentMapHasShapes(map)?deploymentMapResizeShapes(map.shapes,ts.w,ts.h):null;
   const groups=playGroupNumbers(ps);
   const groupsOut=groups.map(g=>({group:g,color:playGroupColor(ps,g),edge:'',players:ps.slots.filter(s=>s.group===g).map(s=>({name:playSlotDisplayName(s,ps)||'—',owner:playSlotOwnerLabel(s,en)}))}));
-  ps.generated={shapes,image:map.image||'',groups:groupsOut,source:'existing',mapId:map.id,mapName:map.name,mapNumber:map.number};
+  ps.generated={shapes,image:map.image||'',groups:groupsOut,source:'existing',mapId:map.id,mapName:map.name,mapNumber:map.number};playAutoRolls(ps);
   playSetupManualOpen=null;
   save();render('playMode');
 }
@@ -7812,6 +7812,7 @@ function playAlliancesMarkup(ps,en){
 let playSetupManualOpen=null;
 function playSetupIsOpen(ps){return playSetupManualOpen===null?!ps?.generated:playSetupManualOpen}
 function togglePlaySetup(){playSetupManualOpen=!playSetupIsOpen(state.playSession);render('playMode')}
+function playAutoRollsMarkup(ps,en){const w=ps.conditions?.weather;if(!w)return '';return `<div class="auto-roll"><span><small>${en?'Weather':'Météo'} · 2D6 = ${w.total}</small><b>${esc(w.name)}</b></span><button type="button" class="button secondary tiny" onclick="rollPlayWeather()" title="${en?'Reroll the weather':'Relancer la météo'}">🎲 ${en?'Reroll':'Relancer'}</button><button type="button" class="button secondary tiny" onclick="setPlayCondTab('conditions')">${en?'Details':'Détails'}</button></div>`}
 function playDeploymentBlockMarkup(ps,s,en,sizes){
   const ready=playAllReady(ps);
   const sizeButtons=sizes.length>1?`<div style="display:flex;gap:6px">${sizes.map(k=>`<button type="button" style="${PM_PILL}${ps.tableSize===k?PM_PILL_ON:''}" onclick="playSetTableSize('${jsq(k)}')">${scenarioTableSizeLabel(k)}</button>`).join('')}</div>`:`<span class="chip">${scenarioTableSizeLabel(ps.tableSize)}</span>`;
@@ -7826,7 +7827,7 @@ function playDeploymentBlockMarkup(ps,s,en,sizes){
   const resultHtml=ps.generated?`<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:4px">
       <div style="flex:none;width:340px;cursor:zoom-in" onclick="openGeneratedMapLightbox()">${deploymentMapHasShapes(ps.generated)?deploymentMapCardSVG(ps.generated.shapes,{forceDims:true}):`<img src="${esc(imgSrc(ps.generated.image||''))}" alt="" style="width:100%;border-radius:6px;display:block">`}</div>
       <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:0">
-        ${sourceChip}
+        ${sourceChip}${playAutoRollsMarkup(ps,en)}
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin-bottom:8px">${en?'Groups & table edges':'Groupes & bords de table'}</div>
         ${ps.generated.groups.map(g=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)">
           <span style="width:12px;height:12px;border-radius:50%;background:${deployColor(g.color)};margin-top:3px;flex:none"></span>
@@ -10391,8 +10392,25 @@ function diceWound(s,t){return s>=t*2?2:s>t?3:s===t?4:s*2<=t?6:5}
 function diceChance(n){return n>6?0:(7-Math.max(2,n))/6}
 function diceSaveOf(x){try{const p=armorSaveInfo(x)?.parts;const n=Number(Array.isArray(p)?p[0]:NaN);return Number.isFinite(n)&&n>=2&&n<=6?n:7}catch(e){return 7}}
 function openDiceHelp(inst){const f=diceFindFighter(inst);if(!f)return;const keep=diceHelp&&diceHelp.inst===inst?diceHelp:null;diceHelp={inst,wi:keep?.wi||0,tgt:keep?.tgt||'',ws:keep?.ws||3,t:keep?.t||3,sv:keep?.sv||7,cover:!!keep?.cover,mh:keep?.mh||0,mw:keep?.mw||0,ms:keep?.ms||0};const tg=diceTargets(f.r);if(!diceHelp.tgt||(diceHelp.tgt!=='manual'&&!tg.some(t=>t.key===diceHelp.tgt)))diceHelp.tgt=tg[0]?.key||'manual';openModal(diceHelpMarkup())}
-function diceMod(k,dv){if(!diceHelp)return;diceHelp[k]=Math.max(-3,Math.min(3,(Number(diceHelp[k])||0)+dv));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
-function diceSet(k,v){if(!diceHelp)return;diceHelp[k]=k==='cover'?!!v:(k==='tgt'?String(v):Number(v));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceMod(k,dv){if(!diceHelp)return;diceHelp.rf=null;diceHelp[k]=Math.max(-3,Math.min(3,(Number(diceHelp[k])||0)+dv));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceSet(k,v){if(!diceHelp)return;diceHelp.rf=null;diceHelp[k]=k==='cover'?!!v:(k==='tgt'?String(v):Number(v));const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+// V-ROLLFORME: "No dice at hand? Roll for me", folded away by default — real
+// dice stay the rule. Rolls to hit (one die per attack), then to wound with
+// the hits, then the enemy's saves; nothing is recorded anywhere.
+function diceRollStage(c,rf,k){const roll=n=>Array.from({length:Math.max(0,n)},()=>1+Math.floor(Math.random()*6));const ok=(v,need)=>need<7&&v!==1&&v>=need;
+  if(k==='h'){rf.h=roll(c.attacks);rf.hn=rf.h.filter(v=>ok(v,c.hit)).length}
+  else if(k==='w'){rf.w=roll(rf.hn);rf.wn=rf.w.filter(v=>ok(v,c.wound)).length}
+  else{rf.s=c.save>=7?[]:roll(rf.wn);rf.sn=rf.s.filter(v=>ok(v,c.save)).length;rf.done=true}}
+function diceRedraw(){const el=document.querySelector('.dice-help');if(el)el.outerHTML=diceHelpMarkup()}
+function diceRollAll(){if(!diceHelp)return;const c=diceHelpCalc();if(!c)return;const rf={};diceRollStage(c,rf,'h');diceRollStage(c,rf,'w');diceRollStage(c,rf,'s');diceHelp.rf=rf;diceHelp.rfOpen=true;diceRedraw()}
+function diceRollStep(){if(!diceHelp)return;const c=diceHelpCalc();if(!c)return;let rf=diceHelp.rf;if(!rf||rf.done)rf={};const k=!rf.h?'h':!rf.w?'w':'s';diceRollStage(c,rf,k);diceHelp.rf=rf;diceHelp.rfOpen=true;diceRedraw()}
+function diceRollMarkup(c,en){const d=diceHelp;const rf=d.rf;const need=n=>n>=7?'—':n+'+';
+  const dice=(vals,n)=>`<span class="dh-dice">${vals.map(v=>`<i class="${n<7&&v!==1&&v>=n?'ok':''}">${v}</i>`).join('')||`<small class="muted">${en?'no dice':'aucun dé'}</small>`}</span>`;
+  const line=(l,vals,n,res)=>`<div class="dh-rline"><span>${l} ${need(n)}</span>${dice(vals,n)}<b>${res}</b></div>`;
+  let body='';if(rf){if(rf.h)body+=line(en?'Hit':'Toucher',rf.h,c.hit,`${rf.hn} ✓`);if(rf.w)body+=line(en?'Wound':'Blesser',rf.w,c.wound,`${rf.wn} ✓`);if(rf.s&&rf.done&&c.save<7)body+=line(en?'Save':'Sauv.',rf.s,c.save,en?`${rf.sn} saved`:`${rf.sn} sauvée${rf.sn>1?'s':''}`);
+    if(rf.done){const n=rf.wn-(rf.sn||0);const dmg=String(c.w?.profile?.damage||'1').trim();body+=`<div class="dh-rres"><b>${en?`Result: ${n} wound${n>1?'s':''}`:`Résultat : ${n} blessure${n>1?'s':''}`}</b>${n?` <span class="muted">(${en?'damage':'dégâts'} ${esc(dmg)} ${en?'each':'chacune'})</span>`:''}</div>`}}
+  const stepLbl=!rf||rf.done?(en?'One step at a time':'Une étape à la fois'):!rf.w?(en?'Next: wound ›':'Ensuite : blesser ›'):(en?'Next: save ›':'Ensuite : sauvegarde ›');
+  return `<details class="dh-rollme"${d.rfOpen?' open':''} ontoggle="if(diceHelp)diceHelp.rfOpen=this.open"><summary>🎲 ${en?'No dice at hand? Roll for me':'Pas de dés sous la main ? Lancer pour moi'}</summary><div class="dh-rbody">${body}<div class="dh-rbtns"><button type="button" class="button secondary" onclick="diceRollAll()">🎲 ${rf?(en?'Roll again':'Relancer'):(en?'Roll everything':'Tout lancer')}</button><button type="button" class="button secondary" onclick="diceRollStep()">${stepLbl}</button></div><small class="muted">${en?'Real dice stay the rule: this is a die, not a referee, and nothing is recorded.':'Les vrais dés restent la règle : c’est un dé, pas un arbitre, et rien n’est enregistré.'}</small></div></details>`}
 function diceHelpCalc(){const d=diceHelp;const f=diceFindFighter(d.inst);if(!f)return null;const x=f.x;const P0=x.profile||[];const weapons=wbWeapons(x);const w=weapons[d.wi]||null;
   const ranged=!!(w&&weaponIsRanged(w.profile));const S=Number(P0[3])||3;let fx=null;try{fx=w?weaponEffectPack(x,w):null}catch(e){}
   const str=diceStrength(w?.profile?.strength,S)+(Number(fx?.strength)||0);const ap=w?diceAp(w.profile?.ap)+(Number(fx?.ap)||0):0;
@@ -10417,6 +10435,7 @@ function diceHelpMarkup(){const en=siteLanguage==='en';const c=diceHelpCalc();if
    <details class="dh-mods"${d.mh||d.mw||d.ms?' open':''}><summary>${en?'Bonuses and penalties (skills, spells, scenario…)':'Bonus et malus (compétences, sorts, scénario…)'}${d.mh||d.mw||d.ms?` · <b>${[d.mh,d.mw,d.ms].filter(Boolean).length}</b>`:''}</summary><div class="dh-mod-list">${[['mh',en?'To hit':'Pour toucher'],['mw',en?'To wound':'Pour blesser'],['ms',en?'Enemy save':'Sauvegarde ennemie']].map(([k,l])=>`<div class="dh-mod"><span>${l}</span><button type="button" onclick="diceMod('${jsq(k)}',-1)" aria-label="−1">−</button><b>${d[k]>0?'+':''}${d[k]||0}</b><button type="button" onclick="diceMod('${jsq(k)}',1)" aria-label="+1">+</button></div>`).join('')}<small class="muted">${en?'+1 = easier roll. Add up every source: e.g. +1 skill and −1 spell = 0.':'+1 = jet plus facile. Additionne toutes les sources : ex. +1 compétence et −1 sort = 0.'}</small></div></details>
    <div class="dh-rows">${row('1',en?'Hit':'Toucher',need(c.hit),c.ranged?`${en?'BS':'CT'} ${c.x.profile?.[2]}${d.cover?(en?', cover':', couvert'):''}`:`${en?'WS':'CC'} ${c.x.profile?.[1]} ${en?'against':'contre'} ${c.tWS}`)}${row('2',en?'Wound':'Blesser',need(c.wound),`${en?'S':'F'} ${c.str} ${en?'against T':'contre E'} ${c.tT}`)}${row('3',en?'Enemy save':'Sauvegarde ennemie',c.save>=7?(en?'none':'aucune'):need(c.save),c.save>=7?(en?'no save':'pas de sauvegarde'):`Sv ${c.tSv}+${c.ap?` ${en?'with AP':'avec PA'} ${c.ap>0?'+':''}${c.ap}`:''}`)}</div>
    <div class="dh-sum">${en?'Chance to wound per attack:':'Chance de blesser par attaque :'} <b>${pct(c.p)}</b>${c.attacks>1?`<br>${en?`With its ${c.attacks} attacks: about ${(c.p*c.attacks).toFixed(1)} wound(s)`:`Avec ses ${c.attacks} attaques : environ ${(c.p*c.attacks).toFixed(1).replace('.',',')} blessure(s)`}`:''}${advice?`<br><span class="muted">${advice}</span>`:''}</div>
+   ${diceRollMarkup(c,en)}
    <p class="muted dh-note">${en?'A 1 always fails. Special rules and skills are not counted: add them under “Bonuses and penalties”.':'Un 1 rate toujours. Les règles spéciales et compétences ne sont pas comptées : ajoute-les dans « Bonus et malus ».'}</p>
    <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`}
 function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){if(playSimpleMode&&x)return playSimpleMarkup(x,f,badge,anchor,extraClass,openRid);let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="openCombatSheet('${jsq(openRid)}','${jsq(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${jsq(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
@@ -10579,7 +10598,12 @@ function playHazardUnits(r,ps=state.playSession){
   return out;
 }
 function playConditions(ps){if(!ps.conditions||typeof ps.conditions!=='object')ps.conditions={rolls:{},hazards:[],manual:{}};const c=ps.conditions;c.rolls=c.rolls||{};c.hazards=c.hazards||[];c.manual=c.manual||{};return c}
-function rollPlayWeather(){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;const pc=playConditions(ps);const d=[postBattleRoll(),postBattleRoll()];const total=d[0]+d[1];const w=(camp.definition.conditions.weather||[]).find(x=>total>=x.min&&total<=x.max)||null;const sub=w?.sub?postBattleRoll():null;pc.weather={dice:d,total,name:w?.name||'—',text:w?.text||'',sub,subText:w?.sub?(w.sub.find(s=>sub>=s[0]&&sub<=s[1])||[])[2]||'':''};save();render('playMode')}
+// V-AUTOROLLS: what can be rolled without knowing the engaged fighters
+// (the campaign weather) is rolled as soon as the deployment is generated,
+// and can be rerolled as before; hazards still wait for the fighters.
+function playAutoRolls(ps){try{const camp=playConditionsCampaign(ps);if(!camp||!(camp.definition?.conditions?.weather||[]).length)return;if(!playConditions(ps).weather)playWeatherRoll(ps,camp)}catch(e){}}
+function playWeatherRoll(ps,camp){const pc=playConditions(ps);const d=[postBattleRoll(),postBattleRoll()];const total=d[0]+d[1];const w=(camp.definition.conditions.weather||[]).find(x=>total>=x.min&&total<=x.max)||null;const sub=w?.sub?postBattleRoll():null;pc.weather={dice:d,total,name:w?.name||'—',text:w?.text||'',sub,subText:w?.sub?(w.sub.find(s=>sub>=s[0]&&sub<=s[1])||[])[2]||'':''}}
+function rollPlayWeather(){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;const camp=playConditionsCampaign(ps);if(!camp)return;playWeatherRoll(ps,camp);save();render('playMode')}
 function setPlayManualUnits(i,v){if(playGuestBlocked())return;const ps=state.playSession;if(!ps)return;playConditions(ps).manual[i]=Math.max(0,Math.min(30,Math.floor(Number(v)||0)));save();render('playMode')}
 function rollPlayHazards(){
   if(playGuestBlocked())return;
@@ -18601,9 +18625,19 @@ const HELP_TIPS={
  campaign:{title:['Choose your residence','Choisis ta résidence'],text:['Where your warband lives on the map changes some events and scenarios.','L’endroit où vit ta bande sur la carte change certains évènements et scénarios.']}
 };
 // "What's new": newest first; a short line each.
+// V-NEWS: newest first. `go` (optional) opens the tool, like "Show me" in
+// the user guide. Add a line here with each new tool.
 const HELP_NEWS=[
- {id:'help-1',text:['New: a ? on every page, a guided tour and “First steps” for new players (Account › Help).','Nouveau : un ? sur chaque page, une visite guidée et « Premiers pas » pour bien démarrer (Compte › Aide).']},
- {id:'scn-groups',text:['Scenarios are now split into Preparation, Play and Ending, with their picture.','Les scénarios sont rangés en Préparation, Jeu et Fin, avec leur image.']}
+ {id:'n-rollme',date:'2026-11-16',text:['“Roll for me” in “What do I need to roll?”: when no dice are at hand (real dice stay the rule).','« Lancer pour moi » dans « Que faut-il au dé ? » : quand on n’a pas de dés sous la main (les vrais dés restent la règle).']},
+ {id:'n-weather',date:'2026-11-16',text:['Campaign weather is rolled as soon as the deployment is generated (reroll stays possible).','La météo de campagne est tirée dès que le déploiement est généré (on peut toujours relancer).']},
+ {id:'n-wcmp',date:'2026-11-15',text:['Compare weapons: in a fighter’s shop, “⚖ Compare” shows which weapon wounds the most.','Comparer des armes : dans les achats d’un combattant, « ⚖ Comparer » montre quelle arme blesse le plus.'],go:"guideGoRoster()"},
+ {id:'n-manual',date:'2026-11-15',text:['User guide: every tool of the site, by moment, with “Show me”.','Mode d’emploi : tous les outils du site, par moment, avec « Montre-moi ».'],go:"manualOpen()"},
+ {id:'n-combat',date:'2026-11-14',text:['Combat sheet: in a game, tap a fighter for its rules, save and attacks.','Fiche de combat : en partie, touche un combattant pour voir ses règles, sa sauvegarde et ses attaques.'],go:"navigateApp(APP_ROUTES.playMode)"},
+ {id:'n-cards',date:'2026-11-14',text:['Fighter cards to print: 63 × 88 mm, 9 per A4 page.','Cartes de combattants à imprimer : 63 × 88 mm, 9 par page A4.'],go:"guideGoRoster();setTimeout(()=>{try{openPrintChooser()}catch(e){}},250)"},
+ {id:'n-simple',date:'2026-11-13',text:['Play: Detailed · Compact · Simple views for the fighter cards.','Jouer : vues Détaillé · Compact · Simple pour les cartes des combattants.'],go:"navigateApp(APP_ROUTES.playMode)"},
+ {id:'n-file',date:'2026-11-13',text:['Warband file: save a warband to a file, or open one.','Fichier de bande : enregistrer une bande dans un fichier, ou en ouvrir un.'],go:"openWarbandFiles()"},
+ {id:'help-1',text:['A ? on every page, a guided tour and “First steps” for new players.','Un ? sur chaque page, une visite guidée et « Premiers pas » pour bien démarrer.']},
+ {id:'scn-groups',text:['Scenarios are split into Preparation, Play and Ending, with their picture.','Les scénarios sont rangés en Préparation, Jeu et Fin, avec leur image.']}
 ];
 const HELP_KEY='mu_help';
 function helpState(){try{return JSON.parse(localStorage.getItem(HELP_KEY)||'{}')||{}}catch(e){return {}}}
@@ -18635,7 +18669,7 @@ function openHelpMenu(){const en=siteLanguage==='en';const st=helpState();const 
   ${isAdminEditUI()?`<button type="button" onclick="helpSheetClose();helpPreviewStart()"><i>👁</i><span><b>${en?'See it as a new player':'Voir comme un nouveau joueur'}</b><small>${en?'Welcome, first steps, tips — your own settings come back when you leave.':'Accueil, premiers pas, astuces — tes réglages reviennent quand tu quittes.'}</small></span></button>`:''}
   <label class="help-level"><span><b>${en?'Help level':'Niveau d’aide'}</b></span><select onchange="helpSetLevel(this.value)"><option value="new" ${lv==='new'?'selected':''}>${en?'New to the game':'Je découvre le jeu'}</option><option value="vet" ${lv==='vet'?'selected':''}>${en?'I know Mordheim':'Je connais Mordheim'}</option><option value="off" ${lv==='off'?'selected':''}>${en?'No automatic help':'Pas d’aide automatique'}</option></select></label>
  </div>
- <div class="help-kicker" style="margin-top:12px">${en?'WHAT’S NEW':'NOUVEAUTÉS'}</div><ul class="help-news">${HELP_NEWS.map(n=>`<li>${seen.has(n.id)?'':`<b class="help-pill">${en?'New':'Nouveau'}</b> `}${esc(hx(`news.${n.id}`,n.text))}</li>`).join('')}</ul>
+ <div class="help-kicker" style="margin-top:12px">${en?'WHAT’S NEW':'NOUVEAUTÉS'}</div><ul class="help-news">${HELP_NEWS.slice(0,8).map(n=>`<li>${seen.has(n.id)?'':`<b class="help-pill">${en?'New':'Nouveau'}</b> `}${esc(hx(`news.${n.id}`,n.text))}${n.go?` <button type="button" class="help-news-go" onclick="helpSheetClose();${esc(n.go)}">${en?'See':'Voir'}</button>`:''}</li>`).join('')}</ul>
  <div class="help-actions"><button type="button" class="help-ghost" onclick="helpSheetClose()">${en?'Close':'Fermer'}</button></div>`);
  helpSave({newsSeen:HELP_NEWS.map(n=>n.id)});helpBtnSync()}
 function helpSetLevel(v){helpSave({level:v,welcomed:true});if(v==='new')helpSave({checklistHidden:false});toast(siteLanguage==='en'?'Help level saved':'Niveau d’aide enregistré');try{renderCurrentRoute()}catch(e){}}

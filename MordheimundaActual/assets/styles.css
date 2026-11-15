@@ -6354,3 +6354,10 @@ html[data-theme="light"] .combat-sheet .cs-atk b{color:#9a4a1e}html[data-theme="
 .wcmp-verdict{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.5}.wcmp-verdict .muted{font-size:12.5px}
 .wcmp-actions{display:flex;gap:8px;flex-wrap:wrap}.wcmp-actions>*{flex:1 1 160px}.wcmp-small{font-size:11.5px;line-height:1.45;margin:0}
 @media(max-width:420px){.wcmp-row{grid-template-columns:minmax(0,1.4fr) .55fr .55fr .65fr .75fr 24px;font-size:12px;padding:8px}}
+/* V-ROLLFORME */
+.dh-rollme{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}.dh-rollme summary{font-weight:700;font-size:13.5px;cursor:pointer}
+.dh-rbody{display:flex;flex-direction:column;gap:8px;margin-top:10px}.dh-rline{display:grid;grid-template-columns:78px 1fr auto;gap:8px;align-items:center;font-size:12.5px}
+.dh-dice{display:flex;gap:5px;flex-wrap:wrap}.dh-dice i{font-style:normal;width:30px;height:30px;border-radius:7px;display:grid;place-items:center;font:800 15px 'Cinzel',serif;border:1px solid var(--line);background:var(--panel);color:var(--muted)}.dh-dice i.ok{border-color:var(--accent);background:rgba(157,250,60,.15);color:var(--text)}
+.dh-rres{border-radius:10px;background:rgba(157,250,60,.1);border:1px solid var(--accent);padding:9px 11px;font-size:14px}.dh-rbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.auto-roll{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:10px}.auto-roll span{flex:1;min-width:140px}.auto-roll small{display:block;font-size:11px;color:var(--muted2)}.auto-roll b{font-size:14px}
+.help-news-go{border:1px solid var(--accent);background:rgba(157,250,60,.1);color:var(--accent);border-radius:7px;padding:2px 8px;font:700 11.5px "IBM Plex Sans",sans-serif;cursor:pointer;margin-left:4px}
