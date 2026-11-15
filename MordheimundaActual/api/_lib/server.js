@@ -1829,6 +1829,31 @@ app.post('/api/errors',requireDb,errReportLimiter,async(req,res,next)=>{
     res.json({ok:true,stored:n});
   }catch(e){next(e)}
 });
+// V-FEEDBACK: "Report a problem" — anonymous, rate-limited, size-capped.
+const feedbackLimiter=rateLimit({windowMs:10*60*1000,max:5,standardHeaders:true,legacyHeaders:false,message:{error:'RATE_LIMITED'}});
+const FEEDBACK_KINDS=new Set(['bug','rule','text','idea']);
+function feedbackRoster(r){if(!r||typeof r!=='object'||Array.isArray(r))return null;const strip=v=>{if(Array.isArray(v))return v.map(strip);if(v&&typeof v==='object'){const o={};for(const[k,x]of Object.entries(v)){if(/^(icon|portrait|image|img|photo)/i.test(k)&&typeof x==='string'&&x.length>200)continue;o[k]=strip(x)}return o}return v};const c=strip(r);const txt=JSON.stringify(c);return txt.length<=300000?c:null}
+app.post('/api/feedback',requireDb,requireSameOrigin,feedbackLimiter,async(req,res,next)=>{
+  try{const b=req.body||{};const body=errClip(b.body,2000).trim();if(body.length<3)return res.status(400).json({error:'EMPTY'});
+    const kind=FEEDBACK_KINDS.has(b.kind)?b.kind:'bug';
+    const errors=(Array.isArray(b.errors)?b.errors:[]).slice(0,10).map(e=>({msg:errClip(e?.msg,300),src:errClip(e?.src,160),n:Math.max(1,Math.min(999,Math.floor(Number(e?.n)||1)))})).filter(e=>e.msg);
+    const roster=feedbackRoster(b.roster);
+    await pool.query('INSERT INTO feedback_reports(kind,body,route,build,device,lang,errors,roster) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[kind,body,errClip(b.route,160),errClip(b.build,40),errClip(b.device,90),errClip(b.lang,5),JSON.stringify(errors),roster?JSON.stringify(roster):null]);
+    if(Math.random()<0.1)await pool.query("DELETE FROM feedback_reports WHERE (resolved AND created_at<NOW()-INTERVAL '90 days') OR id NOT IN (SELECT id FROM feedback_reports ORDER BY created_at DESC LIMIT 1000)").catch(()=>{});
+    res.json({ok:true})}catch(e){next(e)}
+});
+app.get('/api/admin/feedback',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT id,kind,body,route,build,device,lang,errors,(roster IS NOT NULL) AS has_roster,resolved,created_at FROM feedback_reports ORDER BY resolved ASC,created_at DESC LIMIT 300');res.json({reports:q.rows})}catch(e){next(e)}
+});
+app.get('/api/admin/feedback/:id/roster',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query('SELECT roster FROM feedback_reports WHERE id=$1',[Math.floor(Number(req.params.id))||0]);if(!q.rows[0]?.roster)return res.status(404).json({error:'NOT_FOUND'});res.json({roster:q.rows[0].roster})}catch(e){next(e)}
+});
+app.post('/api/admin/feedback/:id/resolve',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{await pool.query('UPDATE feedback_reports SET resolved=$2 WHERE id=$1',[Math.floor(Number(req.params.id))||0,req.body?.resolved!==false]);res.json({ok:true})}catch(e){next(e)}
+});
+app.delete('/api/admin/feedback/:id',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{await pool.query('DELETE FROM feedback_reports WHERE id=$1',[Math.floor(Number(req.params.id))||0]);res.json({ok:true})}catch(e){next(e)}
+});
 app.get('/api/admin/errors',requireDb,auth,requireAdmin,async(req,res,next)=>{
   try{const q=await pool.query('SELECT id,build,msg,src,route,action,device,hits,first_at,last_at FROM client_errors ORDER BY last_at DESC LIMIT 200');res.json({errors:q.rows})}catch(e){next(e)}
 });

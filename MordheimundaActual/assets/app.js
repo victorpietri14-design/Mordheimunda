@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0863.0';
+const APP_BUILD='110.0864.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18696,6 +18696,7 @@ const MANUAL_TOOLS=[
  ['help','Account and sync','Compte et synchro','Your warbands on every device, even offline.','Tes bandes sur tous tes appareils, même hors ligne.',"navigateApp(APP_ROUTES.account)"],
  ['help','To do (reminders)','À faire (rappels)','On the home page: what is waiting, with Go, Later or Don’t show again.','Sur l’accueil : ce qui attend, avec Aller, Plus tard ou Ne plus afficher.',"navigateApp('/')"],
  ['help','The player’s guide','Le guide du joueur','Everything step by step, from zero to your first game.','Tout, étape par étape, de zéro à ta première partie.',"guideOpen(null)"],
+ ['help','Report a problem','Signaler un problème','A bug, a wrong rule, a badly translated text, an idea: two lines are enough.','Un bug, une règle fausse, un texte mal traduit, une idée : deux lignes suffisent.',"openReportProblem()",'2026-11-16'],
  ['help','General tour','Visite générale','The main screens, in 4 steps.','Les écrans principaux, en 4 étapes.',"helpTourStart('general')"],
  ['help','First steps','Premiers pas','The checklist on the home page.','La liste à cocher sur l’accueil.',"helpChecklistShow()"]
 ];
@@ -18719,6 +18720,7 @@ function helpHubBody(){const en=siteLanguage==='en';const L=(a,b)=>en?a:b;const 
   <div class="hh-groups">${MANUAL_GROUPS.map(([g,title])=>{const rows=tools.filter(o=>o.t[0]===g);if(!rows.length)return '';const nw=rows.some(o=>manualIsNew(o.t[6]));return `<details class="hh-group"${helpHubGroups.has(g)?' open':''} ontoggle="this.open?helpHubGroups.add('${g}'):helpHubGroups.delete('${g}')"><summary><b>${esc(L(title[0],title[1]))}</b>${nw?` <i class="man-new">${L('NEW','NOUVEAU')}</i>`:''}<span>${rows.length} ›</span></summary><div class="hh-box">${rows.map(o=>helpHubRow(o.t,o.i,en)).join('')}</div></details>`}).join('')}</div>
   <button type="button" class="hh-link" onclick="manualOpen()">${L('All help on one page ›','Toutes les aides sur une page ›')}</button>
   <details class="hh-news" ontoggle="if(this.open){helpSave({newsSeen:HELP_NEWS.map(n=>n.id)});helpBtnSync()}"><summary>✨ <b>${L('What’s new','Nouveautés')}</b>${unseen.length?` <b class="help-pill">${unseen.length}</b>`:''}</summary><ul class="help-news">${HELP_NEWS.slice(0,8).map(n=>`<li>${unseen.includes(n)?`<b class="help-pill">${L('New','Nouveau')}</b> `:''}${esc(hx(`news.${n.id}`,n.text))}${n.go?` <button type="button" class="help-news-go" onclick="helpSheetClose();${esc(n.go)}">${L('See','Voir')}</button>`:''}</li>`).join('')}</ul></details>
+  <button type="button" class="hh-report" onclick="openReportProblem()">🐞 <b>${L('Report a problem','Signaler un problème')}</b><small>${L('A bug, a wrong rule, a badly translated text, an idea','Un bug, une règle fausse, un texte mal traduit, une idée')}</small></button>
   <details class="hh-settings"><summary>⚙ ${L('Help settings','Réglages de l’aide')}</summary><div class="help-menu">
    <button type="button" onclick="helpSheetClose();helpTourStart('general')"><i>▶</i><span><b>${L('General tour','Visite générale')}</b><small>${L('The main screens, in 4 steps.','Les écrans principaux, en 4 étapes.')}</small></span></button>
    <button type="button" onclick="helpSheetClose();helpChecklistShow()"><i>✓</i><span><b>${L('First steps','Premiers pas')}</b><small>${L('Show the list on the home page again.','Réafficher la liste sur l’accueil.')}</small></span></button>
@@ -18728,6 +18730,34 @@ function helpHubBody(){const en=siteLanguage==='en';const L=(a,b)=>en?a:b;const 
   </div></details>`}
 function openHelpHub(){const en=siteLanguage==='en';helpHubQ='';
   helpSheetOpen(`<div class="help-hub"><div class="hh-head"><h3>${en?'Help':'Aides'}</h3><button type="button" class="help-ghost hh-close" onclick="helpSheetClose()" aria-label="${en?'Close':'Fermer'}">✕</button></div><label class="hh-search"><span aria-hidden="true">🔍</span><input type="search" id="helpHubSearch" placeholder="${en?'A help, a tool or a rule…':'Une aide, un outil ou une règle…'}" oninput="helpHubQ=this.value;const b=document.getElementById('hhBody');if(b)b.innerHTML=helpHubBody()"></label><div id="hhBody">${helpHubBody()}</div></div>`)}
+// ============ V-FEEDBACK: "Report a problem" (Help menu) ============
+// Anonymous: the text, and only if ticked the technical details (page,
+// version, device, last errors) and a copy of the open warband. Offline, the
+// report waits on the device and leaves when the network comes back.
+const FEEDBACK_QUEUE_KEY='mu_feedback_q';
+let feedbackDraft=null;
+function feedbackQueue(){try{const v=JSON.parse(localStorage.getItem(FEEDBACK_QUEUE_KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return []}}
+function feedbackQueueSet(v){try{v.length?localStorage.setItem(FEEDBACK_QUEUE_KEY,JSON.stringify(v.slice(-5))):localStorage.removeItem(FEEDBACK_QUEUE_KEY)}catch(e){}}
+async function feedbackFlush(){const q=feedbackQueue();if(!q.length||!navigator.onLine)return;const left=[];for(const f of q){try{await window.MordheimundaAPI.sendFeedback(f)}catch(e){if(!e?.status||e.status>=500)left.push(f)}}feedbackQueueSet(left)}
+try{window.addEventListener('online',()=>feedbackFlush());setTimeout(()=>feedbackFlush(),4000)}catch(e){}
+function openReportProblem(){const r=activeRoster();feedbackDraft={kind:'bug',body:'',tech:true,roster:false,hasRoster:!!r,route:location.pathname};helpSheetClose();openModal(feedbackMarkup());setTimeout(()=>document.getElementById('fbBody')?.focus(),60)}
+function feedbackSet(k,v){if(!feedbackDraft)return;feedbackDraft[k]=v;if(k==='kind'){const el=document.querySelector('.fb-dialog');const txt=document.getElementById('fbBody')?.value;if(txt!=null)feedbackDraft.body=txt;if(el)el.outerHTML=feedbackMarkup()}}
+function feedbackMarkup(){const en=siteLanguage==='en';const d=feedbackDraft;const L=(a,b)=>en?a:b;
+  const kinds=[['bug',L('🐞 It doesn’t work','🐞 Ça ne marche pas')],['rule',L('📖 Wrong rule','📖 Règle fausse')],['text',L('✎ Text / translation','✎ Texte / traduction')],['idea',L('💡 Idea','💡 Idée')]];
+  return `<div class="fb-dialog"><div class="eyebrow">${L('HELP','AIDES')}</div><h2>${L('Report a problem','Signaler un problème')}</h2><p class="muted fb-lead">${L('Something doesn’t work, a rule is wrong, a text is badly translated? Say it in two lines.','Quelque chose ne marche pas, une règle est fausse, un texte est mal traduit ? Dis-le en deux lignes.')}</p>
+  <div class="fb-kinds">${kinds.map(([k,l])=>`<button type="button" class="wcmp-chip ${d.kind===k?'on':''}" onclick="feedbackSet('kind','${k}')">${l}</button>`).join('')}</div>
+  <textarea id="fbBody" class="fb-body" maxlength="2000" rows="5" placeholder="${L('What happened, and where?','Que s’est-il passé, et où ?')}" oninput="feedbackDraft.body=this.value">${esc(d.body)}</textarea>
+  <label class="fb-check"><input type="checkbox" ${d.tech?'checked':''} onchange="feedbackSet('tech',this.checked)"><span><b>${L('Attach the technical details','Joindre les infos techniques')}</b><small>${L('Page open, site version, type of device, last errors. No warband, no e-mail, no password.','Page ouverte, version du site, type d’appareil, dernières erreurs. Aucune bande, aucun e-mail, aucun mot de passe.')}</small></span></label>
+  ${d.hasRoster?`<label class="fb-check"><input type="checkbox" ${d.roster?'checked':''} onchange="feedbackSet('roster',this.checked)"><span><b>${L('Attach a copy of this warband','Joindre une copie de cette bande')}</b><small>${L('Useful when the problem comes from one warband. Only if you tick it.','Utile si le problème vient d’une bande précise. Seulement si tu le coches.')}</small></span></label>`:''}
+  <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${L('Cancel','Annuler')}</button><button type="button" class="button primary" id="fbSend" onclick="feedbackSend()">${L('Send','Envoyer')}</button></div></div>`}
+function feedbackPayload(){const d=feedbackDraft;const body=String(document.getElementById('fbBody')?.value??d.body).trim();const out={kind:d.kind,body,lang:siteLanguage};
+  if(d.tech){out.route=d.route;out.build=APP_BUILD;out.device=`${/Mobi|Android/i.test(navigator.userAgent)?'phone':'desktop'} · ${innerWidth}×${innerHeight}`;out.errors=errLogRead().slice(-10).map(e=>({msg:e.msg,src:e.src,n:e.n||1}))}
+  if(d.roster&&d.hasRoster){try{out.roster=JSON.parse(JSON.stringify(activeRoster()))}catch(e){}}
+  return out}
+async function feedbackSend(){const en=siteLanguage==='en';if(!feedbackDraft)return;const f=feedbackPayload();if(f.body.length<3){toast(en?'Write a few words first':'Écris quelques mots d’abord');document.getElementById('fbBody')?.focus();return}
+  const btn=document.getElementById('fbSend');if(btn)btn.disabled=true;
+  try{if(!navigator.onLine)throw Object.assign(new Error('OFFLINE'),{status:0});await window.MordheimundaAPI.sendFeedback(f);closeModal();feedbackDraft=null;toast(en?'Thank you, the report was sent':'Merci, le signalement est envoyé',2500)}
+  catch(e){if(!e?.status||e.status>=500){feedbackQueueSet([...feedbackQueue(),f]);closeModal();feedbackDraft=null;toast(en?'No network: the report will leave when you are back online':'Pas de réseau : le signalement partira au retour du réseau',3500)}else{if(btn)btn.disabled=false;toast(e.status===429?(en?'Too many reports in a short time, try again later':'Trop de signalements d’affilée, réessaie plus tard'):(en?'Could not send the report':'Impossible d’envoyer le signalement'))}}}
 function openPageHelp(){openHelpHub()}
 function openHelpMenu(){openHelpHub()}
 function helpSetLevel(v){helpSave({level:v,welcomed:true});if(v==='new')helpSave({checklistHidden:false});toast(siteLanguage==='en'?'Help level saved':'Niveau d’aide enregistré');try{renderCurrentRoute()}catch(e){}}
