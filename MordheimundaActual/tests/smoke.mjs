@@ -1103,7 +1103,7 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
     navigateApp(warbandPath(r.id));await new Promise(z=>setTimeout(z,400));const tip=document.getElementById('helpTip')?.dataset.id||'';
     helpTourStart('builder');const ring=!!document.querySelector('.help-ring');helpTourEnd();
     helpSave({level:null});helpWelcomeOpen();const welcome=document.querySelectorAll('.help-opt').length;closeModal();
-    openHelpMenu();const menu=document.querySelectorAll('.help-menu button').length;helpSheetClose();
+    openHelpMenu();const menu=document.querySelectorAll('.help-hub .hh-row, .help-hub .help-menu button').length;helpSheetClose();
     // guide: cards, start sheet, creation guide bar, reading order
     helpCardsOpen(2);const statRows=document.querySelectorAll('.help-stat').length;helpCardMove(1);const notes=document.querySelectorAll('.help-note').length;closeModal();
     helpStartOpen();const starts=document.querySelectorAll('.help-start .help-opt').length;closeModal();
@@ -1541,7 +1541,7 @@ await test('[desktop] quick fixes: Resolute becomes Nerves of Steel, mutation sk
 await test('[mobile] player guide: 2 levels, steps tick themselves from the warband, reachable from help and lessons',null,async page=>{
   await page.setViewportSize({width:390,height:844});
   const out=await page.evaluate(async()=>{localStorage.removeItem('mu_guide');state.rosters=[];guideOpen(null);await new Promise(z=>setTimeout(z,300));
-    const hub=document.querySelectorAll('.guide-step').length===4&&document.querySelectorAll('.guide-more').length===5&&location.pathname==='/rules/learn/guide';
+    const hub=document.querySelectorAll('.guide-step').length===4&&document.querySelectorAll('.guide-more').length===2&&location.pathname==='/rules/learn/guide';
     const empty=guideSteps()[1].todo.every(t=>!t.done);
     const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors?.some(w=>w.type==='Henchman'));state.rosters=[{id:'gd',name:'GD',factionId:f.id,gold:1000,fighters:[],reserve:[],history:[]}];state.active='gd';
     const chose=guideSteps()[1].todo[0].done&&!guideSteps()[1].todo[1].done;
@@ -1666,7 +1666,7 @@ await test('[desktop] combat sheet: tapping a fighter in Play opens a read-only 
 await test('[desktop] user guide: every tool by moment, search, Show me opens the tool, linked from help',null,async page=>{
   await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});
   const out=await page.evaluate(async()=>{siteLanguage='en';const wait=ms=>new Promise(z=>setTimeout(z,ms));
-    openHelpMenu();await wait(200);const inHelp=/User guide/.test(document.body.textContent);manualOpen();await wait(400);
+    openHelpMenu();await wait(200);const inHelp=/All help on one page/.test(document.body.textContent);manualOpen();await wait(400);
     const path=location.pathname,groups=document.querySelectorAll('.manual-page .man-h').length,rows=document.querySelectorAll('.manual-page .man-row').length;
     manualQ='print';learn();await wait(150);const found=[...document.querySelectorAll('.manual-page .man-row b')].map(b=>b.textContent);manualQ='';
     // every Show me action refers to a function that exists
@@ -1705,6 +1705,22 @@ await test('[desktop] roll for me, weather rolled at launch, refreshed news with
   expect(out.folded&&out.all&&out.reset,'roll for me is folded by default, rolls hit/wound/save, and resets when a value changes: '+JSON.stringify(out));
   expect(out.s1&&out.s2&&out.s3,'one step at a time rolls hit, then wound, then save: '+JSON.stringify(out));
   expect(out.weather&&out.none&&out.first==='n-rollme'&&out.see>=4,'weather shown with a reroll at launch, news newest first with See buttons: '+JSON.stringify(out));
+});
+await test('[mobile] one help menu: "? Help" opens it with this page first, every tool, news and search',null,async page=>{
+  await page.setViewportSize({width:390,height:844});await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    const bad=Object.entries(HELP_PAGE_TOOLS).flatMap(([k,l])=>l.filter(n=>!MANUAL_TOOLS.some(t=>t[1]===n)).map(n=>k+':'+n));
+    const lbl=document.querySelector('#helpBtn .hb-lbl');const visible=!!lbl&&getComputedStyle(lbl).display!=='none'&&lbl.textContent==='Help';
+    navigateApp(APP_ROUTES.playMode);await wait(400);document.getElementById('helpBtn').click();await wait(100);
+    const hub=!!document.querySelector('.help-hub');const kick=document.querySelector('.hh-kick')?.textContent||'';const pageRows=document.querySelector('#hhBody .hh-box')?.querySelectorAll('.hh-row').length||0;
+    const groups=document.querySelectorAll('.hh-group').length;const tiles=document.querySelectorAll('.hh-tile').length;
+    const inp=document.getElementById('helpHubSearch');inp.value='print';inp.dispatchEvent(new Event('input'));const found=[...document.querySelectorAll('#hhBody .hh-row b')].map(b=>b.textContent);
+    inp.value='';inp.dispatchEvent(new Event('input'));const back=document.querySelectorAll('.hh-group').length;
+    const i=MANUAL_TOOLS.findIndex(t=>/Warband file/.test(t[1]));helpToolRun(i);await wait(200);const ran=!!document.querySelector('#modal .wbfile')&&!document.getElementById('helpSheet');try{closeModal()}catch(e){}
+    openTabSheet('more');const firstMore=document.querySelector('#tabSheet .tab-sheet-link')?.textContent||'';closeTabSheet();
+    return {bad,visible,hub,kick,pageRows,groups,tiles,found,back,ran,firstMore}});
+  expect(!out.bad.length&&out.visible&&out.hub&&/ON THIS PAGE/.test(out.kick)&&out.pageRows>=3,'the help button says Help and opens the hub with this page first: '+JSON.stringify(out));
+  expect(out.groups===7&&out.tiles===3&&out.found.some(t=>/Print/.test(t))&&out.back===7&&out.ran&&/Help/.test(out.firstMore),'every tool by group, search, Show me, Help first in More: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
