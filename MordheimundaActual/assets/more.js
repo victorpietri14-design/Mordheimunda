@@ -1716,6 +1716,7 @@ const MANUAL_TOOLS=[
  ['create','Ready to play?','Prêt à jouer ?','A last check before the first game: strengths, weaknesses, what is missing.','Un dernier contrôle avant la partie : forces, faiblesses, oublis.',"guideGoRoster();setTimeout(()=>{try{openReadyCheck()}catch(e){}},250)"],
  ['create','Personal content','Contenu perso','Your own fighters, items, skills, spells and warbands.','Tes propres combattants, objets, compétences, sorts et bandes.',"navigateApp(APP_ROUTES.custom)"],
  ['manage','Understand a profile','Comprendre un profil','On a fighter sheet, “? Profile” explains each characteristic with the dice to roll.','Sur une fiche, « ? Profil » explique chaque caractéristique avec le jet à faire.',"guideGoRoster()"],
+ ['manage','Compare weapons','Comparer des armes','On a fighter sheet, in the shop: “⚖ Compare” shows which weapon wounds the most, and its catches.','Sur une fiche, dans les achats : « ⚖ Comparer » montre quelle arme blesse le plus, et ses contreparties.',"guideGoRoster()",'2026-11-15'],
  ['manage','Check and repair the warband','Vérifier et réparer la bande','Finds mistakes and fixes them step by step.','Trouve les erreurs et les corrige pas à pas.',"guideGoRoster();setTimeout(()=>{try{openRosterCheck()}catch(e){}},250)"],
  ['manage','Undo recent changes','Annuler des changements','Go back on the last edits of the warband.','Revenir sur les dernières modifications de la bande.',"guideGoRoster();setTimeout(()=>{try{openUndoHistory()}catch(e){}},250)"],
  ['manage','History and versions','Historique et versions','Everything that happened to the warband, and older versions to restore.','Tout ce qui est arrivé à la bande, et ses anciennes versions à restaurer.',"guideGoRoster();setTimeout(()=>{try{openWarroomMore()}catch(e){}},250)"],
@@ -1902,4 +1903,61 @@ function learnRollMarkup(l){const en=siteLanguage==='en';const r=learnEff(l).rol
 
 function coveringReferenceSection(q){const en=siteLanguage==='en';if(referenceSourceFilter==='book')return '';const list=coveringReferenceEntries().filter(e=>!q||normName(e.name).includes(normName(q))||normName(e.text).includes(normName(q)));if(!list.length)return '';
  return `<section class="ref-cov-section" id="ref-coverings"><h2 class="ref-cov-title">◈ ${en?'Coverings':'Revêtements'} <small>${list.length}</small></h2><p class="muted" style="margin:0 0 10px;font-size:12.5px">${en?'A covering is applied to a close-combat weapon (e.g. an Ithilmar sword): it changes its profile and its price.':'Un revêtement s’applique à une arme de corps à corps (ex. une épée en ithilmar) : il modifie son profil et son prix.'}</p>${list.map(e=>referenceEntryMarkup(e,'equipment')).join('')}</section>`}
+// V-WEAPONCMP: "Compare weapons", opened from a fighter's shop (⚖ Compare).
+// For the weapons the fighter carries plus those on sale in the open list,
+// it shows what each needs to hit, to wound and the enemy's save, and the
+// average wounds per turn against a typical target (or a fighter from
+// another of the player's warbands). It reuses the dice maths of
+// "What do I need to roll?" (diceHitMelee, diceWound…). It only shows the
+// difference; buying stays a normal purchase (confirmEquipment).
+let wcmp=null;
+const WCMP_TARGETS={human:{ws:3,t:3,sv:7},orc:{ws:3,t:4,sv:6},monster:{ws:3,t:5,sv:5}};
+function wcmpFighter(){const r=activeRoster();const x=r?.fighters?.[editingIndex];return r&&x?{r,x}:null}
+function wcmpProfile(w,mode){return [w?.profile,w?.profile2].find(p=>p&&hasWeaponStats(p)&&(mode==='shoot'?weaponIsRanged(p):!weaponIsRanged(p)))||null}
+function wcmpCandidates(x,mode){const out=new Map();const f=faction(activeRoster());
+  (wbWeapons(x)||[]).forEach(w=>{if(w&&wcmpProfile(w,mode)&&!out.has(normName(w.name)))out.set(normName(w.name),{w,owned:true,price:null})});
+  let pool=[];try{pool=equipmentPool(equipmentTab,x)||[]}catch(e){}
+  pool.forEach(w=>{if(!w||w.coveredVariant||!isWeaponLike(w)||!wcmpProfile(w,mode)||out.has(normName(w.name)))return;let price=null;try{price=equipmentPrice(w,f,equipmentTab,x)}catch(e){}out.set(normName(w.name),{w,owned:false,price})});
+  return [...out.values()]}
+function wcmpEnemies(){const own=activeRoster();const list=[];(state.rosters||[]).forEach(r=>{if(!r||r===own||String(r.id)===String(own?.id))return;(r.fighters||[]).forEach((x,i)=>{try{if(fighterStatus(x).dead)return}catch(e){}list.push({key:String(r.id)+':'+i,name:`${x.name||'?'} · ${r.name||''}`,x})})});return list}
+function wcmpTarget(){const d=wcmp;if(d.vs==='band'){const e=wcmpEnemies().find(t=>t.key===d.tgt);if(e){const P=e.x.profile||[];return {ws:Number(P[1])||3,t:Number(P[4])||3,sv:diceSaveOf(e.x),name:e.name}}}const t=WCMP_TARGETS[d.vs]||WCMP_TARGETS.orc;return {...t}}
+function wcmpDamage(v){const t=String(v??'').trim();const m=t.match(/(\d*)\s*d\s*(\d+)\s*([+-]\s*\d+)?/i);if(m){const n=Number(m[1]||1),sides=Number(m[2]);return n*(sides+1)/2+(m[3]?Number(m[3].replace(/\s/g,'')):0)}const k=Number(t.match(/\d+/)?.[0]);return Number.isFinite(k)&&k>0?k:1}
+function wcmpCalc(x,c,mode,tg){const P=x.profile||[];const p=wcmpProfile(c.w,mode);const S=Number(P[3])||3;let fx=null;try{fx=weaponEffectPack(x,{...c.w,profile:p})}catch(e){}
+  const str=diceStrength(p.strength,S)+(Number(fx?.strength)||0);const ap=diceAp(p.ap)+(Number(fx?.ap)||0);const clamp=n=>Math.max(2,Math.min(7,n));
+  const hit=clamp(mode==='shoot'?diceHitShoot(Number(P[2])||0):diceHitMelee(Number(P[1])||0,tg.ws));const wound=clamp(diceWound(str,tg.t));const save=tg.sv>=7?7:clamp(Math.max(2,tg.sv-ap));
+  const pr=diceChance(hit)*diceChance(wound)*(save>=7?1:1-diceChance(save));const attacks=mode==='shoot'?1:Math.max(1,Number(P[7])||1);const dmg=wcmpDamage(p.damage)+(Number(fx?.damage)||0);
+  const traits=String(Array.isArray(p.traits)?p.traits.join(', '):p.traits||'').trim();let slots=1;try{slots=weaponSlots(c.w)}catch(e){}
+  return {...c,p,str,ap,hit,wound,save,attacks,dmg,per:attacks*pr*dmg,traits,twoHands:slots>=2,parry:/parry|parade/i.test(traits)}}
+function openWeaponCompare(){const f=wcmpFighter();if(!f)return;const keep=wcmp&&wcmp.inst===f.x.instance?wcmp:null;const mode=keep?.mode||'melee';
+  wcmp={inst:f.x.instance,mode,vs:keep?.vs||'orc',tgt:keep?.tgt||'',picks:keep?.picks||null};if(!wcmp.picks)wcmpDefaultPicks();openModal(weaponCompareMarkup())}
+function wcmpDefaultPicks(){const f=wcmpFighter();if(!f)return;const cs=wcmpCandidates(f.x,wcmp.mode);const own=cs.filter(c=>c.owned),buy=cs.filter(c=>!c.owned);wcmp.picks=[...own,...buy].slice(0,Math.max(3,own.length)).map(c=>normName(c.w.name))}
+function wcmpRedraw(){const el=document.querySelector('.wcmp');if(el)el.outerHTML=weaponCompareMarkup()}
+function wcmpSet(k,v){if(!wcmp)return;if(k==='mode'){if(wcmp.mode===v)return;wcmp.mode=v==='shoot'?'shoot':'melee';wcmpDefaultPicks()}else if(k==='vs'){wcmp.vs=String(v);if(wcmp.vs==='band'&&!wcmpEnemies().some(t=>t.key===wcmp.tgt))wcmp.tgt=wcmpEnemies()[0]?.key||''}else if(k==='tgt')wcmp.tgt=String(v);wcmpRedraw()}
+function wcmpAdd(n){if(!wcmp||!n)return;if(!wcmp.picks.includes(n))wcmp.picks.push(n);wcmpRedraw()}
+function wcmpRemove(n){if(!wcmp)return;wcmp.picks=wcmp.picks.filter(k=>k!==n);wcmpRedraw()}
+function wcmpBuy(name){closeModal();confirmEquipment(encodeURIComponent(name))}
+function weaponCompareMarkup(){const en=siteLanguage==='en';const f=wcmpFighter();if(!f||!wcmp)return '';const x=f.x,PR=x.profile||[],mode=wcmp.mode;const tg=wcmpTarget();
+  const cs=wcmpCandidates(x,mode);const byKey=new Map(cs.map(c=>[normName(c.w.name),c]));const rows=wcmp.picks.map(k=>byKey.get(k)).filter(Boolean).map(c=>wcmpCalc(x,c,mode,tg)).sort((a,b)=>b.per-a.per);
+  const num=v=>v.toLocaleString(en?'en':'fr',{minimumFractionDigits:2,maximumFractionDigits:2});const need=n=>n>=7?'—':n+'+';const svTxt=n=>n>=7?(en?'none':'aucune'):n+'+';
+  const chip=(k,v,l)=>`<button type="button" class="wcmp-chip ${wcmp[k]===v?'on':''}" onclick="wcmpSet('${k}','${v}')">${l}</button>`;
+  const enemies=wcmpEnemies();
+  const tgSel=wcmp.vs==='band'?(enemies.length?`<select class="wcmp-tsel" onchange="wcmpSet('tgt',this.value)" aria-label="${en?'Enemy fighter':'Combattant adverse'}">${enemies.map(t=>`<option value="${esc(t.key)}" ${t.key===wcmp.tgt?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`:`<p class="muted wcmp-small">${en?'No other warband yet: pick a typical target.':'Pas d’autre bande : choisis une cible type.'}</p>`):'';
+  const tgName=wcmp.vs==='band'?(tg.name||(en?'Enemy':'Adversaire')):({human:en?'Typical Human':'Humain type',orc:en?'Typical Orc':'Orc type',monster:en?'Typical monster':'Monstre type'}[wcmp.vs]);
+  const best=rows[0],second=rows[1];const max=best?.per||0;
+  const rowsHtml=rows.map((r,i)=>`<div class="wcmp-row ${i===0&&r.per>0?'best':''}"><span class="wcmp-name"><b>${esc(r.w.name)}</b><small>${r.owned?(en?'carried':'équipée'):(r.price!=null?r.price+' '+(en?'GC':'co'):'')}${r.twoHands?' · '+(en?'2 hands':'2 mains'):''}${r.traits?' · '+esc(r.traits):''}</small></span><b>${need(r.hit)}</b><b>${need(r.wound)}</b><span>${svTxt(r.save)}</span><b class="wcmp-per">${num(r.per)}</b><button type="button" class="wcmp-x" onclick="wcmpRemove('${jsq(normName(r.w.name))}')" aria-label="${en?'Remove':'Retirer'} ${esc(r.w.name)}">✕</button></div>`).join('');
+  const bars=rows.map(r=>`<div class="wcmp-bar"><span>${esc(r.w.name)}</span><i style="width:${max>0?Math.max(2,Math.round(r.per/max*100)):2}%"></i><b>${num(r.per)}</b></div>`).join('');
+  let verdict='';if(best&&second&&second.per>0&&best.per>0){const ratio=best.per/second.per;const head=ratio<1.05?(en?`Against this target, <b>${esc(best.w.name)}</b> and <b>${esc(second.w.name)}</b> do about the same.`:`Contre cette cible, <b>${esc(best.w.name)}</b> et <b>${esc(second.w.name)}</b> font à peu près pareil.`):(en?`Against this target, <b>${esc(best.w.name)}</b> wounds about <b>${ratio.toLocaleString('en',{maximumFractionDigits:1})}× more</b> than ${esc(second.w.name)}.`:`Contre cette cible, <b>${esc(best.w.name)}</b> blesse environ <b>${ratio.toLocaleString('fr',{maximumFractionDigits:1})} fois plus</b> que ${esc(second.w.name)}.`);
+    const buts=[];if(best.twoHands)buts.push(en?'it takes both hands (no shield)':'elle prend les deux mains (pas de bouclier)');const parry=rows.find(r=>r!==best&&r.parry);if(parry&&!best.parry)buts.push(en?`${esc(parry.w.name)} can <b>parry</b>: it protects better`:`${esc(parry.w.name)} permet de <b>parer</b> : elle protège mieux`);
+    verdict=`<div class="wcmp-verdict">${head}${buts.length?`<br><span class="muted">${en?'But: ':'Mais : '}${buts.join(' ; ')}.</span>`:''}</div>`}
+  const left=cs.filter(c=>!wcmp.picks.includes(normName(c.w.name)));
+  const addSel=left.length?`<select class="wcmp-add" onchange="wcmpAdd(this.value)" aria-label="${en?'Add a weapon':'Ajouter une arme'}"><option value="">＋ ${en?'Add a weapon':'Ajouter une arme'}</option>${left.map(c=>`<option value="${esc(normName(c.w.name))}">${esc(c.w.name)}${c.owned?(en?' (carried)':' (équipée)'):c.price!=null?` · ${c.price} ${en?'GC':'co'}`:''}</option>`).join('')}</select>`:'';
+  const buyBtn=best&&!best.owned?`<button type="button" class="button primary" onclick="wcmpBuy('${jsq(best.w.name)}')">${en?'Buy':'Acheter'} ${esc(best.w.name)}</button>`:'';
+  return `<div class="wcmp"><div class="eyebrow">${en?'COMPARE WEAPONS':'COMPARER DES ARMES'}</div>
+<div class="wcmp-tabs">${chip('mode','melee',en?'Close combat':'Corps à corps')}${chip('mode','shoot',en?'Shooting':'Tir')}</div>
+<div class="wcmp-sides"><div><small>${en?'FOR':'POUR'}</small><b>${esc(x.name||'')}</b><small>${mode==='shoot'?`${esc(P[2]||"")} ${esc(PR[2]??'-')}`:`${esc(P[1]||"")} ${esc(PR[1]??'-')}`} · ${esc(P[3]||"")} ${esc(PR[3]??'-')}${mode==='shoot'?'':` · ${esc(P[7]||"")} ${esc(PR[7]??'-')}`}</small></div><div class="vs"><small>${en?'AGAINST':'CONTRE'}</small><b>${esc(tgName)}</b><small>${mode==='shoot'?'':`${esc(P[1]||"")} ${tg.ws} · `}${esc(P[4]||"")} ${tg.t} · Sv ${svTxt(tg.sv)}</small></div></div>
+<div class="wcmp-chips">${chip('vs','human',en?'Human T3':'Humain E3')}${chip('vs','orc',en?'Orc T4':'Orc E4')}${chip('vs','monster',en?'Monster T5':'Monstre E5')}${chip('vs','band',en?'Enemy warband…':'Bande adverse…')}</div>${tgSel}
+${rows.length?`<div class="wcmp-table"><div class="wcmp-row head"><span>${en?'WEAPON':'ARME'}</span><span>${en?'HIT':'TOUCHE'}</span><span>${en?'WOUND':'BLESSE'}</span><span>${en?'ENEMY SV':'SV ENN.'}</span><span>${en?'/ TURN':'/ TOUR'}</span><span></span></div>${rowsHtml}</div><div class="wcmp-bars">${bars}</div>${verdict}`:`<p class="muted">${mode==='shoot'?(en?'No shooting weapon to compare in this list.':'Aucune arme de tir à comparer dans cette liste.'):(en?'No close-combat weapon to compare in this list.':'Aucune arme de corps à corps à comparer dans cette liste.')}</p>`}
+<div class="wcmp-actions">${addSel}${buyBtn}</div>
+<p class="muted wcmp-small">${en?'“/ turn” = average wounds per turn':'« / tour » = blessures moyennes par tour'}${mode==='shoot'?(en?' (one shot, no cover or range modifier)':' (un tir, sans couvert ni portée)'):(en?' of close combat, with its Attacks':' de corps à corps, avec ses Attaques')}${en?', counting Damage. The comparator shows the difference; the choice stays yours.':', dégâts compris. Le comparateur montre la différence ; le choix reste au joueur.'}</p>
+<button type="button" class="button secondary full" onclick="closeModal()">${en?'Close':'Fermer'}</button></div>`}
 window.MORE_CODE_READY=true;

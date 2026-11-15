@@ -1675,6 +1675,24 @@ await test('[desktop] user guide: every tool by moment, search, Show me opens th
     return {inHelp,path,groups,rows,found,missing:[...new Set(missing)],opened,total:MANUAL_TOOLS.length}});
   expect(out.inHelp&&out.path==='/rules/learn/manual'&&out.groups===7&&out.rows>=20&&out.found.some(t=>/Print/.test(t))&&!out.missing.length&&out.opened&&out.total>=40,'user guide: '+JSON.stringify(out));
 });
+await test('[desktop] weapon comparator: opens from the shop, ranks weapons, switches target and mode',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const w=(f.warriors||[]).find(q=>q.type==='Leader')||f.warriors[0];r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:'Cmp Hero',xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});save(true);
+    openFighterCard(r.fighters.length-1);equipmentTab='band';equipmentOpen=true;render('fighter');await new Promise(z=>setTimeout(z,200));
+    const btn=document.querySelector('.wcmp-open');if(!btn)return {btn:false};btn.click();for(let i=0;i<40&&!document.querySelector('.wcmp');i++)await new Promise(z=>setTimeout(z,100));
+    const rows=()=>[...document.querySelectorAll('.wcmp-row:not(.head)')];const per=()=>rows().map(e=>Number(e.querySelector('.wcmp-per').textContent.replace(',','.')));
+    const n0=rows().length;const p0=per();const sorted=p0.every((v,i)=>i===0||p0[i-1]>=v);
+    wcmpSet('vs','human');const pH=per();wcmpSet('vs','monster');const pM=per();
+    const sel=document.querySelector('.wcmp-add');let added=false;if(sel&&sel.options.length>1){wcmpAdd(sel.options[1].value);added=rows().length===n0+1}
+    const k=normName(rows()[0]?.querySelector('.wcmp-name b')?.textContent||'');wcmpRemove(k);const removed=!rows().some(e=>normName(e.querySelector('.wcmp-name b').textContent)===k);
+    wcmpSet('mode','shoot');const shoot=!!document.querySelector('.wcmp-chip.on')&&document.querySelector('.wcmp-tabs .wcmp-chip.on').textContent;
+    const dmg=[wcmpDamage('1'),wcmpDamage('D3'),wcmpDamage('2'),wcmpDamage('D6+1')];
+    const inManual=MANUAL_TOOLS.some(t=>t[1]==='Compare weapons');closeModal();
+    return {btn:true,n0,sorted,weaker:pH.reduce((a,b)=>a+b,0)>=pM.reduce((a,b)=>a+b,0),added,removed,shoot,dmg,inManual}});
+  expect(out.btn&&out.n0>=2&&out.sorted,'the shop has a Compare button and the comparator lists weapons best first: '+JSON.stringify(out));
+  expect(out.weaker&&out.added&&out.removed,'a tougher target lowers the numbers, weapons can be added and removed: '+JSON.stringify(out));
+  expect(out.shoot==='Shooting'&&JSON.stringify(out.dmg)==='[1,2,2,4.5]'&&out.inManual,'shooting mode, damage averages and the user-guide entry: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
