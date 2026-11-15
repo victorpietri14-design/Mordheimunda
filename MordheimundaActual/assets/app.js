@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0866.0';
+const APP_BUILD='110.0867.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18648,10 +18648,13 @@ const HELP_PAGES={
 // pages that share another page's help
 const HELP_ALIASES={rulesWarbands:'rules',rulesWarbandDetail:'rules',rulesCampaign:'rules',codex:'rules',campaignDetail:'rules',underdogBonus:'scenarios',scenarioDetail:'scenarios',armory:'references',sharedLoading:'dashboard'};
 const HELP_TOUR_GENERAL=[
- {sel:['#tabbar [data-tab=bands]','.sidebar .nav[data-view=rosters]','.sidebar [data-group=warband] .nav-group-head'],text:[['Your warbands','Tes bandes'],['Create and manage your warbands here.','Crée et gère tes bandes ici.']]},
- {sel:['#tabbar [data-tab=play]','.sidebar .nav[data-view=playMode]','.sidebar [data-group=warband] .nav-group-head'],text:[['Play','Jouer'],['Prepares a game, follows it turn by turn, then guides the after-battle.','Prépare une partie, la suit tour par tour, puis guide l’après-bataille.']]},
- {sel:['#tabbar [data-tab=rules]','.sidebar [data-group=rules] .nav-group-head'],text:[['Rules','Règles'],['The whole book, searchable. Underlined words are explained when you tap them.','Tout le livre, avec recherche. Les mots soulignés s’expliquent au toucher.']]},
- {sel:['#helpBtn'],text:[['Help on every page','De l’aide sur chaque page'],['The ? explains the page you are on, and can replay this tour.','Le ? explique la page où tu es, et peut relancer cette visite.']]}];
+ {sel:['#helpBtn'],text:[['Help, always here','L’aide, toujours ici'],['“? Help” opens the Help menu: what helps on the page you are on first, then lessons and every tool.','« ? Aide » ouvre le menu Aides : ce qui sert sur la page où tu es, puis les leçons et tous les outils.']]},
+ {sel:['#langBtn'],text:[['French or English','Français ou anglais'],['Switch the whole site between French and English in one tap.','Passe tout le site du français à l’anglais en un toucher.']]},
+ {sel:['#tabbar [data-tab=bands]','.sidebar .nav[data-view=rosters]','.sidebar [data-group=warband] .nav-group-head'],text:[['Your warbands','Tes bandes'],['Create a warband with “＋ New warband”: the assistant says what is missing as you go.','Crée une bande avec « ＋ Nouvelle bande » : l’assistant te dit ce qu’il manque au fur et à mesure.']]},
+ {sel:['#tabbar [data-tab=play]','.sidebar .nav[data-view=playMode]'],text:[['Play','Jouer'],['Prepares a game, follows it turn by turn (dice help, table screen), then guides the after-battle.','Prépare une partie, la suit tour par tour (aide aux dés, écran de table), puis guide l’après-bataille.']]},
+ {sel:['#tabbar [data-tab=rules]','.sidebar [data-group=rules] .nav-group-head'],text:[['Rules','Règles'],['The whole book, warbands and scenarios, searchable. Underlined words are explained when you tap them.','Tout le livre, les bandes et les scénarios, avec recherche. Les mots soulignés s’expliquent au toucher.']]},
+ {sel:['#tabbar [data-tab=camp]','.sidebar .nav[data-view=myCampaigns]'],text:[['Campaigns','Campagnes'],['Join a campaign with the organiser’s code, then follow the map and the standings.','Rejoins une campagne avec le code de l’organisateur, puis suis la carte et le classement.']]},
+ {sel:['#tabbar [data-tab=more]','.sidebar .side-bottom'],text:[['More','Plus'],['Print, save, your account and the settings (day mode, text size, language).','Imprimer, sauvegarder, ton compte et les réglages (mode jour, taille du texte, langue).']]}];
 const HELP_TIPS={
  recruit:{title:['Keep henchmen','Garde des hommes de main'],text:['Your warband needs at least as many henchmen as heroes (leader and champions).','Ta bande doit avoir au moins autant d’hommes de main que de héros (chef et champions).']},
  lowgold:{title:['Low treasury','Trésor presque vide'],text:['Keep a little gold for after the battle: injured fighters and new gear cost money.','Garde un peu d’or pour l’après-bataille : soigner et s’équiper coûte cher.']},
@@ -18666,6 +18669,7 @@ const HELP_TIPS={
 // V-NEWS: newest first. `go` (optional) opens the tool, like "Show me" in
 // the user guide. Add a line here with each new tool.
 const HELP_NEWS=[
+ {id:'n-lang',date:'2026-11-16',text:['🌐 FR / EN at the top: switch the language in one tap. The site tour now covers help, warbands, play, rules, campaigns and more.','🌐 FR / EN en haut : change de langue en un toucher. La visite du site montre maintenant l’aide, les bandes, le jeu, les règles, les campagnes et le reste.'],go:"helpTourStart('general')"},
  {id:'n-table',date:'2026-11-16',text:['Table screen (Play): round, phase, Priority, out of action and rout test in large type, for a tablet between the players.','Écran de table (Jouer) : tour, phase, Priorité, hors de combat et déroute en grand, pour une tablette entre les joueurs.'],go:"navigateApp(APP_ROUTES.playMode)"},
  {id:'n-journal',date:'2026-11-16',text:['Warband journal (Stats tab): opponent, who went down, a note per game you can edit, and Share.','Journal de la bande (onglet Stats) : adversaire, hors de combat, une note par partie modifiable, et Partager.'],go:"guideGoRoster('stats')"},
  {id:'n-report',date:'2026-11-16',text:['Report a problem: from the Help menu, in two lines.','Signaler un problème : depuis le menu Aides, en deux lignes.'],go:"openReportProblem()"},
@@ -18689,7 +18693,7 @@ function helpAuto(){try{if(navigator.webdriver&&!localStorage.getItem('mu_help_d
 function helpPageKey(){const v=currentViewName();if(v==='builder'&&gangTab==='postbattle')return 'postbattle';return HELP_PAGES[v]?v:(HELP_ALIASES[v]||'dashboard')}
 function helpMissingPages(views){return views.filter(v=>!HELP_PAGES[v]&&!HELP_ALIASES[v])}
 function helpNewsUnseen(){const seen=new Set(helpState().newsSeen||[]);return HELP_NEWS.filter(n=>!seen.has(n.id))}
-function helpBtnSync(){const b=document.getElementById('helpBtn');if(!b)return;const en=siteLanguage==='en';b.setAttribute('aria-label',en?'Help':'Aides');b.title=en?'Help: this page and every tool':'Aides : cette page et tous les outils';const l=b.querySelector('.hb-lbl');if(l)l.textContent=en?'Help':'Aide';b.classList.toggle('has-news',helpNewsUnseen().length>0&&!!helpState().level&&helpState().level!=='off')}
+function helpBtnSync(){{const lb=document.getElementById('langBtn');if(lb){const t=siteLanguage==='en'?'EN':'FR';const sp=lb.querySelector('span');if(sp&&sp.textContent!==t)sp.textContent=t;lb.title=siteLanguage==='en'?'Passer le site en français':'Switch the site to English'}}const b=document.getElementById('helpBtn');if(!b)return;const en=siteLanguage==='en';b.setAttribute('aria-label',en?'Help':'Aides');b.title=en?'Help: this page and every tool':'Aides : cette page et tous les outils';const l=b.querySelector('.hb-lbl');if(l)l.textContent=en?'Help':'Aide';b.classList.toggle('has-news',helpNewsUnseen().length>0&&!!helpState().level&&helpState().level!=='off')}
 // ---- "?" sheet ----
 function helpSheetClose(){document.getElementById('helpSheet')?.remove()}
 function helpSheetOpen(html){helpSheetClose();const w=document.createElement('div');w.id='helpSheet';w.className='help-sheet-wrap';w.onclick=e=>{if(e.target===w)helpSheetClose()};w.innerHTML=`<div class="help-sheet" role="dialog" aria-modal="true"><div class="help-grip"></div>${html}</div>`;document.body.appendChild(w);w.querySelector('button')?.focus()}
@@ -18808,19 +18812,29 @@ function helpSetLevel(v){helpSave({level:v,welcomed:true});if(v==='new')helpSave
 function helpTipsReset(){helpSave({tipsSeen:{}});toast(siteLanguage==='en'?'Tips will show again':'Les astuces vont revenir')}
 // ---- welcome (first visit) ----
 let helpWelcomePick='new',helpWelcomeShown=false;
-function helpWelcomeMarkup(){const en=siteLanguage==='en';const o=[['new','📖',en?'New to the game':'Je découvre le jeu',en?'Guided tour, “First steps” list, tips and game words explained.':'Visite guidée, liste « Premiers pas », astuces et mots expliqués.'],['vet','📋',en?'I know Mordheim':'Je connais Mordheim',en?'A quick tour of the app only, no rules tips.':'Visite rapide de l’appli seulement, pas d’astuces de règles.'],['off','→',en?'Skip':'Passer',en?'No automatic help. The ? stays available.':'Aucune aide automatique. Le bouton « ? » reste disponible.']];
- return `<div class="help-welcome"><div class="help-kicker">${en?'WELCOME':'BIENVENUE'}</div><h2>${en?'Welcome to Mordheim':'Bienvenue à Mordheim'}</h2><p>${en?'Tell us where you are: the help adapts. You can change it later in Account.':'Dis-nous où tu en es : l’aide s’adapte. Tu pourras changer ça plus tard dans Compte.'}</p>${o.map(([k,ic,t,d])=>`<button type="button" class="help-opt${helpWelcomePick===k?' on':''}" aria-pressed="${helpWelcomePick===k}" onclick="helpWelcomePick='${jsq(k)}';document.querySelector('.help-welcome').outerHTML=helpWelcomeMarkup()"><span class="help-ico">${ic}</span><span><b>${t}</b><small>${d}</small></span></button>`).join('')}<button type="button" class="help-go wide" onclick="helpWelcomeDone()">${en?'Start':'Commencer'}</button></div>`}
+// ============ V-ONBOARD: first visit after the update, once per device ============
+// Step 1 picks the language (two big buttons, both languages on screen);
+// step 2 offers the site tour, by level (it replaces the old welcome), then
+// the 7-step tour: Help, language, warbands, play, rules, campaigns, more.
+// The 🌐 FR / EN button at the top switches the language in one tap.
+function langToggle(){setSiteLanguage(siteLanguage==='en'?'fr':'en');try{helpBtnSync()}catch(e){}}
+function onbOpen(){if(!$('#modal').classList.contains('hidden'))return;helpSave({onb:1});openModal(onbLangMarkup())}
+function onbLangMarkup(){const opt=(v,flag,t,s)=>`<button type="button" class="help-opt onb-lang${siteLanguage===v?' on':''}" onclick="onbLang('${v}')"><span class="help-ico">${flag}</span><span><b>${t}</b><small>${s}</small></span></button>`;
+  return `<div class="help-welcome onb"><div class="help-kicker">1 / 2</div><h2>Bienvenue · Welcome</h2><p>Dans quelle langue veux-tu le site ?<br><i>Which language do you want the site in?</i></p>${opt('fr','🇫🇷','Français','Tout le site en français')}${opt('en','🇬🇧','English','The whole site in English')}<p class="onb-note">Tu pourras changer à tout moment avec <b>🌐 FR</b> en haut de l’écran.<br><i>Change it any time with 🌐 EN at the top.</i></p></div>`}
+function onbLang(v){if(siteLanguage!==v)setSiteLanguage(v);helpWelcomePick=helpState().level||((state.rosters||[]).length?'vet':'new');openModal(helpWelcomeMarkup(true))}
+function helpWelcomeMarkup(onb){const en=siteLanguage==='en';const o=[['new','📖',en?'Yes, I am new to the game':'Oui, je découvre le jeu',en?'The tour, then help to create your first warband step by step. Tips and game words explained.':'La visite, puis on t’aide à créer ta première bande pas à pas. Astuces et mots expliqués.'],['vet','📋',en?'Yes, but I know Mordheim':'Oui, mais je connais Mordheim',en?'The tour only, no rules tips.':'La visite seulement, sans astuces de règles.'],['off','→',en?'Later':'Plus tard',en?'Nothing automatic. The tour stays in the Help menu.':'Rien d’automatique. La visite reste dans le menu Aides.']];
+ return `<div class="help-welcome"><div class="help-kicker">${onb?'2 / 2':(en?'WELCOME':'BIENVENUE')}</div><h2>${en?'Shall we tour the site?':'On fait le tour du site ?'}</h2><p>${en?'One minute to know where to find help, create your warband, read the rules and play.':'1 minute pour savoir où trouver l’aide, créer ta bande, lire les règles et jouer.'}</p>${o.map(([k,ic,t,d])=>`<button type="button" class="help-opt${helpWelcomePick===k?' on':''}" aria-pressed="${helpWelcomePick===k}" onclick="helpWelcomePick='${jsq(k)}';document.querySelector('.help-welcome').outerHTML=helpWelcomeMarkup(${onb?'true':'false'})"><span class="help-ico">${ic}</span><span><b>${t}</b><small>${d}</small></span></button>`).join('')}<button type="button" class="help-go wide" onclick="helpWelcomeDone()">${helpWelcomePick==='off'?(en?'Close':'Fermer'):(en?'Start the tour ›':'Commencer la visite ›')}</button>${onb?`<button type="button" class="help-ghost wide" onclick="openModal(onbLangMarkup())">‹ ${en?'Back: language':'Retour : langue'}</button>`:''}</div>`}
 function helpWelcomeOpen(){if(!$('#modal').classList.contains('hidden')||helpState().level)return;helpWelcomePick=(state.rosters||[]).length?'vet':'new';openModal(helpWelcomeMarkup())}
-function helpWelcomeDone(){const v=helpWelcomePick;helpSave({level:v,welcomed:true,newsSeen:HELP_NEWS.map(n=>n.id)});closeModal();try{renderCurrentRoute()}catch(e){}if(v==='new')setTimeout(helpStartOpen,250);else if(v==='vet')setTimeout(()=>helpTourStart('general'),250)}
+function helpWelcomeDone(){const v=helpWelcomePick;helpSave({level:v,welcomed:true,onb:1,newsSeen:HELP_NEWS.map(n=>n.id)});closeModal();try{renderCurrentRoute()}catch(e){}if(v==='new')setTimeout(()=>helpTourStart('general',()=>setTimeout(helpStartOpen,250)),250);else if(v==='vet')setTimeout(()=>helpTourStart('general'),250)}
 // ---- tours: a ring around one thing on screen, a bubble with the text ----
 let helpTour=null;
 function helpVisible(el){if(!el)return false;const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(el).visibility!=='hidden'}
 function helpFind(sels){for(const s of sels||[]){const el=[...document.querySelectorAll(s)].find(helpVisible);if(el)return el}return null}
-function helpTourStart(key){const en=siteLanguage==='en';const steps=key==='general'?HELP_TOUR_GENERAL.map((s,i)=>({sel:s.sel,title:hx(`tour.g${i}.title`,s.text[0]),text:hx(`tour.g${i}.text`,s.text[1])})):(HELP_PAGES[key]?.tour||[]).map((s,i)=>({sel:s.sel,title:hx(`page.${key}.title`,HELP_PAGES[key].title),text:hx(`page.${key}.t${i}`,s.text)}));
+function helpTourStart(key,done){const en=siteLanguage==='en';const steps=key==='general'?HELP_TOUR_GENERAL.map((s,i)=>({sel:s.sel,title:hx(`tour.g${i}.title`,s.text[0]),text:hx(`tour.g${i}.text`,s.text[1])})):(HELP_PAGES[key]?.tour||[]).map((s,i)=>({sel:s.sel,title:hx(`page.${key}.title`,HELP_PAGES[key].title),text:hx(`page.${key}.t${i}`,s.text)}));
  const live=steps.filter(s=>helpFind(s.sel));if(!live.length){toast(en?'Nothing to show on this page yet':'Rien à montrer sur cette page pour l’instant');return}
- helpTour={steps:live,i:0};helpTourDraw()}
+ helpTour={steps:live,i:0,done:typeof done==='function'?done:null};helpTourDraw()}
 function helpTourEnd(){helpTour=null;document.getElementById('helpTour')?.remove();window.removeEventListener('resize',helpTourDraw)}
-function helpTourMove(d){if(!helpTour)return;const n=helpTour.i+d;if(n<0||n>=helpTour.steps.length){helpTourEnd();return}helpTour.i=n;helpTourDraw()}
+function helpTourMove(d){if(!helpTour)return;const n=helpTour.i+d;if(n<0||n>=helpTour.steps.length){const cb=n>=helpTour.steps.length?helpTour.done:null;helpTourEnd();if(cb)try{cb()}catch(e){}return}helpTour.i=n;helpTourDraw()}
 function helpTourDraw(){if(!helpTour)return;const en=siteLanguage==='en';const s=helpTour.steps[helpTour.i];const el=helpFind(s.sel);let w=document.getElementById('helpTour');
  if(!w){w=document.createElement('div');w.id='helpTour';w.className='help-tour';document.body.appendChild(w);window.addEventListener('resize',helpTourDraw)}
  if(el){const r0=el.getBoundingClientRect();if(r0.top<60||r0.bottom>innerHeight-90)el.scrollIntoView({block:'center'})}
@@ -18857,7 +18871,7 @@ function helpTipLaterClose(id){helpTipLater.add(id);document.getElementById('hel
 function helpTipGo(id){const go=HELP_TIP_GO[id];helpTipLaterClose(id);if(go)try{(new Function(go))()}catch(e){}}
 function helpTipClose(id){const st=helpState();helpSave({tipsSeen:{...(st.tipsSeen||{}),[id]:1}});document.getElementById('helpTip')?.remove()}
 function helpAfterRender(){try{helpBtnSync();const st=helpState();const view=currentViewName();
- if(!st.welcomed&&!st.level&&helpAuto()&&view!=='admin'&&!helpWelcomeShown){helpWelcomeShown=true;setTimeout(helpWelcomeOpen,600);return}
+ if(!st.onb&&helpAuto()&&view!=='admin'&&!helpWelcomeShown){helpWelcomeShown=true;setTimeout(onbOpen,600);return}
  if(st.level!=='new'||!helpAuto()||helpTour||st.guide?.on){document.getElementById('helpTip')?.remove();return}const seen=st.tipsSeen||{};const all=[helpTipFor(view)].filter(id=>id&&!seen[id]&&!helpTipLater.has(id));const old=document.getElementById('helpTip');
  if(!all.length){old?.remove();return}const id=all[0];if(old&&old.dataset.id===id)return;old?.remove();const t=HELP_TIPS[id];const en=siteLanguage==='en';
  const d=document.createElement('div');d.id='helpTip';d.className='help-tip';d.dataset.id=id;d.setAttribute('role','status');d.innerHTML=`<span class="help-tip-i">!</span><div><b>${esc(hx(`tip.${id}.title`,t.title))}</b><span>${esc(hx(`tip.${id}.text`,t.text))}</span><div class="help-tip-acts">${HELP_TIP_GO[id]?`<button type="button" class="ht-go" onclick="helpTipGo('${jsq(id)}')">${en?'Go ›':'Aller ›'}</button>`:''}<button type="button" onclick="helpTipLaterClose('${jsq(id)}')">${en?'Later':'Plus tard'}</button><button type="button" onclick="helpTipClose('${jsq(id)}')">${en?'Don’t show again':'Ne plus afficher'}</button></div></div>`;document.body.appendChild(d)}catch(e){}}

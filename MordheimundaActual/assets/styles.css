@@ -6400,3 +6400,8 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .ts-ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted2)}.ts-ctl span{flex:1}.ts-ctl b{font:800 22px 'Cinzel',serif;min-width:26px;text-align:center;color:var(--text)}
 .ts-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}.ts-foot .button{flex:1 1 200px}
 @media(max-width:700px){.ts{padding:12px}.ts-turn{grid-template-columns:auto 1fr}.ts-next{grid-column:1/-1;flex-direction:row}.ts-next .button{flex:1}.ts-ph{padding:10px 4px;font-size:13px}.ts-ph.on{font-size:14px}.ts-round b{font-size:36px}}
+/* V-ONBOARD */
+.lang-btn{display:flex;align-items:center;gap:6px;margin:-8px 8px 14px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.lang-btn span{font-weight:800;letter-spacing:.5px}.lang-btn:hover{border-color:var(--chip-border)}
+@media(max-width:900px){.lang-btn{flex:none;margin:0 6px 0 0;padding:0 10px;height:38px;border-radius:999px;gap:4px;font-size:12.5px}}
+.onb .help-opt b{font-size:17px}.onb-note{font-size:12.5px!important;border:1px dashed var(--line);border-radius:10px;padding:9px 11px;line-height:1.5}.help-ghost.wide{width:100%;margin-top:6px;padding:10px;border-radius:10px;cursor:pointer}

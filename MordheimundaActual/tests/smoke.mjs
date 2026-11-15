@@ -1095,7 +1095,7 @@ await test('[mobile] help: every page has help, ? sheet, first steps tick, welco
   await seed(page);
   const out=await page.evaluate(async()=>{const src=document.querySelector('script[src*="app"]')?.src;const txt=await (await fetch(src)).text();const m=/\(\{(dashboard,[^}]*)\}\[/.exec(txt);const list=m?m[1].split(',').map(x=>x.trim()):[];
     const missing=helpMissingPages(list);
-    localStorage.removeItem('mu_help');localStorage.setItem('mu_help_demo','1');helpSave({level:'new',welcomed:true});navigateApp('/');await new Promise(z=>setTimeout(z,300));
+    localStorage.removeItem('mu_help');localStorage.setItem('mu_help_demo','1');helpSave({level:'new',welcomed:true,onb:1});navigateApp('/');await new Promise(z=>setTimeout(z,300));
     const check=!!document.querySelector('.help-check');const done1=document.querySelectorAll('.help-step.done').length;
     const r=activeRoster();const f=faction(r);const L=f.warriors.find(w=>w.type==='Leader');r.fighters.push({...L,profile:(L.profile||[]).slice(),instance:crypto.randomUUID(),wid:L.id,sourceName:L.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[]});save(true);
     navigateApp('/');await new Promise(z=>setTimeout(z,300));const done2=document.querySelectorAll('.help-step.done').length;
@@ -1762,6 +1762,22 @@ await test('[desktop] table screen: round and phases, Priority, rout counters sh
     return {open,bands,standing,ph1,n:t.n,ph:t.ph,prio,k,routTxt,flip,closed:!document.getElementById('tableScreen'),inManual:MANUAL_TOOLS.some(x=>x[1]==='Table screen')}});
   expect(out.open&&out.bands===1&&out.standing==='3'&&out.ph1==='Actions'&&out.n===2&&out.ph===0,'table screen opens with standing fighters, phases go Priority → Actions → End → next round: '+JSON.stringify(out));
   expect(out.prio&&out.k===2&&/flees on 3\+/.test(out.routTxt)&&out.flip&&out.closed&&out.inManual,'Priority, the same rout counter as Play, turn round, close: '+JSON.stringify(out));
+});
+await test('[mobile] first visit after the update: language first, then the tour offer, once; FR/EN button',null,async page=>{
+  await page.setViewportSize({width:390,height:844});
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));localStorage.setItem('mu_help',JSON.stringify({level:'vet',welcomed:true}));localStorage.setItem('mu_help_demo','1');
+    helpWelcomeShown=false;navigateApp('/');await wait(1200);
+    const step1=/Bienvenue · Welcome/.test(document.querySelector('#modal')?.textContent||'');const langs=document.querySelectorAll('#modal .onb-lang').length;
+    onbLang('fr');await wait(200);const lang=siteLanguage;const step2=/On fait le tour du site/.test(document.querySelector('#modal')?.textContent||'');const opts=document.querySelectorAll('#modal .help-opt').length;
+    helpWelcomePick='vet';helpWelcomeDone();await wait(500);const tour=!!document.querySelector('.help-bubble');const firstStep=document.querySelector('.help-bubble b')?.textContent||'';const total=helpTour?.steps.length||0;
+    const ring=document.querySelector('.help-ring');helpTourMove(1);const second=document.querySelector('.help-bubble b')?.textContent||'';helpTourEnd();
+    const st=helpState();helpWelcomeShown=false;navigateApp('/rules');await wait(1000);const again=/Bienvenue · Welcome/.test(document.querySelector('#modal:not(.hidden)')?.textContent||'');
+    const lb=document.getElementById('langBtn');const before=lb?.textContent||'';lb.click();await wait(200);const after=document.getElementById('langBtn')?.textContent||'';const now=siteLanguage;
+    localStorage.removeItem('mu_help_demo');siteLanguage='en';
+    return {step1,langs,lang,step2,opts,tour,firstStep,total,second,onb:st.onb,again,before,after,now}});
+  expect(out.step1&&out.langs===2&&out.lang==='fr'&&out.step2&&out.opts===3,'language first, then the tour offer: '+JSON.stringify(out));
+  expect(out.tour&&/aide/i.test(out.firstStep)&&out.total>=6&&/anglais/i.test(out.second)&&out.onb===1&&!out.again,'the tour starts on Help, then the language, and is offered once: '+JSON.stringify(out));
+  expect(/FR/.test(out.before)&&/EN/.test(out.after)&&out.now==='en','the 🌐 button switches the language in one tap: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
