@@ -130,7 +130,7 @@ app.use('/api/admin',(req,res,next)=>{
 const PUBLIC_CACHED_GETS=new Set(['/api/catalog/race-looks','/api/catalog/help-texts','/api/catalog/price-rules','/api/catalog/warband-size-limits','/api/catalog/warband-hire-rules','/api/warbands/official','/api/scenarios','/api/quests','/api/trophies','/api/mutations','/api/home','/api/deployment-maps','/api/rules/overrides','/api/rules/nav-groups','/api/catalog/overrides','/api/catalog/weapon-overrides','/api/catalog/race-tags','/api/catalog/race-maximums','/api/catalog/faction-categories','/api/catalog/domain-overrides','/api/catalog/spell-weapon-profiles']);
 app.use((req,res,next)=>{
   if(req.method!=='GET'||!PUBLIC_CACHED_GETS.has(req.path)||req.query._t!==undefined)return next();
-  const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=60, stale-while-revalidate=300');return json(body)};
+  const json=res.json.bind(res);res.json=body=>{if(res.statusCode===200)res.setHeader('Cache-Control','public, max-age=0, s-maxage=600, stale-while-revalidate=86400');return json(body)};
   next();
 });
 // V-TRAFFICCAP: every API call is counted (calls, bytes in, bytes out) per
@@ -421,7 +421,7 @@ app.post('/api/auth/register',requireDb,requireSameOrigin,async(req,res,next)=>{
   }catch(e){try{await client.query('ROLLBACK')}catch{};next(e)}finally{client.release()}
 });
 
-app.post('/api/auth/login',requireDb,requireSameOrigin,async(req,res,next)=>{
+app.post('/api/auth/login',requireDb,requireSameOrigin,async(req,res,next)=>{housekeepSoon();
   try{
     const login=String(req.body?.login||'').trim(),password=String(req.body?.password||'');
     const q=await pool.query("SELECT id,username,email,password_hash,email_verified_at,is_admin,token_version FROM users WHERE lower(username)=lower($1) OR lower(coalesce(email,''))=lower($1) LIMIT 1",[login]);
@@ -2609,8 +2609,12 @@ app.get('/api/account/access-log',requireDb,auth,async(req,res,next)=>{
   }catch(e){next(e)}
 });
 
-// Periodic housekeeping keeps expired credentials from accumulating forever.
-if(pool)setInterval(()=>pool.query("DELETE FROM sessions WHERE expires_at<=NOW(); DELETE FROM recovery_tokens WHERE expires_at<=NOW() OR used_at IS NOT NULL").catch(e=>console.error('housekeeping',e)),60*60*1000).unref();
+// Housekeeping keeps expired credentials from accumulating forever.
+// V-NOWAKE: it used to run on an hourly timer, which woke the database every
+// hour even with nobody on the site (a warm instance keeps its timers). Now
+// it rides on a sign-in, at most once every 6 hours per instance.
+let housekeepAt=0;
+function housekeepSoon(){if(!pool||Date.now()-housekeepAt<6*3600*1000)return;housekeepAt=Date.now();pool.query("DELETE FROM sessions WHERE expires_at<=NOW(); DELETE FROM recovery_tokens WHERE expires_at<=NOW() OR used_at IS NOT NULL").catch(e=>console.error('housekeeping',e))}
 
 // V152: One-shot manual migration endpoint. schema.sql is already re-run on
 // every cold boot (see ensureSchema above), so this is only here to give the
