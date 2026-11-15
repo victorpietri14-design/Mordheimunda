@@ -33,16 +33,36 @@ const pool=config.databaseUrl?new Pool({connectionString:config.databaseUrl,ssl:
 // EXISTS / additive ALTERs only), so it's safe to replay it on every boot —
 // this keeps the live database in sync automatically, with no manual step,
 // and prevents this whole class of bug for any future table/column too.
+// V-SCHEMAONCE: replaying it on EVERY cold boot took table locks (ALTER
+// TABLE locks even when there is nothing to add) — several instances
+// starting together (after a deploy, or many players waking the site at
+// once) blocked each other: deadlocks, slow first requests, and the
+// database kept awake for nothing. Now the file's fingerprint is kept in
+// site_settings: a boot whose schema.sql is unchanged only reads it; a
+// changed one replays it once, behind a lock so only one instance does.
 async function ensureSchema(){
   if(!pool)return;
+  let client=null;
   try{
     const schemaPath=path.join(publicDir,'server','db','schema.sql');
     const sql=fs.readFileSync(schemaPath,'utf8');
-    await pool.query(sql);
+    const hash=crypto.createHash('sha256').update(sql).digest('hex');
+    // (checks the table first: a failed query would abort the transaction)
+    const done=async q=>{const t=await q.query("SELECT to_regclass('public.site_settings') AS t");if(!t.rows[0]?.t)return false;const r=await q.query("SELECT value->>'hash' AS h FROM site_settings WHERE key='schemaHash'");return r.rows[0]?.h===hash};
+    if(await done(pool)){console.log('Database schema is up to date.');return}
+    client=await pool.connect();
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(73010001)');
+    if(!(await done(client))){
+      await client.query(sql);
+      await client.query("INSERT INTO site_settings(key,value,updated_at) VALUES('schemaHash',jsonb_build_object('hash',$1::text),NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[hash]);
+    }
+    await client.query('COMMIT');
     console.log('Database schema is up to date.');
   }catch(e){
+    try{await client?.query('ROLLBACK')}catch(err){}
     console.error('Schema sync failed (continuing — existing tables are unaffected):',e.message);
-  }
+  }finally{client?.release()}
 }
 await ensureSchema();
 const cookie={httpOnly:true,secure:isProd,sameSite:'lax',path:'/'};
