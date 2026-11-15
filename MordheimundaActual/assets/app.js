@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0859.0';
+const APP_BUILD='110.0860.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6647,6 +6647,7 @@ function searchDeepText(o,depth=0){
 const SEARCH_PAGES=[['dashboard','Home','Accueil','dashboard tableau de bord'],['rosters','My warbands','Mes bandes','rosters'],['create','Create a warband','Créer une bande','new nouvelle'],['myCampaigns','My campaigns','Mes campagnes',''],['playMode','Play mode','Mode jeu','jouer partie battle bataille'],['rules','Rules: The Game','Règles : Le Jeu','rulebook livre'],['learn','Learn to play','Apprendre à jouer','tutorial tutoriel tuto lessons leçons débutant beginner'],['rulesWarbands','Rules: Warbands','Règles : Warbands','bandes'],['rulesCampaign','Rules: Campaign','Règles : Campagne','campaigns campagnes'],['scenarios','Scenarios','Scénarios','missions'],['underdogBonus','Underdog bonus','Bonus Underdog',''],['references','Reference','Référentiel','glossary glossaire skills compétences'],['armory','Armory','Armurerie','equipment équipement weapons armes'],['custom','Custom','Custom','personnalisé hired swords dramatis personae'],['printList','Print','Imprimer','pdf'],['account','Account','Compte','profil login'],['admin','Admin','Admin','administration']];
 function searchMoreGroups(q,en,add){
   const tr=(fn)=>{try{return fn()||[]}catch(e){console.warn(e);return []}};
+  add('tools',en?'Tools':'Outils',tr(()=>typeof MANUAL_TOOLS==='undefined'?[]:MANUAL_TOOLS.map((t,i)=>({score:Math.max(searchScore(q,en?t[1]:t[2]),searchScore(q,'',(en?t[3]:t[4]))?12:0),title:en?t[1]:t[2],sub:en?t[3]:t[4],go:()=>manualRun(i)})).filter(o=>o.score>0).sort((a,b)=>b.score-a.score).slice(0,5)));
   add('pages',en?'Pages':'Pages',tr(()=>SEARCH_PAGES.filter(p=>p[0]!=='admin'||isAdminSession()).map(([k,a,b,kw])=>({score:Math.max(searchScore(q,en?a:b),searchScore(q,en?b:a)*0.9|0,searchScore(q,'',kw)?15:0),title:en?a:b,sub:APP_ROUTES[k],go:()=>navigateApp(APP_ROUTES[k])}))));
   add('hiredSwords','Hired Swords · Dramatis Personae',tr(()=>hiredSwordRawList().map(w=>{const rules=(Array.isArray(w.dpRules)?w.dpRules:[]).map(r=>`${r.name||''} ${r.text||''}`).join(' ');const body=[rules,w.dpLore||'',w.specialRules&&searchDeepText(w.specialRules),(w.defaultEquipment||[]).map(e=>e?.name||e).join(' '),(Array.isArray(w.dpWeapons)?w.dpWeapons:[]).map(d=>`${d.name||''} ${d.rulesText||''}`).join(' '),(w.skills||[]).map(e=>e?.name||e).join(' ')].join(' ');const sc=searchScore(q,w.name,body);return {score:sc?sc+3:0,title:w.name,sub:(w.dramatis?'Dramatis Personae':'Hired Sword')+(sc<50?' · '+searchSnippet(body,q):''),go:()=>navigateApp('/rules/warbands/'+(w.dramatis?'dramatis-personae':'hired-swords'))}})));
   const camp=[];tr(()=>campaignListAll()).forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;const d=c.definition||{};const base='/rules/campaign/'+encodeURIComponent(c.id);
@@ -18622,7 +18623,7 @@ function openPageHelp(){const en=siteLanguage==='en';const k=helpPageKey();const
 function openHelpMenu(){const en=siteLanguage==='en';const st=helpState();const lv=st.level||'off';const seen=new Set(st.newsSeen||[]);
  helpSheetOpen(`<div class="help-kicker">${en?'HELP':'AIDE'}</div><h3>${en?'Help and tours':'Aide et visites'}</h3>
  <div class="help-menu">
-  <button type="button" onclick="helpSheetClose();helpTourStart('general')"><i>▶</i><span><b>${en?'General tour':'Visite générale'}</b><small>${en?'The main screens, in 4 steps.':'Les écrans principaux, en 4 étapes.'}</small></span></button>
+  <button type="button" onclick="manualOpen()"><i>📘</i><span><b>${en?'User guide: every tool':'Mode d’emploi : tous les outils'}</b><small>${en?'Everything the site can do, by moment, with “Show me”.':'Tout ce que le site sait faire, par moment, avec « Montre-moi ».'}</small></span></button><button type="button" onclick="helpSheetClose();helpTourStart('general')"><i>▶</i><span><b>${en?'General tour':'Visite générale'}</b><small>${en?'The main screens, in 4 steps.':'Les écrans principaux, en 4 étapes.'}</small></span></button>
   <button type="button" onclick="helpSheetClose();learnOpen('')"><i>🎓</i><span><b>${en?'Learn to play':'Apprendre à jouer'}</b><small>${en?'8 short lessons with a dice exercise.':'8 leçons courtes avec un exercice au dé.'}</small></span></button>
   <button type="button" onclick="helpSheetClose();helpCardsOpen(0)"><i>◆</i><span><b>${en?'The game in 2 minutes':'Le jeu en 2 minutes'}</b><small>${en?'9 short cards on how a game is played.':'9 cartes courtes pour comprendre une partie.'}</small></span></button>
   <button type="button" onclick="helpSheetClose();helpGuideStart()"><i>⚔</i><span><b>${en?'Create my warband step by step':'Créer ma bande pas à pas'}</b><small>${en?'From the race to the equipment, in 8 steps.':'De la race à l’équipement, en 8 étapes.'}</small></span></button>
@@ -19032,6 +19033,7 @@ const GUIDE_KEY='mu_guide';
 function guideState(){try{const v=JSON.parse(localStorage.getItem(GUIDE_KEY)||'{}');return v&&typeof v==='object'?v:{}}catch(e){return {}}}
 function guideSave(p){try{localStorage.setItem(GUIDE_KEY,JSON.stringify({...guideState(),...p}))}catch(e){}}
 let guideStep=null;
+function manualOpen(){try{helpSheetClose()}catch(e){}try{closeModal()}catch(e){}navigateApp('/rules/learn/manual');window.scrollTo({top:0})}
 function guideOpen(i){guideStep=i==null?null:i;if(i!=null)guideSave({last:i});navigateApp('/rules/learn/guide');window.scrollTo({top:0})}
 function guideRoster(){const rs=(state.rosters||[]).filter(Boolean);return rs.find(r=>r.id===state.active)||rs[rs.length-1]||null}
 function guideGoRoster(tab){const r=guideRoster();if(!r){navigateApp(APP_ROUTES.create);return}state.active=r.id;navigateApp(warbandPath(r.id));if(tab)setTimeout(()=>{try{setGangTab(tab)}catch(e){}},80)}
