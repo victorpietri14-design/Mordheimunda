@@ -1749,6 +1749,20 @@ await test('[desktop] warband journal: opponent and who went down kept, note edi
   expect(out.opp?.[0]==='Gork'&&out.ooa===2&&out.shown,'the journal shows the opponent and who went down: '+JSON.stringify(out));
   expect(out.note==='Held the bridge'&&out.edited&&out.share,'a game note can be written afterwards and the journal shared as text: '+JSON.stringify(out));
 });
+await test('[desktop] table screen: round and phases, Priority, rout counters shared with Play',null,async page=>{
+  await page.setViewportSize({width:1024,height:768});await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));const r=activeRoster();const f=faction(r);const w=f.warriors[0];
+    for(let i=0;i<4;i++)r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'ts'+i,name:'T'+i,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});save(true);
+    const ps=blankPlaySession();ps.slots=[{source:'own',rosterId:r.id,rosterName:r.name}];ps.engaged={[r.id]:{picks:['ts0','ts1','ts2','ts3'],validated:true}};ps.ooa={[r.id]:['ts1']};state.playSession=ps;save();
+    navigateApp(APP_ROUTES.playMode);await wait(400);openTableScreen();await wait(100);
+    const open=!!document.querySelector('#tableScreen .ts');const bands=document.querySelectorAll('.ts-band').length;const standing=document.querySelector('.ts-nums b')?.textContent;
+    tsPhase(1);const ph1=document.querySelector('.ts-ph.on')?.textContent;tsPhase(1);tsPhase(1);const t=state.playSession.turn;
+    tsPrio(r.id);const prio=!!document.querySelector('.ts-prio');tsRout(r.id,1);tsRout(r.id,1);const k=state.playSession.rout[r.id];const routTxt=document.querySelector('.ts-routbox b')?.textContent;
+    tsFlip();const flip=!!document.querySelector('.ts.flip');tsFlip();closeTableScreen();await wait(100);
+    return {open,bands,standing,ph1,n:t.n,ph:t.ph,prio,k,routTxt,flip,closed:!document.getElementById('tableScreen'),inManual:MANUAL_TOOLS.some(x=>x[1]==='Table screen')}});
+  expect(out.open&&out.bands===1&&out.standing==='3'&&out.ph1==='Actions'&&out.n===2&&out.ph===0,'table screen opens with standing fighters, phases go Priority → Actions → End → next round: '+JSON.stringify(out));
+  expect(out.prio&&out.k===2&&/flees on 3\+/.test(out.routTxt)&&out.flip&&out.closed&&out.inManual,'Priority, the same rout counter as Play, turn round, close: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
