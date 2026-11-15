@@ -1779,6 +1779,20 @@ await test('[mobile] first visit after the update: language first, then the tour
   expect(out.tour&&/aide/i.test(out.firstStep)&&out.total>=6&&/anglais/i.test(out.second)&&out.onb===1&&!out.again,'the tour starts on Help, then the language, and is offered once: '+JSON.stringify(out));
   expect(/FR/.test(out.before)&&/EN/.test(out.after)&&out.now==='en','the 🌐 button switches the language in one tap: '+JSON.stringify(out));
 });
+await test('[mobile] no duplicate help or settings entries, everything still reachable',null,async page=>{
+  await page.setViewportSize({width:390,height:844});await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    openTabSheet('more');const more=document.getElementById('tabSheet');const moreTxt=more.textContent;const moreLang=!!more.querySelector('select');const moreErr=/Error report/.test(moreTxt);const moreAcct=/Account and settings/.test(moreTxt);closeTabSheet();
+    const side=!!document.getElementById('languageSelect');
+    openHelpHub();const groupRows=[...document.querySelectorAll('.hh-group .hh-row b')].map(b=>b.textContent);const tileDup=groupRows.filter(t=>['The player’s guide','The game in 2 minutes','Learn to play'].includes(t)).length;
+    const settingsDup=[...document.querySelectorAll('.hh-settings .help-menu b')].map(b=>b.textContent).filter(t=>/General tour|First steps/.test(t)).length;const tourInGroups=groupRows.includes('General tour');helpSheetClose();
+    openPrintChooser();const pr=document.querySelector('#modal').textContent;closeModal();
+    openReportProblem();const errLink=/Errors recorded on this device/.test(document.querySelector('#modal').textContent);closeModal();
+    navigateApp(APP_ROUTES.account);await wait(800);const acct=document.getElementById('content').textContent;
+    return {moreLang,moreErr,moreAcct,side,tileDup,settingsDup,tourInGroups,printParts:/Choose parts of this page/.test(pr)&&/Print list/.test(pr)&&/Blank sheet/.test(pr),errLink,acctHelp:/Open help/.test(acct),acctLang:/Also with 🌐/.test(acct),lang:!!document.getElementById('langBtn')}});
+  expect(!out.moreLang&&!out.moreErr&&out.moreAcct&&!out.side&&!out.tileDup&&!out.settingsDup&&out.tourInGroups,'one entry per thing in More, sidebar and help menu: '+JSON.stringify(out));
+  expect(out.printParts&&out.errLink&&!out.acctHelp&&out.acctLang&&out.lang,'what moved is still reachable (print, error log, language): '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
