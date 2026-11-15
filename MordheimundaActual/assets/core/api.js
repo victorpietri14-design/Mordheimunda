@@ -199,7 +199,7 @@
   accountHistoryGet:id=>request('/api/account/history/'+encodeURIComponent(id)),
   adminSupportHistory:uid=>request('/api/admin/support/'+encodeURIComponent(uid)+'/history'),
   adminSupportHistoryGet:(uid,id)=>request('/api/admin/support/'+encodeURIComponent(uid)+'/history/'+encodeURIComponent(id)),
-  adminExport:(table,offset=0)=>request('/api/admin/export'+(table?`?table=${encodeURIComponent(table)}&offset=${Number(offset)||0}`:'')),
+  adminExport:(table,offset=0,full=false)=>request('/api/admin/export'+(table?`?table=${encodeURIComponent(table)}&offset=${Number(offset)||0}`:(full?'?full=1':''))),adminBackupStatus:()=>request('/api/admin/backup-status'),
   adminSaveTrophies:library=>request('/api/admin/trophies',{method:'PUT',body:JSON.stringify({library})}),
   mutations:()=>request('/api/mutations'),
   adminSaveMutations:library=>request('/api/admin/mutations',{method:'PUT',compress:true,body:JSON.stringify({library})}),

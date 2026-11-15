@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0857.0';
+const APP_BUILD='110.0858.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -17955,6 +17955,7 @@ function homeReminders(all){const en=siteLanguage==='en';const out=[];const day=
     try{const n=(r.fighters||[]).filter(x=>{try{return homeCanAdvance(x)}catch(e){return false}}).length;if(n)out.push({k:'adv:'+r.id+':'+n,ic:'↑',txt:en?`${r.name}: ${n} fighter${n>1?'s':''} can advance`:`${r.name} : ${n} combattant${n>1?'s peuvent':' peut'} progresser`,go:`navigateApp(warbandPath('${esc(r.id)}'))`,w:1})}catch(e){}
     try{if(r.campaignId){const last=Math.max(Number(r.lastGame?.at||0),...((r.valueLog||[]).map(v=>Number(v.ts)||0)),0);if(last){const d=Math.floor((now-last)/day);if(d>=14)out.push({k:'idle:'+r.id,ic:'⏳',txt:en?`${r.name}: no game for ${d} days (campaign)`:`${r.name} : pas de partie depuis ${d} j (campagne)`,go:`navigateApp(warbandPath('${esc(r.id)}'))`,w:0})}}}catch(e){}
   });
+  try{if(isAdminSession()){adminBackupStatusLoad();if(adminBackupStale()){const d=backupAgeDays(adminBackupStatusCache.auto??adminBackupStatusCache.manual);out.push({k:'backup:'+(d??'never'),ic:'🛟',txt:en?`Admin: no backup for ${d==null?'a long time':d+' days'}`:`Admin : pas de sauvegarde depuis ${d==null?'longtemps':d+' jours'}`,go:'adminOpenBackup()',w:2})}}}catch(e){}
   if(all)return out;const hid=remindHidden();return out.filter(x=>!hid[x.k]).sort((a,b)=>b.w-a.w)}
 // V-REMINDBACK: reminders hidden earlier (also the ones closed before the
 // "Later / Don't show again" buttons existed) can be shown again.
@@ -18271,6 +18272,21 @@ function printWarbandCards(){const en=siteLanguage==='en';const r=activeRoster()
   let fr=document.getElementById('sheetFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='sheetFrame';fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';document.body.appendChild(fr);
   const d=fr.contentDocument;d.open();d.write(cardsDocument(r));d.close();
   const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){}};try{(d.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}
+// ============ V-BACKUPSTATUS: when the database was last saved ============
+// The weekly GitHub backup (.github/workflows/backup.yml) writes its date in
+// the database; a full export from Admin › Backup writes the manual one. An
+// admin sees both in the Backup card, and a reminder on the home page when
+// neither is recent.
+const BACKUP_STALE_DAYS=10;let adminBackupStatusCache=null,adminBackupStatusLoading=false;
+function adminBackupStatusLoad(force){if(!isAdminSession()||adminBackupStatusLoading||(adminBackupStatusCache&&!force))return;adminBackupStatusLoading=true;
+  window.MordheimundaAPI.adminBackupStatus().then(s=>{adminBackupStatusCache={auto:s?.auto||null,manual:s?.manual||null};try{const v=currentViewName();if(v==='admin'||v==='dashboard')render(v,{history:false})}catch(e){}}).catch(()=>{adminBackupStatusCache={auto:null,manual:null,error:true}}).finally(()=>{adminBackupStatusLoading=false})}
+function backupAgeDays(at){const t=Date.parse(at||'');return Number.isFinite(t)?Math.floor((Date.now()-t)/864e5):null}
+function backupAgeText(at,en){const d=backupAgeDays(at);if(d==null)return en?'never':'jamais';if(d===0)return en?'today':'aujourd’hui';if(d===1)return en?'yesterday':'hier';return en?`${d} days ago`:`il y a ${d} jours`}
+function adminBackupStatusMarkup(){const en=siteLanguage==='en';const s=adminBackupStatusCache;if(!s)return `<p class="muted bk-status">${en?'Checking the last backups…':'Vérification des dernières sauvegardes…'}</p>`;
+  const a=backupAgeDays(s.auto),m=backupAgeDays(s.manual);const fresh=d=>d!=null&&d<=BACKUP_STALE_DAYS;
+  return `<div class="bk-status${fresh(a)||fresh(m)?'':' stale'}"><div><span>${en?'Automatic (weekly, GitHub)':'Automatique (chaque semaine, GitHub)'}</span><b>${backupAgeText(s.auto,en)}</b></div><div><span>${en?'Manual (download below)':'Manuelle (bouton ci-dessous)'}</span><b>${backupAgeText(s.manual,en)}</b></div>${s.auto?'':`<small>${en?'The automatic backup is not set up yet, or has not run: see server/db/BACKUP.md.':'La sauvegarde automatique n’est pas encore configurée, ou n’a pas encore tourné : voir server/db/BACKUP.md.'}</small>`}</div>`}
+function adminBackupStale(){const s=adminBackupStatusCache;if(!s||s.error)return false;const ok=d=>d!=null&&d<=BACKUP_STALE_DAYS;return !ok(backupAgeDays(s.auto))&&!ok(backupAgeDays(s.manual))}
+function adminOpenBackup(){adminOpenCategory='backup';navigateApp(APP_ROUTES.admin)}
 // ============ V-SCNRULES: rules a scenario uses ============
 function scenarioRulesUsed(s){const g=glossaryMatcher();if(!g?.re)return [];const txt=searchDeepText(s);const out=new Map();g.re.lastIndex=0;let m;while((m=g.re.exec(txt))){if(m[0][0]===m[0][0].toLowerCase())continue;const t=g.find(m[0]);if(t&&!out.has(t.id))out.set(t.id,{...t,name:t.name})}return [...out.values()].slice(0,16)}
 // ============ V-A11Y: icon-only buttons get a name a screen reader can say ============
