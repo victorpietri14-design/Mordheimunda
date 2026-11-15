@@ -817,7 +817,7 @@ app.get('/api/admin/export',requireDb,auth,requireAdmin,async(req,res,next)=>{
   }catch(e){next(e)}
 });
 
-app.put('/api/account/data',requireDb,requireSameOrigin,auth,trafficGuard,async(req,res,next)=>{
+app.put('/api/account/data',requireDb,requireSameOrigin,auth,trafficGuard,async(req,res,next)=>{housekeepSoon();
   const data=req.body?.data;if(!data||typeof data!=='object'||Array.isArray(data))return res.status(400).json({error:'INVALID_DATA'});
   const payload=JSON.stringify(data);if(Buffer.byteLength(payload)>5*1024*1024)return res.status(413).json({error:'DATA_TOO_LARGE'});
   try{
@@ -2621,7 +2621,7 @@ app.get('/api/account/access-log',requireDb,auth,async(req,res,next)=>{
 // hour even with nobody on the site (a warm instance keeps its timers). Now
 // it rides on a sign-in, at most once every 6 hours per instance.
 let housekeepAt=0;
-function housekeepSoon(){if(!pool||Date.now()-housekeepAt<6*3600*1000)return;housekeepAt=Date.now();pool.query("DELETE FROM sessions WHERE expires_at<=NOW(); DELETE FROM recovery_tokens WHERE expires_at<=NOW() OR used_at IS NOT NULL").catch(e=>console.error('housekeeping',e))}
+function housekeepSoon(){if(!pool||Date.now()-housekeepAt<6*3600*1000)return;housekeepAt=Date.now();pool.query("DELETE FROM sessions WHERE expires_at<=NOW(); DELETE FROM recovery_tokens WHERE expires_at<=NOW() OR used_at IS NOT NULL; DELETE FROM traffic_usage WHERE who LIKE 'ip:%' OR day<CURRENT_DATE-60").catch(e=>console.error('housekeeping',e))}
 
 // V152: One-shot manual migration endpoint. schema.sql is already re-run on
 // every cold boot (see ensureSchema above), so this is only here to give the
