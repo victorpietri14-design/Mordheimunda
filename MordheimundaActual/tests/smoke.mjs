@@ -1722,6 +1722,20 @@ await test('[mobile] one help menu: "? Help" opens it with this page first, ever
   expect(!out.bad.length&&out.visible&&out.hub&&/ON THIS PAGE/.test(out.kick)&&out.pageRows>=3,'the help button says Help and opens the hub with this page first: '+JSON.stringify(out));
   expect(out.groups===7&&out.tiles===3&&out.found.some(t=>/Print/.test(t))&&out.back===7&&out.ran&&/Help/.test(out.firstMore),'every tool by group, search, Show me, Help first in More: '+JSON.stringify(out));
 });
+await test('[desktop] report a problem: from the help menu, details only when ticked, queued when it cannot leave',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));localStorage.removeItem('mu_feedback_q');
+    openHelpHub();const inHub=!!document.querySelector('.hh-report');document.querySelector('.hh-report').click();await wait(100);
+    const dlg=!!document.querySelector('#modal .fb-dialog');const checks=document.querySelectorAll('#modal .fb-check').length;
+    feedbackSet('kind','rule');document.getElementById('fbBody').value='Halberd costs no gold';feedbackDraft.body='Halberd costs no gold';
+    const p1=feedbackPayload();feedbackSet('tech',false);const p2=feedbackPayload();feedbackSet('roster',true);const p3=feedbackPayload();feedbackSet('roster',false);feedbackSet('tech',true);
+    const sent=[];const orig=window.MordheimundaAPI.sendFeedback;window.MordheimundaAPI.sendFeedback=async f=>{throw new TypeError('Failed to fetch')};
+    await feedbackSend();const q=feedbackQueue();const closed=feedbackDraft===null;
+    window.MordheimundaAPI.sendFeedback=async f=>{sent.push(f);return {ok:true}};await feedbackFlush();const after=feedbackQueue().length;window.MordheimundaAPI.sendFeedback=orig;
+    return {inHub,dlg,checks,kind:p1.kind,tech:!!p1.build&&Array.isArray(p1.errors)&&!p1.roster,noTech:!p2.build&&!p2.errors,roster:!!p3.roster,q:q.length,closed,sent:sent.length,after,inManual:MANUAL_TOOLS.some(t=>t[1]==='Report a problem')}});
+  expect(out.inHub&&out.dlg&&out.checks===2&&out.kind==='rule'&&out.tech&&out.noTech&&out.roster,'report dialog: kinds, technical details and warband copy only when ticked: '+JSON.stringify(out));
+  expect(out.q===1&&out.closed&&out.sent===1&&out.after===0&&out.inManual,'a report that cannot leave waits on the device and leaves later: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

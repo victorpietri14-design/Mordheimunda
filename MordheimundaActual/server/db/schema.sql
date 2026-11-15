@@ -686,3 +686,20 @@ CREATE TABLE IF NOT EXISTS admin_log (
   restored_by TEXT
 );
 CREATE INDEX IF NOT EXISTS admin_log_at_idx ON admin_log(at DESC);
+-- V-FEEDBACK: "Report a problem" sent by players (Help menu). Anonymous: no
+-- account, no IP. Technical details and a copy of a warband only when the
+-- player ticks them. Read in Admin › Reports; resolved ones go after 90 days.
+CREATE TABLE IF NOT EXISTS feedback_reports (
+  id BIGSERIAL PRIMARY KEY,
+  kind TEXT NOT NULL DEFAULT 'bug',
+  body TEXT NOT NULL,
+  route TEXT NOT NULL DEFAULT '',
+  build TEXT NOT NULL DEFAULT '',
+  device TEXT NOT NULL DEFAULT '',
+  lang TEXT NOT NULL DEFAULT '',
+  errors JSONB NOT NULL DEFAULT '[]'::jsonb,
+  roster JSONB,
+  resolved BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS feedback_reports_created_idx ON feedback_reports(created_at DESC);
