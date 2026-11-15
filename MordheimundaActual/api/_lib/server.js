@@ -176,6 +176,10 @@ app.use('/api/',(req,res,next)=>{
   res.end=(c,...a)=>{if(c&&typeof c!=='function')out+=Buffer.isBuffer(c)?c.length:Buffer.byteLength(String(c));return e(c,...a)};
   res.on('finish',async()=>{
     const who=await trafficWhoFull(req);
+    // V-ANONMEM: a visitor without an account (very often a crawler) is
+    // only counted in memory — enough for the per-visitor limit — and never
+    // written to the database, so it no longer wakes it up.
+    if(String(who).startsWith('ip:')){bumpTrafficCache(who,Number(req.headers['content-length']||0)+out);return}
     const k=who+'\u0000'+routeKey(req);const v=trafficPending.get(k)||{calls:0,bin:0,bout:0};
     v.calls++;v.bin+=Number(req.headers['content-length']||0)||0;v.bout+=out;trafficPending.set(k,v);
     const n=v.bin+v.bout;bumpTrafficCache(who,Number(req.headers['content-length']||0)+out);
@@ -386,6 +390,9 @@ async function auth(req,res,next){
 const requireAdmin=(req,res,next)=>req.user?.is_admin?next():res.status(403).json({error:'ADMIN_REQUIRED'});
 
 app.get('/api/health',async(_req,res)=>{
+  // V-NOWAKE: monitors and crawlers call this often; checking the database
+  // on each call kept it awake day and night. ?db=1 still checks it.
+  if(_req.query.db!=='1')return res.json({ok:true,service:'mordheimunda-account-api',database:pool?'not-checked':false,email:!!config.smtpHost,version:config.appVersion});
   let db=false;
   if(pool){try{await pool.query('SELECT 1');db=true}catch{}}
   res.status(db||!pool?200:503).json({ok:!!(db||!pool),service:'mordheimunda-account-api',database:db,email:!!config.smtpHost,version:config.appVersion});
