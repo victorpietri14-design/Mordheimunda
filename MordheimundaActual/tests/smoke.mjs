@@ -1541,7 +1541,7 @@ await test('[desktop] quick fixes: Resolute becomes Nerves of Steel, mutation sk
 await test('[mobile] player guide: 2 levels, steps tick themselves from the warband, reachable from help and lessons',null,async page=>{
   await page.setViewportSize({width:390,height:844});
   const out=await page.evaluate(async()=>{localStorage.removeItem('mu_guide');state.rosters=[];guideOpen(null);await new Promise(z=>setTimeout(z,300));
-    const hub=document.querySelectorAll('.guide-step').length===4&&document.querySelectorAll('.guide-more').length===4&&location.pathname==='/rules/learn/guide';
+    const hub=document.querySelectorAll('.guide-step').length===4&&document.querySelectorAll('.guide-more').length===5&&location.pathname==='/rules/learn/guide';
     const empty=guideSteps()[1].todo.every(t=>!t.done);
     const f=D.factions.find(x=>!x.__official&&x.warriors?.some(w=>w.type==='Leader')&&x.warriors?.some(w=>w.type==='Henchman'));state.rosters=[{id:'gd',name:'GD',factionId:f.id,gold:1000,fighters:[],reserve:[],history:[]}];state.active='gd';
     const chose=guideSteps()[1].todo[0].done&&!guideSteps()[1].todo[1].done;
@@ -1662,6 +1662,18 @@ await test('[desktop] combat sheet: tapping a fighter in Play opens a read-only 
     const shortOk=ruleShort('Fear','special')==='Charging him needs a Fear test.';const states=document.querySelectorAll('#modal .cs-st').length;closeModal();
     return {onSheet,hasRace,before,after,shortOk,states,slug:ruleSlug("Scurry Away!")}});
   expect(out.onSheet&&!out.hasRace&&out.before>0&&out.after===out.before-1&&out.shortOk&&out.states===4&&out.slug==='scurry-away','combat sheet: '+JSON.stringify(out));
+});
+await test('[desktop] user guide: every tool by moment, search, Show me opens the tool, linked from help',null,async page=>{
+  await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});
+  const out=await page.evaluate(async()=>{siteLanguage='en';const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    openHelpMenu();await wait(200);const inHelp=/User guide/.test(document.body.textContent);manualOpen();await wait(400);
+    const path=location.pathname,groups=document.querySelectorAll('.manual-page .man-h').length,rows=document.querySelectorAll('.manual-page .man-row').length;
+    manualQ='print';learn();await wait(150);const found=[...document.querySelectorAll('.manual-page .man-row b')].map(b=>b.textContent);manualQ='';
+    // every Show me action refers to a function that exists
+    const missing=MANUAL_TOOLS.map(t=>t[5]).flatMap(js=>[...js.matchAll(/([A-Za-z_]\w*)\(/g)].map(m=>m[1])).filter(n=>!['setTimeout','try','catch'].includes(n)&&typeof window[n]!=='function');
+    const i=MANUAL_TOOLS.findIndex(t=>/Warband file/.test(t[1]));manualRun(i);await wait(200);const opened=!!document.querySelector('#modal .wbfile');try{closeModal()}catch(e){}
+    return {inHelp,path,groups,rows,found,missing:[...new Set(missing)],opened,total:MANUAL_TOOLS.length}});
+  expect(out.inHelp&&out.path==='/rules/learn/manual'&&out.groups===7&&out.rows>=20&&out.found.some(t=>/Print/.test(t))&&!out.missing.length&&out.opened&&out.total>=40,'user guide: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
