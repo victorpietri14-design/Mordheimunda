@@ -804,9 +804,19 @@ app.get('/api/shared/:token',requireDb,trafficGuard,async(req,res,next)=>{
 // per request keeps every response small) and assembled into one file by
 // the browser. Never includes password hashes, sessions or reset tokens.
 const EXPORT_TABLES={users:5,official_warbands:20,catalog_overrides:20,weapon_overrides:200,rule_nav_groups:200,faction_race_tags:200,race_stat_maximums:200,faction_categories:200,faction_category_members:500,rule_overrides:50,magic_domain_overrides:100,spell_weapon_profile_overrides:200,campaigns:20,campaign_members:200,campaign_markets:20,campaign_trades:200,campaign_battles:100,scenarios:20,deployment_maps:5,site_news:200,site_settings:20,rule_images:5,friendships:500,user_data_history:0};
+// Dates of the last automatic (weekly GitHub backup, which writes
+// lastAutoBackup itself) and manual (full export) backups.
+app.get('/api/admin/backup-status',requireDb,auth,requireAdmin,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT key,value->>'at' AS at FROM site_settings WHERE key IN ('lastAutoBackup','lastManualBackup')");const m=Object.fromEntries(q.rows.map(r=>[r.key,r.at]));res.json({auto:m.lastAutoBackup||null,manual:m.lastManualBackup||null})}catch(e){next(e)}
+});
 app.get('/api/admin/export',requireDb,auth,requireAdmin,async(req,res,next)=>{
   const table=String(req.query.table||'');const offset=Math.max(0,Number(req.query.offset)||0);
-  if(!table)return res.json({tables:Object.entries(EXPORT_TABLES).filter(([,n])=>n>0).map(([t,n])=>({table:t,pageSize:n}))});
+  if(!table){
+    // V-BACKUPSTATUS: a full export (not the light "game content" one) is the
+    // admin's manual backup; its date is shown next to the weekly automatic one.
+    if(req.query.full==='1')pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('lastManualBackup',jsonb_build_object('at',NOW()),NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()").catch(e=>console.error('backup date',e));
+    return res.json({tables:Object.entries(EXPORT_TABLES).filter(([,n])=>n>0).map(([t,n])=>({table:t,pageSize:n}))});
+  }
   const limit=EXPORT_TABLES[table];if(!limit)return res.status(400).json({error:'UNKNOWN_TABLE'});
   try{
     const q=table==='users'

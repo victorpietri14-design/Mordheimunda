@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0857.0';
+const APP_BUILD='110.0859.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10416,7 +10416,7 @@ function diceHelpMarkup(){const en=siteLanguage==='en';const c=diceHelpCalc();if
    <div class="dh-sum">${en?'Chance to wound per attack:':'Chance de blesser par attaque :'} <b>${pct(c.p)}</b>${c.attacks>1?`<br>${en?`With its ${c.attacks} attacks: about ${(c.p*c.attacks).toFixed(1)} wound(s)`:`Avec ses ${c.attacks} attaques : environ ${(c.p*c.attacks).toFixed(1).replace('.',',')} blessure(s)`}`:''}${advice?`<br><span class="muted">${advice}</span>`:''}</div>
    <p class="muted dh-note">${en?'A 1 always fails. Special rules and skills are not counted: add them under “Bonuses and penalties”.':'Un 1 rate toujours. Les règles spéciales et compétences ne sont pas comptées : ajoute-les dans « Bonus et malus ».'}</p>
    <div class="account-actions"><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`}
-function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){if(playSimpleMode&&x)return playSimpleMarkup(x,f,badge,anchor,extraClass,openRid);let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${jsq(openRid)}','${jsq(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${jsq(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
+function playCardMarkup(x,f,badge,anchor,extraClass,pts,openRid){if(playSimpleMode&&x)return playSimpleMarkup(x,f,badge,anchor,extraClass,openRid);let h=ownedFighterCard(x,0,f);if(pts!=null&&isHiredSword(x)){try{h=h.replace(hiredSwordUpkeepBadge(x),`<div class="fighter-cost-badge"><strong>${Number(pts)||0}</strong><span>pts</span></div>`)}catch(e){}}h=h.replace(/\sdata-fighter-index="[^"]*"/,'').replace(/\bdraggable-fighter\b/,'').replace(/\stabindex="0" role="button"/,'');h=h.replace(/^(<article[^>]*>)/,`$1${badge||''}`);return `<div class="play-card${extraClass?' '+extraClass:''}${openRid?' open-sheet':''}" id="${esc(anchor)}"${openRid?` role="button" tabindex="0" title="${siteLanguage==='en'?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="openCombatSheet('${jsq(openRid)}','${jsq(x.instance)}')"`:''}>${h}${x?.instance&&!fighterStatus(x).dead?`<button type="button" class="dice-help-btn" onclick="event.stopPropagation();openDiceHelp('${jsq(x.instance)}')">🎲 ${siteLanguage==='en'?'What do I need to roll?':'Que faut-il au dé ?'}</button>`:''}</div>`}
 function playFightersMarkup(ps){
   try{playOwnRosters(ps).forEach(r=>{const e=playEngagedMap(ps)[r.id];if(e&&(e.picks||[]).length&&Number(e.total)!==playEngTotal(playEngEntry(ps,r),r))setTimeout(()=>{if(state.playSession)playEngPublish(state.playSession,r)},0)})}catch(err){}
   const en=siteLanguage==='en';const s=SCENARIOS_CACHE.find(x=>x.id===ps.scenarioId);const rows=playEngRows(ps);const std=playEngStandard(rows);
@@ -17955,6 +17955,7 @@ function homeReminders(all){const en=siteLanguage==='en';const out=[];const day=
     try{const n=(r.fighters||[]).filter(x=>{try{return homeCanAdvance(x)}catch(e){return false}}).length;if(n)out.push({k:'adv:'+r.id+':'+n,ic:'↑',txt:en?`${r.name}: ${n} fighter${n>1?'s':''} can advance`:`${r.name} : ${n} combattant${n>1?'s peuvent':' peut'} progresser`,go:`navigateApp(warbandPath('${esc(r.id)}'))`,w:1})}catch(e){}
     try{if(r.campaignId){const last=Math.max(Number(r.lastGame?.at||0),...((r.valueLog||[]).map(v=>Number(v.ts)||0)),0);if(last){const d=Math.floor((now-last)/day);if(d>=14)out.push({k:'idle:'+r.id,ic:'⏳',txt:en?`${r.name}: no game for ${d} days (campaign)`:`${r.name} : pas de partie depuis ${d} j (campagne)`,go:`navigateApp(warbandPath('${esc(r.id)}'))`,w:0})}}}catch(e){}
   });
+  try{if(isAdminSession()){adminBackupStatusLoad();if(adminBackupStale()){const d=backupAgeDays(adminBackupStatusCache.auto??adminBackupStatusCache.manual);out.push({k:'backup:'+(d??'never'),ic:'🛟',txt:en?`Admin: no backup for ${d==null?'a long time':d+' days'}`:`Admin : pas de sauvegarde depuis ${d==null?'longtemps':d+' jours'}`,go:'adminOpenBackup()',w:2})}}}catch(e){}
   if(all)return out;const hid=remindHidden();return out.filter(x=>!hid[x.k]).sort((a,b)=>b.w-a.w)}
 // V-REMINDBACK: reminders hidden earlier (also the ones closed before the
 // "Later / Don't show again" buttons existed) can be shown again.
@@ -17962,6 +17963,66 @@ function remindHiddenCount(){try{const hid=remindHidden();return homeReminders(t
 function remindShowAll(){try{localStorage.removeItem(REMIND_KEY)}catch(e){}render('dashboard')}
 function homeRemindersMarkup(){const en=siteLanguage==='en';let list=[];try{list=homeReminders()}catch(e){}const nh=remindHiddenCount();const back=nh?`<button type="button" class="remind-back" onclick="remindShowAll()">${en?`${nh} hidden reminder${nh>1?'s':''} · Show again`:`${nh} rappel${nh>1?'s':''} masqué${nh>1?'s':''} · Réafficher`}</button>`:'';if(!list.length)return back?`<section class="home-remind empty">${back}</section>`:'';
   return `<section class="home-remind" aria-label="${en?'To do':'À faire'}"><div class="home-remind-head">${en?'TO DO':'À FAIRE'} <span>${list.length}</span></div>${list.slice(0,5).map(x=>`<div class="home-remind-row"><button type="button" class="home-remind-go" onclick="${x.go}"><i>${x.ic}</i><span>${esc(x.txt)}</span><b class="remind-go-tag">${en?'Go ›':'Aller ›'}</b></button><div class="remind-acts"><button type="button" class="remind-act" onclick="remindHide('${jsq(x.k)}',1)">${en?'Later':'Plus tard'}</button><button type="button" class="remind-act" onclick="remindHide('${jsq(x.k)}',36500)">${en?'Don’t show again':'Ne plus afficher'}</button></div></div>`).join('')}${back}</section>`}
+// ============ V-COMBATSHEET: a fighter's sheet during the game ============
+// Tapping a fighter in Play opens this read-only sheet (the warband page's
+// editable sheet is one link away): state buttons, profile with save, the
+// rules to watch during the battle (each in one sentence), the warband's own
+// in-game rules, defence, attacks, skills / spells / injuries, the dice
+// helper and "next fighter". Which rules show "in game" is an admin list
+// (help texts ingame.<slug> = on/off over a default of the book's combat
+// rules); the one-sentence text is rule1.<slug>, else the rule's first line.
+const COMBAT_RULE_KINDS=[['hatred','atk'],['frenzy','atk'],['poisoned attacks','atk'],['martial prowess','atk'],['wight blades','atk'],['troll vomit','atk'],['leader','ally'],['strength in numbers','ally'],['eternally brave','def'],['stubborn','def'],['regeneration','def'],['immune to psychology','def'],['fear','foe'],['terror','foe'],['cause fear','foe'],['large target','foe'],['daemonic','foe'],['animosity','con'],['stupidity','con'],['no brain','con'],['scurry away','con']];
+const COMBAT_RULE_ICON={atk:'⚔',ally:'⚑',def:'🛡',foe:'😱',con:'⚠',misc:'◆'};
+function ruleSlug(n){return normName(n).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)}
+function combatRuleKind(name){const n=normName(name);const hit=COMBAT_RULE_KINDS.find(([k])=>n===k||n.startsWith(k+' ')||n.startsWith(k+'('));return hit?hit[1]:null}
+function ruleInGameFlag(name){const v=(helpOverrides?.texts||{})['ingame.'+ruleSlug(name)];const s=String(v?.fr||v?.en||'');return s==='on'?true:s==='off'?false:null}
+function ruleInGame(name){const f=ruleInGameFlag(name);return f!=null?f:!!combatRuleKind(name)}
+function ruleFullText(cat,name){for(const c of [cat,'special','traits','skills','spells'].filter(Boolean)){const e=referenceEntryByName(c,name);if(e){let ov=null;try{ov=ruleEffectiveText(referenceOverrideSectionId(c,e.id),0)}catch(err){}return {cat:c,text:ov!=null?ov:(e.text||'')}}}return {cat:cat||'special',text:''}}
+function ruleShort(name,cat){const en=siteLanguage==='en';const t=(helpOverrides?.texts||{})['rule1.'+ruleSlug(name)];const own=en?(t?.en||t?.fr):(t?.fr||t?.en);if(own)return own;const {text}=ruleFullText(cat,name);if(!text)return '';
+  // rule texts open with their title in capitals ("LEADER WARBAND LEADER :", "STRONGMAN …"): drop it
+  const s=stripCustomTextMarkup(String(text)).replace(/\s+/g,' ').trim().replace(/^[A-ZÀ-ÝŒ0-9'’()+\-.!\s]{2,}?(?=\s*[:–—-]?\s*[A-ZÀ-ÝŒ](?:[a-zà-ÿœ'’]|\s+[a-zà-ÿ]))/,'').replace(/^\s*[:–—-]?\s*/,'');const first=(s.match(/^.{20,}?[.!?](\s|$)/)||[s])[0].trim();return first.length>190?first.slice(0,187).replace(/\s+\S*$/,'')+'…':first}
+let combatSheetAt=null;
+function combatSheetList(){const ps=state.playSession;if(!ps)return [];const out=[];playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);(r.fighters||[]).forEach(x=>{if(x&&e.picks.includes(x.instance))out.push([r.id,x.instance])})});return out}
+function combatSheetSet(rid,inst,v){if(v==='ooa')playOoaToggle(rid,inst);else playCondSet(rid,inst,v);openCombatSheet(rid,inst)}
+function combatSheetNext(){const l=combatSheetList();if(!l.length||!combatSheetAt)return;const i=l.findIndex(([r,x])=>String(r)===String(combatSheetAt[0])&&x===combatSheetAt[1]);const n=l[(i+1)%l.length];openCombatSheet(n[0],n[1])}
+function openCombatSheet(rid,inst){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const x=r?.fighters?.find(y=>y.instance===inst);if(!r||!x)return;combatSheetAt=[r.id,inst];const f=faction(r);const prevActive=state.active;state.active=r.id;
+  try{
+  const ooa=playOoaHas(state.playSession,r.id,inst);const c=ooa?'ooa':playCondOf(r.id,inst);
+  const stBtn=(v,l)=>`<button type="button" class="cs-st${c===v?' on':''}${v==='ooa'?' ooa':''}" aria-pressed="${c===v}" onclick="combatSheetSet('${jsq(r.id)}','${jsq(inst)}','${v}')">${l}</button>`;
+  const ruleRow=(name,cat)=>{const k=combatRuleKind(name)||'misc';const s=ruleShort(name,cat);return `<div class="cs-rule cs-${k}"><b>${COMBAT_RULE_ICON[k]} ${refLink(ruleFullText(cat,name).cat,name,translateSiteText(name))}</b>${s?`<div>${esc(s)}</div>`:''}</div>`};
+  let rules=[];try{rules=fighterRuleNames(x,f)||[]}catch(e){}const seen=new Set();const watch=rules.filter(n=>ruleInGame(n)&&!seen.has(normName(n))&&seen.add(normName(n)));
+  const order={con:0,foe:1,atk:2,def:3,ally:4,misc:5};watch.sort((a,b)=>order[combatRuleKind(a)||'misc']-order[combatRuleKind(b)||'misc']);
+  let band=[];try{band=(warbandRuleEntries(r)||[]).filter(e=>ruleInGame(e.name))}catch(e){}
+  let save=null;try{save=armorSaveInfo(x)}catch(e){}const saveTxt=(()=>{let v='';try{v=String(armorSave(x)||'')}catch(e){}return !v||/^[—–-]$/.test(v.trim())?(en?'none':'aucune'):v})();
+  const ws=[...(x.equipmentSelected||[]).filter(e=>{try{return isWeaponLike(liveEquipmentView(e)||e)}catch(err){return false}}),...(fighterHasMisericordia(x)?[MISERICORDIA]:[])].map(e=>{let v=e;try{v=fighterWeaponView(x,e)||e}catch(err){}const p=v.profile||{};const bits=[p.range,p.strength?(en?'S':'F')+String(p.strength).replace(/^[SF]/,''):'',p.ap&&p.ap!=='-'?(en?'AP':'PA')+p.ap:'',p.damage?'D'+p.damage:''].filter(Boolean).join(' · ');const traits=Array.isArray(p.traits)?p.traits.join(', '):String(p.traits||'');return `<div class="cs-line"><span><b>${esc(translateSiteText(v.name||e.name||''))}</b> <span class="muted">${esc(bits)}</span>${traits?`<small>${linkGlossaryInHtml(esc(traits))}</small>`:''}</span></div>`}).join('');
+  const skills=(x.skills||[]).map(s=>typeof s==='object'?s?.name:s).filter(Boolean),spells=(x.spells||[]).map(s=>typeof s==='object'?s?.name:s).filter(Boolean),inj=(x.injuries||[]).map(i=>typeof i==='object'?i.name:i).filter(Boolean);
+  const misc=[...skills.map(n=>`<div class="cs-line"><span><b>★ ${refLink('skills',n,translateSiteText(n))}</b>${ruleShort(n,'skills')?`<small>${esc(ruleShort(n,'skills'))}</small>`:''}</span></div>`),...spells.map(n=>`<div class="cs-line"><span><b>✦ ${refLink('spells',n,translateSiteText(n))}</b>${ruleShort(n,'spells')?`<small>${esc(ruleShort(n,'spells'))}</small>`:''}</span></div>`),...inj.map(n=>`<div class="cs-line inj"><span><b>✚ ${esc(translateSiteText(n))}</b><small>${en?'already counted in the profile':'déjà compté dans le profil'}</small></span></div>`)].join('');
+  const H=t=>`<div class="cs-h">${t}</div>`;
+  openModal(`<div class="wc-dialog combat-sheet"><div class="cs-top"><span class="muted">${en?'Game in progress › Combat sheet':'Partie en cours › Fiche de combat'}</span></div>
+   <div class="cs-name"><b>${esc(x.name||'—')}</b><small>${esc(advancementRole(x))} · ${esc(r.name||'')}</small><span class="muted">${en?'read only':'lecture seule'}</span></div>
+   ${fighterStatus(x).dead?'':`<div class="cs-states">${stBtn('',en?'Standing':'Debout')}${stBtn('down',en?'Down':'À terre')}${stBtn('stunned',en?'Stunned':'Sonné')}${stBtn('ooa',`☠ ${en?'OOA':'HdC'}`)}</div>`}
+   <div class="cs-prof">${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}</div>
+   ${watch.length?H(en?'WATCH DURING THE GAME':'À SURVEILLER PENDANT LA PARTIE')+`<div class="cs-rules">${watch.map(n=>ruleRow(n,'special')).join('')}</div>`:''}
+   ${band.length?H(en?'WARBAND RULES (IN GAME)':'RÈGLES DE LA BANDE (EN PARTIE)')+`<div class="cs-rules">${band.map(e=>ruleRow(e.name,e.category)).join('')}</div>`:''}
+   ${H(en?'DEFENCE':'DÉFENSE')}<div class="cs-box"><div class="cs-line"><span><b>${en?'Armour save':'Sauvegarde d’armure'}</b>${save?.steps?.length?`<small>${save.steps.map(s=>esc(translateSiteText(String(s)))).join(' · ')}</small>`:''}</span><b class="cs-sv">${esc(saveTxt)}</b></div></div>
+   ${H(en?'ATTACKS':'ATTAQUES')}<div class="cs-box">${ws||`<div class="cs-line muted">${en?'No weapon.':'Aucune arme.'}</div>`}</div>
+   ${misc?H(en?'SKILLS · SPELLS · INJURIES':'COMPÉTENCES · SORTS · BLESSURES')+`<div class="cs-box">${misc}</div>`:''}
+   <div class="cs-actions"><button type="button" class="button primary" onclick="closeModal();openDiceHelp('${jsq(inst)}')">🎲 ${en?'What do I need to roll?':'Que faut-il au dé ?'}</button>${combatSheetList().length>1?`<button type="button" class="button secondary" onclick="combatSheetNext()">${en?'Next fighter ›':'Combattant suivant ›'}</button>`:''}</div>
+   <div class="cs-foot"><button type="button" class="linklike" onclick="closeModal();playOpenFighter('${jsq(r.id)}','${jsq(inst)}')">${en?'Manage this fighter (warband sheet)':'Gérer ce combattant (fiche de la bande)'}</button>${isAdminSession()?` · <button type="button" class="linklike" onclick="openInGameRulesEditor()">⚙ ${en?'Rules shown in game':'Règles affichées en partie'}</button>`:''}</div></div>`);
+  }finally{state.active=prevActive}}
+// Admin: which rules show in the combat sheet, and their one-sentence text.
+let ingameEdQ='',ingameEdOnly=false;
+function inGameRuleCatalog(){const out=new Map();['special','traits'].forEach(cat=>{try{referenceEntries(cat).forEach(e=>{if(e?.name&&!out.has(normName(e.name)))out.set(normName(e.name),{name:e.name,cat})})}catch(err){}});return [...out.values()].sort((a,b)=>a.name.localeCompare(b.name))}
+function openInGameRulesEditor(){if(!isAdminSession())return;const en=siteLanguage==='en';const q=normName(ingameEdQ);const T=helpOverrides?.texts||{};const lang=en?'en':'fr';
+  const rows=inGameRuleCatalog().filter(o=>(!q||normName(o.name).includes(q))&&(!ingameEdOnly||ruleInGame(o.name))).slice(0,150);
+  openModal(`<div class="wc-dialog ingame-ed"><div class="eyebrow">ADMIN · ${en?'RULES SHOWN IN GAME':'RÈGLES AFFICHÉES EN PARTIE'}</div><p class="custom-field-help">${en?'Tick the rules that matter during the battle: they show in the combat sheet. The others (recruitment, post-battle) stay on the warband sheet only. Book combat rules are ticked by default. The text is the one sentence shown in game (empty = first line of the rule).':'Coche les règles qui servent pendant la bataille : elles s’affichent dans la fiche de combat. Les autres (recrutement, après-bataille) restent seulement sur la fiche de la bande. Les règles de combat du livre sont cochées par défaut. Le texte est la phrase courte montrée en partie (vide = première phrase de la règle).'}</p>
+   <div class="ingame-tools"><input id="ingameQ" type="search" placeholder="${en?'Search a rule…':'Chercher une règle…'}" value="${esc(ingameEdQ)}" onchange="ingameEdQ=this.value;openInGameRulesEditor()"><label><input type="checkbox" ${ingameEdOnly?'checked':''} onchange="ingameEdOnly=this.checked;openInGameRulesEditor()"> ${en?'ticked only':'cochées seulement'}</label></div>
+   <div class="ingame-list">${rows.map(o=>{const s=ruleSlug(o.name);const on=ruleInGame(o.name);const t=T['rule1.'+s];return `<div class="ingame-row" data-slug="${esc(s)}" data-def="${combatRuleKind(o.name)?1:0}"><label><input type="checkbox" class="ig-on" ${on?'checked':''}> <b>${esc(o.name)}</b>${combatRuleKind(o.name)?` <small class="muted">${en?'(book, ticked by default)':'(livre, cochée par défaut)'}</small>`:''}</label><input class="ig-txt" maxlength="300" placeholder="${esc(ruleShort(o.name,o.cat)||(en?'one sentence…':'une phrase…'))}" value="${esc(t?.[lang]||'')}"></div>`}).join('')||`<p class="muted">${en?'No rule found.':'Aucune règle trouvée.'}</p>`}</div>
+   <div class="account-actions"><button type="button" class="button primary" onclick="saveInGameRules()">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
+async function saveInGameRules(){const en=siteLanguage==='en';const lang=en?'en':'fr';const texts=JSON.parse(JSON.stringify(helpOverrides?.texts||{}));
+  document.querySelectorAll('.ingame-row').forEach(row=>{const s=row.dataset.slug;const def=row.dataset.def==='1';const on=row.querySelector('.ig-on')?.checked;const k='ingame.'+s;if(on===def)delete texts[k];else texts[k]={fr:on?'on':'off',en:on?'on':'off'};
+    const v=String(row.querySelector('.ig-txt')?.value||'').trim();const k2='rule1.'+s;const cur={...(texts[k2]||{})};if(v)cur[lang]=v;else delete cur[lang];if(cur.fr||cur.en)texts[k2]=cur;else delete texts[k2]});
+  try{const res=await window.MordheimundaAPI.adminSaveHelpTexts({texts,beginner:helpBeginnerIds()});const h=res?.help||{texts};helpOverrides={texts:h.texts||texts,beginner:Array.isArray(h.beginner)?h.beginner:helpOverrides?.beginner||null};toast(en?'Saved':'Enregistré');openInGameRulesEditor()}catch(e){toast(en?'Could not save':'Enregistrement impossible')}}
 // V-PLAYSIMPLE: the lightest in-game view — one short block per fighter with
 // only what is needed at the table: profile, weapons and gear, and its state
 // right now (standing, knocked down, stunned; Out of Action stays the
@@ -17984,7 +18045,7 @@ function playSimpleMarkup(x,f,badge,anchor,extraClass,openRid){const en=siteLang
   const rid=openRid||'';const c=rid?playCondOf(rid,x.instance):'';const down=String(extraClass||'').includes('is-ooa');
   badge=String(badge||'').replace(/<span class="eng-badge click ooa-tag[^"]*"[^>]*>[^<]*<\/span>/g,'');
   const btn=(v,label)=>`<button type="button" class="ps-st${(c||'')===v?' on':''}" aria-pressed="${(c||'')===v}" onclick="event.stopPropagation();playCondSet('${jsq(rid)}','${jsq(x.instance)}','${jsq(v)}')">${label}</button>`;
-  return `<div class="play-card play-simple${extraClass?' '+extraClass:''}${c?' cond-'+c:''}" id="${esc(anchor)}"${rid?` role="button" tabindex="0" title="${en?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="playOpenFighter('${jsq(rid)}','${jsq(x.instance)}')"`:''}>
+  return `<div class="play-card play-simple${extraClass?' '+extraClass:''}${c?' cond-'+c:''}" id="${esc(anchor)}"${rid?` role="button" tabindex="0" title="${en?'Open the fighter sheet':'Ouvrir la fiche du combattant'}" onclick="openCombatSheet('${jsq(rid)}','${jsq(x.instance)}')"`:''}>
     <div class="ps-head"><b>${esc(x.name||'—')}</b><small>${esc(advancementRole(x))}${Number(x.xp)?` · ${Number(x.xp)} XP`:''}</small>${!st.dead&&x.instance?`<button type="button" class="ps-dice" onclick="event.stopPropagation();openDiceHelp('${jsq(x.instance)}')" title="${en?'What do I need to roll?':'Que faut-il au dé ?'}" aria-label="${en?'What do I need to roll?':'Que faut-il au dé ?'}">🎲</button>`:''}</div>
     ${badge?`<div class="ps-badges">${badge}</div>`:''}
     <div class="ps-prof">${profileMarkup(x.profile,x.xp,x,{rosterCard:true})}</div>
@@ -18271,6 +18332,21 @@ function printWarbandCards(){const en=siteLanguage==='en';const r=activeRoster()
   let fr=document.getElementById('sheetFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='sheetFrame';fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';document.body.appendChild(fr);
   const d=fr.contentDocument;d.open();d.write(cardsDocument(r));d.close();
   const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){}};try{(d.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}
+// ============ V-BACKUPSTATUS: when the database was last saved ============
+// The weekly GitHub backup (.github/workflows/backup.yml) writes its date in
+// the database; a full export from Admin › Backup writes the manual one. An
+// admin sees both in the Backup card, and a reminder on the home page when
+// neither is recent.
+const BACKUP_STALE_DAYS=10;let adminBackupStatusCache=null,adminBackupStatusLoading=false;
+function adminBackupStatusLoad(force){if(!isAdminSession()||adminBackupStatusLoading||(adminBackupStatusCache&&!force))return;adminBackupStatusLoading=true;
+  window.MordheimundaAPI.adminBackupStatus().then(s=>{adminBackupStatusCache={auto:s?.auto||null,manual:s?.manual||null};try{const v=currentViewName();if(v==='admin'||v==='dashboard')render(v,{history:false})}catch(e){}}).catch(()=>{adminBackupStatusCache={auto:null,manual:null,error:true}}).finally(()=>{adminBackupStatusLoading=false})}
+function backupAgeDays(at){const t=Date.parse(at||'');return Number.isFinite(t)?Math.floor((Date.now()-t)/864e5):null}
+function backupAgeText(at,en){const d=backupAgeDays(at);if(d==null)return en?'never':'jamais';if(d===0)return en?'today':'aujourd’hui';if(d===1)return en?'yesterday':'hier';return en?`${d} days ago`:`il y a ${d} jours`}
+function adminBackupStatusMarkup(){const en=siteLanguage==='en';const s=adminBackupStatusCache;if(!s)return `<p class="muted bk-status">${en?'Checking the last backups…':'Vérification des dernières sauvegardes…'}</p>`;
+  const a=backupAgeDays(s.auto),m=backupAgeDays(s.manual);const fresh=d=>d!=null&&d<=BACKUP_STALE_DAYS;
+  return `<div class="bk-status${fresh(a)||fresh(m)?'':' stale'}"><div><span>${en?'Automatic (weekly, GitHub)':'Automatique (chaque semaine, GitHub)'}</span><b>${backupAgeText(s.auto,en)}</b></div><div><span>${en?'Manual (download below)':'Manuelle (bouton ci-dessous)'}</span><b>${backupAgeText(s.manual,en)}</b></div>${s.auto?'':`<small>${en?'The automatic backup is not set up yet, or has not run: see server/db/BACKUP.md.':'La sauvegarde automatique n’est pas encore configurée, ou n’a pas encore tourné : voir server/db/BACKUP.md.'}</small>`}</div>`}
+function adminBackupStale(){const s=adminBackupStatusCache;if(!s||s.error)return false;const ok=d=>d!=null&&d<=BACKUP_STALE_DAYS;return !ok(backupAgeDays(s.auto))&&!ok(backupAgeDays(s.manual))}
+function adminOpenBackup(){adminOpenCategory='backup';navigateApp(APP_ROUTES.admin)}
 // ============ V-SCNRULES: rules a scenario uses ============
 function scenarioRulesUsed(s){const g=glossaryMatcher();if(!g?.re)return [];const txt=searchDeepText(s);const out=new Map();g.re.lastIndex=0;let m;while((m=g.re.exec(txt))){if(m[0][0]===m[0][0].toLowerCase())continue;const t=g.find(m[0]);if(t&&!out.has(t.id))out.set(t.id,{...t,name:t.name})}return [...out.values()].slice(0,16)}
 // ============ V-A11Y: icon-only buttons get a name a screen reader can say ============

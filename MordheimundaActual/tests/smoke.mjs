@@ -600,7 +600,7 @@ await test('[desktop] Play Mode fighter cards keep the rule hover peek (no need 
   const out=await page.evaluate(()=>{const r=state.rosters[0];const f=faction(r);const w=f.warriors[0];const x={instance:'t1',wid:w.id,name:w.name,type:w.type,profile:w.profile,rules:w.rules,xp:0,skills:['Resolute'],equipmentSelected:[],injuries:[]};
     const box=document.createElement('div');box.className='roster-sections play-cards';box.innerHTML=playCardMarkup(x,f,'','engc-test','',null,r.id);document.body.appendChild(box);
     const ref=box.querySelector('.rule-ref');if(!ref)return {ref:false};const pe=getComputedStyle(ref).pointerEvents;
-    let opened=false;const old=window.playOpenFighter;window.playOpenFighter=()=>{opened=true};ref.dispatchEvent(new MouseEvent('mouseenter'));ref.click();window.playOpenFighter=old;
+    let opened=false;const old=window.openCombatSheet;window.openCombatSheet=()=>{opened=true};ref.dispatchEvent(new MouseEvent('mouseenter'));ref.click();window.openCombatSheet=old;
     const peek=document.getElementById('rulePeek');const shown=!!peek&&peek.textContent.trim().length>0;box.remove();return {ref:true,pe,opened,shown}});
   expect(out.ref,'the play card should contain linked rules');
   expect(out.pe!=='none','rule links must react to hover in Play Mode: '+JSON.stringify(out));
@@ -1642,6 +1642,26 @@ await test('[desktop] buttons work with an apostrophe in a name (e.g. the spell 
     const box=document.createElement('div');box.innerHTML=`<button id="ap1" onclick="__take('${jsq(name)}')">a</button><button id="ap2" onclick="__take(decodeURIComponent('${encArg(name)}'))">b</button>`;document.body.appendChild(box);
     document.getElementById('ap1').click();document.getElementById('ap2').click();box.remove();return window.__got});
   expect(out.length===2&&out.every(v=>v==="Eagle's Cry"),'apostrophe names: '+JSON.stringify(out));
+});
+await test('[desktop] combat sheet: tapping a fighter in Play opens a read-only sheet with in-game rules only',null,async page=>{
+  await page.waitForFunction(()=>window.MORE_CODE_READY===true,null,{timeout:15000});
+  const out=await page.evaluate(async()=>{siteLanguage='en';const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    const f=D.factions.find(x=>/^orcs?/i.test(x.displayName||x.name||''))||D.factions[0];
+    state.rosters=[{id:'cs',name:'CS',factionId:f.id,gold:500,fighters:[]}];state.active='cs';const r=state.rosters[0];
+    (f.warriors||[]).filter(w=>/troll|boss/i.test(w.name)).slice(0,2).forEach((w,i)=>r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'c'+i,name:w.name,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]}));
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]),{id:'ps1',name:'Plain',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const ps=blankPlaySession();ps.scenarioId='ps1';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};state.playSession=ps;const e=playEngEntry(ps,r);e.picks=r.fighters.map(x=>x.instance);e.validated=true;save(true);navigateApp(APP_ROUTES.playMode);await wait(600);
+    const card=document.querySelector('.play-card.open-sheet, .play-simple[role="button"]');card?.click();await wait(300);
+    const sheet=document.querySelector('#modal .combat-sheet');const txt=sheet?.textContent||'';
+    const rules=[...document.querySelectorAll('#modal .cs-rule b')].map(b=>b.textContent.trim());
+    const hasRace=rules.some(t=>/Race/i.test(t));const onSheet=!!sheet&&/WATCH DURING THE GAME/.test(txt)&&/DEFENCE/.test(txt)&&/ATTACKS/.test(txt);
+    // admin can untick a default rule: it disappears
+    const before=rules.length;const first=rules[0]?.replace(/^\S+\s/,'')||'';
+    helpOverrides={texts:{...(helpOverrides?.texts||{}),['ingame.'+ruleSlug(first)]:{fr:'off',en:'off'},['rule1.'+ruleSlug('Fear')]:{fr:'x',en:'Charging him needs a Fear test.'}},beginner:helpOverrides?.beginner||null};
+    openCombatSheet(combatSheetAt[0],combatSheetAt[1]);await wait(200);const after=document.querySelectorAll('#modal .cs-rule').length;
+    const shortOk=ruleShort('Fear','special')==='Charging him needs a Fear test.';const states=document.querySelectorAll('#modal .cs-st').length;closeModal();
+    return {onSheet,hasRace,before,after,shortOk,states,slug:ruleSlug("Scurry Away!")}});
+  expect(out.onSheet&&!out.hasRace&&out.before>0&&out.after===out.before-1&&out.shortOk&&out.states===4&&out.slug==='scurry-away','combat sheet: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
