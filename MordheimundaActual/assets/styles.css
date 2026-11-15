@@ -6300,3 +6300,30 @@ html[data-theme="light"] .settle-notes{background:#fff8e6}html[data-theme="light
 .bk-status{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;margin:6px 0 10px;font-size:13px}
 .bk-status div{display:flex;justify-content:space-between;gap:10px}.bk-status span{color:var(--muted)}.bk-status small{color:var(--muted)}
 .bk-status.stale{border-left-color:#e0895a}
+/* V-COMBATSHEET */
+.combat-sheet{display:flex;flex-direction:column;gap:9px}
+.combat-sheet .cs-top{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.combat-sheet .cs-x{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px;cursor:pointer}
+.combat-sheet .cs-name{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.combat-sheet .cs-name b{font:800 22px 'Cinzel',serif}.combat-sheet .cs-name small{color:var(--muted)}.combat-sheet .cs-name .muted{margin-left:auto;font-size:11px}
+.combat-sheet .cs-states{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.combat-sheet .cs-st{padding:9px 2px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-weight:700;font-size:13px;cursor:pointer}
+.combat-sheet .cs-st.on{background:var(--accent);border-color:var(--accent);color:#111}.combat-sheet .cs-st.ooa{color:#f0a39e}.combat-sheet .cs-st.ooa.on{background:#f0a39e;border-color:#f0a39e;color:#111}
+.combat-sheet .cs-prof{overflow-x:auto}.combat-sheet .cs-prof>*{margin:0!important}
+.combat-sheet .cs-h{font-size:11px;letter-spacing:1.4px;font-weight:700;color:var(--accent);margin-top:2px}
+.combat-sheet .cs-rules{display:flex;flex-direction:column;gap:6px}
+.combat-sheet .cs-rule{border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:13px;line-height:1.4}.combat-sheet .cs-rule>div{color:var(--muted);margin-top:2px}
+.combat-sheet .cs-rule .rule-ref{color:inherit}
+.combat-sheet .cs-atk{border-color:#e0895a;background:rgba(224,137,90,.08)}.combat-sheet .cs-atk b{color:#f2c0a4}
+.combat-sheet .cs-ally,.combat-sheet .cs-def{border-color:#6fb3e0;background:rgba(111,179,224,.08)}.combat-sheet .cs-ally b,.combat-sheet .cs-def b{color:#bcdcf2}
+.combat-sheet .cs-foe{border-color:#c99bff;background:rgba(201,155,255,.08)}.combat-sheet .cs-foe b{color:#e2ccff}
+.combat-sheet .cs-con{border-color:#e06f6f;background:rgba(224,111,111,.08)}.combat-sheet .cs-con b{color:#f2b8b8}
+html[data-theme="light"] .combat-sheet .cs-atk b{color:#9a4a1e}html[data-theme="light"] .combat-sheet .cs-ally b,html[data-theme="light"] .combat-sheet .cs-def b{color:#1f5f8a}html[data-theme="light"] .combat-sheet .cs-foe b{color:#6a3aa8}html[data-theme="light"] .combat-sheet .cs-con b{color:#a02c2c}
+.combat-sheet .cs-box{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.combat-sheet .cs-line{display:flex;justify-content:space-between;gap:8px;padding:7px 10px;font-size:13px;line-height:1.4}.combat-sheet .cs-line+.cs-line{border-top:1px solid var(--line)}
+.combat-sheet .cs-line small{display:block;color:var(--muted)}.combat-sheet .cs-line.inj b{color:#f0a39e}.combat-sheet .cs-sv{color:#6fb3e0;white-space:nowrap}
+.combat-sheet .cs-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}.combat-sheet .cs-actions .button:only-child{grid-column:1/-1}
+.combat-sheet .cs-foot{text-align:center;font-size:12.5px;color:var(--muted)}
+.linklike{all:unset;cursor:pointer;color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.ingame-ed .ingame-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}.ingame-ed .ingame-tools input[type=search]{flex:1;min-width:160px}
+.ingame-ed .ingame-list{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto}
+.ingame-ed .ingame-row{border:1px solid var(--line);border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:5px}.ingame-ed .ig-txt{width:100%;box-sizing:border-box;font-size:13px}
