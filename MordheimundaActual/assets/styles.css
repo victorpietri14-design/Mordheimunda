@@ -6405,3 +6405,5 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .lang-btn span{font-weight:800;letter-spacing:.5px}.lang-btn:hover{border-color:var(--chip-border)}
 @media(max-width:900px){.lang-btn{flex:none;margin:0 6px 0 0;padding:0 10px;height:38px;border-radius:999px;gap:4px;font-size:12.5px}}
 .onb .help-opt b{font-size:17px}.onb-note{font-size:12.5px!important;border:1px dashed var(--line);border-radius:10px;padding:9px 11px;line-height:1.5}.help-ghost.wide{width:100%;margin-top:6px;padding:10px;border-radius:10px;cursor:pointer}
+/* V-SITCHIP */
+.sit-chip{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;border:1px dashed var(--accent);color:var(--accent);font:700 11px 'IBM Plex Sans',sans-serif;letter-spacing:.2px;vertical-align:middle;cursor:help;white-space:nowrap}

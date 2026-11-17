@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0871.0';
+const APP_BUILD='110.0872.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12806,7 +12806,7 @@ function weaponProfileMarkup(e,x){const p=e.profile;if(!p)return '';const fx=wea
   const grid2=e.profile2?weaponProfileGridMarkup(e.profile2,fx2,rangeLooksMelee(e.profile2)?'Corps à corps':'Tir'):'';
   const notes2=(fx2?.notes||[]).filter(n=>!fx.notes.includes(n));const noteMarkup2=notes2.length?`<div class="weapon-applied-effects">${notes2.map(n=>`<span>${esc(n)}</span>`).join(' · ')}</div>`:'';
   const artRules=e.artifact&&(e.rulesText||e.itemNote)?`<div class="art-rules">${ruleTextMarkup(String(e.rulesText||e.itemNote),{noTitle:true})}</div>`:'';
-  return `<div class="weapon-profile${e.artifact?' is-artifact':''}"><div class="weapon-profile-title">${titleLink}${spellTag}</div>${grid1}${grid2}${noteMarkup}${noteMarkup2}${artRules}</div>`}
+  return `<div class="weapon-profile${e.artifact?' is-artifact':''}"><div class="weapon-profile-title">${titleLink}${spellTag}${itemSituationalChip(e,x)}</div>${grid1}${grid2}${noteMarkup}${noteMarkup2}${artRules}</div>`}
 // V-SPELLWEAPON-BOOK: an admin can also attach a weapon profile to an
 // OFFICIAL book spell (e.g. Fire of U'Zhul) — not just a custom one created
 // via Custom > Sorts — since most spells a fighter actually knows come from
@@ -13061,6 +13061,25 @@ function mountCardMarkup(mount){
   const traits=Array.isArray(mount.traits)?mount.traits:[];
   return `<div class="mount-stat-row"><div class="profile-simple"><div class="profile-row">${stats}<div class="profile-stat armor-stat mount-sv-cell"><span>Sv</span><i></i><b>${esc(mount.creatureSv||'—')}</b></div></div></div><div class="rule-name-tags">${traits.length?traits.map(n=>`<span>${refLink('special',n)}</span>`).join(''):`<small>${en?'No special rules recorded.':'Aucune règle spéciale enregistrée.'}</small>`}${(mount.skills||[]).map(n=>`<span>${refLink('skills',n)}</span>`).join('')}</div></div>`;
 }
+// ============ V-SITCHIP: an item's situational bonuses, next to its name ============
+// Permanent bonuses written in an item's rules are folded into the profile
+// (syncCustomEquipmentEffects). Situational ones ("+1 WS when charging",
+// "once per game"…) are never applied: they show as a small chip beside the
+// item's name, "◇ +1 WS · −1 M", whose tooltip / tap gives the condition.
+// A bonus to a fighting characteristic written on a WEAPON (WS, BS, S, I, A)
+// only counts while that weapon is used: situational, never in the profile.
+// Armour and other gear keep their flat changes in the profile (e.g. −1 I).
+const SIT_WEAPON_STATS=new Set([1,2,3,6,7]);
+function itemIsWeapon(e){try{return isWeaponLike(e)||!!(e?.profile&&hasWeaponStats(e.profile))}catch(err){return false}}
+function itemBonusSituational(e,b){return !!b.conditional||(itemIsWeapon(e)&&SIT_WEAPON_STATS.has(b.index))}
+const SIT_STAT_FR=['M','CC','CT','F','E','PV','I','A','Cd','Cl','Vol','Int'];
+function itemRulesText(e){if(!e)return '';if(e.artifact){const a=artifactByName(e.artifact);if(a?.rules)return String(a.rules)}if(isCustomEquipment(e)){const live=(typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null)||e;if(live?.rulesText)return String(live.rulesText)}let ref='';try{const r=referenceFind('equipment',e.name);if(r)ref=String(r.text||'')}catch(err){}return ref||String(e.rulesText||e.itemNote||'')}
+function itemSituationalBonuses(e,x){const out=[];try{const add=t=>detectStatBonusesInText(t,x).forEach(b=>{if(itemBonusSituational(e,b)&&(Number.isInteger(b.index)||b.index==='SAVE'))out.push(b)});add(itemRulesText(e));String(e?.profile?.traits||'').split(',').map(t=>t.replace(/\(.*\)/,'').trim()).filter(Boolean).forEach(t=>{try{const r=referenceFind('traits',t);if(r)add(r.text)}catch(err){}})}catch(err){}return out}
+function itemSituationalChip(e,x){const list=itemSituationalBonuses(e,x);if(!list.length)return '';const en=siteLanguage==='en';const seen=new Set();
+  const lbl=b=>{const d=Number(b.delta);const sign=b.mode==='set'?'=':d>0?'+':'−';const v=b.mode==='set'?d:Math.abs(d);const st=b.index==='SAVE'?'Sv':(en?(P[b.index]||''):(SIT_STAT_FR[b.index]||P[b.index]||''));return `${sign}${v} ${st}`};
+  const parts=list.map(lbl).filter(t=>!seen.has(t)&&seen.add(t));const why=[...new Set(list.map(b=>String(b.conditionText||b.matchedPhrase||'').trim()).filter(Boolean))].join(' — ');
+  const tip=(en?'Situational, not counted in the profile: ':'Situationnel, pas compté dans le profil : ')+why;
+  return ` <span class="sit-chip" tabindex="0" role="button" title="${esc(tip)}" aria-label="${esc(tip)}" onclick="event.stopPropagation();toast(this.title,5000)">◇ ${esc(parts.join(' · '))}</span>`}
 function equippedItemRow(e,index,x){
   // V-RETROEQUIP: display the LIVE definition (current profile/traits) so an
   // admin correction in the Référentiel shows up immediately on fighters who
@@ -13069,7 +13088,7 @@ function equippedItemRow(e,index,x){
   // to operate on the actual stored/index-addressed item.
   const en=siteLanguage==='en';
   const v=x?fighterWeaponView(x,e):liveEquipmentView(e);
-  return `<div class="equipped-row"><div class="equipped-row-main"><div class="equipped-row-name"><strong>${eqNameLink(v)}</strong><small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div>${v.profile?`<div class="equipped-inline-profile"><span>Weapon <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile.range)}</b></span><span>Str <b>${esc(v.profile.strength)}</b></span><span>Ap <b>${esc(v.profile.ap)}</b></span><span>D <b>${esc(v.profile.damage)}</b></span></div>`:''}${v.profile2?`<div class="equipped-inline-profile"><span>${en?'Profile 2':'Profil 2'} <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile2.range)}</b></span><span>Str <b>${esc(v.profile2.strength)}</b></span><span>Ap <b>${esc(v.profile2.ap)}</b></span><span>D <b>${esc(v.profile2.damage)}</b></span></div>`:''}<div class="equipped-row-price"><strong>${e.paid==null?'—':Number(e.paid)+' GC'}</strong><small>${en?'value':'valeur'} ${equipmentBandValueHere(e)} GC</small></div></div><div class="equipped-actions">${itemUseButtonMarkup(e,index)}<button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" aria-label="${en?'Sell':'Vendre'} ${esc(e.name)}" onclick="sellEquipment(${index})">💰</button><button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveEquipmentToReserve(${index})">▣</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Supprimer'}" aria-label="${en?'Remove':'Supprimer'} ${esc(e.name)}" onclick="removeEquipment(${index})">🗑</button></div></div>`}
+  return `<div class="equipped-row"><div class="equipped-row-main"><div class="equipped-row-name"><strong>${eqNameLink(v)}${itemSituationalChip(v,x)}</strong><small>${esc(v.category||(en?'Equipment':'Équipement'))}</small></div>${v.profile?`<div class="equipped-inline-profile"><span>Weapon <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile.range)}</b></span><span>Str <b>${esc(v.profile.strength)}</b></span><span>Ap <b>${esc(v.profile.ap)}</b></span><span>D <b>${esc(v.profile.damage)}</b></span></div>`:''}${v.profile2?`<div class="equipped-inline-profile"><span>${en?'Profile 2':'Profil 2'} <b>${esc(v.name)}</b></span><span>Range <b>${esc(v.profile2.range)}</b></span><span>Str <b>${esc(v.profile2.strength)}</b></span><span>Ap <b>${esc(v.profile2.ap)}</b></span><span>D <b>${esc(v.profile2.damage)}</b></span></div>`:''}<div class="equipped-row-price"><strong>${e.paid==null?'—':Number(e.paid)+' GC'}</strong><small>${en?'value':'valeur'} ${equipmentBandValueHere(e)} GC</small></div></div><div class="equipped-actions">${itemUseButtonMarkup(e,index)}<button type="button" class="equipment-action sell" title="${en?'Sell':'Vendre'}" aria-label="${en?'Sell':'Vendre'} ${esc(e.name)}" onclick="sellEquipment(${index})">💰</button><button type="button" class="equipment-action reserve" title="${en?'Move to stash':'Mettre en réserve'}" aria-label="${en?`Move ${esc(e.name)} to stash`:`Mettre ${esc(e.name)} en réserve`}" onclick="moveEquipmentToReserve(${index})">▣</button><button type="button" class="equipment-action remove" title="${en?'Remove':'Supprimer'}" aria-label="${en?'Remove':'Supprimer'} ${esc(e.name)}" onclick="removeEquipment(${index})">🗑</button></div></div>`}
 let equipmentSearchDebounce=null;
 function setEquipmentSearch(v){
   // V-SEARCHLAG: this used to rebuild the entire equipment picker — re-running
@@ -13956,7 +13975,7 @@ function standardEquipmentStatEffects(w,x){
   // "-1 Movement when making a Charge", stays a reminder dot; the save is
   // handled by armorSave), and an exemption such as "Warriors with Strength 5
   // or higher ignore these penalties" is honoured against this fighter.
-  if(w&&!isCustomEquipment(w)){try{const et=equipmentEffectiveText(w.name,true);if(et?.ge&&et.override){detectStatBonusesInText(et.text,x).forEach(b=>{if(!b.conditional&&b.mode!=='set'&&b.stat!=='SAVE'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12)out.push({index:b.index,amount:Number(b.delta)})});return out}}catch(e){}}
+  if(w&&!isCustomEquipment(w)){try{const et=equipmentEffectiveText(w.name,true);if(et?.ge&&et.override){detectStatBonusesInText(et.text,x).forEach(b=>{if(!itemBonusSituational(w,b)&&b.mode!=='set'&&b.stat!=='SAVE'&&Number.isInteger(b.index)&&b.index>=0&&b.index<12)out.push({index:b.index,amount:Number(b.delta)})});return out}}catch(e){}}
   // These are unconditional profile modifiers stated directly by the M17 equipment rules.
   if(n==='full plate armour'||n==='full plate armor'){
     out.push({index:2,amount:-1}); // BS
@@ -13996,8 +14015,8 @@ function syncCustomEquipmentEffects(x){
   x.equipmentSelected.forEach(e=>{
     standardEquipmentStatEffects(e,x).forEach(m=>desiredStats.push({...m,itemId:e.name}));
     (Array.isArray(e.itemStatMods)?e.itemStatMods:[]).forEach(m=>{if(Number.isInteger(m.index)&&Number(m.amount))desiredStats.push({index:m.index,amount:Number(m.amount),itemId:e.stashId||e.name})});
-    const fx=customEquipmentEffects(e,x);
-    fx.stats.forEach(m=>desiredStats.push({...m,itemId:e.customEquipmentId||e.name}));
+    const fx=e?.artifact&&!isCustomEquipment(e)?effectsFromRuleText(itemRulesText(e),x):customEquipmentEffects(e,x);
+    fx.stats.filter(m=>!(itemIsWeapon(e)&&SIT_WEAPON_STATS.has(m.index))).forEach(m=>desiredStats.push({...m,itemId:e.customEquipmentId||e.name}));
     fx.skills.forEach(skill=>desiredSkills.push({skill,itemId:e.customEquipmentId||e.name}));
   });
   desiredStats.forEach(m=>{x.profile[m.index]=(Number(x.profile[m.index])||0)+Number(m.amount);});
@@ -15123,17 +15142,10 @@ function fighterDetectedStatBonuses(x,f){
 // weapons' traits (a Fur cloak's +1 save against shooting, Paired's +1
 // attack when charging) only ever add the dot — their permanent effects are
 // handled by armorSave / syncCustomEquipmentEffects.
-function fighterEquipmentConditionalBonuses(x){
-  const out=[];
-  try{
-    const eq=Array.isArray(x?.equipmentSelected)?x.equipmentSelected:[];const seen=new Set();
-    const scanOne=(cat,name)=>{const k=cat+':'+normName(name);if(!name||seen.has(k))return;seen.add(k);const e=referenceFind(cat,name);if(!e)return;const override=ruleMechanicsText(referenceOverrideSectionId(cat,e.id),0);detectStatBonusesInText(override!=null?override:e.text,x).forEach(b=>{if(b.conditional)out.push({...b,sourceName:e.name,sourceCategory:cat})})};
-    eq.forEach(item=>{scanOne('equipment',item?.name);String(item?.profile?.traits||'').split(',').map(t=>t.replace(/\(.*\)/,'').trim()).filter(Boolean).forEach(t=>scanOne('traits',t))});
-  }catch(e){}
-  return out;
-}
 function fighterDetectedConditionalBonusesForStat(x,f,statIndexOrKey){
-  try{return [...fighterDetectedStatBonuses(x,f),...fighterEquipmentConditionalBonuses(x)].filter(b=>b.conditional&&b.index===statIndexOrKey);}catch(e){return [];}
+  // V-SITCHIP: an ITEM's situational bonus is shown next to the item's name
+  // (itemSituationalChip), not as a dot on the characteristic.
+  try{return fighterDetectedStatBonuses(x,f).filter(b=>b.conditional&&b.index===statIndexOrKey);}catch(e){return [];}
 }
 // Mirrors syncCustomEquipmentEffects/syncWarbandRuleEffects immediately
 // above: remembers exactly what it previously added (x.skillTraitStatMods)
