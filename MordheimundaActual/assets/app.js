@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0872.0';
+const APP_BUILD='110.0873.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -12460,7 +12460,13 @@ function advancementTakeCount(x,e,i){return (x.advancements||[]).filter(a=>e.kin
 // advancement ×1.5 instead (see SLOW_XP_MULTIPLIER). A rule NAMED "Slow
 // Witted" always counts, whatever its text says.
 const SLOW_XP_RE=[/\bhalf\s+(?:the\s+)?(?:usual\s+)?(?:number\s+of\s+)?(?:experience|xp)\b/i,/\b(?:improve|learn|advance)\w*\s+at\s+half\s+the\s+rate\b/i,/\bmoiti[ée]\s+(?:moins\s+)?(?:d['’]\s*)?(?:exp[ée]rience|xp)\b/i,/\b(?:x|×)\s?1[.,]5\b|\b1[.,]5\s?(?:x|×|times)\b|\bone\s+and\s+a\s+half\b|\bfois\s+et\s+demie\b|\b1[.,]5\b[^.]{0,40}\b(?:experience|exp[ée]rience|xp)\b|\b(?:experience|exp[ée]rience|xp)\b[^.]{0,40}\b1[.,]5\b/i];
-function fighterSlowXpRule(x){try{const f=faction(activeRoster());for(const n of fighterRuleNames(x,f)){if(/^slow[\s-]*witted$/i.test(String(n).trim()))return n;for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(e){if(SLOW_XP_RE.some(re=>re.test(fighterRuleText(cat,e))))return e.name;break}}}}catch(e){}return null}
+// V-PERFSLOW: asked many times per fighter on every page (home, advancement
+// costs…), it re-read every rule text each time: ~0.5 s on a mid-range phone
+// when the home page opened. The answer is kept 3 seconds per fighter, and
+// per rule text for good (a rule text edit changes the key).
+const SLOW_XP_FIGHTER=new WeakMap(),SLOW_XP_TEXT=new Map();
+function fighterSlowXpRule(x){if(!x||typeof x!=='object')return fighterSlowXpRuleRaw(x);const now=Date.now();const c=SLOW_XP_FIGHTER.get(x);if(c&&now-c.t<3000)return c.v;const v=fighterSlowXpRuleRaw(x);SLOW_XP_FIGHTER.set(x,{t:now,v});return v}
+function fighterSlowXpRuleRaw(x){try{const f=faction(activeRoster());for(const n of fighterRuleNames(x,f)){if(/^slow[\s-]*witted$/i.test(String(n).trim()))return n;for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(e){const t=fighterRuleText(cat,e);let hit=SLOW_XP_TEXT.get(t);if(hit===undefined){hit=SLOW_XP_RE.some(re=>re.test(t));if(SLOW_XP_TEXT.size>2000)SLOW_XP_TEXT.clear();SLOW_XP_TEXT.set(t,hit)}if(hit)return e.name;break}}}}catch(e){}return null}
 // V-SLOWXP15: a Slow Witted fighter pays every advancement ×1.5 (rounded up)
 // and starts with ×1.5 the usual starting XP, so he begins like anyone else.
 const SLOW_XP_MULTIPLIER=1.5;
@@ -17677,7 +17683,10 @@ function readOpenPin(i){const x=readPins()[i];if(!x)return;try{closeTabSheet()}c
 function readRemovePin(i){const v=readPins();v.splice(i,1);readPinsSave(v);try{openTabSheet('rules');openTabSheet('rules')}catch(e){}readToolsSync()}
 function readPinsSheetMarkup(){const v=readPins();const en=siteLanguage==='en';if(!v.length)return '';return `<div class="tab-sheet-sep"></div><div class="tab-sheet-label">★ ${en?'PINNED':'ÉPINGLÉS'}</div>`+v.map((x,i)=>`<div class="read-pin-row"><button type="button" class="tab-sheet-link" onclick="readOpenPin(${i})"><i>★</i><span>${esc(x.title||x.href)}</span></button><button type="button" class="read-pin-x" aria-label="${en?'Remove':'Retirer'}" onclick="readRemovePin(${i})">×</button></div>`).join('')}
 function readToolsEl(){let el=document.getElementById('readTools');if(!el){el=document.createElement('div');el.id='readTools';el.className='read-tools';document.body.appendChild(el)}return el}
-function readToolsSync(){try{ambientSync(false)}catch(e){}try{undoSeed()}catch(e){}try{a11ySweep()}catch(e){}try{const sc=document.getElementById('syncConflictBox');const html=syncConflictBannerMarkup();if(html&&!sc){const c=document.getElementById('content');if(c){const d=document.createElement('div');d.id='syncConflictBox';d.innerHTML=html;c.prepend(d)}}else if(sc&&!html)sc.remove()}catch(e){}try{wakeSync()}catch(e){}try{fxPass()}catch(e){}try{fxNewApply()}catch(e){}try{if(rosterFilterRid!==state.active){rosterFilterRid=state.active;rosterFilterQ=''}if(rosterFilterQ)rosterFilterApply()}catch(e){}try{wbTintSync()}catch(e){}try{installBannerSync()}catch(e){}const el=readToolsEl();const en=siteLanguage==='en';const reading=readIsReadingPage();const pinned=readPins().some(x=>x.key===readPageKey());const top=window.scrollY>500;
+// V-PERFIDLE: the accessibility labels sweep runs when the phone is idle,
+// not inside the page change itself (the undo snapshot stays immediate).
+let readIdlePending=false;function readIdleWork(){if(readIdlePending)return;readIdlePending=true;const go=()=>{readIdlePending=false;try{a11ySweep()}catch(e){}};try{'requestIdleCallback' in window?requestIdleCallback(go,{timeout:1200}):setTimeout(go,200)}catch(e){setTimeout(go,200)}}
+function readToolsSync(){try{ambientSync(false)}catch(e){}try{undoSeed()}catch(e){}readIdleWork();try{const sc=document.getElementById('syncConflictBox');const html=syncConflictBannerMarkup();if(html&&!sc){const c=document.getElementById('content');if(c){const d=document.createElement('div');d.id='syncConflictBox';d.innerHTML=html;c.prepend(d)}}else if(sc&&!html)sc.remove()}catch(e){}try{wakeSync()}catch(e){}try{fxPass()}catch(e){}try{fxNewApply()}catch(e){}try{if(rosterFilterRid!==state.active){rosterFilterRid=state.active;rosterFilterQ=''}if(rosterFilterQ)rosterFilterApply()}catch(e){}try{wbTintSync()}catch(e){}try{installBannerSync()}catch(e){}const el=readToolsEl();const en=siteLanguage==='en';const reading=readIsReadingPage();const pinned=readPins().some(x=>x.key===readPageKey());const top=window.scrollY>500;
   try{glossarySweep()}catch(e){}el.innerHTML=`${reading?`<button type="button" class="read-tool${readMode?' on':''}" title="${en?'Reading mode':'Mode lecture'}" aria-label="${en?'Reading mode':'Mode lecture'}" onclick="readModeToggle()">Aa</button><button type="button" class="read-tool" title="${en?'Find in this page':'Chercher dans la page'}" aria-label="${en?'Find in this page':'Chercher dans la page'}" onclick="pfOpen()">🔍</button><button type="button" class="read-tool${pinned?' on':''}" title="${pinned?(en?'Unpin':'Retirer l’épingle'):(en?'Pin this page':'Épingler cette page')}" aria-label="${en?'Pin':'Épingler'}" onclick="readTogglePin()">${pinned?'★':'☆'}</button>`:''}${top?`<button type="button" class="read-tool" title="${en?'Back to top':'Haut de page'}" aria-label="${en?'Back to top':'Haut de page'}" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>`:''}`;
   el.hidden=!el.innerHTML;if(!reading){pfClose();if(readMode)readModeToggle(false)}readModeBarSync()}
 let readToolsTimer=null;function readToolsSoon(){clearTimeout(readToolsTimer);readToolsTimer=setTimeout(()=>{try{readToolsSync()}catch(e){}},80)}
