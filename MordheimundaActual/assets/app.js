@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0873.0';
+const APP_BUILD='110.0874.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1773,8 +1773,8 @@ function referenceEquipmentBodyMarkup(q){
 function artifactCardMarkup(a,opts){const en=siteLanguage==='en';const r=artifactResolved(a);const admin=opts?.admin&&a.campaignId;
   const kind=r.weapon?(en?'Weapon':'Arme'):(en?'Equipment':'Équipement');
   const base=r.base?` · ${en?'counts as':'compte comme'} ${refLink('equipment',r.base.name,r.base.name)}`:(a.base?` · ${esc(a.base)}`:'');
-  const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,'')+(r.profile2?weaponProfileGridMarkup(r.profile2,null,''):''):'';
-  return `<article class="artifact-card art-item" id="artref-${esc(normName(a.name).replace(/\s+/g,'-'))}"><div class="artifact-head">${a.roll?`<span class="artifact-roll">${esc(a.roll)}</span>`:''}<h3>${esc(a.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openCampaignArtifactEditor('${jsq(a.campaignId)}','${jsq(a.id||'')}')">✎</button>`:''}</div><div class="artifact-base">${kind}${base}</div>${prof}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${a.lore?`<details class="artifact-lore-fold"><summary>${en?'Story':'Histoire'}</summary><p class="artifact-lore">${esc(a.lore)}</p></details>`:''}</article>`}
+  const val=artifactValue(a);const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,'')+(r.profile2?weaponProfileGridMarkup(r.profile2,null,''):''):'';
+  return `<article class="artifact-card art-item" id="artref-${esc(normName(a.name).replace(/\s+/g,'-'))}"><div class="artifact-head">${a.roll?`<span class="artifact-roll">${esc(a.roll)}</span>`:''}<h3>${esc(a.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openCampaignArtifactEditor('${jsq(a.campaignId)}','${jsq(a.id||'')}')">✎</button>`:''}</div><div class="artifact-base">${kind}${base} · ${en?'value':'valeur'} <b>${val} ${en?'GC':'co'}</b></div>${prof}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${a.lore?`<details class="artifact-lore-fold"><summary>${en?'Story':'Histoire'}</summary><p class="artifact-lore">${esc(a.lore)}</p></details>`:''}</article>`}
 function artifactGroupsMarkup(list,opts){const en=siteLanguage==='en';const byCamp=new Map();list.forEach(a=>{const k=a.campaign||'—';if(!byCamp.has(k))byCamp.set(k,[]);byCamp.get(k).push(a)});
   return [...byCamp.entries()].map(([camp,rows])=>{const part=(t,label)=>{const l=rows.filter(a=>(a.table||'minor')===t).sort((x,y)=>campaignArtifactRollKey(x)-campaignArtifactRollKey(y));return l.length?`<h4 class="art-sub">${label} <small>${l.length}</small></h4><div class="artifact-grid">${l.map(a=>artifactCardMarkup(a,opts)).join('')}</div>`:''};
     return `<section class="art-camp"><h3 class="campaign-h3">◈ ${esc(camp)}</h3>${part('minor',en?'Minor artifacts':'Artefacts mineurs')}${part('major',en?'Major artifacts':'Artefacts majeurs')}</section>`}).join('')}
@@ -3148,7 +3148,7 @@ function liveFighterCost(x,f){
 // V-BANDVALUE: what an item adds to the warband value. Equal to its cost by
 // default; an item can set its own band value (e.g. a Holy Tome bought for
 // 140 GC that only counts 30). Buying and selling still use the cost.
-function equipmentBandValue(e,f,x){{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;{const pp=f&&x&&!e?.intrinsic&&!e?.bandOnlyIntrinsic?priceRulePct(f,x,live||e):null;if(pp&&pctValueOf(pp)){const lb=live?.bandValue;const book=lb!==''&&lb!=null&&Number.isFinite(Number(lb))?Number(lb):Number(live?live.price:(e?.value??e?.price??0));if(Number.isFinite(book))return pctCut(Math.max(0,book),pctValueOf(pp))}}const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
+function equipmentBandValue(e,f,x){if(e?.artifact){const a=artifactByName(e.artifact);if(artifactHasValue(a))return Math.max(0,Number(a.value))}{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;{const pp=f&&x&&!e?.intrinsic&&!e?.bandOnlyIntrinsic?priceRulePct(f,x,live||e):null;if(pp&&pctValueOf(pp)){const lb=live?.bandValue;const book=lb!==''&&lb!=null&&Number.isFinite(Number(lb))?Number(lb):Number(live?live.price:(e?.value??e?.price??0));if(Number.isFinite(book))return pctCut(Math.max(0,book),pctValueOf(pp))}}const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
 // Value shown on the fighter sheet / stash rows: same special-price rule as the rating.
 function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBandValue(e,r?faction(r):null,r?.fighters?.[editingIndex]||null)}catch(x){return equipmentBandValue(e)}}
 // A fighter's value counts the equipment they carry: for a Leader/Champion
@@ -10796,7 +10796,7 @@ function campaignStashItem(r,spec,qty,source){
   const def=base?explorationEquipmentDefinition(base.name):{name:spec.n,category:siteLanguage==='en'?'Valuable':'Objet de valeur',price:0,value:0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true,valuable:true};
   const skin=base&&normName(spec.n)!==normName(base.name)?spec.n:(base?null:spec.n);
   const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:base?base.name:spec.n,skin:skin||undefined,quantity:Math.max(1,qty||1),paid:0,sellFormula:spec.sell||'',itemNote:spec.note||'',campaignFind:source||''};if(spec.statMods)entry.itemStatMods=spec.statMods.map(m=>({...m}));if(spec.minS)entry.minStrength=spec.minS;
-  if(spec.artifact){entry.artifact=spec.artifact;entry.value=Number(def.value||0)}
+  if(spec.artifact){entry.artifact=spec.artifact;const a=artifactByName(spec.artifact);entry.value=a?artifactValue(a):Number(def.value||0)}
   r.reserve.push(entry);return entry;
 }
 function campaignExploreState(r){const p=ensurePostBattleData(r);if(!p.campExplore||typeof p.campExplore!=='object')p.campExplore={};const s=p.campExplore;if(!s.results)s.results={};return s}
@@ -11612,6 +11612,11 @@ function campaignArtifactRollKey(a){return Number(String(a?.roll||'').match(/\d+
 // its story (lore). a.kind ('weapon' | 'equipment' | '') and a.profile (its
 // own profile) are set in the artifact editor; empty = taken from the base.
 function artifactHasOwnProfile(a){const p=a?.profile;return !!p&&typeof p==='object'&&['range','strength','ap','damage','traits'].some(k=>String(p[k]||'').trim())}
+// V-ARTVALUE: an artifact's value for the warband rating. The admin can set
+// one in the editor; otherwise the base item's value; a special artifact with
+// neither is worth 0. Read live, so it also applies to artifacts already found.
+function artifactHasValue(a){return a&&a.value!==''&&a.value!=null&&Number.isFinite(Number(a.value))}
+function artifactValue(a){if(artifactHasValue(a))return Math.max(0,Number(a.value));try{const base=a?.base?campaignArtifactBaseItem(a.base):null;if(base){const d=explorationEquipmentDefinition(base.name);return Number(d?.value||base.price||0)}}catch(e){}return 0}
 function artifactResolved(a){const base=a?.base?campaignArtifactBaseItem(a.base):null;const own=artifactHasOwnProfile(a);const filled=own?Object.fromEntries(Object.entries(a.profile).filter(([k,v])=>String(v||'').trim())):{};const profile=own?{range:'',strength:'',ap:'',damage:'',traits:'',...(base?.profile||{}),...filled}:(base?.profile?{...base.profile}:null);
   const weapon=a?.kind==='weapon'?!!(profile&&hasWeaponStats(profile)):a?.kind==='equipment'?false:base?isWeaponLike(base)||(own&&hasWeaponStats(profile)):!!(profile&&hasWeaponStats(profile));
   // V-ARTDUAL: a weapon artifact can have a second profile (shooting + close combat), like a custom weapon.
@@ -11640,7 +11645,7 @@ function artifactStashEntry(r,a,source){const {base,profile,profile2,weapon,own}
   // Armour, shields… keep their base item (its save and rules work as usual), shown with the artifact's name.
   if(base&&!weapon&&!own){const e=campaignStashItem(r,{n:a.name,b:a.base,note:a.rules||'',artifact:a.name},1,source);e.rulesText=[a.rules,e.rulesText].filter(Boolean).join('\n\n');e.artifactLore=a.lore||'';return e}
   r.reserve=Array.isArray(r.reserve)?r.reserve:[];const def=base?explorationEquipmentDefinition(base.name):{};const en=siteLanguage==='en';
-  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,profile2:weapon?profile2:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:Number(def.value||base?.price||0),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
+  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,profile2:weapon?profile2:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:artifactValue(a),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
   r.reserve.push(entry);return entry}
 // V-MECHANICS: Rules › Campaign › "In the app": what this campaign automates,
 // where it happens for the players, and the reference tables it uses.
