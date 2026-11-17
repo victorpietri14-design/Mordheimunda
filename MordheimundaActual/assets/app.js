@@ -18049,6 +18049,11 @@ let combatSheetAt=null;
 function combatSheetList(){const ps=state.playSession;if(!ps)return [];const out=[];playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);(r.fighters||[]).forEach(x=>{if(x&&e.picks.includes(x.instance))out.push([r.id,x.instance])})});return out}
 function combatSheetSet(rid,inst,v){if(v==='ooa')playOoaToggle(rid,inst);else playCondSet(rid,inst,v);openCombatSheet(rid,inst)}
 function combatSheetNext(){const l=combatSheetList();if(!l.length||!combatSheetAt)return;const i=l.findIndex(([r,x])=>String(r)===String(combatSheetAt[0])&&x===combatSheetAt[1]);const n=l[(i+1)%l.length];openCombatSheet(n[0],n[1])}
+// V-PERFSHEET: the combat sheet and the dice helper open outside a page
+// render, so the per-render caches (warband sync, rule lookups) were off and
+// each opening rebuilt them several times: ~0.3–0.5 s on a mid-range phone.
+// They now run inside the same cache scope as a render.
+function withRenderCaches(fn){if(__arCacheActive)return fn();__arCacheActive=true;__arCache=null;__statBonusCache=null;__refEntriesCache=null;__equipPoolCache=null;try{return fn()}finally{__arCacheActive=false;__arCache=null;__statBonusCache=null;__refEntriesCache=null;__equipPoolCache=null}}
 function openCombatSheet(rid,inst){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const x=r?.fighters?.find(y=>y.instance===inst);if(!r||!x)return;combatSheetAt=[r.id,inst];const f=faction(r);const prevActive=state.active;state.active=r.id;
   try{
   const ooa=playOoaHas(state.playSession,r.id,inst);const c=ooa?'ooa':playCondOf(r.id,inst);
@@ -19550,3 +19555,4 @@ function contentGroupOf(tab,x){return tab==='skills'?normName(x?.tree||x?.catego
 function contentKey(tab,x){const n=normName(x?.name||'');if(!n)return '';if(tab!=='skills'&&tab!=='spells')return n;return n+'|'+(contentGroupOf(tab,x)||'*')}
 function contentOnline(set,tab,x){if(!set)return false;if(tab!=='skills'&&tab!=='spells')return set.has(normName(x?.name||''));const n=normName(x?.name||'');return set.has(contentKey(tab,x))||set.has(n+'|*')}
 function sameContent(tab,a,b){if(normName(a?.name||'')!==normName(b?.name||''))return false;if(tab!=='skills'&&tab!=='spells')return true;const ga=contentGroupOf(tab,a),gb=contentGroupOf(tab,b);return !ga||!gb||ga===gb}
+;['openCombatSheet','combatSheetSet','combatSheetNext','openDiceHelp','diceSet','diceMod'].forEach(n=>{const o=window[n];if(typeof o==='function'&&!o.__cached){const w=function(...a){return withRenderCaches(()=>o.apply(this,a))};w.__cached=true;window[n]=w}});
