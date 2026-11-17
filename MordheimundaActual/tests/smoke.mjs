@@ -1837,6 +1837,19 @@ await test('[desktop] situational bonuses: flat armour malus in the profile, wea
   expect(out.ws===0&&out.t===1&&out.st===0,'only the permanent bonus goes into the profile: '+JSON.stringify(out));
   expect(/\+1 WS/.test(out.chipSword)&&/\+1 S/.test(out.chipRelic)&&!/T/.test(out.chipRelic)&&out.plain==='','weapon and conditional bonuses show as a chip next to the item: '+JSON.stringify(out));
 });
+await test('[desktop] artifact value: set in the editor, counted in the warband value, also for one already found',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    campaignDetailCache.set('cV',{id:'cV',name:'Camp V',color:'',definition:{artifacts:[{id:'v1',table:'major',roll:'9',name:'Idol of Gold',rules:'A shiny idol.'}]},members:[]});campaignsCache=[{id:'cV',name:'Camp V',definition:campaignDetailCache.get('cV').definition}];
+    const r=activeRoster();const f=faction(r);const w=f.warriors[0];r.reserve=[{reserveId:'rv1',stashId:'s1',name:'Idol of Gold',artifact:'Idol of Gold',category:'Artefact',value:0,price:0,paid:0,quantity:1}];save(true);
+    const before=total(activeRoster());const v0=artifactValue(artifactByName('Idol of Gold'));
+    const orig=window.MordheimundaAPI.adminUpdateCampaign;window.MordheimundaAPI.adminUpdateCampaign=async(id,b)=>({campaign:{id,name:b.name,definition:b.definition}});
+    await openCampaignArtifactEditor('cV','v1');await wait(150);const field=!!document.getElementById('artValue');document.getElementById('artValue').value='120';await saveCampaignArtifact('cV','v1');await wait(150);
+    window.MordheimundaAPI.adminUpdateCampaign=orig;campaignsCache=[{id:'cV',name:'Camp V',definition:campaignDetailCache.get('cV').definition}];
+    const after=total(activeRoster());const card=artifactCardMarkup({...campaignDetailCache.get('cV').definition.artifacts[0],campaignId:'cV'},{});
+    return {v0,field,saved:campaignDetailCache.get('cV').definition.artifacts[0].value,diff:after-before,card:/120/.test(card)}});
+  expect(out.v0===0&&out.field&&out.saved===120&&out.diff===120&&out.card,'an artifact without base item is worth 0 until a value is set, then counts in the warband value: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

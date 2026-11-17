@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0872.0';
+const APP_BUILD='110.0874.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1773,8 +1773,8 @@ function referenceEquipmentBodyMarkup(q){
 function artifactCardMarkup(a,opts){const en=siteLanguage==='en';const r=artifactResolved(a);const admin=opts?.admin&&a.campaignId;
   const kind=r.weapon?(en?'Weapon':'Arme'):(en?'Equipment':'Équipement');
   const base=r.base?` · ${en?'counts as':'compte comme'} ${refLink('equipment',r.base.name,r.base.name)}`:(a.base?` · ${esc(a.base)}`:'');
-  const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,'')+(r.profile2?weaponProfileGridMarkup(r.profile2,null,''):''):'';
-  return `<article class="artifact-card art-item" id="artref-${esc(normName(a.name).replace(/\s+/g,'-'))}"><div class="artifact-head">${a.roll?`<span class="artifact-roll">${esc(a.roll)}</span>`:''}<h3>${esc(a.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openCampaignArtifactEditor('${jsq(a.campaignId)}','${jsq(a.id||'')}')">✎</button>`:''}</div><div class="artifact-base">${kind}${base}</div>${prof}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${a.lore?`<details class="artifact-lore-fold"><summary>${en?'Story':'Histoire'}</summary><p class="artifact-lore">${esc(a.lore)}</p></details>`:''}</article>`}
+  const val=artifactValue(a);const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,'')+(r.profile2?weaponProfileGridMarkup(r.profile2,null,''):''):'';
+  return `<article class="artifact-card art-item" id="artref-${esc(normName(a.name).replace(/\s+/g,'-'))}"><div class="artifact-head">${a.roll?`<span class="artifact-roll">${esc(a.roll)}</span>`:''}<h3>${esc(a.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openCampaignArtifactEditor('${jsq(a.campaignId)}','${jsq(a.id||'')}')">✎</button>`:''}</div><div class="artifact-base">${kind}${base} · ${en?'value':'valeur'} <b>${val} ${en?'GC':'co'}</b></div>${prof}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${a.lore?`<details class="artifact-lore-fold"><summary>${en?'Story':'Histoire'}</summary><p class="artifact-lore">${esc(a.lore)}</p></details>`:''}</article>`}
 function artifactGroupsMarkup(list,opts){const en=siteLanguage==='en';const byCamp=new Map();list.forEach(a=>{const k=a.campaign||'—';if(!byCamp.has(k))byCamp.set(k,[]);byCamp.get(k).push(a)});
   return [...byCamp.entries()].map(([camp,rows])=>{const part=(t,label)=>{const l=rows.filter(a=>(a.table||'minor')===t).sort((x,y)=>campaignArtifactRollKey(x)-campaignArtifactRollKey(y));return l.length?`<h4 class="art-sub">${label} <small>${l.length}</small></h4><div class="artifact-grid">${l.map(a=>artifactCardMarkup(a,opts)).join('')}</div>`:''};
     return `<section class="art-camp"><h3 class="campaign-h3">◈ ${esc(camp)}</h3>${part('minor',en?'Minor artifacts':'Artefacts mineurs')}${part('major',en?'Major artifacts':'Artefacts majeurs')}</section>`}).join('')}
@@ -3148,7 +3148,7 @@ function liveFighterCost(x,f){
 // V-BANDVALUE: what an item adds to the warband value. Equal to its cost by
 // default; an item can set its own band value (e.g. a Holy Tome bought for
 // 140 GC that only counts 30). Buying and selling still use the cost.
-function equipmentBandValue(e,f,x){{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;{const pp=f&&x&&!e?.intrinsic&&!e?.bandOnlyIntrinsic?priceRulePct(f,x,live||e):null;if(pp&&pctValueOf(pp)){const lb=live?.bandValue;const book=lb!==''&&lb!=null&&Number.isFinite(Number(lb))?Number(lb):Number(live?live.price:(e?.value??e?.price??0));if(Number.isFinite(book))return pctCut(Math.max(0,book),pctValueOf(pp))}}const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
+function equipmentBandValue(e,f,x){if(e?.artifact){const a=artifactByName(e.artifact);if(artifactHasValue(a))return Math.max(0,Number(a.value))}{const pr=f&&x?priceRuleFor(e?.name,f,x):null;if(pr&&pr.value!=null)return pr.value}const live=typeof liveEquipmentDef==='function'?liveEquipmentDef(e):null;{const pp=f&&x&&!e?.intrinsic&&!e?.bandOnlyIntrinsic?priceRulePct(f,x,live||e):null;if(pp&&pctValueOf(pp)){const lb=live?.bandValue;const book=lb!==''&&lb!=null&&Number.isFinite(Number(lb))?Number(lb):Number(live?live.price:(e?.value??e?.price??0));if(Number.isFinite(book))return pctCut(Math.max(0,book),pctValueOf(pp))}}const bv=live?live.bandValue:e?.bandValue;if(bv!==''&&bv!=null&&Number.isFinite(Number(bv)))return Math.max(0,Number(bv));return Number(e?.value??e?.price??0)}
 // Value shown on the fighter sheet / stash rows: same special-price rule as the rating.
 function equipmentBandValueHere(e){try{const r=activeRoster();return equipmentBandValue(e,r?faction(r):null,r?.fighters?.[editingIndex]||null)}catch(x){return equipmentBandValue(e)}}
 // A fighter's value counts the equipment they carry: for a Leader/Champion
@@ -10796,7 +10796,7 @@ function campaignStashItem(r,spec,qty,source){
   const def=base?explorationEquipmentDefinition(base.name):{name:spec.n,category:siteLanguage==='en'?'Valuable':'Objet de valeur',price:0,value:0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true,valuable:true};
   const skin=base&&normName(spec.n)!==normName(base.name)?spec.n:(base?null:spec.n);
   const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:base?base.name:spec.n,skin:skin||undefined,quantity:Math.max(1,qty||1),paid:0,sellFormula:spec.sell||'',itemNote:spec.note||'',campaignFind:source||''};if(spec.statMods)entry.itemStatMods=spec.statMods.map(m=>({...m}));if(spec.minS)entry.minStrength=spec.minS;
-  if(spec.artifact){entry.artifact=spec.artifact;entry.value=Number(def.value||0)}
+  if(spec.artifact){entry.artifact=spec.artifact;const a=artifactByName(spec.artifact);entry.value=a?artifactValue(a):Number(def.value||0)}
   r.reserve.push(entry);return entry;
 }
 function campaignExploreState(r){const p=ensurePostBattleData(r);if(!p.campExplore||typeof p.campExplore!=='object')p.campExplore={};const s=p.campExplore;if(!s.results)s.results={};return s}
@@ -11612,6 +11612,11 @@ function campaignArtifactRollKey(a){return Number(String(a?.roll||'').match(/\d+
 // its story (lore). a.kind ('weapon' | 'equipment' | '') and a.profile (its
 // own profile) are set in the artifact editor; empty = taken from the base.
 function artifactHasOwnProfile(a){const p=a?.profile;return !!p&&typeof p==='object'&&['range','strength','ap','damage','traits'].some(k=>String(p[k]||'').trim())}
+// V-ARTVALUE: an artifact's value for the warband rating. The admin can set
+// one in the editor; otherwise the base item's value; a special artifact with
+// neither is worth 0. Read live, so it also applies to artifacts already found.
+function artifactHasValue(a){return a&&a.value!==''&&a.value!=null&&Number.isFinite(Number(a.value))}
+function artifactValue(a){if(artifactHasValue(a))return Math.max(0,Number(a.value));try{const base=a?.base?campaignArtifactBaseItem(a.base):null;if(base){const d=explorationEquipmentDefinition(base.name);return Number(d?.value||base.price||0)}}catch(e){}return 0}
 function artifactResolved(a){const base=a?.base?campaignArtifactBaseItem(a.base):null;const own=artifactHasOwnProfile(a);const filled=own?Object.fromEntries(Object.entries(a.profile).filter(([k,v])=>String(v||'').trim())):{};const profile=own?{range:'',strength:'',ap:'',damage:'',traits:'',...(base?.profile||{}),...filled}:(base?.profile?{...base.profile}:null);
   const weapon=a?.kind==='weapon'?!!(profile&&hasWeaponStats(profile)):a?.kind==='equipment'?false:base?isWeaponLike(base)||(own&&hasWeaponStats(profile)):!!(profile&&hasWeaponStats(profile));
   // V-ARTDUAL: a weapon artifact can have a second profile (shooting + close combat), like a custom weapon.
@@ -11640,7 +11645,7 @@ function artifactStashEntry(r,a,source){const {base,profile,profile2,weapon,own}
   // Armour, shields… keep their base item (its save and rules work as usual), shown with the artifact's name.
   if(base&&!weapon&&!own){const e=campaignStashItem(r,{n:a.name,b:a.base,note:a.rules||'',artifact:a.name},1,source);e.rulesText=[a.rules,e.rulesText].filter(Boolean).join('\n\n');e.artifactLore=a.lore||'';return e}
   r.reserve=Array.isArray(r.reserve)?r.reserve:[];const def=base?explorationEquipmentDefinition(base.name):{};const en=siteLanguage==='en';
-  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,profile2:weapon?profile2:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:Number(def.value||base?.price||0),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
+  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,profile2:weapon?profile2:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:artifactValue(a),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
   r.reserve.push(entry);return entry}
 // V-MECHANICS: Rules › Campaign › "In the app": what this campaign automates,
 // where it happens for the players, and the reference tables it uses.
@@ -12460,7 +12465,13 @@ function advancementTakeCount(x,e,i){return (x.advancements||[]).filter(a=>e.kin
 // advancement ×1.5 instead (see SLOW_XP_MULTIPLIER). A rule NAMED "Slow
 // Witted" always counts, whatever its text says.
 const SLOW_XP_RE=[/\bhalf\s+(?:the\s+)?(?:usual\s+)?(?:number\s+of\s+)?(?:experience|xp)\b/i,/\b(?:improve|learn|advance)\w*\s+at\s+half\s+the\s+rate\b/i,/\bmoiti[ée]\s+(?:moins\s+)?(?:d['’]\s*)?(?:exp[ée]rience|xp)\b/i,/\b(?:x|×)\s?1[.,]5\b|\b1[.,]5\s?(?:x|×|times)\b|\bone\s+and\s+a\s+half\b|\bfois\s+et\s+demie\b|\b1[.,]5\b[^.]{0,40}\b(?:experience|exp[ée]rience|xp)\b|\b(?:experience|exp[ée]rience|xp)\b[^.]{0,40}\b1[.,]5\b/i];
-function fighterSlowXpRule(x){try{const f=faction(activeRoster());for(const n of fighterRuleNames(x,f)){if(/^slow[\s-]*witted$/i.test(String(n).trim()))return n;for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(e){if(SLOW_XP_RE.some(re=>re.test(fighterRuleText(cat,e))))return e.name;break}}}}catch(e){}return null}
+// V-PERFSLOW: asked many times per fighter on every page (home, advancement
+// costs…), it re-read every rule text each time: ~0.5 s on a mid-range phone
+// when the home page opened. The answer is kept 3 seconds per fighter, and
+// per rule text for good (a rule text edit changes the key).
+const SLOW_XP_FIGHTER=new WeakMap(),SLOW_XP_TEXT=new Map();
+function fighterSlowXpRule(x){if(!x||typeof x!=='object')return fighterSlowXpRuleRaw(x);const now=Date.now();const c=SLOW_XP_FIGHTER.get(x);if(c&&now-c.t<3000)return c.v;const v=fighterSlowXpRuleRaw(x);SLOW_XP_FIGHTER.set(x,{t:now,v});return v}
+function fighterSlowXpRuleRaw(x){try{const f=faction(activeRoster());for(const n of fighterRuleNames(x,f)){if(/^slow[\s-]*witted$/i.test(String(n).trim()))return n;for(const cat of ['special','traits']){const e=referenceFind(cat,n);if(e){const t=fighterRuleText(cat,e);let hit=SLOW_XP_TEXT.get(t);if(hit===undefined){hit=SLOW_XP_RE.some(re=>re.test(t));if(SLOW_XP_TEXT.size>2000)SLOW_XP_TEXT.clear();SLOW_XP_TEXT.set(t,hit)}if(hit)return e.name;break}}}}catch(e){}return null}
 // V-SLOWXP15: a Slow Witted fighter pays every advancement ×1.5 (rounded up)
 // and starts with ×1.5 the usual starting XP, so he begins like anyone else.
 const SLOW_XP_MULTIPLIER=1.5;
@@ -17677,7 +17688,10 @@ function readOpenPin(i){const x=readPins()[i];if(!x)return;try{closeTabSheet()}c
 function readRemovePin(i){const v=readPins();v.splice(i,1);readPinsSave(v);try{openTabSheet('rules');openTabSheet('rules')}catch(e){}readToolsSync()}
 function readPinsSheetMarkup(){const v=readPins();const en=siteLanguage==='en';if(!v.length)return '';return `<div class="tab-sheet-sep"></div><div class="tab-sheet-label">★ ${en?'PINNED':'ÉPINGLÉS'}</div>`+v.map((x,i)=>`<div class="read-pin-row"><button type="button" class="tab-sheet-link" onclick="readOpenPin(${i})"><i>★</i><span>${esc(x.title||x.href)}</span></button><button type="button" class="read-pin-x" aria-label="${en?'Remove':'Retirer'}" onclick="readRemovePin(${i})">×</button></div>`).join('')}
 function readToolsEl(){let el=document.getElementById('readTools');if(!el){el=document.createElement('div');el.id='readTools';el.className='read-tools';document.body.appendChild(el)}return el}
-function readToolsSync(){try{ambientSync(false)}catch(e){}try{undoSeed()}catch(e){}try{a11ySweep()}catch(e){}try{const sc=document.getElementById('syncConflictBox');const html=syncConflictBannerMarkup();if(html&&!sc){const c=document.getElementById('content');if(c){const d=document.createElement('div');d.id='syncConflictBox';d.innerHTML=html;c.prepend(d)}}else if(sc&&!html)sc.remove()}catch(e){}try{wakeSync()}catch(e){}try{fxPass()}catch(e){}try{fxNewApply()}catch(e){}try{if(rosterFilterRid!==state.active){rosterFilterRid=state.active;rosterFilterQ=''}if(rosterFilterQ)rosterFilterApply()}catch(e){}try{wbTintSync()}catch(e){}try{installBannerSync()}catch(e){}const el=readToolsEl();const en=siteLanguage==='en';const reading=readIsReadingPage();const pinned=readPins().some(x=>x.key===readPageKey());const top=window.scrollY>500;
+// V-PERFIDLE: the accessibility labels sweep runs when the phone is idle,
+// not inside the page change itself (the undo snapshot stays immediate).
+let readIdlePending=false;function readIdleWork(){if(readIdlePending)return;readIdlePending=true;const go=()=>{readIdlePending=false;try{a11ySweep()}catch(e){}};try{'requestIdleCallback' in window?requestIdleCallback(go,{timeout:1200}):setTimeout(go,200)}catch(e){setTimeout(go,200)}}
+function readToolsSync(){try{ambientSync(false)}catch(e){}try{undoSeed()}catch(e){}readIdleWork();try{const sc=document.getElementById('syncConflictBox');const html=syncConflictBannerMarkup();if(html&&!sc){const c=document.getElementById('content');if(c){const d=document.createElement('div');d.id='syncConflictBox';d.innerHTML=html;c.prepend(d)}}else if(sc&&!html)sc.remove()}catch(e){}try{wakeSync()}catch(e){}try{fxPass()}catch(e){}try{fxNewApply()}catch(e){}try{if(rosterFilterRid!==state.active){rosterFilterRid=state.active;rosterFilterQ=''}if(rosterFilterQ)rosterFilterApply()}catch(e){}try{wbTintSync()}catch(e){}try{installBannerSync()}catch(e){}const el=readToolsEl();const en=siteLanguage==='en';const reading=readIsReadingPage();const pinned=readPins().some(x=>x.key===readPageKey());const top=window.scrollY>500;
   try{glossarySweep()}catch(e){}el.innerHTML=`${reading?`<button type="button" class="read-tool${readMode?' on':''}" title="${en?'Reading mode':'Mode lecture'}" aria-label="${en?'Reading mode':'Mode lecture'}" onclick="readModeToggle()">Aa</button><button type="button" class="read-tool" title="${en?'Find in this page':'Chercher dans la page'}" aria-label="${en?'Find in this page':'Chercher dans la page'}" onclick="pfOpen()">🔍</button><button type="button" class="read-tool${pinned?' on':''}" title="${pinned?(en?'Unpin':'Retirer l’épingle'):(en?'Pin this page':'Épingler cette page')}" aria-label="${en?'Pin':'Épingler'}" onclick="readTogglePin()">${pinned?'★':'☆'}</button>`:''}${top?`<button type="button" class="read-tool" title="${en?'Back to top':'Haut de page'}" aria-label="${en?'Back to top':'Haut de page'}" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>`:''}`;
   el.hidden=!el.innerHTML;if(!reading){pfClose();if(readMode)readModeToggle(false)}readModeBarSync()}
 let readToolsTimer=null;function readToolsSoon(){clearTimeout(readToolsTimer);readToolsTimer=setTimeout(()=>{try{readToolsSync()}catch(e){}},80)}
@@ -18040,6 +18054,11 @@ let combatSheetAt=null;
 function combatSheetList(){const ps=state.playSession;if(!ps)return [];const out=[];playOwnRosters(ps).forEach(r=>{const e=playEngEntry(ps,r);(r.fighters||[]).forEach(x=>{if(x&&e.picks.includes(x.instance))out.push([r.id,x.instance])})});return out}
 function combatSheetSet(rid,inst,v){if(v==='ooa')playOoaToggle(rid,inst);else playCondSet(rid,inst,v);openCombatSheet(rid,inst)}
 function combatSheetNext(){const l=combatSheetList();if(!l.length||!combatSheetAt)return;const i=l.findIndex(([r,x])=>String(r)===String(combatSheetAt[0])&&x===combatSheetAt[1]);const n=l[(i+1)%l.length];openCombatSheet(n[0],n[1])}
+// V-PERFSHEET: the combat sheet and the dice helper open outside a page
+// render, so the per-render caches (warband sync, rule lookups) were off and
+// each opening rebuilt them several times: ~0.3–0.5 s on a mid-range phone.
+// They now run inside the same cache scope as a render.
+function withRenderCaches(fn){if(__arCacheActive)return fn();__arCacheActive=true;__arCache=null;__statBonusCache=null;__refEntriesCache=null;__equipPoolCache=null;try{return fn()}finally{__arCacheActive=false;__arCache=null;__statBonusCache=null;__refEntriesCache=null;__equipPoolCache=null}}
 function openCombatSheet(rid,inst){const en=siteLanguage==='en';const r=(state.rosters||[]).find(x=>String(x.id)===String(rid));const x=r?.fighters?.find(y=>y.instance===inst);if(!r||!x)return;combatSheetAt=[r.id,inst];const f=faction(r);const prevActive=state.active;state.active=r.id;
   try{
   const ooa=playOoaHas(state.playSession,r.id,inst);const c=ooa?'ooa':playCondOf(r.id,inst);
@@ -19541,3 +19560,4 @@ function contentGroupOf(tab,x){return tab==='skills'?normName(x?.tree||x?.catego
 function contentKey(tab,x){const n=normName(x?.name||'');if(!n)return '';if(tab!=='skills'&&tab!=='spells')return n;return n+'|'+(contentGroupOf(tab,x)||'*')}
 function contentOnline(set,tab,x){if(!set)return false;if(tab!=='skills'&&tab!=='spells')return set.has(normName(x?.name||''));const n=normName(x?.name||'');return set.has(contentKey(tab,x))||set.has(n+'|*')}
 function sameContent(tab,a,b){if(normName(a?.name||'')!==normName(b?.name||''))return false;if(tab!=='skills'&&tab!=='spells')return true;const ga=contentGroupOf(tab,a),gb=contentGroupOf(tab,b);return !ga||!gb||ga===gb}
+;['openCombatSheet','combatSheetSet','combatSheetNext','openDiceHelp','diceSet','diceMod'].forEach(n=>{const o=window[n];if(typeof o==='function'&&!o.__cached){const w=function(...a){return withRenderCaches(()=>o.apply(this,a))};w.__cached=true;window[n]=w}});
