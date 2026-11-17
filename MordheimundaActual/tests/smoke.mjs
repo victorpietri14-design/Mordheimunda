@@ -1800,9 +1800,13 @@ await test('[desktop] saving an artifact from Rules › Reference stays on Refer
     const orig=window.MordheimundaAPI.adminUpdateCampaign;window.MordheimundaAPI.adminUpdateCampaign=async(id,b)=>({campaign:{id,name:b.name,definition:b.definition}});
     navigateApp(APP_ROUTES.references);await wait(500);const before=location.pathname;
     const ok=await saveCampaignDefinition('cX',def=>{def.artifacts[0].rules='changed'});await wait(300);const after=location.pathname;const view=currentViewName();
-    window.MordheimundaAPI.adminUpdateCampaign=orig;
-    return {ok,before,after,view,saved:campaignDetailCache.get('cX').definition.artifacts[0].rules}});
-  expect(out.ok&&out.before===out.after&&out.view!=='campaignDetail'&&out.saved==='changed','the Reference page stays open after the save: '+JSON.stringify(out));
+    // the edit button works even when the campaign page was never opened (detail fetched on demand)
+    campaignDetailCache.delete('cY');const oa=window.MordheimundaAPI.adminCampaign,oc=window.MordheimundaAPI.campaign;
+    window.MordheimundaAPI.adminCampaign=async id=>({campaign:{id,name:'Camp Y',definition:{artifacts:[{id:'b1',table:'major',roll:'5',name:'Crown',rules:'y'}]},members:[]}});window.MordheimundaAPI.campaign=window.MordheimundaAPI.adminCampaign;
+    await openCampaignArtifactEditor('cY','b1');await wait(200);const editor=document.getElementById('artName')?.value;closeModal();
+    window.MordheimundaAPI.adminCampaign=oa;window.MordheimundaAPI.campaign=oc;window.MordheimundaAPI.adminUpdateCampaign=orig;
+    return {ok,before,after,view,editor,saved:campaignDetailCache.get('cX').definition.artifacts[0].rules}});
+  expect(out.ok&&out.before===out.after&&out.view!=='campaignDetail'&&out.saved==='changed'&&out.editor==='Crown','the Reference page stays open after the save, and the edit button opens without visiting the campaign: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

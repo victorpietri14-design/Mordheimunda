@@ -533,8 +533,8 @@ function campaignArtifactsMarkup(c,admin){
   };
   return `<div class="rules-article-body campaign-text"><h2 class="campaign-page-title">${en?'Artifacts':'Artefacts'}</h2>${bar}${intro?ruleTextMarkup(intro,{noTitle:true}):''}${section('minor',en?'Minor artifacts':'Artefacts mineurs')}${section('major',en?'Major artifacts':'Artefacts majeurs')}</div>`;
 }
-function editCampaignArtifactsIntro(cid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
+async function editCampaignArtifactsIntro(cid){
+  const en=siteLanguage==='en';const c=await campaignDetailEnsure(cid);if(!c)return;
   openModal(`<div class="wc-dialog"><div class="eyebrow">${en?'ARTIFACTS':'ARTEFACTS'}</div><h2>${en?'Intro text':'Texte d’intro'}</h2><textarea id="artIntro" rows="8" style="width:100%">${esc(c.definition?.artifactsIntro||'')}</textarea><div class="custom-actions"><button type="button" class="button primary" onclick="saveCampaignArtifactsIntro('${jsq(cid)}')">${en?'Save':'Enregistrer'}</button><button type="button" class="button secondary" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
 function campaignSettlementsMarkup(c,admin,embedded){
