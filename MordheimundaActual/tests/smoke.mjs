@@ -1808,6 +1808,21 @@ await test('[desktop] saving an artifact from Rules › Reference stays on Refer
     return {ok,before,after,view,editor,saved:campaignDetailCache.get('cX').definition.artifacts[0].rules}});
   expect(out.ok&&out.before===out.after&&out.view!=='campaignDetail'&&out.saved==='changed'&&out.editor==='Crown','the Reference page stays open after the save, and the edit button opens without visiting the campaign: '+JSON.stringify(out));
 });
+await test('[desktop] artifacts: renaming keeps warbands linked, no Lustria duplicate, weapon with two profiles',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));const L=LUSTRIA_ARTIFACTS[1];
+    campaignDetailCache.set('cR',{id:'cR',name:'Camp R',color:'',definition:{artifacts:[{...L,id:'r1'}]},members:[]});campaignsCache=[{id:'cR',name:'Camp R',definition:campaignDetailCache.get('cR').definition}];
+    const orig=window.MordheimundaAPI.adminUpdateCampaign;window.MordheimundaAPI.adminUpdateCampaign=async(id,b)=>({campaign:{id,name:b.name,definition:b.definition}});
+    await openCampaignArtifactEditor('cR','r1');await wait(150);document.getElementById('artName').value='Renamed Mace';
+    document.getElementById('artKind').value='weapon';document.getElementById('artDual').checked=true;document.getElementById('artP2_range').value='12';document.getElementById('artP2_strength').value='3';document.getElementById('artP2_damage').value='1';
+    await saveCampaignArtifact('cR','r1');await wait(150);window.MordheimundaAPI.adminUpdateCampaign=orig;campaignsCache=[{id:'cR',name:'Camp R',definition:campaignDetailCache.get('cR').definition}];
+    const def=campaignDetailCache.get('cR').definition;const names=artifactAllList().map(a=>a.name);
+    const held={name:L.name,artifact:L.name,profile:{range:'Melee 1',strength:'S',ap:'-',damage:'1'}};
+    const res=artifactResolved(def.artifacts[0]);const entry=artifactStashEntry({reserve:[]},def.artifacts[0],'x');
+    return {alias:def.artifactRenames?.[L.name],dup:names.filter(n=>n===L.name).length,newShown:names.includes('Renamed Mace'),shown:eqShownName(held),found:artifactByName(L.name)?.name,link:/Renamed Mace/.test(eqNameLink(held)),p2:res.profile2?.range,entryP2:entry.profile2?.range,card:(artifactCardMarkup({...def.artifacts[0],campaignId:'cR'},{}).match(/weapon-profile-grid|wp-grid|<table/g)||[]).length}});
+  expect(out.alias==='Renamed Mace'&&out.dup===0&&out.newShown&&out.shown==='Renamed Mace'&&out.found==='Renamed Mace'&&out.link,'renaming keeps the old name as an alias, no duplicate, warbands show the new name: '+JSON.stringify(out));
+  expect(out.p2==='12'&&out.entryP2==='12','a weapon artifact keeps its second profile, also once found: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
