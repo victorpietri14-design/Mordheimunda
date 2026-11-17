@@ -1793,6 +1793,17 @@ await test('[mobile] no duplicate help or settings entries, everything still rea
   expect(!out.moreLang&&!out.moreErr&&out.moreAcct&&!out.side&&!out.tileDup&&!out.settingsDup&&out.tourInGroups,'one entry per thing in More, sidebar and help menu: '+JSON.stringify(out));
   expect(out.printParts&&out.errLink&&!out.acctHelp&&out.acctLang&&out.lang,'what moved is still reachable (print, error log, language): '+JSON.stringify(out));
 });
+await test('[desktop] saving an artifact from Rules › Reference stays on Reference',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));
+    campaignDetailCache.set('cX',{id:'cX',name:'Camp X',color:'',definition:{artifacts:[{id:'a1',table:'minor',roll:'1',name:'Old Blade',rules:'x'}]},members:[]});
+    const orig=window.MordheimundaAPI.adminUpdateCampaign;window.MordheimundaAPI.adminUpdateCampaign=async(id,b)=>({campaign:{id,name:b.name,definition:b.definition}});
+    navigateApp(APP_ROUTES.references);await wait(500);const before=location.pathname;
+    const ok=await saveCampaignDefinition('cX',def=>{def.artifacts[0].rules='changed'});await wait(300);const after=location.pathname;const view=currentViewName();
+    window.MordheimundaAPI.adminUpdateCampaign=orig;
+    return {ok,before,after,view,saved:campaignDetailCache.get('cX').definition.artifacts[0].rules}});
+  expect(out.ok&&out.before===out.after&&out.view!=='campaignDetail'&&out.saved==='changed','the Reference page stays open after the save: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

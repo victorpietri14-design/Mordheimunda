@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0868.0';
+const APP_BUILD='110.0869.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11726,7 +11726,10 @@ function campaignActiveMarkup(c){
 async function saveCampaignDefinition(id,mutate){
   const en=siteLanguage==='en';const c=campaignDetailCache.get(id);if(!c||c.missing)return false;
   const def=JSON.parse(JSON.stringify(c.definition||{}));mutate(def);
-  try{const res=await window.MordheimundaAPI.adminUpdateCampaign(id,{name:c.name,color:c.color,definition:def});campaignDetailCache.set(id,{...c,...(res?.campaign||{}),definition:res?.campaign?.definition||def,members:c.members});campaignsCache=null;campaignListStale=true;render('campaignDetail');return true}
+  try{const res=await window.MordheimundaAPI.adminUpdateCampaign(id,{name:c.name,color:c.color,definition:def});campaignDetailCache.set(id,{...c,...(res?.campaign||{}),definition:res?.campaign?.definition||def,members:c.members});campaignsCache=null;campaignListStale=true;
+    // V-STAYPUT: an artifact (or any campaign content) edited from Rules ›
+    // Reference or Custom redraws that page, instead of jumping to the campaign.
+    if(currentViewName()==='campaignDetail')render('campaignDetail');else{try{renderCurrentRoute()}catch(e){}}return true}
   catch(e){toast(authError(e,en));return false}
 }
 function campaignArtifactBaseNames(){
