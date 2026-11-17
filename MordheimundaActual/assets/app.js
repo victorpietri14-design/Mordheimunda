@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0870.0';
+const APP_BUILD='110.0871.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -1773,7 +1773,7 @@ function referenceEquipmentBodyMarkup(q){
 function artifactCardMarkup(a,opts){const en=siteLanguage==='en';const r=artifactResolved(a);const admin=opts?.admin&&a.campaignId;
   const kind=r.weapon?(en?'Weapon':'Arme'):(en?'Equipment':'Équipement');
   const base=r.base?` · ${en?'counts as':'compte comme'} ${refLink('equipment',r.base.name,r.base.name)}`:(a.base?` · ${esc(a.base)}`:'');
-  const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,''):'';
+  const prof=r.weapon&&r.profile?weaponProfileGridMarkup(r.profile,null,'')+(r.profile2?weaponProfileGridMarkup(r.profile2,null,''):''):'';
   return `<article class="artifact-card art-item" id="artref-${esc(normName(a.name).replace(/\s+/g,'-'))}"><div class="artifact-head">${a.roll?`<span class="artifact-roll">${esc(a.roll)}</span>`:''}<h3>${esc(a.name)}</h3>${admin?`<button type="button" class="rule-edit-btn" title="${en?'Edit':'Modifier'}" onclick="openCampaignArtifactEditor('${jsq(a.campaignId)}','${jsq(a.id||'')}')">✎</button>`:''}</div><div class="artifact-base">${kind}${base}</div>${prof}${a.rules?`<div class="artifact-rules">${ruleTextMarkup(a.rules,{noTitle:true})}</div>`:''}${a.lore?`<details class="artifact-lore-fold"><summary>${en?'Story':'Histoire'}</summary><p class="artifact-lore">${esc(a.lore)}</p></details>`:''}</article>`}
 function artifactGroupsMarkup(list,opts){const en=siteLanguage==='en';const byCamp=new Map();list.forEach(a=>{const k=a.campaign||'—';if(!byCamp.has(k))byCamp.set(k,[]);byCamp.get(k).push(a)});
   return [...byCamp.entries()].map(([camp,rows])=>{const part=(t,label)=>{const l=rows.filter(a=>(a.table||'minor')===t).sort((x,y)=>campaignArtifactRollKey(x)-campaignArtifactRollKey(y));return l.length?`<h4 class="art-sub">${label} <small>${l.length}</small></h4><div class="artifact-grid">${l.map(a=>artifactCardMarkup(a,opts)).join('')}</div>`:''};
@@ -10789,8 +10789,8 @@ function campaignUsesTreasure(r){return campaignFeatureOn(campaignOfRoster(r),'e
 // Wyrdstone → Treasure in a campaign warband's texts (identifiers are left alone).
 function treasureText(html){return String(html).replace(/(?<![\w-])([Ww]yrdstone|WYRDSTONE)(?![\w(]| Hunter)/g,(m)=>m==='WYRDSTONE'?'TREASURE':'Treasure').replace(/(?<![\w-])shards?(?![\w(-])/g,m=>m==='shard'?'Treasure':'Treasures').replace(/(?<![\w-])Shards?(?![\w(-])/g,m=>m==='Shard'?'Treasure':'Treasures').replace(/Treasure(s?) de Treasure/g,'Treasure$1').replace(/\bces Treasure\b/g,'ces Treasures').replace(/\bthis Treasure in stock/g,'this Treasure in stock')}
 // Skinned items: name = base catalogue item (rules), skin = name shown.
-function eqShownName(e){return e?.skin||e?.name||''}
-function eqNameLink(e){if(!e)return '';if(e.artifact&&artifactByName(e.artifact))return `<span class="art-tag">✦</span> ${refLink('artifacts',e.artifact,e.skin||e.name)}`;return e.skin&&normName(e.skin)!==normName(e.name)?`${refLink('equipment',e.name,e.skin)} <small class="eq-skin-base">(${esc(e.name)})</small>`:refLink('equipment',e.name)}
+function eqShownName(e){if(e?.artifact){const cur=artifactCurrentName(e.artifact);if(normName(cur)!==normName(e.artifact))return cur}return e?.skin||e?.name||''}
+function eqNameLink(e){if(!e)return '';if(e.artifact&&artifactByName(e.artifact)){const cur=artifactCurrentName(e.artifact);return `<span class="art-tag">✦</span> ${refLink('artifacts',cur,normName(cur)!==normName(e.artifact)?cur:(e.skin||e.name))}`}return e.skin&&normName(e.skin)!==normName(e.name)?`${refLink('equipment',e.name,e.skin)} <small class="eq-skin-base">(${esc(e.name)})</small>`:refLink('equipment',e.name)}
 function campaignStashItem(r,spec,qty,source){
   r.reserve=Array.isArray(r.reserve)?r.reserve:[];const base=spec.b?campaignArtifactBaseItem(spec.b):null;
   const def=base?explorationEquipmentDefinition(base.name):{name:spec.n,category:siteLanguage==='en'?'Valuable':'Objet de valeur',price:0,value:0,profile:null,traits:[],weaponSlotCost:0,equipmentAccessGroups:['ALL'],explorationReward:true,valuable:true};
@@ -10857,9 +10857,9 @@ function campaignExplorationPanel(r,cpb){
 // (shared through the member stats) gives nothing when rolled.
 function campaignArtifactList(c){const own=c?.definition?.artifacts;return Array.isArray(own)&&own.length?own:LUSTRIA_ARTIFACTS}
 function campaignArtifactAt(c,table,total){return campaignArtifactList(c).find(a=>a.table===table&&String(a.roll||'').split(/[-–]/).map(Number).reduce((ok,v,i,arr)=>arr.length===1?total===arr[0]:total>=arr[0]&&total<=arr[1],false))||null}
-function rosterArtifactsFound(r){const out=new Map();const add=e=>{if(!e?.artifact)return;const k=normName(e.artifact);const at=Number(e.foundAt)||null;const cur=out.get(k);if(!cur||(at&&(!cur.at||at<cur.at)))out.set(k,{name:e.artifact,at})};(r?.reserve||[]).forEach(add);(r?.fighters||[]).forEach(x=>[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].forEach(add));return [...out.values()]}
-function rosterArtifactNames(r){const names=[];(r?.reserve||[]).forEach(e=>{if(e.artifact)names.push(e.artifact)});(r?.fighters||[]).forEach(x=>[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].forEach(e=>{if(e?.artifact)names.push(e.artifact)}));return [...new Set(names)]}
-function campaignHeldArtifacts(c,r){const held=new Map();(c?.members||[]).filter(m=>!m.leftAt&&m.rosterId!==r?.id).forEach(m=>(m.stats?.artifacts||[]).forEach(n=>held.set(normName(n),m.rosterName||'?')));rosterArtifactNames(r).forEach(n=>held.set(normName(n),r.name));(campaignMarketCache.get(c?.id)?.trades||[]).forEach(t=>{if(t.status==='open'&&t.item?.artifact)held.set(normName(t.item.artifact),t.rosterName||'?')});return held}
+function rosterArtifactsFound(r){const out=new Map();const add=e=>{if(!e?.artifact)return;const nm=artifactCurrentName(e.artifact);const k=normName(nm);const at=Number(e.foundAt)||null;const cur=out.get(k);if(!cur||(at&&(!cur.at||at<cur.at)))out.set(k,{name:nm,at})};(r?.reserve||[]).forEach(add);(r?.fighters||[]).forEach(x=>[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].forEach(add));return [...out.values()]}
+function rosterArtifactNames(r){const names=[];(r?.reserve||[]).forEach(e=>{if(e.artifact)names.push(artifactCurrentName(e.artifact))});(r?.fighters||[]).forEach(x=>[...(x.equipmentSelected||[]),...(x.equipmentStash||[])].forEach(e=>{if(e?.artifact)names.push(artifactCurrentName(e.artifact))}));return [...new Set(names)]}
+function campaignHeldArtifacts(c,r){const held=new Map();(c?.members||[]).filter(m=>!m.leftAt&&m.rosterId!==r?.id).forEach(m=>(m.stats?.artifacts||[]).forEach(n=>held.set(normName(artifactCurrentName(n)),m.rosterName||'?')));rosterArtifactNames(r).forEach(n=>held.set(normName(n),r.name));(campaignMarketCache.get(c?.id)?.trades||[]).forEach(t=>{if(t.status==='open'&&t.item?.artifact)held.set(normName(artifactCurrentName(t.item.artifact)),t.rosterName||'?')});return held}
 function rollCampaignArtifact(){
   const r=activeRoster();if(!r)return;const en=siteLanguage==='en';const c=campaignOfRoster(r);if(!c)return;const s=campaignExploreState(r);
   const roll4=()=>Array.from({length:4},()=>postBattleRoll());const held=campaignHeldArtifacts(c,r);const res={id:crypto.randomUUID(),rolls:[]};
@@ -11614,23 +11614,33 @@ function campaignArtifactRollKey(a){return Number(String(a?.roll||'').match(/\d+
 function artifactHasOwnProfile(a){const p=a?.profile;return !!p&&typeof p==='object'&&['range','strength','ap','damage','traits'].some(k=>String(p[k]||'').trim())}
 function artifactResolved(a){const base=a?.base?campaignArtifactBaseItem(a.base):null;const own=artifactHasOwnProfile(a);const filled=own?Object.fromEntries(Object.entries(a.profile).filter(([k,v])=>String(v||'').trim())):{};const profile=own?{range:'',strength:'',ap:'',damage:'',traits:'',...(base?.profile||{}),...filled}:(base?.profile?{...base.profile}:null);
   const weapon=a?.kind==='weapon'?!!(profile&&hasWeaponStats(profile)):a?.kind==='equipment'?false:base?isWeaponLike(base)||(own&&hasWeaponStats(profile)):!!(profile&&hasWeaponStats(profile));
-  return {base,profile,weapon,own}}
+  // V-ARTDUAL: a weapon artifact can have a second profile (shooting + close combat), like a custom weapon.
+  const p2own=a?.profile2&&typeof a.profile2==='object'&&['range','strength','ap','damage','traits'].some(k=>String(a.profile2[k]||'').trim());
+  const profile2=weapon?(p2own?{range:'',strength:'',ap:'',damage:'',traits:'',...Object.fromEntries(Object.entries(a.profile2).filter(([k,v])=>String(v||'').trim()))}:(base?.profile2&&!own?{...base.profile2}:null)):null;
+  return {base,profile,profile2:profile2&&hasWeaponStats(profile2)?profile2:null,weapon,own}}
 // Every artifact the site knows: each campaign's own list, then the Lustria book list.
-function artifactAllList(){const out=[];const seen=new Set();const add=(a,camp,cid)=>{if(!a?.name)return;const k=normName(a.name);if(seen.has(k))return;seen.add(k);out.push({...a,campaign:camp||'',campaignId:cid||''})};
-  try{campaignListAll().forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;(Array.isArray(c.definition?.artifacts)?c.definition.artifacts:[]).forEach(a=>add(a,c.name||c0.name,c0.id))})}catch(e){}
-  LUSTRIA_ARTIFACTS.forEach(a=>add(a,'Lustria',''));return out}
-function artifactByName(n){const k=normName(n);return k?artifactAllList().find(a=>normName(a.name)===k)||null:null}
+// V-ARTRENAME: warbands keep an artifact by its NAME. Renaming one stores
+// old name → new name in its campaign (definition.artifactRenames), so every
+// warband holding it under the old name shows the new one and its links
+// still open it. A built-in Lustria artifact that a campaign renamed (or that
+// a campaign artifact replaces on the same table and roll) is not listed again.
+function artifactRenameMap(){const m=new Map();try{campaignListAll().forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;const r=c.definition?.artifactRenames;if(r&&typeof r==='object')Object.entries(r).forEach(([o,n])=>{if(o&&n)m.set(normName(o),String(n))})})}catch(e){}return m}
+function artifactCurrentName(n){const m=artifactRenameMap();let cur=String(n||''),k=normName(cur),i=0;while(m.has(k)&&i++<10){cur=m.get(k);k=normName(cur)}return cur}
+function artifactAllList(){const out=[];const seen=new Set();const slots=new Set();const add=(a,camp,cid)=>{if(!a?.name)return;const k=normName(a.name);if(seen.has(k))return;seen.add(k);out.push({...a,campaign:camp||'',campaignId:cid||''})};
+  try{campaignListAll().forEach(c0=>{const c=campaignDetailCache.get(c0.id)||c0;(Array.isArray(c.definition?.artifacts)?c.definition.artifacts:[]).forEach(a=>{add(a,c.name||c0.name,c0.id);if(a?.roll)slots.add(`${a.table||'minor'}|${String(a.roll).trim()}`)})})}catch(e){}
+  const renamed=artifactRenameMap();LUSTRIA_ARTIFACTS.forEach(a=>{if(renamed.has(normName(a.name))||slots.has(`${a.table||'minor'}|${String(a.roll||'').trim()}`))return;add(a,'Lustria','')});return out}
+function artifactByName(n){const k=normName(artifactCurrentName(n));return k?artifactAllList().find(a=>normName(a.name)===k)||null:null}
 function artifactRefText(a){const en=siteLanguage==='en';const r=artifactResolved(a);const p=r.weapon&&r.profile?r.profile:null;
   const head=[a.campaign||'',a.table?(a.table==='major'?(en?'Major artifact':'Artefact majeur'):(en?'Minor artifact':'Artefact mineur')):'',a.roll?`4D6 = ${a.roll}`:''].filter(Boolean).join(' · ');
   const kind=r.weapon?(en?'Weapon':'Arme'):(en?'Equipment':'Équipement');
-  return [head,`${kind}${r.base?` · ${en?'counts as':'compte comme'} ${r.base.name}`:''}`,p?`${en?'Range':'Portée'} ${p.range||'-'} · S ${p.strength||'-'} · AP ${p.ap||'-'} · D ${p.damage||'-'}${p.traits&&p.traits!=='None'?` · ${p.traits}`:''}`:'',a.rules||'',a.lore?`« ${a.lore} »`:''].filter(Boolean).join('\n\n')}
+  return [head,`${kind}${r.base?` · ${en?'counts as':'compte comme'} ${r.base.name}`:''}`,[p,r.weapon?r.profile2:null].filter(Boolean).map(q=>`${en?'Range':'Portée'} ${q.range||'-'} · S ${q.strength||'-'} · AP ${q.ap||'-'} · D ${q.damage||'-'}${q.traits&&q.traits!=='None'?` · ${q.traits}`:''}`).join('\n'),a.rules||'',a.lore?`« ${a.lore} »`:''].filter(Boolean).join('\n\n')}
 function artifactReferenceEntries(){return artifactAllList().map(a=>({id:'artifact-'+normName(a.name).replace(/\s+/g,'-'),name:a.name,text:artifactRefText(a),lines:3,artifact:a}))}
 // The stash entry for a found artifact.
-function artifactStashEntry(r,a,source){const {base,profile,weapon,own}=artifactResolved(a);
+function artifactStashEntry(r,a,source){const {base,profile,profile2,weapon,own}=artifactResolved(a);
   // Armour, shields… keep their base item (its save and rules work as usual), shown with the artifact's name.
   if(base&&!weapon&&!own){const e=campaignStashItem(r,{n:a.name,b:a.base,note:a.rules||'',artifact:a.name},1,source);e.rulesText=[a.rules,e.rulesText].filter(Boolean).join('\n\n');e.artifactLore=a.lore||'';return e}
   r.reserve=Array.isArray(r.reserve)?r.reserve:[];const def=base?explorationEquipmentDefinition(base.name):{};const en=siteLanguage==='en';
-  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:Number(def.value||base?.price||0),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
+  const entry={reserveId:crypto.randomUUID(),stashId:crypto.randomUUID(),...def,name:a.name,skin:undefined,category:weapon?(base?.category||(/melee/i.test(String(profile?.range||''))?'Armes de corps à corps':'Armes de tir')):(en?'Artifact':'Artefact'),profile:weapon?profile:null,profile2:weapon?profile2:null,traits:weapon?String(profile?.traits||'').split(/,\s*/).filter(t=>t&&t!=='None'):[],weaponSlotCost:weapon?(def.weaponSlotCost??1):0,price:0,value:Number(def.value||base?.price||0),equipmentAccessGroups:['ALL'],explorationReward:true,quantity:1,paid:0,sellFormula:'',itemNote:a.rules||'',rulesText:a.rules||'',artifact:a.name,artifactItem:true,artifactLore:a.lore||'',artifactBase:base?.name||a.base||'',campaignFind:source||''};
   r.reserve.push(entry);return entry}
 // V-MECHANICS: Rules › Campaign › "In the app": what this campaign automates,
 // where it happens for the players, and the reference tables it uses.
@@ -12785,7 +12795,7 @@ function weaponProfileMarkup(e,x){const p=e.profile;if(!p)return '';const fx=wea
   // e.refCategory: 'equipment' (default) or 'spells' — a spell carrying its own
   // weapon profile (V-SPELLWEAPON, see ownedFighterCard) still needs its title
   // to link to ITS OWN reference entry, not a same-named equipment entry.
-  const titleLink=e.isMutationWeapon?esc(e.name):e.artifact?`<span class="art-tag" title="${siteLanguage==='en'?'Artifact':'Artefact'}">✦</span> ${refLink('artifacts',e.artifact,e.skin||e.name)}`:refLink(e.refCategory||'equipment',e.name);
+  const titleLink=e.isMutationWeapon?esc(e.name):e.artifact?`<span class="art-tag" title="${siteLanguage==='en'?'Artifact':'Artefact'}">✦</span> ${(()=>{const cur=artifactCurrentName(e.artifact);return refLink('artifacts',cur,normName(cur)!==normName(e.artifact)?cur:(e.skin||e.name))})()}`:refLink(e.refCategory||'equipment',e.name);
   const spellTag=e.refCategory==='spells'?'<span class="weapon-spell-tag">SORT</span>':e.isMutationWeapon?'<span class="weapon-spell-tag mut-tag">🧬</span>':'';
   // V-DUALPROFILE: a weapon with e.profile2 (checkbox-set — see
   // customWeaponEditor/saveCustomEquipment) renders BOTH stat lines, each
