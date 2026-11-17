@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0869.0';
+const APP_BUILD='110.0870.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11723,8 +11723,14 @@ function campaignActiveMarkup(c){
   const en=siteLanguage==='en';const on=campaignMechanicsList(c).filter(m=>m.on);if(!on.length)return '';
   return `<details class="mech-mini" style="--cc:${esc(campaignColor(c))}"><summary><span class="micro-label">${en?'ACTIVE IN THIS CAMPAIGN':'ACTIF DANS CETTE CAMPAGNE'}</span><b>${on.length}</b></summary><div class="mech-grid">${on.map(m=>`<article class="mech-card"><div class="mech-head"><span class="mech-icon">${m.icon}</span><b>${esc(m.title)}</b></div><p>${esc(m.text)}</p><small>📍 ${esc(m.where)}</small></article>`).join('')}</div></details>`;
 }
+// V-STAYPUT: editing campaign content from Rules › Reference or Custom must
+// not depend on the campaign page having been opened first: fetch the
+// campaign's full detail when it is not in the cache yet.
+async function campaignDetailEnsure(id){let c=campaignDetailCache.get(id);if(c&&!c.missing)return c;
+  try{c=(isAdminSession()?(await window.MordheimundaAPI.adminCampaign(id))?.campaign:null)||(await window.MordheimundaAPI.campaign(id))?.campaign||null}catch(e){c=null}
+  if(c){campaignDetailCache.set(id,c);try{campaignDetailFresh.add(id)}catch(e){}}return c}
 async function saveCampaignDefinition(id,mutate){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(id);if(!c||c.missing)return false;
+  const en=siteLanguage==='en';const c=await campaignDetailEnsure(id);if(!c){toast(en?'Could not load the campaign':'Impossible de charger la campagne');return false}
   const def=JSON.parse(JSON.stringify(c.definition||{}));mutate(def);
   try{const res=await window.MordheimundaAPI.adminUpdateCampaign(id,{name:c.name,color:c.color,definition:def});campaignDetailCache.set(id,{...c,...(res?.campaign||{}),definition:res?.campaign?.definition||def,members:c.members});campaignsCache=null;campaignListStale=true;
     // V-STAYPUT: an artifact (or any campaign content) edited from Rules ›

@@ -2285,8 +2285,8 @@ async function saveCampaignPageEditor(cid,pid){
   const text=$('#ruleEditTextarea')?.value||'';const title=($('#cpTitle')?.value||'').trim();
   if(await saveCampaignDefinition(cid,def=>{if(pid==='overview'){def.description=text;return}def.pages=(def.pages||[]).map(p=>(p.id||'')===pid?{...p,title:title||p.title,text}:p)}))closeModal();
 }
-function openCampaignArtifactEditor(cid,aid){
-  const en=siteLanguage==='en';const c=campaignDetailCache.get(cid);if(!c)return;
+async function openCampaignArtifactEditor(cid,aid){
+  const en=siteLanguage==='en';const c=await campaignDetailEnsure(cid);if(!c){toast(en?'Could not load the campaign':'Impossible de charger la campagne');return}
   const a=(c.definition?.artifacts||[]).find(x=>x.id===aid)||{table:'minor',roll:'',name:'',base:'',lore:'',rules:''};
   openModal(`<div class="wc-dialog"><div class="eyebrow">${en?'ARTIFACT':'ARTEFACT'}</div><h2>${aid?esc(a.name):(en?'New artifact':'Nouvel artefact')}</h2>
    <div class="form-grid"><label class="custom-field"><span>${en?'Table':'Table'}</span><select id="artTable"><option value="minor" ${a.table!=='major'?'selected':''}>${en?'Minor':'Mineur'}</option><option value="major" ${a.table==='major'?'selected':''}>${en?'Major':'Majeur'}</option></select></label><label class="custom-field"><span>4D6</span><input id="artRoll" value="${esc(a.roll||'')}" placeholder="10-11"></label></div>
