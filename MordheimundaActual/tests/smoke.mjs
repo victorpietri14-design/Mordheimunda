@@ -1823,6 +1823,20 @@ await test('[desktop] artifacts: renaming keeps warbands linked, no Lustria dupl
   expect(out.alias==='Renamed Mace'&&out.dup===0&&out.newShown&&out.shown==='Renamed Mace'&&out.found==='Renamed Mace'&&out.link,'renaming keeps the old name as an alias, no duplicate, warbands show the new name: '+JSON.stringify(out));
   expect(out.p2==='12'&&out.entryP2==='12','a weapon artifact keeps its second profile, also once found: '+JSON.stringify(out));
 });
+await test('[desktop] situational bonuses: flat armour malus in the profile, weapon and conditional bonuses as a chip',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const w=f.warriors[0];
+    const x={...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),instance:'sit1',name:'Sit',xp:0,skills:[],spells:[],advancements:[],injuries:[],equipmentSelected:[]};
+    const base=x.profile.slice();
+    const sword={name:'Test Blade',category:'Armes de corps à corps',profile:{range:'Melee 1',strength:'S',ap:'-',damage:'1',traits:''},artifact:'Test Blade',rulesText:'The wielder gains +1 Weapon Skill.'};
+    const relic={name:'Test Relic',category:'Artefact',artifact:'Test Relic',rulesText:'The bearer gains +1 Toughness.\n\nWhen charging, the bearer gains +1 Strength.'};
+    x.equipmentSelected=[sword,relic];syncCustomEquipmentEffects(x);
+    const ws=x.profile[1]-base[1],t=x.profile[4]-base[4],st=x.profile[3]-base[3];
+    const chipSword=itemSituationalChip(sword,x),chipRelic=itemSituationalChip(relic,x);
+    return {ws,t,st,chipSword:chipSword.replace(/<[^>]+>/g,'').trim(),chipRelic:chipRelic.replace(/<[^>]+>/g,'').trim(),plain:itemSituationalChip({name:'Rope',category:'Équipements divers'},x)}});
+  expect(out.ws===0&&out.t===1&&out.st===0,'only the permanent bonus goes into the profile: '+JSON.stringify(out));
+  expect(/\+1 WS/.test(out.chipSword)&&/\+1 S/.test(out.chipRelic)&&!/T/.test(out.chipRelic)&&out.plain==='','weapon and conditional bonuses show as a chip next to the item: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
