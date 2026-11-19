@@ -1172,6 +1172,7 @@ function validateScenarioDefinition(body){
       mode:['custom','random','hybrid','bonus'].includes(body?.bandsFormula?.mode)?body.bandsFormula.mode:'custom',
       customText:str(body?.bandsFormula?.customText,1000),
       adjacentText:str(body?.bandsFormula?.adjacentText,4000),
+      adjacentTextBefore:str(body?.bandsFormula?.adjacentTextBefore,4000),
       randomDiceCount:num(body?.bandsFormula?.randomDiceCount,1,10,1),
       randomDiceFaces:num(body?.bandsFormula?.randomDiceFaces,2,100,6),
       hybridBase:num(body?.bandsFormula?.hybridBase,0,50,0),

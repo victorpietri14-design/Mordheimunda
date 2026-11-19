@@ -1852,6 +1852,7 @@ await test('[desktop] artifact value: set in the editor, counted in the warband 
 });
 await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the warbands in the game, Hired Swords and Dramatis as a bonus',null,async page=>{
   await seed(page);
+  await page.evaluate(()=>ensureAdminCode());
   const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);r.fighters=[];for(let i=0;i<10;i++){const w=f.warriors[i%f.warriors.length];r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'bb'+i,name:'F'+i,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]})}
     const w0=f.warriors[0];r.fighters.push({...w0,profile:(w0.profile||[]).slice(),baseProfile:(w0.profile||[]).slice(),instance:'bbhs',name:'Sellsword',hiredSword:true,type:'Hired Sword',xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
     const bf={mode:'bonus',bonusBase:4,bonusDieFaces:0};
@@ -1864,7 +1865,9 @@ await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the war
     const inGame=scenarioSections(sc,false,'<div>dep</div>',{ps}).map(x=>x.body).join('');
     const e=playEngEntry(ps,r);e.picks=['bb0','bb1','bb2','bb3','bb4','bbhs'];const sel=playFightersMarkup(ps);
     state.playSession=null;const strip=h=>h.replace(/<[^>]+>/g,'').replace(/\s+/g,' ');
-    return {math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+    let conv=null;try{conv=typeof bandBonusConvertible==='function'?bandBonusConvertible({bandsFormula:{mode:'custom',customText:'[green]5[/]',adjacentText:'You can include an additional fighter in your crew, equal to half your warband size'}}):'nofn'}catch(e){conv=String(e)}
+    return {conv,math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+  expect(out.conv===true,'a hand-written “half your warband size” next to the box is found for conversion: '+out.conv);
   expect(JSON.stringify(out.math)==='[9,5,4,4,6]'&&out.size===10,'math: Y=0 at 2 bands, otherwise the number of bands, never below X: '+JSON.stringify(out));
   expect(out.text==='4 + (Band Bonus − Y)'&&/COMBIEN POUR MA BANDE/.test(out.page1)&&/Band Bonus − Y/.test(out.page1),'scenario page shows the formula and the table: '+out.page1.slice(0,300));
   expect(/Band Bonus − 4/.test(out.inGame)&&/Y = 4/.test(out.inGame)&&/4 bandes prennent part/.test(out.inGame),'in the game Y takes the number of warbands: '+out.inGame.slice(0,400));

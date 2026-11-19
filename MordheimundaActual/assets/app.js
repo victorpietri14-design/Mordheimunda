@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0876.0';
+const APP_BUILD='110.0877.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8946,6 +8946,8 @@ function updateScenarioFormulaMode(mode){
   syncScenarioFormulaFieldsToDraft();
   const d=adminScenarioEditData;if(!d)return;
   d.bandsFormula=d.bandsFormula||{};
+  // back to Custom after a Band Bonus conversion: restore the sentence the conversion set aside
+  if(mode==='custom'&&d.bandsFormula.mode==='bonus'&&!String(d.bandsFormula.adjacentText||'').trim()&&d.bandsFormula.adjacentTextBefore){d.bandsFormula.adjacentText=d.bandsFormula.adjacentTextBefore;d.bandsFormula.adjacentTextBefore=''}
   d.bandsFormula.mode=mode;
   render('admin');
 }
