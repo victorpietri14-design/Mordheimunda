@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0884.0';
+const APP_BUILD='110.0886.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -7475,11 +7475,19 @@ function playEndSession(){
   if(state.playSession?.shared&&(state.playSession.shared.players||[]).some(p=>p.status==='joined')){openModal(`<div class="account-auth"><div class="eyebrow">${en?'END GAME':'TERMINER LA PARTIE'}</div><h2>${en?'End this game for everyone?':'Terminer cette partie pour tout le monde ?'}</h2><p>${en?'The players who joined will see it end on their side too.':'Les joueurs qui l’ont rejointe la verront se terminer chez eux aussi.'}</p><div class="account-actions"><button class="button primary" type="button" onclick="confirmPlayEndSession()">${en?'End the game':'Terminer la partie'}</button><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);return}
   openModal(`<div class="account-auth"><div class="eyebrow">${en?'END GAME':'TERMINER LA PARTIE'}</div><h2>${en?'End this game?':'Terminer cette partie ?'}</h2><p>${en?'Leaving this way will reset the current scenario setup (table size, warbands, generated deployment…).':'Quitter de cette façon réinitialisera la configuration du scénario en cours (taille de table, bandes, déploiement généré…).'}</p><p class="muted" style="font-size:12.5px">${en?'If you just want to go to another page, use the menu instead — you don’t need to end the game to navigate.':'Si tu veux simplement aller sur une autre page, utilise plutôt le menu — pas besoin de terminer la partie pour naviguer.'}</p><div class="account-actions"><button class="button primary" type="button" onclick="confirmPlayEndSession()">${en?'End game':'Terminer la partie'}</button><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button></div></div>`);
 }
+// V-WRAPUP: rules, post-battle Wrap-up: "Warriors that were recovering have
+// made a full recovery and their In Recovery box is cleared." Run when the
+// game ends, so it only touches fighters who missed this battle; injuries
+// from this battle are applied afterwards in the post-battle sequence.
+function playWrapUpRecovery(r){const en=siteLanguage==='en';const back=[];(r?.fighters||[]).forEach(x=>{const st=fighterStatus(x);if(st.recovery&&!st.dead){st.recovery=false;back.push(x.name)}});
+  if(back.length){try{logHistory(r,'fighter',en?`Back from recovery: <b>${back.map(esc).join(', ')}</b>`:`Remis de leur convalescence : <b>${back.map(esc).join(', ')}</b>`)}catch(e){}touchRoster(r)}return back}
+// A fighter left In Recovery by mistake can be cleared from the selection.
+function playEngRecover(rid,inst){const r=(state.rosters||[]).find(z=>String(z.id)===String(rid));const x=r?.fighters?.find(f=>f.instance===inst);if(!x)return;fighterStatus(x).recovery=false;touchRoster(r);save(true);render('playMode');toast(siteLanguage==='en'?`${x.name} is available again`:`${x.name} est de nouveau disponible`)}
 function confirmPlayEndSession(){
   closeModal();
   try{playUdApplyEnd(state.playSession)}catch(e){}
   {const sh=state.playSession?.shared;if(sh)window.MordheimundaAPI.playAction(sh.id,sh.role==='guest'?'leave':'end').catch(()=>{});playShareLastJson='';playInvitesAt=0}
-  try{const ps=state.playSession;if(ps)playQuestRosters(ps).forEach(r=>{residenceGrantMove(r);r.lastGame={questKey:ps.questKey||null,scenarioId:ps.scenarioId||null,at:Date.now(),picks:(playEngagedMap(ps)[r.id]?.picks||[]).slice(),ooa:(ps.ooa?.[r.id]||[]).slice(),opp:(ps.slots||[]).filter(sl=>String(sl.rosterId||'')!==String(r.id)).map(sl=>{try{return playSlotDisplayName(sl,ps)}catch(e){return ''}}).filter(Boolean).slice(0,5)};try{fighterRecordGame(r,ps)}catch(e){};if(String(ps.note||'').trim())r.lastSummary={...(r.lastSummary||{}),note:String(ps.note).trim().slice(0,600),ts:Date.now()}})}catch(err){}
+  try{const ps=state.playSession;if(ps)playQuestRosters(ps).forEach(r=>{residenceGrantMove(r);r.lastGame={questKey:ps.questKey||null,scenarioId:ps.scenarioId||null,at:Date.now(),picks:(playEngagedMap(ps)[r.id]?.picks||[]).slice(),ooa:(ps.ooa?.[r.id]||[]).slice(),opp:(ps.slots||[]).filter(sl=>String(sl.rosterId||'')!==String(r.id)).map(sl=>{try{return playSlotDisplayName(sl,ps)}catch(e){return ''}}).filter(Boolean).slice(0,5)};try{fighterRecordGame(r,ps)}catch(e){};try{playWrapUpRecovery(r)}catch(e){};if(String(ps.note||'').trim())r.lastSummary={...(r.lastSummary||{}),note:String(ps.note).trim().slice(0,600),ts:Date.now()}})}catch(err){}
   state.playSession=null;save();render('playMode');
 }
 // Every slot/alliance/size edit routes through here: mutate ps in place via
@@ -8155,7 +8163,7 @@ function playSessionMarkup(){
   if(playIsGuest(ps)){const cut=playScnCut(html);const tabsAt=html.indexOf('<div class="play-cond-tabs"');
     // greys out the host's controls in the scenario / conditions tabs; the XP & quests tab stays the player's own
     if(playCondTab!=='quests'&&playCondTab!=='fighters'){const from=tabsAt>=0?html.indexOf('</div>',tabsAt)+6:cut;if(from>5)html=html.slice(0,from)+playGuestDisable(html.slice(from))}}
-  const banner=playShareBannerMarkup(ps);
+  const banner=playShareBannerMarkup(ps)+(ps?.shareError==='NOT_INVITED'?'':playShareSkippedMarkup(ps))+playInvitesMarkup();
   if(banner){const i=html.indexOf('<div class="page-intro">');html=i<0?banner+html:html.slice(0,i)+banner+html.slice(i)}
   return playSectionsCollapsible(html);
 }
@@ -10154,10 +10162,10 @@ async function playSharePush(json){
   const ps=state.playSession;if(!ps||playIsGuest(ps))return;if(playShareBusy){clearTimeout(playShareTimer);playShareTimer=setTimeout(()=>playSharePush(json),1500);return}
   playShareBusy=true;
   try{const data=JSON.parse(json);
-    if(!ps.shared){const r=await window.MordheimundaAPI.playCreate(data,ps.campaignId||null);if(r?.game&&state.playSession&&!state.playSession.shared&&state.playSession.scenarioId===ps.scenarioId){const ps2=state.playSession;ps2.shared={id:r.game.id,role:'host',revision:r.game.revision,players:r.game.players||[]};saveLocalOnly();try{playOwnRosters(ps).forEach(ro=>{if(ps.engaged?.[ro.id])playEngPublish(ps,ro)})}catch(e){}}}
-    else{const sid=ps.shared.id;const r=await window.MordheimundaAPI.playPush(sid,data);const c=state.playSession;if(c?.shared?.id===sid){c.shared.players=r?.players||c.shared.players;if(r?.revision===Number(c.shared.revision)+1)c.shared.revision=r.revision;saveLocalOnly()}}
+    if(!ps.shared){const r=await window.MordheimundaAPI.playCreate(data,ps.campaignId||null);{const c=state.playSession;if(c&&c.scenarioId===ps.scenarioId){c.shareSkipped=Array.isArray(r?.skipped)?r.skipped:[];if(!r?.game&&playHasOtherOwners(c))c.shareError='NOT_INVITED';saveLocalOnly()}}if(r?.game&&state.playSession&&!state.playSession.shared&&state.playSession.scenarioId===ps.scenarioId){const ps2=state.playSession;ps2.shared={id:r.game.id,role:'host',revision:r.game.revision,players:r.game.players||[]};saveLocalOnly();try{playOwnRosters(ps).forEach(ro=>{if(ps.engaged?.[ro.id])playEngPublish(ps,ro)})}catch(e){}}}
+    else{const sid=ps.shared.id;const r=await window.MordheimundaAPI.playPush(sid,data);const c=state.playSession;if(c?.shared?.id===sid){c.shared.players=r?.players||c.shared.players;c.shareSkipped=Array.isArray(r?.skipped)?r.skipped:[];if(r?.revision===Number(c.shared.revision)+1)c.shared.revision=r.revision;saveLocalOnly()}}
     playShareLastJson=json;if(location.pathname===APP_ROUTES.playMode)render('playMode');
-    {const c=state.playSession;if(c?.shareError){delete c.shareError;saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}}
+    {const c=state.playSession;if(c?.shareError&&c.shareError!=='NOT_INVITED'){delete c.shareError;saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}else if(c?.shareError==='NOT_INVITED'&&c.shared){delete c.shareError;saveLocalOnly()}}
   }catch(e){if(e?.status===404||e?.message==='GAME_ENDED'){ps.shared=null;saveLocalOnly()}console.warn('Shared game not sent',e);
     // V-SHAREERR: tell the host instead of failing silently (no invitation sent).
     {const c=state.playSession;if(c&&!playIsGuest(c)&&!(e?.status===404||e?.message==='GAME_ENDED')){c.shareError=String(e?.message||e?.status||'ERROR');saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}}}
@@ -10202,7 +10210,12 @@ setInterval(()=>{try{playShareCheck(false)}catch(e){}},15000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){playShareLastCheck=0;try{playShareCheck(false)}catch(e){}}});
 // The line under the campaign strip: who is in the game.
 function playShareRetry(){const ps=state.playSession;if(!ps)return;delete ps.shareError;playShareLastJson='';saveLocalOnly();playShareAfterSave();render('playMode')}
+function playShareSkippedMarkup(ps){const list=Array.isArray(ps?.shareSkipped)?ps.shareSkipped:[];if(!list.length||playIsGuest(ps))return '';const en=siteLanguage==='en';
+  const why=k=>k==='friend'?(en?'not in your friends: add them in Account › Friends':'pas dans tes amis : ajoute-le dans Compte › Amis'):(en?'this warband is not (or no longer) in the campaign':'cette bande n’est pas (ou plus) dans la campagne');
+  return `<div class="play-share-err" role="alert"><span>⚠ ${en?'Not invited':'Pas invité'} : ${list.map(x=>`<b>${esc(x.name||(en?'a warband':'une bande'))}</b> (${why(x.why)})`).join(' · ')}</span><button type="button" class="button secondary small" onclick="playShareRetry()">${en?'Try again':'Réessayer'}</button></div>`}
 function playShareBannerMarkup(ps){
+  if(ps?.shareError==='NOT_INVITED'&&!playIsGuest(ps)&&!(ps.shareSkipped||[]).length){const en=siteLanguage==='en';return `<div class="play-share-err" role="alert"><span>⚠ ${en?'Nobody could be invited: the other warbands must be in this campaign, or belong to your friends for a skirmish.':'Personne n’a pu être invité : les autres bandes doivent être dans cette campagne, ou appartenir à tes amis pour une escarmouche.'}</span><button type="button" class="button secondary small" onclick="playShareRetry()">${en?'Try again':'Réessayer'}</button></div>`}
+  if(ps?.shareError==='NOT_INVITED')return playShareSkippedMarkup(ps);
   if(ps?.shareError&&!playIsGuest(ps)){const en=siteLanguage==='en';const big=/TOO_LARGE/.test(ps.shareError);return `<div class="play-share-err" role="alert"><span>⚠ ${en?'The other players could not be invited':'Les autres joueurs n’ont pas pu être invités'}${big?(en?' (game too large)':' (partie trop lourde)'):` (${esc(ps.shareError)})`}.</span><button type="button" class="button secondary small" onclick="playShareRetry()">${en?'Try again':'Réessayer'}</button></div>`}
   if(!ps?.shared)return '';const en=siteLanguage==='en';const pl=ps.shared.players||[];
   const st=p=>p.status==='joined'?(en?'joined':'a rejoint'):p.status==='declined'?(en?'declined':'a refusé'):p.status==='left'?(en?'left':'est parti'):(en?'invitation sent':'invitation envoyée');
@@ -10213,9 +10226,17 @@ function playShareBannerMarkup(ps){
 // In a joined game the host's controls are shown greyed out.
 function playGuestDisable(html){return html.replace(/<(button|select|input|textarea)(?![^>]*\bdata-guest-ok\b)/g,'<$1 disabled data-guest-off')}
 // --- invitations
+// V-INVITEPOLL: invitations used to be fetched only when changing page, so
+// a player waiting on one screen never saw them. Check every 45 s while the
+// site is visible and when coming back to it; a new one shows a short toast.
+let playInvitesSeen=null;
+setInterval(()=>{try{if(!document.hidden)loadPlayInvites(false)}catch(e){}},45000);
+document.addEventListener('visibilitychange',()=>{try{if(!document.hidden)loadPlayInvites(true)}catch(e){}});
+function playInviteToast(list){const en=siteLanguage==='en';const fresh=(list||[]).filter(v=>v.status==='invited'&&!playInvitesHidden.has(v.id)&&!(playInvitesSeen||new Set()).has(v.id));if(playInvitesSeen===null){playInvitesSeen=new Set((list||[]).map(v=>v.id));return}(list||[]).forEach(v=>playInvitesSeen.add(v.id));
+  if(fresh.length&&state.playSession?.shared?.id!==fresh[0].id)toast(`🎲 ${en?`${fresh[0].hostName} invites you to a game · Play`:`${fresh[0].hostName} t’invite à une partie · Jouer`}`,6000)}
 async function loadPlayInvites(force){
   if(!cloudIsSignedIn())return;if(!force&&Date.now()-playInvitesAt<30000)return;playInvitesAt=Date.now();
-  try{const r=await window.MordheimundaAPI.playInvites();const next=Array.isArray(r?.invites)?r.invites:[];const changed=JSON.stringify(next)!==JSON.stringify(playInvites);playInvites=next;if(changed){const p=location.pathname;if((p===APP_ROUTES.playMode&&!state.playSession)||/^\/campaigns(\/|$)/.test(p)||p==='/')renderCurrentRoute();else try{syncTabbar(parseAppRoute().view)}catch(e){}}}catch(e){}
+  try{const r=await window.MordheimundaAPI.playInvites();const next=Array.isArray(r?.invites)?r.invites:[];try{playInviteToast(next)}catch(e){}const changed=JSON.stringify(next)!==JSON.stringify(playInvites);playInvites=next;if(changed){const p=location.pathname;if((p===APP_ROUTES.playMode&&!state.playSession)||/^\/campaigns(\/|$)/.test(p)||p==='/')renderCurrentRoute();else try{syncTabbar(parseAppRoute().view)}catch(e){}}}catch(e){}
 }
 function playInvitesMarkup(campaignId){
   const en=siteLanguage==='en';loadPlayInvites(false);
@@ -10486,7 +10507,7 @@ function playFightersMarkup(ps){
   const awayBoxes=away.map(v=>{const fr=playForeign[v.rid];return fr&&typeof fr==='object'?{r:fr,away:v.player}:{r:null,away:v.player,rid:v.rid,state:fr}});
   const sel=[...playOwnRosters(ps).map(r=>({r})),...awayBoxes].map(({r,away:aw,rid,state:st})=>{if(!r)return `<section class="eng-box"><span class="micro-label">${en?'AWAY PLAYER':'JOUEUR ABSENT'}</span><p class="muted">${st==='error'?(en?`Couldn't load ${esc(aw.username)}'s warband.`:`Impossible de charger la bande de ${esc(aw.username)}.`):(en?'Loading…':'Chargement…')}</p></section>`;const e=playEngEntry(ps,r);const f=faction(r);const lock=e.validated;const total=playEngTotal(e,r);
     const rowOf=x=>{const ok=playEngFighterOk(x);const on=e.picks.includes(x.instance);const re=e.ud.reinf.find(v=>v.instance===x.instance);const st=fighterStatus(x);
-      return `<label class="eng-row${on?' on':''}${ok?'':' off'}"><input type="checkbox" ${on?'checked':''} ${ok&&!lock?'':'disabled'} onchange="playEngToggle('${jsq(r.id)}','${jsq(x.instance)}')"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))}${!ok?` · ${st.dead?(en?'dead':'mort'):st.captured?(en?'captured':'capturé'):st.recovery?(en?'injured, misses the game':'blessé, rate la partie'):(en?'left':'parti')}`:re?(en?' · reinforcement':' · renfort'):''}${ok&&bandBonusOn(s?.bandsFormula)&&(isHiredSword(x)||isDramatis(x))?` <b class="bb-tag">${en?'BONUS':'BONUS'}</b>`:''}</small><span>${playEngValue(x,f)}</span></label>`};
+      return `<label class="eng-row${on?' on':''}${ok?'':' off'}"><input type="checkbox" ${on?'checked':''} ${ok&&!lock?'':'disabled'} onchange="playEngToggle('${jsq(r.id)}','${jsq(x.instance)}')"><b>${esc(x.name)}</b><small>${esc(advancementRole(x))}${!ok?` · ${st.dead?(en?'dead':'mort'):st.captured?(en?'captured':'capturé'):st.recovery?(en?'injured, misses the game':'blessé, rate la partie'):(en?'left':'parti')}`:re?(en?' · reinforcement':' · renfort'):''}${!ok&&st.recovery&&!st.dead&&!st.captured&&!aw&&!lock?` <button type="button" class="bb-tag eng-recover" onclick="event.preventDefault();playEngRecover('${jsq(r.id)}','${jsq(x.instance)}')">${en?'Recovered? ✓':'Remis ? ✓'}</button>`:''}${ok&&bandBonusOn(s?.bandsFormula)&&(isHiredSword(x)||isDramatis(x))?` <b class="bb-tag">${en?'BONUS':'BONUS'}</b>`:''}</small><span>${playEngValue(x,f)}</span></label>`};
     const list=rosterGroupedIndices(r).map(g=>{const xs=g.indices.map(i=>r.fighters[i]).filter(Boolean);return xs.length?`<div class="eng-group"><div class="section-label">${esc(rosterRoleLabel(g.role,en).toUpperCase())} <span>${xs.length}</span></div><div class="eng-list">${xs.map(rowOf).join('')}</div></div>`:''}).join('');
     return `<details class="eng-box eng-fold${lock?' eng-locked':''}"${playEngIsOpen('sel-'+r.id,!lock)?' open data-r="1"':' data-r="0"'} ontoggle="playEngFoldTap('sel-${esc(r.id)}',this)"><summary class="eng-head"><div><span class="micro-label">${aw?(en?`FOR ${esc(aw.username.toUpperCase())} — NOT JOINED YET, YOU PICK FOR THEM`:`POUR ${esc(aw.username.toUpperCase())} — PAS ENCORE REJOINT, TU CHOISIS À SA PLACE`):`1 · ${en?'YOUR WARBAND':'TA BANDE'}`}</span><h3>${esc(r.name)}</h3>${bandBonusOn(s?.bandsFormula)?bandBonusEngMarkup(s.bandsFormula,ps,r,e,en):`<small class="muted">${en?'Scenario formula':'Formule du scénario'} : ${esc(scenarioFormulaText(s?.bandsFormula,en))}</small>`}</div>${bandBonusOn(s?.bandsFormula)?bandBonusCounterMarkup(s.bandsFormula,ps,r,e,en,total,lock):`<div class="eng-total"><small class="muted">${en?'Engaged value':'Valeur engagée'} · ${e.picks.length}${lock?' ✔':''}</small><b>${total}</b></div>`}<span class="eng-chev" aria-hidden="true">▾</span></summary>
       ${lock?'':playPreGameReminder(r)}<div class="eng-modes">${lock?`<span class="eng-ok">✔ ${en?'Selection confirmed':'Sélection validée'}</span><button type="button" class="button secondary small" onclick="playEngValidate('${jsq(r.id)}',false)">✎ ${en?'Change':'Modifier'}</button>`:`<button type="button" class="button secondary small" onclick="playEngAll('${jsq(r.id)}')">${en?'Whole warband':'Toute la bande'}</button><button type="button" class="button secondary small" onclick="playEngRandom('${jsq(r.id)}')">🎲 ${en?'Random draw':'Tirage au hasard'}</button><button type="button" class="button secondary small" onclick="playEngNone('${jsq(r.id)}')">${en?'Clear':'Vider'}</button><button type="button" class="button primary small" ${e.picks.length?'':'disabled'} onclick="playEngValidate('${jsq(r.id)}',true)">✔ ${en?'Confirm my selection':'Valider ma sélection'}</button>`}</div>
