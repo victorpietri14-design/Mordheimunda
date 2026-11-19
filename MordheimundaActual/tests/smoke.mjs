@@ -1897,6 +1897,22 @@ await test('[desktop] item rules: max per warband (1/1), Stash categories for a 
   expect(!out.gate0&&out.gate1,'a henchman can be given a ticked Stash category: '+JSON.stringify(out));
   expect(out.okRace&&!out.okOther&&!out.heroesOnly&&out.heroesLeader,'granted access follows race and heroes-only: '+JSON.stringify(out));
 });
+await test('[desktop] starting Veteran: site option, one Henchman, moves freely, never for no-XP or ticked profiles',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const hw=f.warriors.find(w=>w.type==='Henchman');const lw=f.warriors.find(w=>w.type==='Leader');
+    const mk=(w,id)=>({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:id,name:id,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    r.fighters=[mk(lw,'Boss'),mk(hw,'H1'),mk(hw,'H2')];save(true);
+    gameOptions.startVeteran=false;const off=startVetBannerMarkup(activeRoster());
+    gameOptions.startVeteran=true;const fs=()=>activeRoster().fighters;
+    const elig=[startVetEligible(fs()[0]),startVetEligible(fs()[1])];
+    startVetSet(1);const a1=fs()[1].veteran&&fs()[1].startVeteran;const banner=startVetBannerMarkup(activeRoster()).replace(/<[^>]+>/g,'');
+    startVetSet(2);const moved=!fs()[1].veteran&&fs()[2].veteran&&startVetHolder(activeRoster())?.name==='H2';
+    hw.noStartVeteran=true;const ticked=startVetEligible(fs()[1]);delete hw.noStartVeteran;
+    const label=fighterTypeLabel(fs()[2]);gameOptions.startVeteran=false;closeModal();
+    return {off,elig,a1,banner,moved,ticked,label}});
+  expect(out.off===''&&out.elig[0]===false&&out.elig[1]===true,'only Henchmen, only when the site option is on: '+JSON.stringify(out));
+  expect(out.a1&&/H1/.test(out.banner)&&out.moved&&out.ticked===false&&/Starting Veteran|Vétéran de départ/.test(out.label),'pick, move, ticked profile excluded, label: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

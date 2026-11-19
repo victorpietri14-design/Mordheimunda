@@ -100,7 +100,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 // by the URL), the value BEFORE the change is kept so it can be restored.
 const ADMIN_LOG_SNAP=[
  [/^\/api\/admin\/help-texts$/,{setting:'helpTexts'}],[/^\/api\/admin\/race-looks$/,{setting:'raceLooks'}],[/^\/api\/admin\/price-rules$/,{setting:'equipmentPriceRules'}],
- [/^\/api\/admin\/warband-size-limits$/,{setting:'warbandSizeLimits'}],[/^\/api\/admin\/warband-hire-rules$/,{setting:'warbandHireRules'}],[/^\/api\/admin\/quests$/,{setting:'questLibrary'}],
+ [/^\/api\/admin\/warband-size-limits$/,{setting:'warbandSizeLimits'}],[/^\/api\/admin\/warband-hire-rules$/,{setting:'warbandHireRules'}],[/^\/api\/admin\/game-options$/,{setting:'gameOptions'}],[/^\/api\/admin\/quests$/,{setting:'questLibrary'}],
  [/^\/api\/admin\/trophies$/,{setting:'trophyLibrary'}],[/^\/api\/admin\/mutations$/,{setting:'mutationLibrary'}],[/^\/api\/admin\/translate-exclusions$/,{setting:'translateExclusions'}],[/^\/api\/admin\/home\/event$/,{setting:'activeEvent'}],
  [/^\/api\/admin\/rules\/overrides\/([^/]+)\/(\d+)$/,{table:'rule_overrides',cols:['section_id','page']}],
  [/^\/api\/admin\/catalog\/overrides\/([^/]+)$/,{table:'catalog_overrides',cols:['faction_id']}],
@@ -2087,6 +2087,14 @@ app.get('/api/catalog/warband-hire-rules',requireDb,async(req,res,next)=>{
 });
 app.put('/api/admin/warband-hire-rules',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   try{const rules=sanitizeHireRules(req.body?.rules);await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('warbandHireRules',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({rules})]);res.json({rules})}catch(e){next(e)}
+});
+// Site-wide optional game rules (V-STARTVET): {startVeteran:bool}.
+const sanitizeGameOptions=o=>({startVeteran:!!(o&&typeof o==='object'&&o.startVeteran===true)});
+app.get('/api/catalog/game-options',requireDb,async(req,res,next)=>{
+  try{const q=await pool.query("SELECT value FROM site_settings WHERE key='gameOptions'");res.json({options:sanitizeGameOptions(q.rows[0]?.value?.options)})}catch(e){next(e)}
+});
+app.put('/api/admin/game-options',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  try{const options=sanitizeGameOptions(req.body?.options);await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('gameOptions',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({options})]);res.json({options})}catch(e){next(e)}
 });
 app.get('/api/catalog/weapon-overrides',requireDb,async(req,res,next)=>{
   try{
