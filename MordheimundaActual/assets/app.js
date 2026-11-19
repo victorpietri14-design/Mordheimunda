@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0883.0';
+const APP_BUILD='110.0884.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13056,7 +13056,10 @@ function categoryBanned(x,w,src){src=src||fighterBanSource(x);const cat=canonEqu
 // ============ V-ITEMRULES: per-warband limit, Stash categories, granted access ============
 // 1) bandLimit: at most N copies carried by the warband's fighters (the Stash
 //    never counts). Once reached, no fighter can buy or be given another one.
-function itemBandLimit(w){const d=(typeof liveEquipmentDef==='function'&&liveEquipmentDef(w))||w;const n=Number(d?.bandLimit??w?.bandLimit);return Number.isFinite(n)&&n>0?Math.floor(n):0}
+function itemBandLimitRaw(w){const d=(typeof liveEquipmentDef==='function'&&liveEquipmentDef(w))||w;const n=Number(d?.bandLimit??w?.bandLimit);return {n:Number.isFinite(n)&&n>0?Math.floor(n):0,free:Array.isArray(d?.bandLimitFree)?d.bandLimitFree:Array.isArray(w?.bandLimitFree)?w.bandLimitFree:[]}}
+// Warbands ticked in "No limit for these warbands" ignore the limit (e.g. Elven
+// cloak max 2, but unrestricted for Wood Elves). Supplements follow their base.
+function itemBandLimit(w){const {n,free}=itemBandLimitRaw(w);if(!n)return 0;if(free.length){let f=null;try{f=faction(activeRoster())}catch(e){}const seen=new Set();let cur=f;while(cur&&!seen.has(cur.id)){seen.add(cur.id);if(free.some(id=>String(id)===String(cur.id)))return 0;const pid=cur.baseFactionId||cur.supplementOf||cur.supplementOfFactionId;if(!pid)break;cur=(D.factions||[]).find(z=>z.id===pid)}}return n}
 function fighterCarriedItems(x){const seen=new Set(),out=[];[...(x?.equipmentStash||[]),...(x?.equipmentSelected||[])].forEach(e=>{if(!e)return;const k=e.stashId||null;if(k&&seen.has(k))return;if(k)seen.add(k);out.push(e)});return out}
 function itemBandCount(r,w){const k=normName(w?.name);let n=0;(r?.fighters||[]).forEach(x=>{if(!x)return;fighterCarriedItems(x).forEach(e=>{if(e&&normName(e.name)===k)n+=Math.max(1,Number(e.quantity)||1)})});return n}
 function bandLimitCheck(x,w){const lim=itemBandLimit(w);if(!lim)return {ok:true};const r=activeRoster();if(!r)return {ok:true};
@@ -13083,11 +13086,12 @@ function itemGrantAllows(w,x,fac){const g=itemGrantOf(w);if(!g||!x)return false;
 function knownRaceNames(){const set=new Map();const add=v=>{const t=String(v||'').replace(/^Race\s*\(\s*/i,'').replace(/\s*\)\s*$/,'').trim();if(t&&!set.has(normName(t)))set.set(normName(t),t)};
   (D.factions||[]).forEach(f=>(f.warriors||[]).forEach(w=>add(w.race)));try{customFighterList().forEach(w=>add(w.race))}catch(e){}return [...set.values()].sort((a,b)=>a.localeCompare(b))}
 // Editor block shared by the book item editor (prefix awp) and the custom one (prefix customRule).
-function itemBandRulesMarkup(w,prefix){const en=siteLanguage==='en';const lim=itemBandLimit(w);const g=itemGrantOf(w)||{scope:'',who:'all',races:[],factions:[]};const races=knownRaceNames();const facs=creatureScopeFactionOptions();
+function itemBandRulesMarkup(w,prefix){const en=siteLanguage==='en';const {n:lim,free:limFree}=itemBandLimitRaw(w);const g=itemGrantOf(w)||{scope:'',who:'all',races:[],factions:[]};const races=knownRaceNames();const facs=creatureScopeFactionOptions();
   const sc=v=>g.scope===v?'checked':'';const show=v=>g.scope===v?'':'display:none';
   return `<details class="custom-collapse item-rules"${lim||g.scope?' open':''}><summary><span>${en?'LIMIT & GRANTED ACCESS':'LIMITE & ACCÈS DONNÉ'}</span><small>${[lim?(en?`max ${lim} per warband`:`max ${lim} par bande`):'',g.scope?(en?'granted':'accès donné'):''].filter(Boolean).join(' · ')||(en?'none':'aucun')}</small></summary>
   <label class="custom-field"><span>${en?'Max per warband':'Max par bande'}</span><input id="${prefix}BandLimit" type="number" min="0" max="20" inputmode="numeric" value="${lim||''}" placeholder="${en?'Empty = no limit':'Vide = pas de limite'}"></label>
   <p class="custom-field-help">${en?'Counts the copies carried by the fighters. The Stash does not count; once reached, nobody can buy or be given another one.':'Compte les exemplaires portés par les combattants. La réserve ne compte pas ; une fois la limite atteinte, plus personne ne peut en acheter ni en recevoir.'}</p>
+  <details class="custom-collapse item-limit-free"${limFree.length?' open':''}><summary><span>${en?'NO LIMIT FOR THESE WARBANDS':'PAS DE LIMITE POUR CES BANDES'}</span><small>${limFree.length||(en?'none':'aucune')}</small></summary><div class="custom-faction-grid">${facs.map(o=>`<label class="custom-check"><input type="checkbox" class="${prefix}LimitFree" value="${esc(o.id)}" ${limFree.some(v=>String(v)===String(o.id))?'checked':''}> <span>${esc(o.name)}</span></label>`).join('')}</div></details>
   <div class="item-grant"><span class="micro-label">${en?'ACCESS GIVEN TO':'ACCÈS DONNÉ À'}</span>
    <div class="item-grant-scope" onchange="const v=this.querySelector('input:checked')?.value||'';this.parentNode.querySelectorAll('[data-grant]').forEach(n=>n.style.display=n.dataset.grant===v?'':'none')">
     <label class="custom-check"><input type="radio" name="${prefix}GrantScope" value="" ${g.scope?'':'checked'}> <span>${en?'Nobody extra':'Personne en plus'}</span></label>
@@ -13103,7 +13107,8 @@ function itemBandRulesMarkup(w,prefix){const en=siteLanguage==='en';const lim=it
 function readItemBandRules(prefix){const lim=Math.max(0,Math.min(20,Math.floor(Number(document.getElementById(prefix+'BandLimit')?.value)||0)));const scope=document.querySelector(`input[name="${prefix}GrantScope"]:checked`)?.value||'';const who=document.getElementById(prefix+'GrantWho')?.value==='heroes'?'heroes':'all';
   const races=[...document.querySelectorAll('.'+prefix+'GrantRace:checked')].map(c=>c.value);const factions=[...document.querySelectorAll('.'+prefix+'GrantFaction:checked')].map(c=>c.value);
   const grantAccess=scope==='all'?{scope,who}:scope==='races'&&races.length?{scope,who,races}:scope==='factions'&&factions.length?{scope,who,factions}:null;
-  return {bandLimit:lim||null,grantAccess}}
+  const bandLimitFree=[...document.querySelectorAll('.'+prefix+'LimitFree:checked')].map(c=>c.value);
+  return {bandLimit:lim||null,bandLimitFree:lim&&bandLimitFree.length?bandLimitFree:null,grantAccess}}
 function stashCategoriesEditorMarkup(w){const en=siteLanguage==='en';const cats=(Array.isArray(w?.stashCategories)?w.stashCategories:[]).map(canonEquipmentCategory);return `<details class="custom-collapse"${cats.length?' open':''}><summary><span>${en?'CATEGORIES RECEIVED FROM THE STASH':'CATÉGORIES REÇUES DE LA RÉSERVE'}</span><small>${cats.length||(en?'none':'aucune')}</small></summary><p class="custom-field-help">${en?'For a Henchman: he may be given items of a ticked category from the Stash (loot, exploration, Market), without being able to buy them. Forbidden categories still win.':'Pour un Henchman : il peut recevoir depuis la réserve (butin, exploration, Market) un objet d’une catégorie cochée, sans pouvoir l’acheter. Les catégories interdites restent prioritaires.'}</p><div class="ban-cat-grid">${EQUIPMENT_SECTIONS.map(sec=>`<label class="custom-check"><input type="checkbox" class="stashCatPick" value="${esc(sec.cat)}" ${cats.includes(sec.cat)?'checked':''}> <span>${esc(en?sec.label:sec.cat)}</span></label>`).join('')}</div></details>`}
 function stashCategoriesRead(){return [...document.querySelectorAll('.stashCatPick:checked')].map(c=>c.value)}
 function categoryBanCheck(x,w){{const l=bandLimitCheck(x,w);if(!l.ok)return l}const cat=categoryBanned(x,w);if(!cat)return {ok:true};const en=siteLanguage==='en';const lbl=en?(EQUIPMENT_SECTIONS.find(s=>s.cat===cat)?.label||cat):cat;return {ok:false,msg:en?`${w.name}: this fighter can’t use ${lbl}`:`${w.name} : ce combattant ne peut pas utiliser la catégorie « ${lbl} »`}}
