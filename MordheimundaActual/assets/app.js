@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0879.0';
+const APP_BUILD='110.0880.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -2756,7 +2756,7 @@ function syncAdminManagedFighter(x,r){
   // Keep the player's chosen display name; sourceName remains the stable
   // reference even when the Admin changes the fighter's visible name.
   if(!x.sourceName)x.sourceName=w.name;
-  copy('type',isHiredSword(x)?'Hired Sword':(w.type||x.type||'Henchman'));
+  copy('type',isHiredSword(x)?'Hired Sword':fighterPromotedChampion(x)?'Champion':(w.type||x.type||'Henchman'));
   copy('cost',Number(w.cost||0));
   copy('race',w.race||x.race||'Human');
   copy('max',w.max===undefined?null:w.max);
@@ -11382,14 +11382,15 @@ let gameOptions={startVeteran:false};
 async function loadGameOptions(){try{const r=await window.MordheimundaAPI.gameOptions();gameOptions={startVeteran:!!r?.options?.startVeteran}}catch(e){}}
 function fighterSourceFlag(x,key){let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}if(src&&key in src)return !!src[key];const c=x?.customFighterId?customFighterById(x.customFighterId):null;if(c&&key in c)return !!c[key];return !!x?.[key]}
 function startVetEligible(x){if(!gameOptions.startVeteran||!x)return false;if(isHiredSword(x)||isDramatis(x)||x.type==='Animal'||x.neutral)return false;if(x.type!=='Henchman'||x.promotedVeteran)return false;if(x.veteran&&!x.startVeteran)return false;try{if(fighterNoXpRule(x))return false}catch(e){}if(fighterSourceFlag(x,'noStartVeteran'))return false;try{if(fighterStatus(x).dead)return false}catch(e){}return true}
-function startVetHolder(r){return (r?.fighters||[]).find(x=>x&&x.startVeteran&&x.veteran)||null}
+function startVetHolder(r){return (r?.fighters||[]).find(x=>x&&x.startVeteran)||null}
 function startVetSet(i){const r=activeRoster();const x=r?.fighters?.[i];const en=siteLanguage==='en';if(!r||!x||!startVetEligible(x)){toast(en?'This fighter can’t be the starting Veteran':'Ce combattant ne peut pas être le Vétéran de départ');return}
   const prev=startVetHolder(r);if(prev===x){closeModal();return}
+  if(prev&&fighterPromotedChampion(prev)){toast(en?`${prev.name} was promoted to Champion: the starting Veteran is used`:`${prev.name} a été promu Champion : le Vétéran de départ est utilisé`);return}
   if(prev){prev.veteran=false;prev.startVeteran=false}
   x.veteran=true;x.startVeteran=true;
   logHistory(r,'fighter',en?`<b>${esc(x.name)}</b> becomes the starting Veteran${prev?` (instead of ${esc(prev.name)})`:''}`:`<b>${esc(x.name)}</b> devient le Vétéran de départ${prev?` (à la place de ${esc(prev.name)})`:''}`);
   touchRoster(r);save(true);closeModal();render('builder');toast(en?`★ ${x.name} is your starting Veteran`:`★ ${x.name} est ton Vétéran de départ`)}
-function startVetClear(){const r=activeRoster();const x=startVetHolder(r);if(!x)return;x.veteran=false;x.startVeteran=false;touchRoster(r);save(true);closeModal();render('builder')}
+function startVetClear(){const r=activeRoster();const x=startVetHolder(r);if(!x||fighterPromotedChampion(x))return;x.veteran=false;x.startVeteran=false;touchRoster(r);save(true);closeModal();render('builder')}
 function openStartVetPicker(){const r=activeRoster();if(!r)return;const en=siteLanguage==='en';const cur=startVetHolder(r);const list=(r.fighters||[]).map((x,i)=>({x,i})).filter(o=>startVetEligible(o.x));
   openModal(`<div class="skill-dialog"><div class="eyebrow">★ ${en?'STARTING VETERAN':'VÉTÉRAN DE DÉPART'}</div><h2>${en?'Pick one Henchman':'Choisis un homme de main'}</h2><p>${en?'Free, one per warband. He uses the Hero advancement table, can carry Hero equipment and take quests. He starts with 0 XP. You can change your choice at any time.':'Gratuit, un seul par bande. Il utilise la table d’avancement des Héros, peut porter l’équipement des Héros et prendre des quêtes. Il commence à 0 XP. Tu peux changer ton choix à tout moment.'}</p>${cur&&(cur.advancements||[]).length?`<p class="muted">${en?`${esc(cur.name)} keeps the advancements already bought.`:`${esc(cur.name)} garde les avancements déjà achetés.`}</p>`:''}<div class="reserve-transfer-list">${list.length?list.map(o=>`<button type="button" class="skill-modal-skill${o.x===cur?' on':''}" onclick="startVetSet(${o.i})"><span>${o.x===cur?'★ ':''}${esc(o.x.name)}</span><small>${esc(o.x.sourceName||o.x.type||'')}</small></button>`).join(''):`<div class="empty compact">${en?'No Henchman can be picked yet.':'Aucun homme de main ne peut encore être choisi.'}</div>`}</div><div class="purchase-actions">${cur?`<button type="button" class="button secondary" onclick="startVetClear()">${en?'Remove':'Retirer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
 function startVetBannerMarkup(r){if(!gameOptions.startVeteran||!r)return '';const en=siteLanguage==='en';const cur=startVetHolder(r);if(!cur&&!(r.fighters||[]).some(startVetEligible))return '';
@@ -11501,7 +11502,7 @@ function championLimitForRoster(r){return 2+Math.floor(Math.max(0,Number(r?.repu
 // section on the roster page (that's a presentation grouping, not a rules
 // category) and is still excluded from Experience/advances (separately
 // handled by advancementEligible, since War Beasts "never gain experience").
-function compositionCounts(r){const fighters=(Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x));return {champions:fighters.filter(x=>advancementRole(x)==='Champion'||x.type==='Champion').length,henchmen:fighters.filter(x=>fighterSourceType(x)==='Henchman'||x.type==='Henchman'||x.type==='Animal').length,other:fighters.filter(x=>{const role=advancementRole(x);return role!=='Henchman'&&role!=='Champion'&&x.type!=='Henchman'&&x.type!=='Champion'&&x.type!=='Animal'}).length};}
+function compositionCounts(r){const fighters=(Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x));return {champions:fighters.filter(x=>advancementRole(x)==='Champion'||x.type==='Champion').length,henchmen:fighters.filter(x=>(fighterSourceType(x)==='Henchman'||x.type==='Henchman'||x.type==='Animal')&&advancementRole(x)!=='Champion').length,other:fighters.filter(x=>{const role=advancementRole(x);return role!=='Henchman'&&role!=='Champion'&&x.type!=='Henchman'&&x.type!=='Champion'&&x.type!=='Animal'}).length};}
 function recruitmentRestriction(r,w){const en=siteLanguage==='en';if(!r||!w)return null;const counts=compositionCounts(r);const role=w.type==='Raw Recruit'?'Juves':(w.type==='Animal'?'Henchman':w.type);const limit=championLimitForRoster(r);if(role==='Champion'&&counts.champions>=limit)return en?`Champion limit reached: ${counts.champions}/${limit} (Reputation ${Number(r.reputation||0)})`:`Limite de Champions atteinte : ${counts.champions}/${limit} (Réputation ${Number(r.reputation||0)})`;if(role!=='Henchman'&&role!=='Champion'&&counts.henchmen<counts.other+1&&r.fighters.length>0)return en?`You need at least as many Henchmen as other warriors (${counts.henchmen} Henchmen / ${counts.other} others)`:`Il faut au moins autant de Henchmen que d'autres guerriers (${counts.henchmen} Henchmen / ${counts.other} autres)`;if(role==='Champion'&&counts.henchmen<counts.other+1&&r.fighters.length>0)return en?`You need at least as many Henchmen as other warriors (${counts.henchmen} Henchmen / ${counts.other} others)`:`Il faut au moins autant de Henchmen que d'autres guerriers (${counts.henchmen} Henchmen / ${counts.other} autres)`;return null;}
 function recruitmentCompositionNotice(r){const en=siteLanguage==='en';const c=compositionCounts(r),limit=championLimitForRoster(r),valid=c.henchmen>=c.other;return `<div class="recruit-composition-notice ${valid?'valid':'warning'}"><div><strong>${en?'COMPOSITION · REPUTATION':'COMPOSITION · RÉPUTATION'} ${Number(r.reputation||0)}</strong><small>Champions : ${c.champions}/${limit} · Henchmen : ${c.henchmen} · ${en?'Others':'Autres'} : ${c.other}</small></div>${valid?`<span>✓ ${en?'Valid composition':'Composition valide'}</span>`:`<span>⚠ ${en?`Missing ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''}`:`Il manque ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''}`}</span>`}</div>`;}
 // V-LEGALWARBANDPOPUP: recruiting/removing a fighter used to be hard-blocked
@@ -12454,8 +12455,13 @@ function fighterSourceType(x){
  const r=activeRoster(),f=r&&faction(r),source=resolveFighterSource(x,f);
  return source?.type||null;
 }
+// A Veteran who bought "promote to Champion" is a Hero from then on (Champion
+// limit, composition); before that a Veteran stays a Henchman for every count.
+function fighterPromotedChampion(x){return Array.isArray(x?.advancements)&&x.advancements.some(a=>a?.sourceId==='veteran-promote')}
 function advancementRole(x){
  if(isHiredSword(x))return 'Champion';
+ if(fighterPromotedChampion(x))return 'Champion';
+ if(x?.startVeteran===true&&x?.veteran===true)return 'Veteran';
  const sourceType=fighterSourceType(x);
  // A source Henchman uses the Henchman table unless it has explicitly
  // been promoted to Veteran. This repairs stale saved types as well.
@@ -16573,7 +16579,7 @@ function ensureFighterSourceData(x,r){
   desiredDefaultSkills.forEach(name=>{if(!x.skills.some(s=>normName(s)===normName(name)))x.skills.push(name);});
   x.defaultSkillsGranted=desiredDefaultSkills.slice();
   {const want=Array.isArray(w.defaultSpells)?w.defaultSpells:[];const prev=Array.isArray(x.defaultSpellsGranted)?x.defaultSpellsGranted:[];if(want.length||prev.length){x.spells=Array.isArray(x.spells)?x.spells:[];prev.forEach(n=>{if(!want.some(m=>normName(m)===normName(n)))x.spells=x.spells.filter(s=>normName(s)!==normName(n))});want.forEach(n=>{if(!x.spells.some(s=>normName(s)===normName(n)))x.spells.push(n)});x.defaultSpellsGranted=want.slice()}}
-  if(typeof x.veteran!=='boolean')x.veteran=false;if(typeof x.promotedVeteran!=='boolean')x.promotedVeteran=false;if(w.type==='Henchman'){const legacyPromotion=Array.isArray(x.advancements)&&x.advancements.some(a=>a?.kind==='promotion'||a?.sourceId==='hench-2'||a?.sourceId==='hench-12');if(x.promotedVeteran!==true&&legacyPromotion)x.promotedVeteran=true;if(x.promotedVeteran===true){x.veteran=true;x.type='Henchman'}else if(x.startVeteran===true){x.promotedVeteran=false;x.veteran=true;if(x.type==='Veteran')x.type='Henchman'}else{x.promotedVeteran=false;x.veteran=false;if(x.type==='Veteran')x.type='Henchman';}}if(!x.sourceName)x.sourceName=w.name;if(!x.customFighterId&&w.customFighterId)x.customFighterId=w.customFighterId}
+  if(typeof x.veteran!=='boolean')x.veteran=false;if(typeof x.promotedVeteran!=='boolean')x.promotedVeteran=false;if(w.type==='Henchman'){const legacyPromotion=Array.isArray(x.advancements)&&x.advancements.some(a=>a?.kind==='promotion'||a?.sourceId==='hench-2'||a?.sourceId==='hench-12');if(x.promotedVeteran!==true&&legacyPromotion)x.promotedVeteran=true;if(fighterPromotedChampion(x)){x.promotedVeteran=true;x.veteran=false;x.type='Champion'}else if(x.promotedVeteran===true){x.veteran=true;x.type='Henchman'}else if(x.startVeteran===true){x.promotedVeteran=false;x.veteran=true;if(x.type==='Veteran')x.type='Henchman'}else{x.promotedVeteran=false;x.veteran=false;if(x.type==='Veteran')x.type='Henchman';}}if(!x.sourceName)x.sourceName=w.name;if(!x.customFighterId&&w.customFighterId)x.customFighterId=w.customFighterId}
 function fighterOriginalProfile(x){
   // V-BASESTATSYNC: x.baseProfile is now stored at recruitment as the exact
   // value the recruitment pool showed for that fighter type (see addFighter),
