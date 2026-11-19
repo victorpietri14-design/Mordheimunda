@@ -1865,8 +1865,10 @@ await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the war
     const inGame=scenarioSections(sc,false,'<div>dep</div>',{ps}).map(x=>x.body).join('');
     const e=playEngEntry(ps,r);e.picks=['bb0','bb1','bb2','bb3','bb4','bbhs'];const sel=playFightersMarkup(ps);
     state.playSession=null;const strip=h=>h.replace(/<[^>]+>/g,'').replace(/\s+/g,' ');
+    const colored=scenarioFormulaMarkup({...bf,bonusText:'{{yellow}}1D3{{/yellow}} + 2'},false,'');const coloredText=scenarioFormulaText({...bf,bonusText:'{{yellow}}1D3{{/yellow}} + 2'},false);
     let conv=null;try{conv=typeof bandBonusConvertible==='function'?bandBonusConvertible({bandsFormula:{mode:'custom',customText:'[green]5[/]',adjacentText:'You can include an additional fighter in your crew, equal to half your warband size'}}):'nofn'}catch(e){conv=String(e)}
-    return {conv,math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+    return {colored,coloredText,conv,math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+  expect(/1D3/.test(out.colored)&&/style="color:/.test(out.colored)&&out.coloredText==='1D3 + 2 + (Band Bonus − Y)','X can be written with colours: '+out.colored+' | '+out.coloredText);
   expect(out.conv===true,'a hand-written “half your warband size” next to the box is found for conversion: '+out.conv);
   expect(JSON.stringify(out.math)==='[9,5,4,4,6]'&&out.size===10,'math: Y=0 at 2 bands, otherwise the number of bands, never below X: '+JSON.stringify(out));
   expect(out.text==='4 + (Band Bonus − Y)'&&/COMBIEN POUR MA BANDE/.test(out.page1)&&/Band Bonus − Y/.test(out.page1),'scenario page shows the formula and the table: '+out.page1.slice(0,300));

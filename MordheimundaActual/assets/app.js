@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0877.0';
+const APP_BUILD='110.0878.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -8213,7 +8213,7 @@ function bandBonusSize(r){try{return (r?.fighters||[]).filter(x=>x&&!isHiredSwor
 function bandBonusHalf(size){return Math.ceil(Math.max(0,Number(size)||0)/2)}
 function bandBonusCount(bf,size,nb){const x=Math.max(0,Number(bf?.bonusBase)||0);return x+Math.max(0,bandBonusHalf(size)-bandBonusY(nb))}
 function bandBonusDie(bf){const d=Number(bf?.bonusDieFaces)||0;return d>=2?d:0}
-function bandBonusFixedHtml(bf){const hex=id=>CUSTOM_TEXT_COLORS.find(c=>c.id===id)?.hex||'';const d=bandBonusDie(bf);return `<span class="ctm-color" style="color:${hex('green')}">${Math.max(0,Number(bf?.bonusBase)||0)}</span>${d?` + <span class="ctm-color" style="color:${hex('yellow')}">1D${d}</span>`:''}`}
+function bandBonusFixedHtml(bf){if(String(bf?.bonusText||'').trim())return `<span class="bb-x">${customTextMarkup(bf.bonusText)}</span>`;const hex=id=>CUSTOM_TEXT_COLORS.find(c=>c.id===id)?.hex||'';const d=bandBonusDie(bf);return `<span class="ctm-color" style="color:${hex('green')}">${Math.max(0,Number(bf?.bonusBase)||0)}</span>${d?` + <span class="ctm-color" style="color:${hex('yellow')}">1D${d}</span>`:''}`}
 // The game's warbands, for the per-warband lines in Play › Scenario.
 function bandBonusGameBands(ps){const out=[];(ps?.slots||[]).forEach(sl=>{const rid=String(sl.rosterId||sl.friendWarbandId||'');const own=sl.source==='own'&&rid?(state.rosters||[]).find(r=>String(r.id)===rid):null;const fr=!own&&typeof playForeign==='object'?playForeign[rid]:null;const r=own||(fr&&typeof fr==='object'&&Array.isArray(fr.fighters)?fr:null);const name=sl.rosterName||sl.friendWarbandName||r?.name||'';if(name||r)out.push({name:name||r?.name||'—',size:r?bandBonusSize(r):null})});return out}
 function bandBonusBoxMarkup(bf,en,ps){const nb=ps?(Number(ps.numBands)||(ps.slots||[]).length||2):null;const y=nb!=null?bandBonusY(nb):null;const fixed=bandBonusFixedHtml(bf);const L=(a,b)=>en?a:b;const d=bandBonusDie(bf);
@@ -8222,12 +8222,12 @@ function bandBonusBoxMarkup(bf,en,ps){const nb=ps?(Number(ps.numBands)||(ps.slot
   const tail=`<span class="muted">${L('The bracket never goes below 0','La parenthèse ne descend jamais sous 0')} · ${L('Hired Swords and Dramatis Personae','Hired Swords et Dramatis Personae')} : <b class="bb-bonus">${L('a bonus','en bonus')}</b>, ${L('they never count','ils ne comptent pas')}</span>`;
   let table='';
   if(y==null){const cols=[2,3,4,5];table=`<div class="bb-table"><div class="bb-kick">${L('HOW MANY FOR MY WARBAND?','COMBIEN POUR MA BANDE ?')}</div><div class="bb-grid" style="grid-template-columns:auto repeat(${cols.length},1fr)"><span></span>${cols.map(c=>`<b class="bb-h">${c} ${L('bands','bandes')}</b>`).join('')}${[8,10,14].map(n=>`<span class="bb-n">${n} ${L('fighters','combattants')}</span>${cols.map(c=>`<b>${bandBonusCount(bf,n,c)}${d?'+':''}</b>`).join('')}`).join('')}</div></div>`}
-  else{const bands=bandBonusGameBands(ps);if(bands.length)table=`<div class="bb-table"><div class="bb-kick">${L('FOR EACH WARBAND','POUR CHAQUE BANDE')}</div>${bands.map(b=>b.size==null?`<div class="bb-row"><span><b>${esc(b.name)}</b></span><b class="muted">—</b></div>`:`<div class="bb-row"><span><b>${esc(b.name)}</b> <small class="muted">${b.size} ${L('fighters','combattants')}</small><small class="bb-calc">${Math.max(0,Number(bf?.bonusBase)||0)}${d?' + 1D'+d:''} + (${bandBonusHalf(b.size)} − ${y} = ${Math.max(0,bandBonusHalf(b.size)-y)})</small></span><b class="bb-num">${bandBonusCount(bf,b.size,nb)}${d?' + 1D'+d:''}</b></div>`).join('')}</div>`}
-  return `<div class="bb-box"><span class="scn-bands-lbl">${L('Fighters per warband','Combattants par bande')}${y!=null?' · '+L('this game','cette partie'):''}</span><span class="scn-bands-val bb-head">${head}</span><div class="bb-legend">${legend}<br>${tail}</div>${table}</div>`}
+  else{const bands=bandBonusGameBands(ps);if(bands.length)table=`<div class="bb-table"><div class="bb-kick">${L('FOR EACH WARBAND','POUR CHAQUE BANDE')}</div>${bands.map(b=>b.size==null?`<div class="bb-row"><span><b>${esc(b.name)}</b></span><b class="muted">—</b></div>`:`<div class="bb-row"><span><b>${esc(b.name)}</b> <small class="muted">${b.size} ${L('fighters','combattants')}</small><small class="bb-calc">${bandBonusFixedHtml(bf)} + (${bandBonusHalf(b.size)} − ${y} = ${Math.max(0,bandBonusHalf(b.size)-y)})</small></span><b class="bb-num">${bandBonusCount(bf,b.size,nb)}${d?' + 1D'+d:''}</b></div>`).join('')}</div>`}
+  return `<div class="bb-box"><span class="scn-bands-lbl">${L('Fighters per warband','Combattants par bande')}${y!=null?' · '+L('this game','cette partie'):''}</span><span class="scn-bands-val bb-head">${head}</span>${scenarioFormulaLegendMarkup(en)}<div class="bb-legend">${legend}<br>${tail}</div>${table}</div>`}
 function scenarioFormulaText(bf,en){
   const mode=bf?.mode||'custom';
   if(mode==='random'){const c=bf?.randomDiceCount??1,f=bf?.randomDiceFaces??6;return en?`Roll ${c}D${f} to determine how many fighters this warband fields.`:`Lance ${c}D${f} pour déterminer combien de combattants cette bande engage.`;}
-  if(mode==='bonus'){const d=bandBonusDie(bf);return `${Math.max(0,Number(bf?.bonusBase)||0)}${d?' + 1D'+d:''} + (Band Bonus − Y)`}
+  if(mode==='bonus'){const d=bandBonusDie(bf);const shown=String(bf?.bonusText||'').trim()?stripCustomTextMarkup(bf.bonusText).trim():`${Math.max(0,Number(bf?.bonusBase)||0)}${d?' + 1D'+d:''}`;return `${shown} + (Band Bonus − Y)`}
   if(mode==='hybrid'){const x=bf?.hybridBase??0,y=bf?.hybridDieFaces??6;return en?`${x} + 1D${y}, plus half of this warband's total fighters.`:`${x} + 1D${y}, plus la moitié du total de combattants de cette bande.`;}
   return bf?.customText||(en?'Set by the scenario.':'Défini par le scénario.');
 }
@@ -8941,6 +8941,7 @@ function syncScenarioFormulaFieldsToDraft(){
   if(v('seFormulaHybridDie'))d.bandsFormula.hybridDieFaces=Number(v('seFormulaHybridDie').value)||6;
   if(v('seFormulaBonusBase'))d.bandsFormula.bonusBase=Math.max(0,Number(v('seFormulaBonusBase').value)||0);
   if(v('seFormulaBonusDie'))d.bandsFormula.bonusDieFaces=Number(v('seFormulaBonusDie').value)||0;
+  if(v('seFormulaBonusText'))d.bandsFormula.bonusText=v('seFormulaBonusText').value;
 }
 function updateScenarioFormulaMode(mode){
   syncScenarioFormulaFieldsToDraft();
