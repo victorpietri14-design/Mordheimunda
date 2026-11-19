@@ -1940,6 +1940,19 @@ await test('[desktop] invitations: host is told who was not invited, guests get 
   expect(/Not invited|Pas invité/.test(out.banner)&&/Rat Pack/.test(out.banner)&&/friends|amis/.test(out.banner),'the host sees who was not invited and why: '+out.banner);
   expect(/Hosty/.test(out.toastTxt),'a new invitation shows a toast: '+out.toastTxt);
 });
+await test('[desktop] recovery: cleared when the game ends (Wrap-up), and can be cleared from the selection',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const w=f.warriors.find(z=>z.type==='Henchman');
+    const mk=id=>({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:id,name:id,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[],status:{recovery:false}});
+    r.fighters=[mk('Ok1'),{...mk('Hurt'),status:{recovery:true}},{...mk('Gone'),status:{dead:true}}];save(true);
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]).filter(x=>x.id!=='rc1'),{id:'rc1',name:'Recovery Test',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const ps=blankPlaySession();ps.scenarioId='rc1';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};state.playSession=ps;
+    const sel=playFightersMarkup(ps);const hasBtn=/eng-recover/.test(sel);
+    confirmPlayEndSession();const fs=activeRoster().fighters;
+    return {hasBtn,hurt:fighterStatus(fs[1]).recovery,dead:fighterStatus(fs[2]).dead}});
+  expect(out.hasBtn,'a fighter in recovery has a quick "recovered" button in the selection');
+  expect(out.hurt===false&&out.dead===true,'ending the game clears recovery for those who missed it, not death: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
