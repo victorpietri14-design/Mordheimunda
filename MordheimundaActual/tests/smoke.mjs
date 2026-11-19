@@ -1885,6 +1885,7 @@ await test('[desktop] item rules: max per warband (1/1), Stash categories for a 
     const before=bandLimitCheck(live()[1],charm).ok;{const a=live()[0];(fighterUsesLoadouts(a)?(a.equipmentStash=a.equipmentStash||[]):a.equipmentSelected).push({...charm,stashId:'c1'})}
     activeRoster().reserve=[{...charm,reserveId:'rv',stashId:'c2',quantity:1}];
     const after=bandLimitCheck(live()[1],charm);const chip=itemBandLimitChip(charm).replace(/<[^>]+>/g,'').trim();const own=bandLimitCheck(live()[0],{...charm,stashId:'c1'}).ok;
+    charm.bandLimitFree=[faction(activeRoster()).id];const freeOk=bandLimitCheck(live()[1],charm).ok&&itemBandLimitChip(charm)==='';delete charm.bandLimitFree;
     charm.bandLimit=prevLim;
     // stash categories
     const item={name:'Test Plate',category:'Armure',price:10};
@@ -1893,8 +1894,9 @@ await test('[desktop] item rules: max per warband (1/1), Stash categories for a 
     const race=fighterRace(H,f);const g={name:'Test Bomb',category:'Équipements divers',grantAccess:{scope:'races',races:[race],who:'all'}};
     const okRace=warriorBandAllowed(g,H,f);const okOther=warriorBandAllowed({...g,grantAccess:{scope:'races',races:['Nobody'],who:'all'}},H,f);
     const heroesOnly=warriorBandAllowed({...g,grantAccess:{scope:'all',who:'heroes'}},H,f),heroesLeader=warriorBandAllowed({...g,grantAccess:{scope:'all',who:'heroes'}},A,f);
-    return {before,after:after.ok,msg:after.msg,chip,own,gate0,gate1,okRace,okOther,heroesOnly,heroesLeader}});
+    return {freeOk,before,after:after.ok,msg:after.msg,chip,own,gate0,gate1,okRace,okOther,heroesOnly,heroesLeader}});
   expect(out.before&&!out.after&&/1\/1/.test(out.msg)&&out.chip==='1/1'&&out.own,'limit: the Stash copy does not count, a second fighter is refused, 1/1 shown: '+JSON.stringify(out));
+  expect(out.freeOk,'a warband in “No limit for these warbands” ignores the limit: '+JSON.stringify(out));
   expect(!out.gate0&&out.gate1,'a henchman can be given a ticked Stash category: '+JSON.stringify(out));
   expect(out.okRace&&!out.okOther&&!out.heroesOnly&&out.heroesLeader,'granted access follows race and heroes-only: '+JSON.stringify(out));
 });
