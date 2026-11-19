@@ -1923,6 +1923,23 @@ await test('[desktop] starting Veteran: site option, one Henchman, moves freely,
   expect(out.promoRole==='Champion'&&out.promoType==='Champion'&&out.c2.champions===1&&out.c2.henchmen===1,'promoted to Champion: counts as a Hero and stays so after reload: '+JSON.stringify(out));
   expect(out.a1&&/H1/.test(out.banner)&&out.moved&&out.ticked===false&&/Starting Veteran|Vétéran de départ/.test(out.label),'pick, move, ticked profile excluded, label: '+JSON.stringify(out));
 });
+await test('[desktop] invitations: host is told who was not invited, guests get new invitations without changing page',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const wait=ms=>new Promise(z=>setTimeout(z,ms));const api=window.MordheimundaAPI;const o={signed:window.cloudIsSignedIn,create:api.playCreate,inv:api.playInvites};
+    window.cloudIsSignedIn=()=>true;
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]).filter(x=>x.id!=='inv1'),{id:'inv1',name:'Invite Test',bandsMin:2,bandsMax:2,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const r=activeRoster();const ps=blankPlaySession();ps.scenarioId='inv1';playEnsureSlots(ps,2);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};ps.slots[1]={...ps.slots[1],source:'friend',friendId:'u-x',friendWarbandId:'w-x',friendWarbandName:'Rat Pack'};state.playSession=ps;
+    api.playCreate=async()=>({game:null,skipped:[{name:'Rat Pack',why:'friend'}]});
+    await playSharePush(JSON.stringify(playSharedData(ps)));const banner=playShareBannerMarkup(state.playSession).replace(/<[^>]+>/g,'');
+    state.playSession=null;
+    let calls=0;api.playInvites=async()=>{calls++;return {invites:calls>1?[{id:'g1',hostName:'Hosty',status:'invited',bands:2,rosterIds:[]}]:[]}};
+    playInvitesAt=0;playInvitesSeen=null;await loadPlayInvites(true);await loadPlayInvites(true);await wait(50);
+    const toastTxt=document.querySelector('.toast')?.textContent||document.body.textContent.match(/Hosty invites you[^·]*/)?.[0]||'';
+    window.cloudIsSignedIn=o.signed;api.playCreate=o.create;api.playInvites=o.inv;playInvites=[];
+    return {banner,toastTxt}});
+  expect(/Not invited|Pas invité/.test(out.banner)&&/Rat Pack/.test(out.banner)&&/friends|amis/.test(out.banner),'the host sees who was not invited and why: '+out.banner);
+  expect(/Hosty/.test(out.toastTxt),'a new invitation shows a toast: '+out.toastTxt);
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

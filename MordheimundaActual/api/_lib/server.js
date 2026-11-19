@@ -2382,9 +2382,15 @@ async function playGameInvitees(hostId,campaignId,data){
   const out=new Map();const slots=Array.isArray(data?.slots)?data.slots:[];
   const add=(uid,rid)=>{uid=String(uid);if(uid===String(hostId))return;if(!out.has(uid))out.set(uid,[]);if(rid&&!out.get(uid).includes(String(rid)))out.get(uid).push(String(rid))};
   const ids=slots.map(sl=>sl?.rosterId).filter(Boolean).map(String);
-  if(campaignId&&ids.length){const q=await pool.query('SELECT roster_id,user_id FROM campaign_members WHERE campaign_id=$1 AND roster_id=ANY($2::text[]) AND left_at IS NULL',[campaignId,ids]);q.rows.forEach(r=>add(r.user_id,r.roster_id))}
+  // V-INVITESKIP: warbands of other players that could not be invited are
+  // reported back to the host instead of being dropped silently.
+  const skipped=[];
+  const campIds=slots.filter(sl=>sl?.source==='campaign'&&sl.rosterId).map(sl=>String(sl.rosterId));
+  if(campaignId&&ids.length){const q=await pool.query('SELECT roster_id,user_id FROM campaign_members WHERE campaign_id=$1 AND roster_id=ANY($2::text[]) AND left_at IS NULL',[campaignId,ids]);q.rows.forEach(r=>add(r.user_id,r.roster_id));const found=new Set(q.rows.map(r=>String(r.roster_id)));slots.forEach(sl=>{if(sl?.source==='campaign'&&sl.rosterId&&!found.has(String(sl.rosterId)))skipped.push({name:[sl.friendWarbandName||sl.rosterName,sl.friendUsername].filter(Boolean).join(' · ').slice(0,80),why:'campaign'})})}
+  else if(campIds.length)slots.forEach(sl=>{if(sl?.source==='campaign'&&sl.rosterId)skipped.push({name:[sl.friendWarbandName||sl.rosterName,sl.friendUsername].filter(Boolean).join(' · ').slice(0,80),why:'campaign'})});
   const friendIds=[...new Set(slots.filter(sl=>sl?.source==='friend'&&sl.friendId).map(sl=>String(sl.friendId)))];
-  if(friendIds.length){const q=await pool.query('SELECT friend_id FROM friendships WHERE user_id=$1 AND friend_id::text=ANY($2::text[])',[hostId,friendIds]);const ok=new Set(q.rows.map(r=>String(r.friend_id)));slots.forEach(sl=>{if(sl?.source==='friend'&&ok.has(String(sl.friendId)))add(sl.friendId,sl.friendWarbandId)})}
+  if(friendIds.length){const q=await pool.query('SELECT friend_id FROM friendships WHERE user_id=$1 AND friend_id::text=ANY($2::text[])',[hostId,friendIds]);const ok=new Set(q.rows.map(r=>String(r.friend_id)));slots.forEach(sl=>{if(sl?.source!=='friend'||!sl.friendId)return;if(ok.has(String(sl.friendId)))add(sl.friendId,sl.friendWarbandId);else skipped.push({name:[sl.friendWarbandName||sl.rosterName,sl.friendUsername].filter(Boolean).join(' · ').slice(0,80),why:'friend'})})}
+  out.skipped=skipped;
   return out;
 }
 async function playSyncPlayers(gameId,inv){
@@ -2407,12 +2413,12 @@ app.post('/api/play-games',requireDb,requireSameOrigin,auth,async(req,res,next)=
     const data=playClip(req.body?.data);if(!data)return res.status(413).json({error:'GAME_TOO_LARGE'});
     const campaignId=/^[0-9a-f-]{36}$/i.test(String(req.body?.campaignId||''))?req.body.campaignId:null;
     const inv=await playGameInvitees(req.user.user_id,campaignId,data);
-    if(!inv.size)return res.json({game:null});
+    if(!inv.size)return res.json({game:null,skipped:inv.skipped||[]});
     const id=crypto.randomUUID();
     await pool.query('INSERT INTO play_games(id,host_id,campaign_id,data) VALUES($1,$2,$3,$4)',[id,req.user.user_id,campaignId,data]);
     await playSyncPlayers(id,inv);
     const g=await playGameFor(id,req.user.user_id);
-    res.json({game:playOut(g.row,await playPlayers(id),false)});
+    res.json({game:playOut(g.row,await playPlayers(id),false),skipped:inv.skipped||[]});
   }catch(e){next(e)}
 });
 app.put('/api/play-games/:id',requireDb,requireSameOrigin,auth,async(req,res,next)=>{
@@ -2421,8 +2427,8 @@ app.put('/api/play-games/:id',requireDb,requireSameOrigin,auth,async(req,res,nex
     if(g.row.status!=='active')return res.status(409).json({error:'GAME_ENDED'});
     const data=playClip(req.body?.data);if(!data)return res.status(413).json({error:'GAME_TOO_LARGE'});
     const u=await pool.query('UPDATE play_games SET data=$2,revision=revision+1,updated_at=NOW() WHERE id=$1 RETURNING revision',[g.row.id,data]);
-    await playSyncPlayers(g.row.id,await playGameInvitees(req.user.user_id,g.row.campaign_id,data));
-    res.json({revision:u.rows[0].revision,players:await playPlayers(g.row.id)});
+    const inv=await playGameInvitees(req.user.user_id,g.row.campaign_id,data);await playSyncPlayers(g.row.id,inv);
+    res.json({revision:u.rows[0].revision,players:await playPlayers(g.row.id),skipped:inv.skipped||[]});
   }catch(e){next(e)}
 });
 // V-ENGAGED: a warband's engaged fighters and underdog purchases. Its owner
