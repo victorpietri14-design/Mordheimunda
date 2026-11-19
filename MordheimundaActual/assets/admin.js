@@ -2593,11 +2593,12 @@ async function bandBonusConvertRun(){const en=siteLanguage==='en';const ids=[...
   toast(en?`${ok} scenario(s) converted${ko?` · ${ko} failed`:''}`:`${ok} scénario(s) converti(s)${ko?` · ${ko} échec(s)`:''}`,5000)}
 
 // V-IMGLIGHT: re-compress the heavy scenario pictures and deployment map
-// images already online (max 1000 px, WebP or JPEG), then save them back.
+// images already online (max 2000 px for scenarios, 1000 px for maps,
+// WebP or JPEG), then save them back — only when it really gets lighter.
 async function adminLightenPictures(){const en=siteLanguage==='en';const LIMIT=150000;let done=0,saved=0,failed=0;
   toast(en?'Lightening pictures…':'Allègement des images…',4000);
   for(const s0 of (adminScenariosCache||[])){try{const {scenario}=await window.MordheimundaAPI.adminGetScenario(s0.id);const t=scenario?.thumbnail;if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;
-    const out=await imgShrink(t,1000,0.8);if(!out)continue;const {id,status,createdAt,updatedAt,...body}=scenario;body.thumbnail=out;await window.MordheimundaAPI.adminUpdateScenario(s0.id,body);done++;saved+=t.length-out.length}catch(e){failed++}}
+    const out=await imgShrink(t,2000,0.85);if(!out||out.length>=t.length)continue;const {id,status,createdAt,updatedAt,...body}=scenario;body.thumbnail=out;await window.MordheimundaAPI.adminUpdateScenario(s0.id,body);done++;saved+=t.length-out.length}catch(e){failed++}}
   const asData=async u=>{if(typeof u!=='string')return null;if(u.startsWith('data:'))return u;if(!u.startsWith('/api/'))return null;const b=await (await fetch(u,{credentials:'same-origin'})).blob();return await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result||''));fr.onerror=()=>ok(null);fr.readAsDataURL(b)})};
   for(const m of (DEPLOYMENT_MAPS_CACHE||[])){try{const t=await asData(m.image);if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;const out=await imgShrink(t,1000,0.8);if(!out)continue;
     await window.MordheimundaAPI.adminUpdateDeploymentMap(m.id,{name:m.name,image:out});done++;saved+=t.length-out.length}catch(e){failed++}}

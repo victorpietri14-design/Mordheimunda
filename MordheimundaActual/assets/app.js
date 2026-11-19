@@ -2611,7 +2611,9 @@ function storeImportedImage(kind,index,file){
    // wide card and can easily exceed 512px on a normal desktop screen. Raised
    // to 1024px and a slightly higher webp quality; still small enough
    // (typically well under 200KB) to store comfortably per fighter/warband.
-   const max=1024,scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+   // Scenario pictures are shown full width (hero banner, enlarged view on
+   // big or retina screens): keep them up to 2000px so they stay sharp.
+   const max=kind==='scenario'?2000:1024,scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
    const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,w,h);
