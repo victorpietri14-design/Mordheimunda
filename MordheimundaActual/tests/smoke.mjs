@@ -1850,6 +1850,26 @@ await test('[desktop] artifact value: set in the editor, counted in the warband 
     return {v0,field,saved:campaignDetailCache.get('cV').definition.artifacts[0].value,diff:after-before,card:/120/.test(card)}});
   expect(out.v0===0&&out.field&&out.saved===120&&out.diff===120&&out.card,'an artifact without base item is worth 0 until a value is set, then counts in the warband value: '+JSON.stringify(out));
 });
+await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the warbands in the game, Hired Swords and Dramatis as a bonus',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);r.fighters=[];for(let i=0;i<10;i++){const w=f.warriors[i%f.warriors.length];r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'bb'+i,name:'F'+i,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]})}
+    const w0=f.warriors[0];r.fighters.push({...w0,profile:(w0.profile||[]).slice(),baseProfile:(w0.profile||[]).slice(),instance:'bbhs',name:'Sellsword',hiredSword:true,type:'Hired Sword',xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    const bf={mode:'bonus',bonusBase:4,bonusDieFaces:0};
+    const math=[bandBonusCount(bf,10,2),bandBonusCount(bf,10,4),bandBonusCount(bf,10,5),bandBonusCount(bf,10,6),bandBonusCount(bf,9,3)];
+    const size=bandBonusSize(r);
+    SCENARIOS_CACHE=[...(SCENARIOS_CACHE||[]).filter(x=>x.id!=='bbs'),{id:'bbs',name:'Melee',bandsMin:2,bandsMax:5,bandsFormula:bf,battlefield:{terrainType:'Ruins'},endCondition:'',victory:{major:'Win'}}];
+    const sc=SCENARIOS_CACHE.find(x=>x.id==='bbs');
+    const page1=scenarioSections(sc,false,'<div>dep</div>').map(x=>x.body).join('');
+    const ps=blankPlaySession();ps.scenarioId='bbs';ps.numBands=4;playEnsureSlots(ps,4);ps.slots[0]={...ps.slots[0],source:'own',rosterId:r.id,rosterName:r.name};state.playSession=ps;
+    const inGame=scenarioSections(sc,false,'<div>dep</div>',{ps}).map(x=>x.body).join('');
+    const e=playEngEntry(ps,r);e.picks=['bb0','bb1','bb2','bb3','bb4','bbhs'];const sel=playFightersMarkup(ps);
+    state.playSession=null;const strip=h=>h.replace(/<[^>]+>/g,'').replace(/\s+/g,' ');
+    return {math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+  expect(JSON.stringify(out.math)==='[9,5,4,4,6]'&&out.size===10,'math: Y=0 at 2 bands, otherwise the number of bands, never below X: '+JSON.stringify(out));
+  expect(out.text==='4 + (Band Bonus − Y)'&&/COMBIEN POUR MA BANDE/.test(out.page1)&&/Band Bonus − Y/.test(out.page1),'scenario page shows the formula and the table: '+out.page1.slice(0,300));
+  expect(/Band Bonus − 4/.test(out.inGame)&&/Y = 4/.test(out.inGame)&&/4 bandes prennent part/.test(out.inGame),'in the game Y takes the number of warbands: '+out.inGame.slice(0,400));
+  expect(/Band Bonus 5 − 4 = 1\) = 5 (fighters|combattants)/.test(out.sel)&&/5 \/ 5 ✓/.test(out.sel)&&/\+ 1 bonus/.test(out.sel)&&out.tag&&out.ok,'selection: 5 to engage, the Hired Sword is a bonus and not counted: '+out.sel.slice(0,600));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

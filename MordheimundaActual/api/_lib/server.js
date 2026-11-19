@@ -1169,13 +1169,15 @@ function validateScenarioDefinition(body){
     //  - hybrid: a fixed base + one roll of a die, plus automatically half
     //    of that band's own total fighters.
     bandsFormula:{
-      mode:['custom','random','hybrid'].includes(body?.bandsFormula?.mode)?body.bandsFormula.mode:'custom',
+      mode:['custom','random','hybrid','bonus'].includes(body?.bandsFormula?.mode)?body.bandsFormula.mode:'custom',
       customText:str(body?.bandsFormula?.customText,1000),
       adjacentText:str(body?.bandsFormula?.adjacentText,4000),
       randomDiceCount:num(body?.bandsFormula?.randomDiceCount,1,10,1),
       randomDiceFaces:num(body?.bandsFormula?.randomDiceFaces,2,100,6),
       hybridBase:num(body?.bandsFormula?.hybridBase,0,50,0),
-      hybridDieFaces:num(body?.bandsFormula?.hybridDieFaces,2,100,6)
+      hybridDieFaces:num(body?.bandsFormula?.hybridDieFaces,2,100,6),
+      bonusBase:num(body?.bandsFormula?.bonusBase,0,50,4),
+      bonusDieFaces:[0,3,6].includes(Number(body?.bandsFormula?.bonusDieFaces))?Number(body.bandsFormula.bonusDieFaces):0
     },
     // V-SCNPLAINRULES: same fix as specialRules — plain text, not a
     // "Threshold | Reward" list (which fragmented a pasted paragraph).

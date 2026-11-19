@@ -6413,3 +6413,33 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
    height right; printing always shows everything. */
 .fighter-list>*,.play-card{content-visibility:auto;contain-intrinsic-size:auto 300px}
 @media print{.fighter-list>*,.play-card{content-visibility:visible}}
+
+/* V-BANDBONUS */
+.bb-box{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;flex:1;min-width:240px}
+.bb-head{font:700 20px 'IBM Plex Mono',monospace}
+.bb-y{color:var(--accent)}
+.bb-bonus{color:#7fb37a}
+.bb-legend{font-size:12.5px;line-height:1.5}
+.bb-kick{font:700 10.5px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.bb-table{border-top:1px solid var(--line);padding-top:8px}
+.bb-grid{display:grid;gap:3px 10px;font-size:12.5px;align-items:center}
+.bb-grid b{text-align:center;font-family:'IBM Plex Mono',monospace}
+.bb-grid .bb-h{font-size:11px;color:var(--muted)}
+.bb-n{color:var(--muted);white-space:nowrap}
+.bb-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:3px 0;border-bottom:1px dashed var(--line)}
+.bb-row:last-child{border-bottom:0}
+.bb-row small{display:block}
+.bb-calc{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+.bb-num{font:700 18px 'IBM Plex Mono',monospace;color:var(--accent);white-space:nowrap}
+.bb-preview{margin-top:8px}
+.bb-eng{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.bb-eng-calc{font-family:'IBM Plex Mono',monospace;font-size:13px}
+.bb-eng-n{color:var(--accent)}
+.bb-eng-hs{font-size:11.5px}
+.bb-count.ok b{color:#7fb37a}
+.bb-tag{display:inline-block;font:700 9.5px 'IBM Plex Mono',monospace;padding:1px 5px;border-radius:3px;background:rgba(127,179,122,.18);color:#7fb37a;letter-spacing:.06em}
+.bb-convert{border:1px solid var(--chip-border);background:var(--chip-bg);border-radius:6px;padding:10px 12px;margin-bottom:12px;display:flex;flex-direction:column;gap:6px}
+.bb-conv-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0;border-bottom:1px dashed var(--line)}
+.bb-conv-row>span:nth-of-type(1){flex:1;min-width:180px;display:flex;flex-direction:column}
+.bb-conv-to{font-family:'IBM Plex Mono',monospace;font-size:12px;white-space:nowrap}
+.bb-conv-to input[type=number]{width:52px}
