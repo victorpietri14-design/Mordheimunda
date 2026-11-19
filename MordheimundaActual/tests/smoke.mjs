@@ -1940,6 +1940,13 @@ await test('[desktop] item penalties: stat lists, clause-level conditions, Stren
   expect(out.s5==='','Strength 5 should ignore every penalty: '+out.s5);
   expect(out.charge==='S1c','a plain conditional bonus changed: '+out.charge);
 });
+await test('[desktop] admin fighter editor of a book warband has Stash categories and "Can’t be the starting Veteran"',null,async page=>{
+  await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
+  const out=await page.evaluate(async()=>{await ensureAdminCode();const f=D.factions.find(x=>!x.__official&&(x.warriors||[]).some(w=>w.type==='Henchman'));openAdminCatalogEdit(f.id);await new Promise(z=>setTimeout(z,200));
+    adminWarbandSection='warriors';const i=f.warriors.findIndex(w=>w.type==='Henchman');adminEditWarrior(i);await new Promise(z=>setTimeout(z,300));
+    return {cb:!!document.getElementById('cfNoStartVet'),st:document.querySelectorAll('.stashCatPick').length}});
+  expect(out.cb&&out.st>3,'both blocks are in the admin fighter editor: '+JSON.stringify(out));
+});
 await test('[desktop] admin page and its sections render',null,async page=>{
   await page.evaluate(()=>{window.isAdminSession=()=>true;navigateApp('/admin')});await page.waitForTimeout(600);
   for(const cat of ['quests','trophies','backup','scenarios']){await page.evaluate(c=>{adminOpenCategory=c;render('admin')},cat);await page.waitForTimeout(300);
