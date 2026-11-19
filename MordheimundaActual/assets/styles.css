@@ -6449,3 +6449,9 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .item-limit.full{color:var(--accent);border-color:currentColor}
 .item-grant{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .item-grant-scope{display:flex;flex-wrap:wrap;gap:4px 14px}
+
+/* V-STARTVET */
+.startvet-bar{display:flex;align-items:center;gap:10px;border:1px dashed var(--chip-border);background:var(--chip-bg);border-radius:8px;padding:8px 12px;margin:0 0 12px}
+.startvet-bar.set{border-style:solid}
+.startvet-star{color:#e3c35a;font-size:16px}
+.startvet-tx{flex:1;font-size:13px}

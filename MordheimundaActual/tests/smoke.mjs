@@ -1852,6 +1852,7 @@ await test('[desktop] artifact value: set in the editor, counted in the warband 
 });
 await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the warbands in the game, Hired Swords and Dramatis as a bonus',null,async page=>{
   await seed(page);
+  await page.evaluate(()=>ensureAdminCode());
   const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);r.fighters=[];for(let i=0;i<10;i++){const w=f.warriors[i%f.warriors.length];r.fighters.push({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:'bb'+i,name:'F'+i,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]})}
     const w0=f.warriors[0];r.fighters.push({...w0,profile:(w0.profile||[]).slice(),baseProfile:(w0.profile||[]).slice(),instance:'bbhs',name:'Sellsword',hiredSword:true,type:'Hired Sword',xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
     const bf={mode:'bonus',bonusBase:4,bonusDieFaces:0};
@@ -1864,7 +1865,11 @@ await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the war
     const inGame=scenarioSections(sc,false,'<div>dep</div>',{ps}).map(x=>x.body).join('');
     const e=playEngEntry(ps,r);e.picks=['bb0','bb1','bb2','bb3','bb4','bbhs'];const sel=playFightersMarkup(ps);
     state.playSession=null;const strip=h=>h.replace(/<[^>]+>/g,'').replace(/\s+/g,' ');
-    return {math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+    const colored=scenarioFormulaMarkup({...bf,bonusText:'{{yellow}}1D3{{/yellow}} + 2'},false,'');const coloredText=scenarioFormulaText({...bf,bonusText:'{{yellow}}1D3{{/yellow}} + 2'},false);
+    let conv=null;try{conv=typeof bandBonusConvertible==='function'?bandBonusConvertible({bandsFormula:{mode:'custom',customText:'[green]5[/]',adjacentText:'You can include an additional fighter in your crew, equal to half your warband size'}}):'nofn'}catch(e){conv=String(e)}
+    return {colored,coloredText,conv,math,size,text:scenarioFormulaText(bf,false),page1:strip(page1),inGame:strip(inGame),sel:strip(sel),tag:/bb-tag/.test(sel),ok:/bb-count ok/.test(sel)}});
+  expect(/1D3/.test(out.colored)&&/style="color:/.test(out.colored)&&out.coloredText==='1D3 + 2 + (Band Bonus − Y)','X can be written with colours: '+out.colored+' | '+out.coloredText);
+  expect(out.conv===true,'a hand-written “half your warband size” next to the box is found for conversion: '+out.conv);
   expect(JSON.stringify(out.math)==='[9,5,4,4,6]'&&out.size===10,'math: Y=0 at 2 bands, otherwise the number of bands, never below X: '+JSON.stringify(out));
   expect(out.text==='4 + (Band Bonus − Y)'&&/COMBIEN POUR MA BANDE/.test(out.page1)&&/Band Bonus − Y/.test(out.page1),'scenario page shows the formula and the table: '+out.page1.slice(0,300));
   expect(/Band Bonus − 4/.test(out.inGame)&&/Y = 4/.test(out.inGame)&&/4 bandes prennent part/.test(out.inGame),'in the game Y takes the number of warbands: '+out.inGame.slice(0,400));
@@ -1891,6 +1896,27 @@ await test('[desktop] item rules: max per warband (1/1), Stash categories for a 
   expect(out.before&&!out.after&&/1\/1/.test(out.msg)&&out.chip==='1/1'&&out.own,'limit: the Stash copy does not count, a second fighter is refused, 1/1 shown: '+JSON.stringify(out));
   expect(!out.gate0&&out.gate1,'a henchman can be given a ticked Stash category: '+JSON.stringify(out));
   expect(out.okRace&&!out.okOther&&!out.heroesOnly&&out.heroesLeader,'granted access follows race and heroes-only: '+JSON.stringify(out));
+});
+await test('[desktop] starting Veteran: site option, one Henchman, moves freely, never for no-XP or ticked profiles',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const hw=f.warriors.find(w=>w.type==='Henchman');const lw=f.warriors.find(w=>w.type==='Leader');
+    const mk=(w,id)=>({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:id,name:id,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});
+    r.fighters=[mk(lw,'Boss'),mk(hw,'H1'),mk(hw,'H2')];save(true);
+    gameOptions.startVeteran=false;const off=startVetBannerMarkup(activeRoster());
+    gameOptions.startVeteran=true;const fs=()=>activeRoster().fighters;
+    const elig=[startVetEligible(fs()[0]),startVetEligible(fs()[1])];
+    startVetSet(1);const a1=fs()[1].veteran&&fs()[1].startVeteran;const banner=startVetBannerMarkup(activeRoster()).replace(/<[^>]+>/g,'');
+    startVetSet(2);const moved=!fs()[1].veteran&&fs()[2].veteran&&startVetHolder(activeRoster())?.name==='H2';
+    hw.noStartVeteran=true;const ticked=startVetEligible(fs()[1]);delete hw.noStartVeteran;
+    const label=fighterTypeLabel(fs()[2]);const svRole=advancementRole(fs()[2]);const c1=compositionCounts(activeRoster());
+    {const x=fs()[1];x.type='Champion';x.veteran=false;x.promotedVeteran=true;x.advancements=[{sourceId:'veteran-promote',kind:'promotion',xp:12}];save(true)}
+    const promoRole=advancementRole(fs()[1]),promoType=fs()[1].type,c2=compositionCounts(activeRoster());
+    gameOptions.startVeteran=false;closeModal();
+    return {off,elig,a1,banner,moved,ticked,label,svRole,c1,promoRole,promoType,c2}});
+  expect(out.off===''&&out.elig[0]===false&&out.elig[1]===true,'only Henchmen, only when the site option is on: '+JSON.stringify(out));
+  expect(out.svRole==='Veteran'&&out.c1.henchmen===2&&out.c1.champions===0,'a Veteran uses the Hero table but counts as a Henchman: '+JSON.stringify(out));
+  expect(out.promoRole==='Champion'&&out.promoType==='Champion'&&out.c2.champions===1&&out.c2.henchmen===1,'promoted to Champion: counts as a Hero and stays so after reload: '+JSON.stringify(out));
+  expect(out.a1&&/H1/.test(out.banner)&&out.moved&&out.ticked===false&&/Starting Veteran|Vétéran de départ/.test(out.label),'pick, move, ticked profile excluded, label: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0876.0';
+const APP_BUILD='110.0880.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -250,7 +250,7 @@ const COMMON_SKILL_TREES=['Agility','Brawn','Combat','Cunning','Ferocity','Leade
 const WARBAND_ROLE_ORDER=['Leader','Champion','Raw Recruit','Henchman','Animal','Hired Sword','Dramatis Personae'];
 // V-DPLABEL: a Dramatis Personae stays a Hired Sword internally (type) but is
 // shown as "Dramatis Personae" everywhere a role is displayed.
-function fighterTypeLabel(x){return x&&x.neutral?'NPC':x&&x.dramatis?'Dramatis Personae':String(x?.type||'')}
+function fighterTypeLabel(x){return x&&x.neutral?'NPC':x&&x.dramatis?'Dramatis Personae':x&&x.startVeteran&&x.veteran?`${String(x.type||'')} · ★ ${siteLanguage==='en'?'Starting Veteran':'Vétéran de départ'}`:String(x?.type||'')}
 function warbandRoleSortIndex(t){const i=WARBAND_ROLE_ORDER.indexOf(t);return i===-1?WARBAND_ROLE_ORDER.length:i;}
 // MAGIC_ACCESS access resolved for a faction, falling back to its base
 // faction's entry for a supplement/pack that doesn't define its own (e.g.
@@ -2756,7 +2756,7 @@ function syncAdminManagedFighter(x,r){
   // Keep the player's chosen display name; sourceName remains the stable
   // reference even when the Admin changes the fighter's visible name.
   if(!x.sourceName)x.sourceName=w.name;
-  copy('type',isHiredSword(x)?'Hired Sword':(w.type||x.type||'Henchman'));
+  copy('type',isHiredSword(x)?'Hired Sword':fighterPromotedChampion(x)?'Champion':(w.type||x.type||'Henchman'));
   copy('cost',Number(w.cost||0));
   copy('race',w.race||x.race||'Human');
   copy('max',w.max===undefined?null:w.max);
@@ -4929,7 +4929,7 @@ let adminOpenCategory=null;
 // itself (admins, traffic, translation, backup), the game content
 // (warbands, gear, race rules/maximums, scenarios, quests, trophies) and the
 // players (support). Opening a section from elsewhere switches to its page.
-const ADMIN_GROUPS={site:['accounts','traffic','perf','errors','translate','frmissing','journal','backup'],content:['warband','gear','pricerules','racerules','racemax','scenarios','quests','trophies'],players:['support']};
+const ADMIN_GROUPS={site:['accounts','traffic','perf','errors','translate','frmissing','journal','backup'],content:['warband','gear','pricerules','racerules','gamerules','racemax','scenarios','quests','trophies'],players:['support']};
 let adminSection=(()=>{try{const v=localStorage.getItem('mu_ui_adminSection');return ADMIN_GROUPS[v]?v:'content'}catch(e){return 'content'}})();
 const adminGroupOf=id=>Object.keys(ADMIN_GROUPS).find(k=>ADMIN_GROUPS[k].includes(id))||null;
 // V-ADMINLAZY: the admin panel's own code lives in assets/admin.js and is
@@ -8213,7 +8213,7 @@ function bandBonusSize(r){try{return (r?.fighters||[]).filter(x=>x&&!isHiredSwor
 function bandBonusHalf(size){return Math.ceil(Math.max(0,Number(size)||0)/2)}
 function bandBonusCount(bf,size,nb){const x=Math.max(0,Number(bf?.bonusBase)||0);return x+Math.max(0,bandBonusHalf(size)-bandBonusY(nb))}
 function bandBonusDie(bf){const d=Number(bf?.bonusDieFaces)||0;return d>=2?d:0}
-function bandBonusFixedHtml(bf){const hex=id=>CUSTOM_TEXT_COLORS.find(c=>c.id===id)?.hex||'';const d=bandBonusDie(bf);return `<span class="ctm-color" style="color:${hex('green')}">${Math.max(0,Number(bf?.bonusBase)||0)}</span>${d?` + <span class="ctm-color" style="color:${hex('yellow')}">1D${d}</span>`:''}`}
+function bandBonusFixedHtml(bf){if(String(bf?.bonusText||'').trim())return `<span class="bb-x">${customTextMarkup(bf.bonusText)}</span>`;const hex=id=>CUSTOM_TEXT_COLORS.find(c=>c.id===id)?.hex||'';const d=bandBonusDie(bf);return `<span class="ctm-color" style="color:${hex('green')}">${Math.max(0,Number(bf?.bonusBase)||0)}</span>${d?` + <span class="ctm-color" style="color:${hex('yellow')}">1D${d}</span>`:''}`}
 // The game's warbands, for the per-warband lines in Play › Scenario.
 function bandBonusGameBands(ps){const out=[];(ps?.slots||[]).forEach(sl=>{const rid=String(sl.rosterId||sl.friendWarbandId||'');const own=sl.source==='own'&&rid?(state.rosters||[]).find(r=>String(r.id)===rid):null;const fr=!own&&typeof playForeign==='object'?playForeign[rid]:null;const r=own||(fr&&typeof fr==='object'&&Array.isArray(fr.fighters)?fr:null);const name=sl.rosterName||sl.friendWarbandName||r?.name||'';if(name||r)out.push({name:name||r?.name||'—',size:r?bandBonusSize(r):null})});return out}
 function bandBonusBoxMarkup(bf,en,ps){const nb=ps?(Number(ps.numBands)||(ps.slots||[]).length||2):null;const y=nb!=null?bandBonusY(nb):null;const fixed=bandBonusFixedHtml(bf);const L=(a,b)=>en?a:b;const d=bandBonusDie(bf);
@@ -8222,12 +8222,12 @@ function bandBonusBoxMarkup(bf,en,ps){const nb=ps?(Number(ps.numBands)||(ps.slot
   const tail=`<span class="muted">${L('The bracket never goes below 0','La parenthèse ne descend jamais sous 0')} · ${L('Hired Swords and Dramatis Personae','Hired Swords et Dramatis Personae')} : <b class="bb-bonus">${L('a bonus','en bonus')}</b>, ${L('they never count','ils ne comptent pas')}</span>`;
   let table='';
   if(y==null){const cols=[2,3,4,5];table=`<div class="bb-table"><div class="bb-kick">${L('HOW MANY FOR MY WARBAND?','COMBIEN POUR MA BANDE ?')}</div><div class="bb-grid" style="grid-template-columns:auto repeat(${cols.length},1fr)"><span></span>${cols.map(c=>`<b class="bb-h">${c} ${L('bands','bandes')}</b>`).join('')}${[8,10,14].map(n=>`<span class="bb-n">${n} ${L('fighters','combattants')}</span>${cols.map(c=>`<b>${bandBonusCount(bf,n,c)}${d?'+':''}</b>`).join('')}`).join('')}</div></div>`}
-  else{const bands=bandBonusGameBands(ps);if(bands.length)table=`<div class="bb-table"><div class="bb-kick">${L('FOR EACH WARBAND','POUR CHAQUE BANDE')}</div>${bands.map(b=>b.size==null?`<div class="bb-row"><span><b>${esc(b.name)}</b></span><b class="muted">—</b></div>`:`<div class="bb-row"><span><b>${esc(b.name)}</b> <small class="muted">${b.size} ${L('fighters','combattants')}</small><small class="bb-calc">${Math.max(0,Number(bf?.bonusBase)||0)}${d?' + 1D'+d:''} + (${bandBonusHalf(b.size)} − ${y} = ${Math.max(0,bandBonusHalf(b.size)-y)})</small></span><b class="bb-num">${bandBonusCount(bf,b.size,nb)}${d?' + 1D'+d:''}</b></div>`).join('')}</div>`}
-  return `<div class="bb-box"><span class="scn-bands-lbl">${L('Fighters per warband','Combattants par bande')}${y!=null?' · '+L('this game','cette partie'):''}</span><span class="scn-bands-val bb-head">${head}</span><div class="bb-legend">${legend}<br>${tail}</div>${table}</div>`}
+  else{const bands=bandBonusGameBands(ps);if(bands.length)table=`<div class="bb-table"><div class="bb-kick">${L('FOR EACH WARBAND','POUR CHAQUE BANDE')}</div>${bands.map(b=>b.size==null?`<div class="bb-row"><span><b>${esc(b.name)}</b></span><b class="muted">—</b></div>`:`<div class="bb-row"><span><b>${esc(b.name)}</b> <small class="muted">${b.size} ${L('fighters','combattants')}</small><small class="bb-calc">${bandBonusFixedHtml(bf)} + (${bandBonusHalf(b.size)} − ${y} = ${Math.max(0,bandBonusHalf(b.size)-y)})</small></span><b class="bb-num">${bandBonusCount(bf,b.size,nb)}${d?' + 1D'+d:''}</b></div>`).join('')}</div>`}
+  return `<div class="bb-box"><span class="scn-bands-lbl">${L('Fighters per warband','Combattants par bande')}${y!=null?' · '+L('this game','cette partie'):''}</span><span class="scn-bands-val bb-head">${head}</span>${scenarioFormulaLegendMarkup(en)}<div class="bb-legend">${legend}<br>${tail}</div>${table}</div>`}
 function scenarioFormulaText(bf,en){
   const mode=bf?.mode||'custom';
   if(mode==='random'){const c=bf?.randomDiceCount??1,f=bf?.randomDiceFaces??6;return en?`Roll ${c}D${f} to determine how many fighters this warband fields.`:`Lance ${c}D${f} pour déterminer combien de combattants cette bande engage.`;}
-  if(mode==='bonus'){const d=bandBonusDie(bf);return `${Math.max(0,Number(bf?.bonusBase)||0)}${d?' + 1D'+d:''} + (Band Bonus − Y)`}
+  if(mode==='bonus'){const d=bandBonusDie(bf);const shown=String(bf?.bonusText||'').trim()?stripCustomTextMarkup(bf.bonusText).trim():`${Math.max(0,Number(bf?.bonusBase)||0)}${d?' + 1D'+d:''}`;return `${shown} + (Band Bonus − Y)`}
   if(mode==='hybrid'){const x=bf?.hybridBase??0,y=bf?.hybridDieFaces??6;return en?`${x} + 1D${y}, plus half of this warband's total fighters.`:`${x} + 1D${y}, plus la moitié du total de combattants de cette bande.`;}
   return bf?.customText||(en?'Set by the scenario.':'Défini par le scénario.');
 }
@@ -8941,11 +8941,14 @@ function syncScenarioFormulaFieldsToDraft(){
   if(v('seFormulaHybridDie'))d.bandsFormula.hybridDieFaces=Number(v('seFormulaHybridDie').value)||6;
   if(v('seFormulaBonusBase'))d.bandsFormula.bonusBase=Math.max(0,Number(v('seFormulaBonusBase').value)||0);
   if(v('seFormulaBonusDie'))d.bandsFormula.bonusDieFaces=Number(v('seFormulaBonusDie').value)||0;
+  if(v('seFormulaBonusText'))d.bandsFormula.bonusText=v('seFormulaBonusText').value;
 }
 function updateScenarioFormulaMode(mode){
   syncScenarioFormulaFieldsToDraft();
   const d=adminScenarioEditData;if(!d)return;
   d.bandsFormula=d.bandsFormula||{};
+  // back to Custom after a Band Bonus conversion: restore the sentence the conversion set aside
+  if(mode==='custom'&&d.bandsFormula.mode==='bonus'&&!String(d.bandsFormula.adjacentText||'').trim()&&d.bandsFormula.adjacentTextBefore){d.bandsFormula.adjacentText=d.bandsFormula.adjacentTextBefore;d.bandsFormula.adjacentTextBefore=''}
   d.bandsFormula.mode=mode;
   render('admin');
 }
@@ -11368,6 +11371,31 @@ function rosterRoleLabel(role,en){
 // why it matters, and a button to the right place. "Ready to play" sums the
 // warband up with a few strengths and weak points worked out from it.
 const wbAssistFolded=new Set();
+// ============ V-STARTVET: one free starting Veteran per warband (site-wide option) ============
+// Admin switch (site_settings.gameOptions.startVeteran). When on, each warband
+// may name ONE Henchman as its starting Veteran: he uses the existing Veteran
+// status (Hero advancement table, Hero equipment, quests), starts with 0 XP.
+// Never for Heroes, Hired Swords, Dramatis, animals, fighters who never gain
+// experience, or profiles the admin ticked "can't be the starting Veteran".
+// The choice can be moved at any time.
+let gameOptions={startVeteran:false};
+async function loadGameOptions(){try{const r=await window.MordheimundaAPI.gameOptions();gameOptions={startVeteran:!!r?.options?.startVeteran}}catch(e){}}
+function fighterSourceFlag(x,key){let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}if(src&&key in src)return !!src[key];const c=x?.customFighterId?customFighterById(x.customFighterId):null;if(c&&key in c)return !!c[key];return !!x?.[key]}
+function startVetEligible(x){if(!gameOptions.startVeteran||!x)return false;if(isHiredSword(x)||isDramatis(x)||x.type==='Animal'||x.neutral)return false;if(x.type!=='Henchman'||x.promotedVeteran)return false;if(x.veteran&&!x.startVeteran)return false;try{if(fighterNoXpRule(x))return false}catch(e){}if(fighterSourceFlag(x,'noStartVeteran'))return false;try{if(fighterStatus(x).dead)return false}catch(e){}return true}
+function startVetHolder(r){return (r?.fighters||[]).find(x=>x&&x.startVeteran)||null}
+function startVetSet(i){const r=activeRoster();const x=r?.fighters?.[i];const en=siteLanguage==='en';if(!r||!x||!startVetEligible(x)){toast(en?'This fighter can’t be the starting Veteran':'Ce combattant ne peut pas être le Vétéran de départ');return}
+  const prev=startVetHolder(r);if(prev===x){closeModal();return}
+  if(prev&&fighterPromotedChampion(prev)){toast(en?`${prev.name} was promoted to Champion: the starting Veteran is used`:`${prev.name} a été promu Champion : le Vétéran de départ est utilisé`);return}
+  if(prev){prev.veteran=false;prev.startVeteran=false}
+  x.veteran=true;x.startVeteran=true;
+  logHistory(r,'fighter',en?`<b>${esc(x.name)}</b> becomes the starting Veteran${prev?` (instead of ${esc(prev.name)})`:''}`:`<b>${esc(x.name)}</b> devient le Vétéran de départ${prev?` (à la place de ${esc(prev.name)})`:''}`);
+  touchRoster(r);save(true);closeModal();render('builder');toast(en?`★ ${x.name} is your starting Veteran`:`★ ${x.name} est ton Vétéran de départ`)}
+function startVetClear(){const r=activeRoster();const x=startVetHolder(r);if(!x||fighterPromotedChampion(x))return;x.veteran=false;x.startVeteran=false;touchRoster(r);save(true);closeModal();render('builder')}
+function openStartVetPicker(){const r=activeRoster();if(!r)return;const en=siteLanguage==='en';const cur=startVetHolder(r);const list=(r.fighters||[]).map((x,i)=>({x,i})).filter(o=>startVetEligible(o.x));
+  openModal(`<div class="skill-dialog"><div class="eyebrow">★ ${en?'STARTING VETERAN':'VÉTÉRAN DE DÉPART'}</div><h2>${en?'Pick one Henchman':'Choisis un homme de main'}</h2><p>${en?'Free, one per warband. He uses the Hero advancement table, can carry Hero equipment and take quests. He starts with 0 XP. You can change your choice at any time.':'Gratuit, un seul par bande. Il utilise la table d’avancement des Héros, peut porter l’équipement des Héros et prendre des quêtes. Il commence à 0 XP. Tu peux changer ton choix à tout moment.'}</p>${cur&&(cur.advancements||[]).length?`<p class="muted">${en?`${esc(cur.name)} keeps the advancements already bought.`:`${esc(cur.name)} garde les avancements déjà achetés.`}</p>`:''}<div class="reserve-transfer-list">${list.length?list.map(o=>`<button type="button" class="skill-modal-skill${o.x===cur?' on':''}" onclick="startVetSet(${o.i})"><span>${o.x===cur?'★ ':''}${esc(o.x.name)}</span><small>${esc(o.x.sourceName||o.x.type||'')}</small></button>`).join(''):`<div class="empty compact">${en?'No Henchman can be picked yet.':'Aucun homme de main ne peut encore être choisi.'}</div>`}</div><div class="purchase-actions">${cur?`<button type="button" class="button secondary" onclick="startVetClear()">${en?'Remove':'Retirer'}</button>`:''}<button type="button" class="button secondary" onclick="closeModal()">${en?'Close':'Fermer'}</button></div></div>`)}
+function startVetBannerMarkup(r){if(!gameOptions.startVeteran||!r)return '';const en=siteLanguage==='en';const cur=startVetHolder(r);if(!cur&&!(r.fighters||[]).some(startVetEligible))return '';
+  return `<div class="startvet-bar${cur?' set':''}"><span class="startvet-star" aria-hidden="true">★</span><span class="startvet-tx">${cur?`<b>${en?'Starting Veteran':'Vétéran de départ'}</b> · ${esc(cur.name)}`:`<b>${en?'Starting Veteran':'Vétéran de départ'}</b> · ${en?'pick one Henchman (free)':'choisis un homme de main (gratuit)'}`}</span><button type="button" class="wba-act" onclick="openStartVetPicker()">${cur?(en?'Change':'Changer'):(en?'Pick ›':'Choisir ›')}</button></div>`}
+function noStartVetEditorMarkup(w){const en=siteLanguage==='en';return `<label class="custom-check no-equip-check"><input type="checkbox" id="cfNoStartVet" ${w?.noStartVeteran?'checked':''}><span>${en?'Can’t be the starting Veteran (e.g. Kroxigor, Rat Ogre)':'Ne peut pas être le Vétéran de départ (ex. Kroxigor, Rat Ogre)'}</span></label>`}
 function wbAssistPlayed(r){return !!r?.lastGame||(r?.history||[]).some(h=>h&&(h.type==='battle'||h.type==='postbattle'))}
 function wbAssistShown(r){return !!r&&!r.wbAssistDone&&(!wbAssistPlayed(r)||!!r.wbAssistOn)}
 function wbAssistShow(){const r=activeRoster();if(!r)return;r.wbAssistDone=false;r.wbAssistOn=true;wbAssistFolded.delete(r.id);touchRoster(r);save(true);gangTab='roster';render('builder');setTimeout(()=>{try{document.getElementById('wbAssist')?.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}},120)}
@@ -11384,6 +11412,7 @@ function wbAssistChecks(r){const en=siteLanguage==='en';const fs=wbFightersInPla
    {k:'ranged',ok:ranged.length>0,warn:true,t:ranged.length?(en?`${ranged.length} shooter${ranged.length>1?'s':''}`:`${ranged.length} tireur${ranged.length>1?'s':''}`):(en?'Nobody can shoot':'Personne ne tire'),d:en?'Without a ranged weapon the enemy comes close at no risk. A bow or crossbow for 1 or 2 fighters is enough.':'Sans arme de tir, l’ennemi s’approche sans risque. Un arc ou une arbalète pour 1 ou 2 combattants suffit.',act:ranged.length||!fs.length?null:{label:en?'Equip ›':'Équiper ›',run:`openFighterCard(${idx(fs[0])})`}},
    {k:'armed',ok:fs.length>0&&!unarmed.length,t:en?'Everyone has a weapon':'Tout le monde a une arme',d:unarmed.length?(en?`No weapon yet: ${unarmed.map(x=>x.name).join(', ')}.`:`Pas encore d’arme : ${unarmed.map(x=>x.name).join(', ')}.`):(en?'Each fighter fights with what it carries.':'Chaque combattant se bat avec ce qu’il porte.'),act:unarmed.length?{label:en?'Equip ›':'Équiper ›',run:`openFighterCard(${idx(unarmed[0])})`}:null},
    {k:'legal',ok:!legal.length,warn:true,t:legal.length?(en?'To fix before playing':'À corriger avant de jouer'):(en?'Warband is valid':'Bande valide'),d:legal.length?legal[0]:(en?'Number of fighters and Champions within the rules.':'Nombre de combattants et de Champions dans les règles.'),act:legal.length?{label:en?'See ›':'Voir ›',run:'openWarbandLegalityModal()'}:null},
+   ...(gameOptions.startVeteran&&(startVetHolder(r)||(r.fighters||[]).some(startVetEligible))?[{k:'startvet',ok:!!startVetHolder(r),warn:true,t:startVetHolder(r)?(en?`★ Starting Veteran: ${startVetHolder(r).name}`:`★ Vétéran de départ : ${startVetHolder(r).name}`):(en?'★ Starting Veteran not chosen':'★ Vétéran de départ pas choisi'),d:en?'One Henchman of your choice uses the Hero advancement table, for free.':'Un homme de main de ton choix utilise la table d’avancement des Héros, gratuitement.',act:{label:startVetHolder(r)?(en?'Change ›':'Changer ›'):(en?'Pick ›':'Choisir ›'),run:'openStartVetPicker()'}}]:[]),
    {k:'gold',info:true,ok:true,t:en?`${Number(r.gold||0)} GC left`:`${Number(r.gold||0)} co restantes`,d:en?'Unspent gold stays in the treasury for after your first game.':'L’or non dépensé reste dans le trésor pour après ta première partie.'}]}
 function wbAssistMarkup(r){if(!wbAssistShown(r))return '';const en=siteLanguage==='en';const checks=wbAssistChecks(r);const req=checks.filter(c=>!c.info);const done=req.filter(c=>c.ok).length;const folded=wbAssistFolded.has(r.id);
   const row=c=>{const st=c.info?'info':c.ok?'ok':c.warn?'warn':'todo';return `<div class="wba-row ${st}"><span class="wba-dot" aria-hidden="true">${st==='ok'?'✓':st==='warn'?'!':st==='info'?'i':''}</span><span class="wba-tx"><b>${esc(c.t)}</b><small>${esc(c.d)}</small></span>${c.act?`<button type="button" class="wba-act" onclick="${c.act.run}">${esc(c.act.label)}</button>`:''}</div>`};
@@ -11458,7 +11487,7 @@ function wbReadyPlay(){const r=activeRoster();closeModal();if(r&&!r.wbAssistDone
 function rosterView(r,f){
   const en=siteLanguage==='en';
   const groups=rosterGroupedIndices(r);
-  return `${wbAssistMarkup(r,f)}<div class="roster-toolbar"><div><div class="eyebrow">ACTIVE ROSTER</div><h3>${en?'Warband fighters':'Guerriers de la bande'}</h3><p>${en?'Click a fighter to open their full sheet. Changes are saved automatically. Drag the cards to set their order.':'Clique sur un combattant pour ouvrir sa fiche complète. Les modifications sont enregistrées automatiquement. Glisse les cartes pour définir leur ordre.'}</p></div><div class="roster-toolbar-actions">${r.fighters.length>2?`<input type="search" class="roster-filter" aria-label="${en?'Filter fighters':'Filtrer les combattants'}" placeholder="${en?'Filter: bow, Sprint, blind…':'Filtrer : arc, Sprint, aveugle…'}" value="${esc(rosterFilterQ)}" oninput="rosterFilterSet(this.value)">`:''}${r.fighters.length?`<button type="button" class="button secondary small roster-compact-toggle" aria-pressed="${rosterCompact}" onclick="toggleRosterCompact()">${rosterCompact?(en?'▦ Detailed':'▦ Détaillé'):(en?'☰ Compact':'☰ Compact')}</button>`:''}${r.fighters.length>1?`<select class="roster-jump-select" aria-label="${en?'Jump to a fighter':'Aller à un combattant'}" onchange="jumpToFighterCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${r.fighters.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('')}</select>`:''}</div></div>${recruitPanelMarkup(r,f)}${groups.length>1?`<div class="roster-category-nav">${groups.map(g=>`<button type="button" class="button secondary" style="padding:5px 12px;font-size:11px" onclick="jumpToRosterSection('${jsq(g.role)}')">${esc(rosterRoleLabel(g.role,en))} <span class="muted">${g.indices.length}</span></button>`).join('')}</div>`:''}${groups.length?`<div class="roster-sections${rosterCompact?' roster-compact':''}">${groups.map(g=>`<div class="roster-section" id="roster-section-${esc(rosterRoleSlug(g.role))}"><div class="section-label">${esc(rosterRoleLabel(g.role,en).toUpperCase())} <span>${g.indices.length}</span></div><div class="fighter-list">${g.indices.map(i=>ownedFighterCard(r.fighters[i],i,f)).join('')}</div></div>`).join('')}</div>`:`<div class="empty large"><strong>${en?'Your warband is empty.':'Ta bande est vide.'}</strong><span>${en?'Use the Recruitment tab to pick your first fighters.':'Utilise l’onglet Recrutement pour choisir tes premiers combattants.'}</span><button class="button primary" onclick="openRecruitPanel()">${en?'Open recruitment':'Ouvrir le recrutement'}</button></div>`}`;
+  return `${wbAssistMarkup(r,f)}${startVetBannerMarkup(r)}<div class="roster-toolbar"><div><div class="eyebrow">ACTIVE ROSTER</div><h3>${en?'Warband fighters':'Guerriers de la bande'}</h3><p>${en?'Click a fighter to open their full sheet. Changes are saved automatically. Drag the cards to set their order.':'Clique sur un combattant pour ouvrir sa fiche complète. Les modifications sont enregistrées automatiquement. Glisse les cartes pour définir leur ordre.'}</p></div><div class="roster-toolbar-actions">${r.fighters.length>2?`<input type="search" class="roster-filter" aria-label="${en?'Filter fighters':'Filtrer les combattants'}" placeholder="${en?'Filter: bow, Sprint, blind…':'Filtrer : arc, Sprint, aveugle…'}" value="${esc(rosterFilterQ)}" oninput="rosterFilterSet(this.value)">`:''}${r.fighters.length?`<button type="button" class="button secondary small roster-compact-toggle" aria-pressed="${rosterCompact}" onclick="toggleRosterCompact()">${rosterCompact?(en?'▦ Detailed':'▦ Détaillé'):(en?'☰ Compact':'☰ Compact')}</button>`:''}${r.fighters.length>1?`<select class="roster-jump-select" aria-label="${en?'Jump to a fighter':'Aller à un combattant'}" onchange="jumpToFighterCard(this.value);this.value=''"><option value="">↕ ${en?'Jump to…':'Aller à…'}</option>${r.fighters.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('')}</select>`:''}</div></div>${recruitPanelMarkup(r,f)}${groups.length>1?`<div class="roster-category-nav">${groups.map(g=>`<button type="button" class="button secondary" style="padding:5px 12px;font-size:11px" onclick="jumpToRosterSection('${jsq(g.role)}')">${esc(rosterRoleLabel(g.role,en))} <span class="muted">${g.indices.length}</span></button>`).join('')}</div>`:''}${groups.length?`<div class="roster-sections${rosterCompact?' roster-compact':''}">${groups.map(g=>`<div class="roster-section" id="roster-section-${esc(rosterRoleSlug(g.role))}"><div class="section-label">${esc(rosterRoleLabel(g.role,en).toUpperCase())} <span>${g.indices.length}</span></div><div class="fighter-list">${g.indices.map(i=>ownedFighterCard(r.fighters[i],i,f)).join('')}</div></div>`).join('')}</div>`:`<div class="empty large"><strong>${en?'Your warband is empty.':'Ta bande est vide.'}</strong><span>${en?'Use the Recruitment tab to pick your first fighters.':'Utilise l’onglet Recrutement pour choisir tes premiers combattants.'}</span><button class="button primary" onclick="openRecruitPanel()">${en?'Open recruitment':'Ouvrir le recrutement'}</button></div>`}`;
 }
 // V-ROSTERCOMPACT: one-line fighter cards (name, role, profile, weapons, XP); a click still opens the full sheet.
 function toggleRosterCompact(){rosterCompact=!rosterCompact;persistUiState('rosterCompact',rosterCompact?'1':'0');const y=window.scrollY;try{renderCurrentRoute()}catch(e){render('builder')}window.scrollTo(0,y)}
@@ -11473,7 +11502,7 @@ function championLimitForRoster(r){return 2+Math.floor(Math.max(0,Number(r?.repu
 // section on the roster page (that's a presentation grouping, not a rules
 // category) and is still excluded from Experience/advances (separately
 // handled by advancementEligible, since War Beasts "never gain experience").
-function compositionCounts(r){const fighters=(Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x));return {champions:fighters.filter(x=>advancementRole(x)==='Champion'||x.type==='Champion').length,henchmen:fighters.filter(x=>fighterSourceType(x)==='Henchman'||x.type==='Henchman'||x.type==='Animal').length,other:fighters.filter(x=>{const role=advancementRole(x);return role!=='Henchman'&&role!=='Champion'&&x.type!=='Henchman'&&x.type!=='Champion'&&x.type!=='Animal'}).length};}
+function compositionCounts(r){const fighters=(Array.isArray(r?.fighters)?r.fighters:[]).filter(x=>!isHiredSword(x));return {champions:fighters.filter(x=>advancementRole(x)==='Champion'||x.type==='Champion').length,henchmen:fighters.filter(x=>(fighterSourceType(x)==='Henchman'||x.type==='Henchman'||x.type==='Animal')&&advancementRole(x)!=='Champion').length,other:fighters.filter(x=>{const role=advancementRole(x);return role!=='Henchman'&&role!=='Champion'&&x.type!=='Henchman'&&x.type!=='Champion'&&x.type!=='Animal'}).length};}
 function recruitmentRestriction(r,w){const en=siteLanguage==='en';if(!r||!w)return null;const counts=compositionCounts(r);const role=w.type==='Raw Recruit'?'Juves':(w.type==='Animal'?'Henchman':w.type);const limit=championLimitForRoster(r);if(role==='Champion'&&counts.champions>=limit)return en?`Champion limit reached: ${counts.champions}/${limit} (Reputation ${Number(r.reputation||0)})`:`Limite de Champions atteinte : ${counts.champions}/${limit} (Réputation ${Number(r.reputation||0)})`;if(role!=='Henchman'&&role!=='Champion'&&counts.henchmen<counts.other+1&&r.fighters.length>0)return en?`You need at least as many Henchmen as other warriors (${counts.henchmen} Henchmen / ${counts.other} others)`:`Il faut au moins autant de Henchmen que d'autres guerriers (${counts.henchmen} Henchmen / ${counts.other} autres)`;if(role==='Champion'&&counts.henchmen<counts.other+1&&r.fighters.length>0)return en?`You need at least as many Henchmen as other warriors (${counts.henchmen} Henchmen / ${counts.other} others)`:`Il faut au moins autant de Henchmen que d'autres guerriers (${counts.henchmen} Henchmen / ${counts.other} autres)`;return null;}
 function recruitmentCompositionNotice(r){const en=siteLanguage==='en';const c=compositionCounts(r),limit=championLimitForRoster(r),valid=c.henchmen>=c.other;return `<div class="recruit-composition-notice ${valid?'valid':'warning'}"><div><strong>${en?'COMPOSITION · REPUTATION':'COMPOSITION · RÉPUTATION'} ${Number(r.reputation||0)}</strong><small>Champions : ${c.champions}/${limit} · Henchmen : ${c.henchmen} · ${en?'Others':'Autres'} : ${c.other}</small></div>${valid?`<span>✓ ${en?'Valid composition':'Composition valide'}</span>`:`<span>⚠ ${en?`Missing ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''}`:`Il manque ${c.other-c.henchmen} Henchman${c.other-c.henchmen>1?'s':''}`}</span>`}</div>`;}
 // V-LEGALWARBANDPOPUP: recruiting/removing a fighter used to be hard-blocked
@@ -12426,8 +12455,13 @@ function fighterSourceType(x){
  const r=activeRoster(),f=r&&faction(r),source=resolveFighterSource(x,f);
  return source?.type||null;
 }
+// A Veteran who bought "promote to Champion" is a Hero from then on (Champion
+// limit, composition); before that a Veteran stays a Henchman for every count.
+function fighterPromotedChampion(x){return Array.isArray(x?.advancements)&&x.advancements.some(a=>a?.sourceId==='veteran-promote')}
 function advancementRole(x){
  if(isHiredSword(x))return 'Champion';
+ if(fighterPromotedChampion(x))return 'Champion';
+ if(x?.startVeteran===true&&x?.veteran===true)return 'Veteran';
  const sourceType=fighterSourceType(x);
  // A source Henchman uses the Henchman table unless it has explicitly
  // been promoted to Veteran. This repairs stale saved types as well.
@@ -16354,6 +16388,7 @@ function saveCustomFighter(){
   item.bannedCategories=bannedCategoriesRead();
   item.bannedExceptions=bannedExceptionsRead();
   item.stashCategories=stashCategoriesRead();
+  item.noStartVeteran=!!$('#cfNoStartVet')?.checked;if(!item.noStartVeteran)delete item.noStartVeteran;
   item.updatedAt=Date.now();
   if(isHS){item.hiredSword=true;item.type='Hired Sword';item.neutral=!!$('#cfNeutral')?.checked;if(!item.neutral)delete item.neutral;item.upkeep=Math.max(0,Number($('#cfUpkeep')?.value||0))||0;{const sc=hiredSwordReadScope();item.hsFactions=sc.only;item.hsExcluded=sc.except;}item.hsChoices=hiredSwordReadChoices();item.equipmentAccess=[];item.hsRandomSkill=$('#cfHsRandomSkill')?.value||'';item.dramatis=!item.neutral&&!!$('#cfDramatis')?.checked;if(item.neutral){item.upkeep=0;item.hsFactions=[];item.hsExcluded=[];item.hsRandomSkill=''}{const own=item.dramatis||item.neutral;item.dpRules=own?dpRulesReadRaw().filter(r=>r.name):[];item.dpWeapons=own?dpWeaponsReadRaw().filter(d=>d.name):[];item.dpLore=own?($('#cfDpLore')?.value||'').trim():'';}if(item.dramatis){item.hsChoices=[];item.hsRandomSkill='';item.dpMode=$('#cfDpMode')?.value||'hire';item.dpGame={base:Math.max(0,Number($('#cfDpBase')?.value)||0),step:Math.max(0,Number($('#cfDpStep')?.value)||0),perStep:Number($('#cfDpPerStep')?.value)||0,factions:dpFacRead()}}else{delete item.dpMode;delete item.dpGame}}
   const idx=customFighterList().findIndex(w=>w.customFighterId===item.customFighterId);if(idx>=0){if(state.customFighters[idx]&&'addedAt' in state.customFighters[idx])item.addedAt=state.customFighters[idx].addedAt;state.customFighters[idx]=item}else state.customFighters.push(item);
@@ -16544,7 +16579,7 @@ function ensureFighterSourceData(x,r){
   desiredDefaultSkills.forEach(name=>{if(!x.skills.some(s=>normName(s)===normName(name)))x.skills.push(name);});
   x.defaultSkillsGranted=desiredDefaultSkills.slice();
   {const want=Array.isArray(w.defaultSpells)?w.defaultSpells:[];const prev=Array.isArray(x.defaultSpellsGranted)?x.defaultSpellsGranted:[];if(want.length||prev.length){x.spells=Array.isArray(x.spells)?x.spells:[];prev.forEach(n=>{if(!want.some(m=>normName(m)===normName(n)))x.spells=x.spells.filter(s=>normName(s)!==normName(n))});want.forEach(n=>{if(!x.spells.some(s=>normName(s)===normName(n)))x.spells.push(n)});x.defaultSpellsGranted=want.slice()}}
-  if(typeof x.veteran!=='boolean')x.veteran=false;if(typeof x.promotedVeteran!=='boolean')x.promotedVeteran=false;if(w.type==='Henchman'){const legacyPromotion=Array.isArray(x.advancements)&&x.advancements.some(a=>a?.kind==='promotion'||a?.sourceId==='hench-2'||a?.sourceId==='hench-12');if(x.promotedVeteran!==true&&legacyPromotion)x.promotedVeteran=true;if(x.promotedVeteran===true){x.veteran=true;x.type='Henchman'}else{x.promotedVeteran=false;x.veteran=false;if(x.type==='Veteran')x.type='Henchman';}}if(!x.sourceName)x.sourceName=w.name;if(!x.customFighterId&&w.customFighterId)x.customFighterId=w.customFighterId}
+  if(typeof x.veteran!=='boolean')x.veteran=false;if(typeof x.promotedVeteran!=='boolean')x.promotedVeteran=false;if(w.type==='Henchman'){const legacyPromotion=Array.isArray(x.advancements)&&x.advancements.some(a=>a?.kind==='promotion'||a?.sourceId==='hench-2'||a?.sourceId==='hench-12');if(x.promotedVeteran!==true&&legacyPromotion)x.promotedVeteran=true;if(fighterPromotedChampion(x)){x.promotedVeteran=true;x.veteran=false;x.type='Champion'}else if(x.promotedVeteran===true){x.veteran=true;x.type='Henchman'}else if(x.startVeteran===true){x.promotedVeteran=false;x.veteran=true;if(x.type==='Veteran')x.type='Henchman'}else{x.promotedVeteran=false;x.veteran=false;if(x.type==='Veteran')x.type='Henchman';}}if(!x.sourceName)x.sourceName=w.name;if(!x.customFighterId&&w.customFighterId)x.customFighterId=w.customFighterId}
 function fighterOriginalProfile(x){
   // V-BASESTATSYNC: x.baseProfile is now stored at recruitment as the exact
   // value the recruitment pool showed for that fighter type (see addFighter),
@@ -16692,6 +16727,7 @@ function customFighterForm(w){
   ${hs?'':mutationRuleEditorMarkup(w)}
   ${hs?'':bannedCategoriesEditorMarkup(w)}
   ${hs?'':stashCategoriesEditorMarkup(w)}
+  ${hs?'':noStartVetEditorMarkup(w)}
   <details class="custom-collapse"${String(w?.description||'').trim()?' open':''}><summary><span>DESCRIPTION</span><small>${String(w?.description||'').trim()?(en?'Shown on the profile':'Affichée sur le profil'):(en?'Profile text':'Texte du profil')}</small></summary>${customTextToolbarMarkup('cfDescription')}<textarea id="cfDescription" class="wide-textarea" rows="5" placeholder="${en?'Fighter description…':'Description du combattant…'}">${esc(w?.description||'')}</textarea><button type="button" class="button secondary small desc-clear" onclick="const t=document.getElementById('cfDescription');if(t)t.value=''">✕ ${en?'Clear the description':'Effacer la description'}</button></details>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="resetCustomFighterForm()">${en?'Reset':'Réinitialiser'}</button><button type="button" class="button primary" onclick="saveCustomFighter()">${w?(en?'Save changes':'Enregistrer les modifications'):(en?'Create profile':'Créer le profil')}</button></div>`;
 }
@@ -17755,6 +17791,7 @@ const hasStoredAccountSession=!!localStorage.getItem(ACCOUNT_SESSION_KEY);
 // actually correct, regardless of which side of the race won.
 const bootTimeout=new Promise(resolve=>setTimeout(resolve,1500));
 const costAffectingLoadsReady=Promise.all([loadWeaponOverrides().then(()=>loadCatalogOverrides()),loadOfficialWarbands(),loadPriceRules(),loadWarbandSizeLimits(),loadWarbandHireRules()]);
+loadGameOptions();
 costAffectingLoadsReady.then(()=>renderCurrentRoute());
 if(hasStoredAccountSession){
   Promise.race([Promise.all([/^\/share\//.test(location.pathname)?null:bootstrapAccountSession(),costAffectingLoadsReady]),bootTimeout]).finally(()=>{try{applyPriceRuleRefunds()}catch(e){}renderCurrentRoute();showPasswordReset();});

@@ -88,6 +88,8 @@
   warbandSizeLimits:()=>request('/api/catalog/warband-size-limits'),
   adminSaveWarbandSizeLimits:limits=>request('/api/admin/warband-size-limits',{method:'PUT',body:JSON.stringify({limits})}),
   warbandHireRules:()=>request('/api/catalog/warband-hire-rules'),
+  gameOptions:()=>request('/api/catalog/game-options'),
+  adminSaveGameOptions:options=>request('/api/admin/game-options',{method:'PUT',body:JSON.stringify({options})}),
   adminSaveWarbandHireRules:rules=>request('/api/admin/warband-hire-rules',{method:'PUT',body:JSON.stringify({rules})}),
   adminSaveWeaponOverride:(name,data)=>request('/api/admin/catalog/weapon-overrides/'+encodeURIComponent(name),{method:'PUT',body:JSON.stringify({data})}),
   adminResetWeaponOverride:name=>request('/api/admin/catalog/weapon-overrides/'+encodeURIComponent(name),{method:'DELETE'}),
