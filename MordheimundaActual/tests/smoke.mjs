@@ -1909,12 +1909,14 @@ await test('[desktop] starting Veteran: site option, one Henchman, moves freely,
     startVetSet(1);const a1=fs()[1].veteran&&fs()[1].startVeteran;const banner=startVetBannerMarkup(activeRoster()).replace(/<[^>]+>/g,'');
     startVetSet(2);const moved=!fs()[1].veteran&&fs()[2].veteran&&startVetHolder(activeRoster())?.name==='H2';
     hw.noStartVeteran=true;const ticked=startVetEligible(fs()[1]);delete hw.noStartVeteran;
+    const animalRule=startVetEligible({...fs()[1],ruleNames:[...(fs()[1].ruleNames||[]),'Animal'],rules:String(fs()[1].rules||'')+', Animal'});
     const label=fighterTypeLabel(fs()[2]);const svRole=advancementRole(fs()[2]);const c1=compositionCounts(activeRoster());
     {const x=fs()[1];x.type='Champion';x.veteran=false;x.promotedVeteran=true;x.advancements=[{sourceId:'veteran-promote',kind:'promotion',xp:12}];save(true)}
     const promoRole=advancementRole(fs()[1]),promoType=fs()[1].type,c2=compositionCounts(activeRoster());
     gameOptions.startVeteran=false;closeModal();
-    return {off,elig,a1,banner,moved,ticked,label,svRole,c1,promoRole,promoType,c2}});
+    return {animalRule,off,elig,a1,banner,moved,ticked,label,svRole,c1,promoRole,promoType,c2}});
   expect(out.off===''&&out.elig[0]===false&&out.elig[1]===true,'only Henchmen, only when the site option is on: '+JSON.stringify(out));
+  expect(out.animalRule===false,'a fighter with the Animal rule is never the starting Veteran: '+out.animalRule);
   expect(out.svRole==='Veteran'&&out.c1.henchmen===2&&out.c1.champions===0,'a Veteran uses the Hero table but counts as a Henchman: '+JSON.stringify(out));
   expect(out.promoRole==='Champion'&&out.promoType==='Champion'&&out.c2.champions===1&&out.c2.henchmen===1,'promoted to Champion: counts as a Hero and stays so after reload: '+JSON.stringify(out));
   expect(out.a1&&/H1/.test(out.banner)&&out.moved&&out.ticked===false&&/Starting Veteran|Vétéran de départ/.test(out.label),'pick, move, ticked profile excluded, label: '+JSON.stringify(out));

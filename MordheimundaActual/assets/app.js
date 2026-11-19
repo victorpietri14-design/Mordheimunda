@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0881.0';
+const APP_BUILD='110.0882.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11384,7 +11384,7 @@ const wbAssistFolded=new Set();
 let gameOptions={startVeteran:false};
 async function loadGameOptions(){try{const r=await window.MordheimundaAPI.gameOptions();gameOptions={startVeteran:!!r?.options?.startVeteran}}catch(e){}}
 function fighterSourceFlag(x,key){let src=null;try{src=resolveFighterSource(x,faction(activeRoster()))}catch(e){}if(src&&key in src)return !!src[key];const c=x?.customFighterId?customFighterById(x.customFighterId):null;if(c&&key in c)return !!c[key];return !!x?.[key]}
-function startVetEligible(x){if(!gameOptions.startVeteran||!x)return false;if(isHiredSword(x)||isDramatis(x)||x.type==='Animal'||x.neutral)return false;if(x.type!=='Henchman'||x.promotedVeteran)return false;if(x.veteran&&!x.startVeteran)return false;try{if(fighterNoXpRule(x))return false}catch(e){}if(fighterSourceFlag(x,'noStartVeteran'))return false;try{if(fighterStatus(x).dead)return false}catch(e){}return true}
+function startVetEligible(x){if(!gameOptions.startVeteran||!x)return false;if(isHiredSword(x)||isDramatis(x)||x.type==='Animal'||x.neutral)return false;if(x.type!=='Henchman'||x.promotedVeteran)return false;if(x.veteran&&!x.startVeteran)return false;try{if(fighterNoXpRule(x)||fighterHasAnimalRule(x))return false}catch(e){}if(fighterSourceFlag(x,'noStartVeteran'))return false;try{if(fighterStatus(x).dead)return false}catch(e){}return true}
 function startVetHolder(r){return (r?.fighters||[]).find(x=>x&&x.startVeteran)||null}
 function startVetSet(i){const r=activeRoster();const x=r?.fighters?.[i];const en=siteLanguage==='en';if(!r||!x||!startVetEligible(x)){toast(en?'This fighter can’t be the starting Veteran':'Ce combattant ne peut pas être le Vétéran de départ');return}
   const prev=startVetHolder(r);if(prev===x){closeModal();return}
