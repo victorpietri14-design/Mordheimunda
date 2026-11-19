@@ -6443,3 +6443,9 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .bb-conv-row>span:nth-of-type(1){flex:1;min-width:180px;display:flex;flex-direction:column}
 .bb-conv-to{font-family:'IBM Plex Mono',monospace;font-size:12px;white-space:nowrap}
 .bb-conv-to input[type=number]{width:52px}
+
+/* V-ITEMRULES */
+.item-limit{display:inline-block;margin-left:6px;font:600 10.5px 'IBM Plex Mono',monospace;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 4px;vertical-align:1px}
+.item-limit.full{color:var(--accent);border-color:currentColor}
+.item-grant{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.item-grant-scope{display:flex;flex-wrap:wrap;gap:4px 14px}

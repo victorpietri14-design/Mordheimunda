@@ -1870,6 +1870,28 @@ await test('[desktop] band bonus formula: X + (Band Bonus − Y), Y from the war
   expect(/Band Bonus − 4/.test(out.inGame)&&/Y = 4/.test(out.inGame)&&/4 bandes prennent part/.test(out.inGame),'in the game Y takes the number of warbands: '+out.inGame.slice(0,400));
   expect(/Band Bonus 5 − 4 = 1\) = 5 (fighters|combattants)/.test(out.sel)&&/5 \/ 5 ✓/.test(out.sel)&&/\+ 1 bonus/.test(out.sel)&&out.tag&&out.ok,'selection: 5 to engage, the Hired Sword is a bonus and not counted: '+out.sel.slice(0,600));
 });
+await test('[desktop] item rules: max per warband (1/1), Stash categories for a henchman, access granted to a race',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const mk=(w,id)=>({...w,profile:(w.profile||[]).slice(),baseProfile:(w.profile||[]).slice(),sourceName:w.name,wid:w.id,instance:id,name:id,xp:0,equipmentSelected:[],equipmentStash:[],skills:[],spells:[],advancements:[],injuries:[]});
+    const hw=f.warriors.find(w=>w.type==='Henchman');const lw=f.warriors.find(w=>w.type==='Leader');
+    const A=mk(lw,'Alpha'),B=mk(lw,'Beta'),H=mk(hw,'Hench');r.fighters=[A,B,H];save(true);const live=()=>activeRoster().fighters;
+    const charm=D.weapons.find(w=>w.name==='Lucky charm');const prevLim=charm.bandLimit;charm.bandLimit=1;
+    const before=bandLimitCheck(live()[1],charm).ok;{const a=live()[0];(fighterUsesLoadouts(a)?(a.equipmentStash=a.equipmentStash||[]):a.equipmentSelected).push({...charm,stashId:'c1'})}
+    activeRoster().reserve=[{...charm,reserveId:'rv',stashId:'c2',quantity:1}];
+    const after=bandLimitCheck(live()[1],charm);const chip=itemBandLimitChip(charm).replace(/<[^>]+>/g,'').trim();const own=bandLimitCheck(live()[0],{...charm,stashId:'c1'}).ok;
+    charm.bandLimit=prevLim;
+    // stash categories
+    const item={name:'Test Plate',category:'Armure',price:10};
+    const gate0=henchmanBandListAllows(H,item);hw.stashCategories=['Armure'];const gate1=henchmanBandListAllows(H,item);delete hw.stashCategories;
+    // granted access by race
+    const race=fighterRace(H,f);const g={name:'Test Bomb',category:'Équipements divers',grantAccess:{scope:'races',races:[race],who:'all'}};
+    const okRace=warriorBandAllowed(g,H,f);const okOther=warriorBandAllowed({...g,grantAccess:{scope:'races',races:['Nobody'],who:'all'}},H,f);
+    const heroesOnly=warriorBandAllowed({...g,grantAccess:{scope:'all',who:'heroes'}},H,f),heroesLeader=warriorBandAllowed({...g,grantAccess:{scope:'all',who:'heroes'}},A,f);
+    return {before,after:after.ok,msg:after.msg,chip,own,gate0,gate1,okRace,okOther,heroesOnly,heroesLeader}});
+  expect(out.before&&!out.after&&/1\/1/.test(out.msg)&&out.chip==='1/1'&&out.own,'limit: the Stash copy does not count, a second fighter is refused, 1/1 shown: '+JSON.stringify(out));
+  expect(!out.gate0&&out.gate1,'a henchman can be given a ticked Stash category: '+JSON.stringify(out));
+  expect(out.okRace&&!out.okOther&&!out.heroesOnly&&out.heroesLeader,'granted access follows race and heroes-only: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

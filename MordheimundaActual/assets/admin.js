@@ -740,7 +740,8 @@ async function saveAdminWeapon(originalName){
     band:$('#awpBand')?.checked!==false,
     hidden:$('#awpHidden')?.checked===true,
     factions:document.querySelector('input[name="awpScope"]:checked')?.value==='some'?[...document.querySelectorAll('.awpFaction:checked')].map(x=>x.dataset.faction):[],
-    profile:{range:($('#awpRange')?.value||''),strength:($('#awpStrength')?.value||''),ap:($('#awpAp')?.value||''),damage:($('#awpDamage')?.value||''),traits:adminWeaponTraitDraft.join(', ')}
+    profile:{range:($('#awpRange')?.value||''),strength:($('#awpStrength')?.value||''),ap:($('#awpAp')?.value||''),damage:($('#awpDamage')?.value||''),traits:adminWeaponTraitDraft.join(', ')},
+    ...readItemBandRules('awp')
   };
   try{
     await window.MordheimundaAPI.adminSaveWeaponOverride(key,data);
@@ -830,6 +831,7 @@ function adminWeaponFormMarkup(name){
     <div class="custom-faction-grid awp-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="awpFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div></details>`})()}
   <div class="custom-weapon-grid" id="awpProfileFields"><label class="custom-field"><span>${en?'Range':'Portée'}</span><input id="awpRange" value="${esc(p.range||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Strength':'Force'}</span><input id="awpStrength" value="${esc(p.strength||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>AP</span><input id="awpAp" value="${esc(p.ap||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Damage':'Dégâts'}</span><input id="awpDamage" value="${esc(p.damage||'')}" oninput="refreshAdminWeaponPreview()"></label></div>
   ${traitPickerMarkup('adminWeapon')}
+  ${itemBandRulesMarkup(w,'awp')}
   <div class="custom-weapon-preview" id="awpWeaponPreview">${adminWeaponPreviewMarkup(w?.name||$('#awpName')?.value,p)}</div>
   <label class="custom-field wide"><span>${en?'Special rules / description (shown in the Reference tab)':'Règles spéciales / description (affiché dans l’onglet Référentiel)'}</span><textarea id="awpRulesText" class="wide-textarea" rows="6" placeholder="${en?'Optional — leave empty if this item has no extra rules text.':'Facultatif — laisse vide si cet objet n’a pas de texte de règle particulier.'}">${esc(rulesText||'')}</textarea></label>
   <div class="custom-actions"><button type="button" class="button secondary" data-orig="${esc(isNew?'__new__':name)}" onclick="closeAdminWeaponEdit()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" data-orig="${esc(isNew?'__new__':name)}" onclick="saveAdminWeapon(this.dataset.orig)">${en?'Save':'Enregistrer'}</button></div>`;
