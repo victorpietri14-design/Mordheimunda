@@ -362,6 +362,7 @@ function adminScenariosSectionMarkup(en){
       <h3>${en?'Scenarios':'Scénarios'}</h3>
       <p class="muted">${en?'Shown on Rules > Scenarios once published. Draft scenarios stay admin-only.':'Affichés sur Règles > Scénarios une fois publiés. Les brouillons restent réservés aux admins.'}</p>
       <button type="button" class="button secondary" onclick="openScenarioEditor(null)" style="margin-bottom:12px">+ ${en?'New scenario':'Nouveau scénario'}</button><button type="button" class="button secondary" onclick="adminLightenPictures()" style="margin:0 0 12px 8px" title="${en?'Re-compress the scenario pictures and map images that are too heavy (they load slowly on phones)':'Recompresse les images de scénario et les cartes trop lourdes (lentes à charger sur téléphone)'}">🗜 ${en?'Lighten pictures':'Alléger les images'}</button>
+      ${bandBonusConvertMarkup(list,en)}
       <div class="custom-item-list">${list.length?list.map(s=>{const isDraft=s.status==='draft';return `<article class="custom-item-row"><div class="custom-item-main"><div><strong>${esc(s.name)}</strong><small>${isDraft?`<span class="official-status-draft">${en?'DRAFT':'BROUILLON'}</span> · `:''}${scenarioCategoriesOf(s).map(c=>scenarioCategoryLabel(c,en)).join(', ')}</small></div></div><div class="custom-item-actions"><button type="button" class="button secondary" onclick="openScenarioEditor('${jsq(s.id)}')">✎ ${en?'Manage':'Gérer'}</button><button type="button" class="button secondary" onclick="setScenarioStatus('${jsq(s.id)}','${isDraft?'published':'draft'}')">${isDraft?(en?'Publish':'Publier'):(en?'Unpublish':'Dépublier')}</button>${isDraft?`<button type="button" class="equipment-action remove" onclick="confirmDeleteScenario('${jsq(s.id)}')">🗑</button>`:''}</div></article>`}).join(''):`<div class="empty compact">${en?'No scenario yet.':'Aucun scénario pour l’instant.'}</div>`}</div>
     </section>
     <section class="card admin-card">
@@ -739,7 +740,8 @@ async function saveAdminWeapon(originalName){
     band:$('#awpBand')?.checked!==false,
     hidden:$('#awpHidden')?.checked===true,
     factions:document.querySelector('input[name="awpScope"]:checked')?.value==='some'?[...document.querySelectorAll('.awpFaction:checked')].map(x=>x.dataset.faction):[],
-    profile:{range:($('#awpRange')?.value||''),strength:($('#awpStrength')?.value||''),ap:($('#awpAp')?.value||''),damage:($('#awpDamage')?.value||''),traits:adminWeaponTraitDraft.join(', ')}
+    profile:{range:($('#awpRange')?.value||''),strength:($('#awpStrength')?.value||''),ap:($('#awpAp')?.value||''),damage:($('#awpDamage')?.value||''),traits:adminWeaponTraitDraft.join(', ')},
+    ...readItemBandRules('awp')
   };
   try{
     await window.MordheimundaAPI.adminSaveWeaponOverride(key,data);
@@ -829,6 +831,7 @@ function adminWeaponFormMarkup(name){
     <div class="custom-faction-grid awp-faction-grid" style="${some?'':'display:none'}">${opts.map(o=>`<label class="custom-check"><input class="awpFaction" data-faction="${esc(o.id)}" type="checkbox" ${sel.includes(o.id)?'checked':''}><span>${esc(o.name)}</span></label>`).join('')}</div></details>`})()}
   <div class="custom-weapon-grid" id="awpProfileFields"><label class="custom-field"><span>${en?'Range':'Portée'}</span><input id="awpRange" value="${esc(p.range||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Strength':'Force'}</span><input id="awpStrength" value="${esc(p.strength||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>AP</span><input id="awpAp" value="${esc(p.ap||'')}" oninput="refreshAdminWeaponPreview()"></label><label class="custom-field"><span>${en?'Damage':'Dégâts'}</span><input id="awpDamage" value="${esc(p.damage||'')}" oninput="refreshAdminWeaponPreview()"></label></div>
   ${traitPickerMarkup('adminWeapon')}
+  ${itemBandRulesMarkup(w,'awp')}
   <div class="custom-weapon-preview" id="awpWeaponPreview">${adminWeaponPreviewMarkup(w?.name||$('#awpName')?.value,p)}</div>
   <label class="custom-field wide"><span>${en?'Special rules / description (shown in the Reference tab)':'Règles spéciales / description (affiché dans l’onglet Référentiel)'}</span><textarea id="awpRulesText" class="wide-textarea" rows="6" placeholder="${en?'Optional — leave empty if this item has no extra rules text.':'Facultatif — laisse vide si cet objet n’a pas de texte de règle particulier.'}">${esc(rulesText||'')}</textarea></label>
   <div class="custom-actions"><button type="button" class="button secondary" data-orig="${esc(isNew?'__new__':name)}" onclick="closeAdminWeaponEdit()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" data-orig="${esc(isNew?'__new__':name)}" onclick="saveAdminWeapon(this.dataset.orig)">${en?'Save':'Enregistrer'}</button></div>`;
@@ -2000,7 +2003,7 @@ function scenarioEditorCollect(){
     roles:{attacker:v('seAttacker'),defender:v('seDefender')},
     preparation:{enabled:!!document.getElementById('sePrepEnabled')?.checked,text:v('sePrepText')},
     specialRules:v('seSpecialRules').trim(),
-    bandsFormula:{mode:bf.mode||'custom',customText:bf.customText||'',adjacentText:bf.adjacentText||'',randomDiceCount:bf.randomDiceCount||1,randomDiceFaces:bf.randomDiceFaces||6,hybridBase:bf.hybridBase||0,hybridDieFaces:bf.hybridDieFaces||6},
+    bandsFormula:{mode:bf.mode||'custom',customText:bf.customText||'',adjacentText:bf.adjacentText||'',randomDiceCount:bf.randomDiceCount||1,randomDiceFaces:bf.randomDiceFaces||6,hybridBase:bf.hybridBase||0,hybridDieFaces:bf.hybridDieFaces||6,bonusBase:Number.isFinite(Number(bf.bonusBase))?Number(bf.bonusBase):4,bonusDieFaces:Number(bf.bonusDieFaces)||0},
     underdogBonus:v('seUnderdog').trim(),
     deployment:{tableEdgeRule:v('seTableEdge'),zones:linesToList(v('seZones')),mapIds:(adminScenarioEditData?.deployment?.mapIds)||[]},
     experience:linesToPairs(v('seExperience')).map(p=>({name:p.a,text:p.b})),
@@ -2016,6 +2019,7 @@ function scenarioEditorCollect(){
   };
 }
 function syncScenarioEditorFormToDraft(){if(!adminScenarioEditData||!document.getElementById('seName'))return;const {tableSizes,thumbnail,thumbnailFocus,...rest}=scenarioEditorCollect();rest.deployment.mapIds=adminScenarioEditData.deployment?.mapIds||[];Object.assign(adminScenarioEditData,rest)}
+function bandBonusEditorPreview(bf,en){const cols=[2,3,4,5];const d=bandBonusDie(bf);return `<div id="seBonusPreview" class="bb-table bb-preview"><div class="bb-kick">${en?'PREVIEW · FIGHTERS TO ENGAGE':'APERÇU · COMBATTANTS À ENGAGER'}</div><div class="bb-grid" style="grid-template-columns:auto repeat(${cols.length},1fr)"><span></span>${cols.map(c=>`<b class="bb-h">${c} ${en?'bands':'bandes'}</b>`).join('')}${[6,8,10,14].map(n=>`<span class="bb-n">${n} ${en?'fighters':'combattants'}</span>${cols.map(c=>`<b>${bandBonusCount(bf,n,c)}${d?'+':''}</b>`).join('')}`).join('')}</div></div>`}
 async function saveScenarioEditor(){
   const en=siteLanguage==='en';
   const v=id=>document.getElementById(id)?.value||'';
@@ -2100,6 +2104,7 @@ function scenarioEditorPanel(){
        <option value="custom" ${(d.bandsFormula?.mode||'custom')==='custom'?'selected':''}>${en?'Custom (you choose)':'Custom (tu choisis)'}</option>
        <option value="random" ${d.bandsFormula?.mode==='random'?'selected':''}>${en?'Random (dice formula)':'Random (formule de dé)'}</option>
        <option value="hybrid" ${d.bandsFormula?.mode==='hybrid'?'selected':''}>Hybrid</option>
+       <option value="bonus" ${d.bandsFormula?.mode==='bonus'?'selected':''}>${en?'X + (Band Bonus − Y) — multiplayer':'X + (Band Bonus − Y) — multijoueur'}</option>
      </select></div>
      ${(d.bandsFormula?.mode||'custom')==='custom'?`<div class="scn-field"><label>${en?'Value shown to players':'Valeur affichée aux joueurs'}</label>${customTextToolbarMarkup('seFormulaCustomText')}<textarea id="seFormulaCustomText" class="scn-autogrow" rows="2" oninput="autoGrowTextarea(this)" placeholder="${en?'e.g. 5 fighters / All of your warband':'ex. 5 combattants / Toute la bande'}">${esc(d.bandsFormula?.customText||'')}</textarea><small class="muted">${en?'Shown exactly as typed — never calculated. The house convention: select a fixed/custom-chosen part and color it green; select a random/dice part and color it yellow.':'Affiché tel que saisi — jamais calculé. Convention maison : sélectionne une partie fixe/choisie et mets-la en vert ; sélectionne une partie random/dé et mets-la en jaune.'}</small></div>`:''}
      ${d.bandsFormula?.mode==='random'?`<div class="scn-row2">
@@ -2111,6 +2116,10 @@ function scenarioEditorPanel(){
        <div class="scn-field"><label>${en?'Fixed base (X)':'Chiffre fixe (X)'}</label><input id="seFormulaHybridBase" type="number" min="0" max="50" value="${d.bandsFormula?.hybridBase??0}"></div>
        <div class="scn-field"><label>${en?'+1 roll of (DY faces)':'+1 jet de (DY faces)'}</label><input id="seFormulaHybridDie" type="number" min="2" max="100" value="${d.bandsFormula?.hybridDieFaces??6}"></div>
      </div><p class="muted" style="font-size:11.5px;margin:4px 0 0">${en?'Plus half of that warband’s total fighters, automatically. Shown to players with the fixed base in green and the die roll in yellow, automatically.':'Plus la moitié du total de combattants de cette bande, automatiquement. Affiché aux joueurs avec le chiffre fixe en vert et le jet de dé en jaune, automatiquement.'}</p>`:''}
+     ${d.bandsFormula?.mode==='bonus'?`<div class="scn-row2">
+       <div class="scn-field"><label>${en?'Base X (guaranteed fighters)':'Base X (combattants garantis)'}</label><input id="seFormulaBonusBase" type="number" min="0" max="50" inputmode="numeric" value="${d.bandsFormula?.bonusBase??4}" oninput="syncScenarioFormulaFieldsToDraft();const b=document.getElementById('seBonusPreview');if(b)b.outerHTML=bandBonusEditorPreview(adminScenarioEditData.bandsFormula,${en})"></div>
+       <div class="scn-field"><label>${en?'Extra die (optional)':'Dé en plus (facultatif)'}</label><select id="seFormulaBonusDie" onchange="syncScenarioFormulaFieldsToDraft();const b=document.getElementById('seBonusPreview');if(b)b.outerHTML=bandBonusEditorPreview(adminScenarioEditData.bandsFormula,${en})"><option value="0" ${!Number(d.bandsFormula?.bonusDieFaces)?'selected':''}>${en?'None':'Aucun'}</option><option value="3" ${Number(d.bandsFormula?.bonusDieFaces)===3?'selected':''}>1D3</option><option value="6" ${Number(d.bandsFormula?.bonusDieFaces)===6?'selected':''}>1D6</option></select></div>
+     </div><p class="muted" style="font-size:11.5px;margin:4px 0 0">${en?'Band Bonus = half of the warband (rounded up), without Hired Swords and Dramatis Personae, who are always a bonus. Y = 0 with 2 warbands, otherwise the number of warbands in the game. The bracket never goes below 0, so X is the minimum.':'Band Bonus = la moitié de la bande (arrondie au supérieur), sans les Hired Swords ni les Dramatis Personae, toujours en bonus. Y = 0 à 2 bandes, sinon le nombre de bandes de la partie. La parenthèse ne descend jamais sous 0 : X est le minimum.'}</p>${bandBonusEditorPreview(d.bandsFormula,en)}`:''}
      <div class="scn-field"><label>${en?'Adjacent text (shown next to the box, not inside it)':'Texte adjacent (affiché à côté de l’encart, pas dedans)'}</label>${customTextToolbarMarkup('seFormulaAdjacentText')}<textarea id="seFormulaAdjacentText" class="scn-autogrow" rows="2" oninput="autoGrowTextarea(this)" placeholder="${en?'Optional — extra explanation or exceptions, e.g. \'The Lance may include 1 additional warrior for every 2 warriors in its warband size.\'':'Facultatif — explication ou exception supplémentaire, ex. « La Lance peut inclure 1 guerrier de plus pour 2 guerriers dans sa bande. »'}">${esc(d.bandsFormula?.adjacentText||'')}</textarea></div>
    </section>
 
@@ -2571,12 +2580,27 @@ function scenarioTooLong(b,en){const out=[];const get=(o,path)=>path.split('.').
  (b.rewards||[]).forEach((r,i)=>{if(String(r||'').length>8000)out.push(`${en?'Reward':'Récompense'} ${i+1} ${String(r).length}/8000`)});
  return out}
 
+// V-BANDBONUS: scenarios whose hand-written formula says "half of the
+// warband" can be switched in one go to the "X + (Band Bonus − Y)" mode.
+// The hand-written text is kept, so switching back to Custom restores it.
+function bandBonusPlain(t){return String(t||'').replace(/<[^>]*>/g,' ').replace(/\[[^\]]*\]/g,' ').replace(/\s+/g,' ').trim()}
+function bandBonusConvertible(s){const bf=s?.bandsFormula||{};if(bf.mode&&bf.mode!=='custom')return false;return /moiti[ée]\s+(de\s+)?(la|ta|sa|leur|votre)?\s*bande|half\s+(of\s+)?(the|your|their|its)?\s*warband/i.test(bandBonusPlain(bf.customText))}
+function bandBonusGuess(t){const p=bandBonusPlain(t);const die=p.match(/\b1?\s*[dD]\s*(3|6)\b/);const rest=p.replace(/\b\d*\s*[dD]\s*\d+\b/g,' ');const n=rest.match(/\b(\d{1,2})\b/);return {base:n?Number(n[1]):0,die:die?Number(die[1]):0}}
+let bandBonusConvertPick=null;
+function bandBonusConvertMarkup(list,en){const rows=(list||[]).filter(bandBonusConvertible);if(!rows.length)return '';if(!bandBonusConvertPick)bandBonusConvertPick={};
+  return `<div class="bb-convert"><b>${en?`${rows.length} scenario(s) still say “half of the warband” in plain text`:`${rows.length} scénario(s) disent encore « moitié de la bande » en texte`}</b><p class="muted">${en?'Tick the ones to switch to X + (Band Bonus − Y). Check X: it is read from your text. Your text is kept: switching back to Custom restores it.':'Coche ceux à passer en X + (Band Bonus − Y). Vérifie X : il est lu dans ton texte. Ton texte est gardé : repasser en Personnalisé le remet.'}</p>${rows.map(s=>{const g=bandBonusGuess(s.bandsFormula?.customText);const id=esc(s.id);return `<label class="bb-conv-row"><input type="checkbox" class="bbConvCb" value="${id}" checked><span><strong>${esc(s.name)}</strong><small class="muted">${esc(bandBonusPlain(s.bandsFormula?.customText).slice(0,90))}</small></span><span class="bb-conv-to">→ X <input type="number" min="0" max="50" class="bbConvX" data-id="${id}" value="${g.base}" inputmode="numeric"> ${g.die?`+ 1D${g.die}`:''}<input type="hidden" class="bbConvD" data-id="${id}" value="${g.die}"> + (Band Bonus − Y)</span></label>`}).join('')}<button type="button" class="button" onclick="bandBonusConvertRun()">${en?'Convert the ticked scenarios':'Convertir les scénarios cochés'}</button></div>`}
+async function bandBonusConvertRun(){const en=siteLanguage==='en';const ids=[...document.querySelectorAll('.bbConvCb:checked')].map(c=>c.value);if(!ids.length){toast(en?'Nothing ticked':'Rien de coché');return}let ok=0,ko=0;
+  for(const sid of ids){try{const x=Number(document.querySelector(`.bbConvX[data-id="${CSS.escape(sid)}"]`)?.value)||0;const d=Number(document.querySelector(`.bbConvD[data-id="${CSS.escape(sid)}"]`)?.value)||0;const {scenario}=await window.MordheimundaAPI.adminGetScenario(sid);const {id,status,createdAt,updatedAt,...body}=scenario;body.bandsFormula={...(body.bandsFormula||{}),mode:'bonus',bonusBase:Math.max(0,Math.min(50,x)),bonusDieFaces:[3,6].includes(d)?d:0};await window.MordheimundaAPI.adminUpdateScenario(sid,body);ok++}catch(e){ko++}}
+  adminScenariosCache=null;try{loadScenarios()}catch(e){}try{render('admin')}catch(e){}
+  toast(en?`${ok} scenario(s) converted${ko?` · ${ko} failed`:''}`:`${ok} scénario(s) converti(s)${ko?` · ${ko} échec(s)`:''}`,5000)}
+
 // V-IMGLIGHT: re-compress the heavy scenario pictures and deployment map
-// images already online (max 1000 px, WebP or JPEG), then save them back.
+// images already online (max 2000 px for scenarios, 1000 px for maps,
+// WebP or JPEG), then save them back — only when it really gets lighter.
 async function adminLightenPictures(){const en=siteLanguage==='en';const LIMIT=150000;let done=0,saved=0,failed=0;
   toast(en?'Lightening pictures…':'Allègement des images…',4000);
   for(const s0 of (adminScenariosCache||[])){try{const {scenario}=await window.MordheimundaAPI.adminGetScenario(s0.id);const t=scenario?.thumbnail;if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;
-    const out=await imgShrink(t,1000,0.8);if(!out)continue;const {id,status,createdAt,updatedAt,...body}=scenario;body.thumbnail=out;await window.MordheimundaAPI.adminUpdateScenario(s0.id,body);done++;saved+=t.length-out.length}catch(e){failed++}}
+    const out=await imgShrink(t,2000,0.85);if(!out||out.length>=t.length)continue;const {id,status,createdAt,updatedAt,...body}=scenario;body.thumbnail=out;await window.MordheimundaAPI.adminUpdateScenario(s0.id,body);done++;saved+=t.length-out.length}catch(e){failed++}}
   const asData=async u=>{if(typeof u!=='string')return null;if(u.startsWith('data:'))return u;if(!u.startsWith('/api/'))return null;const b=await (await fetch(u,{credentials:'same-origin'})).blob();return await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result||''));fr.onerror=()=>ok(null);fr.readAsDataURL(b)})};
   for(const m of (DEPLOYMENT_MAPS_CACHE||[])){try{const t=await asData(m.image);if(typeof t!=='string'||!t.startsWith('data:')||t.length<LIMIT)continue;const out=await imgShrink(t,1000,0.8);if(!out)continue;
     await window.MordheimundaAPI.adminUpdateDeploymentMap(m.id,{name:m.name,image:out});done++;saved+=t.length-out.length}catch(e){failed++}}
