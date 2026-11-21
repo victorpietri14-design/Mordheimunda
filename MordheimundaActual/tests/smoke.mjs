@@ -1953,6 +1953,22 @@ await test('[desktop] recovery: cleared when the game ends (Wrap-up), and can be
   expect(out.hasBtn,'a fighter in recovery has a quick "recovered" button in the selection');
   expect(out.hurt===false&&out.dead===true,'ending the game clears recovery for those who missed it, not death: '+JSON.stringify(out));
 });
+await test('[desktop] coating: "only these weapons" mode, and the Reference says "Available for"',null,async page=>{
+  await seed(page);
+  await page.evaluate(()=>ensureMoreCode());
+  const out=await page.evaluate(()=>{const bases=coveringBaseCandidates();const sw=bases.find(b=>/^sword$/i.test(b.name))||bases[0];const ax=bases.find(b=>b!==sw);
+    const cov={name:'Test Coat',covering:{mult:2,only:[sw.name],excluded:[]}};
+    const onlyOk=coveringAppliesTo(cov,sw)&&!coveringAppliesTo(cov,ax);
+    const exCov={name:'Ex Coat',covering:{mult:2,excluded:[sw.name]}};const exOk=!coveringAppliesTo(exCov,sw)&&coveringAppliesTo(exCov,ax);
+    const html=customCoveringEditor(cov);const box=document.createElement('div');box.innerHTML=html;document.body.appendChild(box);
+    const ticked=[...box.querySelectorAll('.customCovWeapon:checked')].map(x=>x.dataset.name);const mode=box.querySelector('input[name="customCovMode"]:checked')?.value;
+    const read=readCoveringFields();box.remove();
+    const orig=window.coveringList;window.coveringList=()=>[cov];const ref=JSON.stringify(coveringReferenceEntries());window.coveringList=orig;
+    return {onlyOk,exOk,ticked,mode,readOnly:read.only,ref:/Available for|Disponible pour/.test(ref)&&ref.includes(sw.name)}});
+  expect(out.onlyOk&&out.exOk,'only-list and except-list both apply: '+JSON.stringify(out));
+  expect(out.mode==='only'&&out.ticked.length===1&&JSON.stringify(out.readOnly)===JSON.stringify(out.ticked),'the editor shows and saves the only-list: '+JSON.stringify(out));
+  expect(out.ref,'the Reference says "Available for" with the weapons');
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

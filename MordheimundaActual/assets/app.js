@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0886.0';
+const APP_BUILD='110.0887.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13910,7 +13910,7 @@ function customWeaponEditor(w){
 // ticked by default; only the unticked ones are stored, so a weapon added
 // later is covered too).
 function coveringBaseCandidates(){const by=new Map();[...D.weapons.filter(w=>!w.hidden),...allCustomEquipmentList()].forEach(w=>{const k=normName(w?.name);if(k&&!by.has(k)&&coveringEligibleBase(w))by.set(k,w)});return [...by.values()].sort((a,b)=>a.name.localeCompare(b.name))}
-function readCoveringFields(){const n=id=>Math.trunc(Number($('#'+id)?.value||0))||0;const m=Number($('#customCovMult')?.value);return {mult:Number.isFinite(m)&&m>0?Math.round(m*100)/100:1,flat:n('customCovFlat'),range:n('customCovRange'),strength:n('customCovStrength'),ap:n('customCovAp'),damage:n('customCovDamage'),traits:customEquipmentTraitDraft.slice(),heroesOnly:!!$('#customCovHeroes')?.checked,excluded:[...document.querySelectorAll('.customCovWeapon')].filter(x=>!x.checked).map(x=>x.dataset.name)}}
+function readCoveringFields(){const n=id=>Math.trunc(Number($('#'+id)?.value||0))||0;const m=Number($('#customCovMult')?.value);return {mult:Number.isFinite(m)&&m>0?Math.round(m*100)/100:1,flat:n('customCovFlat'),range:n('customCovRange'),strength:n('customCovStrength'),ap:n('customCovAp'),damage:n('customCovDamage'),traits:customEquipmentTraitDraft.slice(),heroesOnly:!!$('#customCovHeroes')?.checked,...(()=>{const all=[...document.querySelectorAll('.customCovWeapon')];const onlyMode=document.querySelector('input[name="customCovMode"]:checked')?.value==='only';return onlyMode?{only:all.filter(x=>x.checked).map(x=>x.dataset.name),excluded:[]}:{excluded:all.filter(x=>!x.checked).map(x=>x.dataset.name)}})()}}
 function coveringPreviewMarkup(w,base,fromDom=true){const en=siteLanguage==='en';if(!base){const sel=$('#customCovPreviewBase')?.value;const bases=coveringBaseCandidates();base=(sel&&bases.find(b=>b.name===sel))||bases.find(b=>normName(b.name)==='sword')||bases[0]}if(!base)return '';const live=fromDom&&!!$('#customCovMult');const cov={name:((live?$('#customName')?.value:w?.name)||w?.name||(en?'Covering':'Revêtement')).trim(),rarity:((live?$('#customRarity')?.value:w?.rarity)||'').trim(),rulesText:'',covering:live?readCoveringFields():{...(w?.covering||{}),mult:w?coveringMult(w):2,traits:customEquipmentTraitDraft.slice()}};const v=coveredWeapon(base,cov);const row=(it,label)=>`<div class="covering-preview-row"><small>${label}</small>${weaponProfileMarkup({...it,customEquipmentId:'preview'})}</div>`;return (row(base,`${esc(base.name)} · ${Number(base.price||0)} GC`)+row(v,`◆ ${esc(v.name)} · ${v.price} GC${v.rarity?' · '+esc(v.rarity):''}`)).replace(/data-ref-category="equipment"[^>]*>/g,'>')}
 function refreshCoveringPreview(){const box=$('#customCoveringPreview');if(box)box.innerHTML=coveringPreviewMarkup(null)}
 // Secondary profile fields for the dual-profile checkbox above (V-DUALPROFILE).
@@ -15744,7 +15744,10 @@ function coveringList(){
 function coveringFind(id,name){const all=coveringList();return (id&&all.find(c=>c.customEquipmentId===id))||(name&&all.find(c=>normName(c.name)===normName(name)))||null}
 function coveringIsMelee(p){return !!p&&/^\s*melee\b/i.test(String(p.range||''))}
 function coveringEligibleBase(w){if(!w||isCovering(w)||w.coveredVariant||w.bandOnlyIntrinsic||w.hidden)return false;if(COVERING_NEVER.has(normName(w.name)))return false;return coveringIsMelee(w.profile)||coveringIsMelee(w.profile2)}
-function coveringAppliesTo(cov,w){if(!coveringEligibleBase(w))return false;const ex=Array.isArray(cov?.covering?.excluded)?cov.covering.excluded:[];return !ex.some(n=>normName(n)===normName(w.name))}
+// V-COVONLY: a covering lists either the weapons it can NOT cover (excluded,
+// new weapons are covered by default) or only the ones it CAN (only).
+function coveringOnlyList(cov){const o=cov?.covering?.only;return Array.isArray(o)?o:null}
+function coveringAppliesTo(cov,w){if(!coveringEligibleBase(w))return false;const only=coveringOnlyList(cov);if(only)return only.some(n=>normName(n)===normName(w.name));const ex=Array.isArray(cov?.covering?.excluded)?cov.covering.excluded:[];return !ex.some(n=>normName(n)===normName(w.name))}
 // Adds a signed modifier to one profile value, keeping its notation:
 // Melee 2 +1 → Melee 3 · Melee 1 −2 → Melee -1 · S +1 → S+1 · S −1 → S-1 · S+2 +1 → S+3 · 4 +1 → 5 · AP "-" −1 → -1
 // · AP +1 −1 → - · Damage 1 +1 → 2 · D3 +1 → D3+1. A value it can't read
@@ -19612,7 +19615,7 @@ function coveringReferenceEntries(){let list=[];try{list=coveringList()}catch(e)
   const lines=[
    `${en?'Effect on the weapon':'Effet sur l’arme'} : ${coveringSummary(c)} ${en?'(× the weapon’s price)':'(× le prix de l’arme)'}`,
    `${en?'Rarity':'Rareté'} : ${c.rarity||(en?'as the weapon':'celle de l’arme')}`,
-   `${en?'Applies to':'S’applique à'} : ${en?'every close-combat weapon':'toutes les armes de corps à corps'}${ex.length?` ${en?'except':'sauf'} ${ex.join(', ')}`:''}`,
+   (()=>{const only=coveringOnlyList(c);if(only)return `${en?'Available for':'Disponible pour'} : ${only.length?only.join(', '):(en?'no weapon':'aucune arme')}`;let inc=[];try{inc=coveringBaseCandidates().filter(b=>coveringAppliesTo(c,b)).map(b=>b.name)}catch(e){}if(ex.length&&inc.length&&inc.length<ex.length)return `${en?'Available for':'Disponible pour'} : ${inc.join(', ')}`;return `${en?'Applies to':'S’applique à'} : ${en?'every close-combat weapon':'toutes les armes de corps à corps'}${ex.length?` ${en?'except':'sauf'} ${ex.join(', ')}`:''}`})(),
    `${en?'Band List of':'Band List de'} : ${bands.length?bands.join(', '):(en?'no warband':'aucune warband')} · ${en?'Market':'Marché'} : ${c.market?(en?'yes':'oui'):(en?'no':'non')}${coveringHeroesOnly(c)?` · ${en?'Heroes only':'Héros seulement'}`:''}`];
   if(String(c.rulesText||'').trim())lines.push(String(c.rulesText).trim());
   return {id:coveringRefSlug(c.name),name:c.name,category:en?'Coverings':'Revêtements',text:lines.join('\n\n'),lines:1,coveringName:c.name}})}
