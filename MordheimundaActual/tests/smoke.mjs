@@ -1969,6 +1969,21 @@ await test('[desktop] coating: "only these weapons" mode, and the Reference says
   expect(out.mode==='only'&&out.ticked.length===1&&JSON.stringify(out.readOnly)===JSON.stringify(out.ticked),'the editor shows and saves the only-list: '+JSON.stringify(out));
   expect(out.ref,'the Reference says "Available for" with the weapons');
 });
+await test('[desktop] coating restrictions: Henchmen allowed, "only for Undead", profile "Can’t use coated weapons"',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const hw=f.warriors.find(w=>w.type==='Henchman');
+    const mk=(id,extra={})=>({...hw,profile:(hw.profile||[]).slice(),baseProfile:(hw.profile||[]).slice(),sourceName:hw.name,wid:hw.id,instance:id,name:id,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[],...extra});
+    r.fighters=[mk('Plain'),mk('Dead',{ruleNames:['Undead'],rules:'Undead'})];save(true);const fs=activeRoster().fighters;
+    const open={name:'Open Coat',covering:{mult:2,heroesOnly:false}};
+    const cursed={name:'Cursed',covering:{mult:1,heroesOnly:false,onlyFor:['Undead']}};
+    const a=!coveringBlockedFor(fs[0],open);
+    const blockedHuman=coveringBlockedFor(fs[0],cursed);const keepR=hw.ruleNames,keepS=hw.rules;hw.ruleNames=[...(hw.ruleNames||[]),'Undead'];hw.rules=String(hw.rules||'')+', Undead';const okUndead=!coveringBlockedFor(fs[0],cursed);hw.ruleNames=keepR;hw.rules=keepS;const b=blockedHuman&&okUndead;
+    hw.noCoatings=true;const c=coveringBlockedFor(fs[0],open);const why=coveringBlockReason(fs[0],open);delete hw.noCoatings;
+    return {a,b,c,why}});
+  expect(out.a,'a Henchman can take a coating that is not Heroes-only');
+  expect(out.b,'"only for Undead" blocks others and allows Undead: '+JSON.stringify(out));
+  expect(out.c&&/coated|revêtement/.test(out.why),'a profile ticked "Can’t use coated weapons" is blocked: '+out.why);
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

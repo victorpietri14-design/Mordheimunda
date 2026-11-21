@@ -996,6 +996,7 @@ function saveAdminWarrior(idx){
     bannedExceptions:bannedExceptionsRead(),
     stashCategories:stashCategoriesRead(),
     noStartVeteran:!!$('#cfNoStartVet')?.checked,
+    noCoatings:!!$('#cfNoCoatings')?.checked,
     description:($('#awDescription')?.value||'')
   };
   w.rules=w.ruleNames.join(', ');
@@ -1078,6 +1079,7 @@ function adminWarriorFormMarkup(w,idx){
   ${bannedCategoriesEditorMarkup(w)}
   ${stashCategoriesEditorMarkup(w)}
   ${noStartVetEditorMarkup(w)}
+  ${noCoatingsEditorMarkup(w)}
   <details class="custom-collapse"${String(w?.description||'').trim()?' open':''}><summary><span>DESCRIPTION</span><small>${String(w?.description||'').trim()?(en?'Shown on the profile':'Affichée sur le profil'):(en?'Empty':'Vide')}</small></summary>${customTextToolbarMarkup('awDescription')}<textarea id="awDescription" class="wide-textarea" rows="4">${esc(w?.description||'')}</textarea><button type="button" class="button secondary small desc-clear" onclick="const t=document.getElementById('awDescription');if(t)t.value=''">✕ ${en?'Clear the description':'Effacer la description'}</button></details>
   <div class="custom-actions"><button type="button" class="button secondary" onclick="adminCancelWarrior()">${en?'Cancel':'Annuler'}</button><button type="button" class="button primary" onclick="saveAdminWarrior(${idx})">${en?'Apply':'Appliquer'}</button></div>`;
 }
