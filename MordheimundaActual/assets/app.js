@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0891.0';
+const APP_BUILD='110.0892.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6832,7 +6832,10 @@ function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||!root)retur
 function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}if(mtServerOff)return; // known translations still apply; only new requests wait
   const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
 function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src&&!target.el.querySelector('[data-mt-done]')&&!target.el.closest('[data-mt-done]')){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.__mtSrc=src;target.el.classList.add('mt-done');mtAddEditButton(target.el)}}else if(target.node.isConnected&&target.node.nodeValue===src&&!target.node.parentElement?.closest('.mt-done')){target.node.nodeValue=fr;target.node.__mtDone=true;if(target.node.parentElement)target.node.parentElement.dataset.mtDone='1'}}
-async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;
+let mtInFlight=0;
+function mtBusy(){return mtPending.size>0||!!mtTimer||mtInFlight>0}
+async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;mtInFlight++;try{await mtFlushRun(batch)}finally{mtInFlight--}}
+async function mtFlushRun(batch){
   for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){if(mtServerOff)return;const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
     try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;if(r?.capped){mtServerOff=true;try{localStorage.setItem('mu_mt_capped',mtTodayKey())}catch(e){}}const tr=r?.translations||{};
       chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){
@@ -18064,7 +18067,7 @@ function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesB
     <label class="custom-check"><input type="checkbox" ${rulesBookletBig?'checked':''} onchange="rulesBookletBig=this.checked;openRulesBooklet()"> <span><b>${en?'Very large print':'Très gros caractères'}</b></span></label>
     <div class="rb-since"><label class="custom-field"><span>${en?'Mark changes made since':'Signaler les changements depuis le'}</span><input type="date" value="${sinceIso}" onchange="rulesBookletSetSince(this.value)"></label><small class="muted">${en?'By default: the last time you printed the booklet.':'Par défaut : la dernière fois que tu as imprimé le livret.'} ${chs.filter(changed).length?`<b>${chs.filter(changed).length} ${en?'chapter(s) changed':'chapitre(s) modifié(s)'}</b>`:(en?'No change since that date.':'Aucun changement depuis cette date.')}</small>
      <label class="custom-check"><input type="checkbox" ${rulesBookletOnlyChanged?'checked':''} onchange="rulesBookletOnlyChanged=this.checked;openRulesBooklet()"> <span><b>${en?'Print only the changed chapters':'N’imprimer que les chapitres modifiés'}</b></span></label></div>
-    <div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
+    ${en?'':`<p class="rb-mt" id="rbMt"></p>`}<div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" id="rbPrintBtn" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
    </div>
    <div class="rb-book">
     <section class="rb-cover"><div class="rb-cover-kick">MORDHEIMUNDA</div><h1>${en?'Rules: The Game':'Règles : le jeu'}</h1><p class="rb-cover-date">${en?'Version of':'Version du'} ${esc(date)}</p>
@@ -18074,9 +18077,18 @@ function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesB
    </div>
    <div class="rb-foot">Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${esc(date)}</div>
   </div>`}
+let rbMtTimer=null;
+function rulesBookletWatchMt(){clearInterval(rbMtTimer);let calm=0;const tick=()=>{const box=document.getElementById('rbMt'),btn=document.getElementById('rbPrintBtn');if(!box||!document.querySelector('.rb-book')){clearInterval(rbMtTimer);return}
+  const busy=mtBusy();if(!busy)calm++;else calm=0;
+  if(busy||calm<2){box.textContent='⏳ Traduction automatique en cours… le livret s’imprimera entièrement en français.';box.className='rb-mt busy';if(btn)btn.disabled=true;if(!busy)try{autoTranslateScan(document.getElementById('content'))}catch(e){}}
+  else{const left=[...document.querySelectorAll('.rb-book .rule-page-text p,.rb-book .rule-page-text li')].filter(el=>!el.closest('.mt-done')&&mtLooksEnglishRule(el.textContent)).length;box.textContent=left?`✓ Traduction terminée (${left} passage(s) restent en anglais : traduction automatique indisponible ou en pause).`:'✓ Traduction terminée : tout est en français.';box.className='rb-mt done';if(btn)btn.disabled=false;clearInterval(rbMtTimer)}};
+  rbMtTimer=setInterval(tick,800);tick()}
 function rulesBookletToggle(id,on){if(on)rulesBookletOff.delete(id);else rulesBookletOff.add(id);openRulesBooklet()}
 async function openRulesBooklet(){try{closeModal()}catch(e){}try{if(typeof ruleOverridesCache==='undefined'||ruleOverridesCache===null)await loadRuleOverrides()}catch(e){}
   const c=$('#content');if(!c)return;c.innerHTML=rulesBookletMarkup();try{window.scrollTo(0,0)}catch(e){}
+  // V-BOOKLETMT: in French, English rule pages are translated on the fly;
+  // the whole booklet is sent for translation now and Print waits for it.
+  try{if(siteLanguage==='fr'&&mtEnabled){autoTranslateScan(c);rulesBookletWatchMt()}}catch(e){}
   // Footer printed in the page margin (never over the text).
   try{const en=siteLanguage==='en';let st=document.getElementById('rbPageStyle');if(!st){st=document.createElement('style');st.id='rbPageStyle';document.head.appendChild(st)}const foot=`Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${rulesBookletDate()}`.replace(/["\\]/g,'');st.textContent=`@media print{@page{@bottom-left{content:"${foot}";font:9pt Arial,sans-serif;color:#555}}}`}catch(e){}}
 function openPrintChooser(){const en=siteLanguage==='en';const r=activeRoster();const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;

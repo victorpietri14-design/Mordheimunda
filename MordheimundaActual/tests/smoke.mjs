@@ -2002,6 +2002,17 @@ await test('[desktop] rule changes: highlighted for a week on the site, marked i
   expect(out.site&&out.old,'a correction is highlighted on the site for 7 days only: '+JSON.stringify(out));
   expect(out.only===1&&out.marked>=1,'the booklet can print only the changed chapter, with the change marked: '+JSON.stringify(out));
 });
+await test('[desktop] rules booklet in French: sent for translation, Print waits until it is done',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const api=window.MordheimundaAPI;const orig=api.translate;let calls=0;
+    api.translate=async(texts)=>{calls++;await new Promise(z=>setTimeout(z,300));const tr={};texts.forEach(t=>{tr[t]='[FR] '+t});return {translations:tr}};
+    const prevLang=siteLanguage;siteLanguage='fr';mtServerOff=false;mtEnabled=true;await openRulesBooklet();
+    const disabledAtStart=document.getElementById('rbPrintBtn')?.disabled;
+    for(let i=0;i<40&&document.getElementById('rbPrintBtn')?.disabled;i++)await new Promise(z=>setTimeout(z,250));
+    const enabled=!document.getElementById('rbPrintBtn')?.disabled;const msg=document.getElementById('rbMt')?.textContent||'';const translated=document.querySelectorAll('.rb-book .mt-done').length;
+    api.translate=orig;siteLanguage=prevLang;return {calls,disabledAtStart,enabled,msg,translated}});
+  expect(out.calls>0&&out.disabledAtStart===true&&out.enabled&&out.translated>0&&/Traduction terminée/.test(out.msg),'booklet translation gate: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
