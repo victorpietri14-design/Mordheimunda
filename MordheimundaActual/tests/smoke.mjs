@@ -1991,6 +1991,17 @@ await test('[desktop] rules booklet: every Game chapter on its own pages, chapte
     return {all,groups,fewer,foot:!!document.querySelector('.rb-foot'),cover:!!document.querySelector('.rb-cover .rb-toc')}});
   expect(out.all===out.groups&&out.all>3&&out.fewer===out.all-1&&out.foot&&out.cover,'booklet chapters: '+JSON.stringify(out));
 });
+await test('[desktop] rule changes: highlighted for a week on the site, marked in the booklet, "only changed chapters"',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{await openRulesBooklet();const ch=rulesBookletChapters();const sec=ch[1].sections[0];const pg=sec.content[0].page;const key=ruleOverrideKey(sec.id,pg);
+    ruleOverridesCache=ruleOverridesCache||{};ruleOverridesCache[key]=(sec.content[0].text||'')+' Changed.';ruleOverrideDates[key]=Date.now();
+    const site=rulePageMarkup(sec.content[0],sec.id,[]);ruleOverrideDates[key]=Date.now()-10*864e5;const old=rulePageMarkup(sec.content[0],sec.id,[]);ruleOverrideDates[key]=Date.now();
+    rulesBookletSince=Date.now()-864e5;rulesBookletOnlyChanged=true;await openRulesBooklet();const only=document.querySelectorAll('.rb-chapter').length;const marked=document.querySelectorAll('.rb-book .rule-recent').length;
+    rulesBookletOnlyChanged=false;delete ruleOverridesCache[key];delete ruleOverrideDates[key];
+    return {site:/rule-recent/.test(site)&&/rule-changed-tag/.test(site),old:!/rule-recent/.test(old),only,marked}});
+  expect(out.site&&out.old,'a correction is highlighted on the site for 7 days only: '+JSON.stringify(out));
+  expect(out.only===1&&out.marked>=1,'the booklet can print only the changed chapter, with the change marked: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

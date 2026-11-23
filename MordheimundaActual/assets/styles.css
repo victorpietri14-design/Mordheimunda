@@ -6500,3 +6500,12 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .rb-cover{padding-top:10px}.rb-cover h1{font-size:34px}.rb-cover-date{margin-bottom:16px}.rb-toc li{margin:0 0 6px}.rb-cover-note{margin-top:14px}
 .rb-book table td,.rb-book table th{font-size:.95em!important}
 @media print{.rb-book .rule-page-text{font-size:1em!important}}
+
+/* V-RULECHANGES */
+.rule-recent{border-left:4px solid #e3b341;background:rgba(227,179,65,.08);border-radius:4px;padding-left:6px}
+.rule-changed-tag{display:inline-block;font:700 11px 'IBM Plex Mono',monospace;color:#e3b341;letter-spacing:.04em;margin:4px 0 2px 6px}
+.rb-book .rule-recent{border:2px solid #111;border-left:6px solid #111;background:none;padding:4px 8px;margin:8px 0}
+.rb-book .rule-changed-tag{color:#111!important;font-size:12px;border:1px solid #111;border-radius:3px;padding:0 5px;margin:2px 0 4px}
+.rb-ch-changed{color:#111;font-weight:700}
+.rb-replace{margin:6px 0 0;font:italic 13px Georgia,serif;color:#333}
+.rb-since{display:flex;flex-direction:column;gap:4px}
