@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0890.0';
+const APP_BUILD='110.0891.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18076,7 +18076,9 @@ function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesB
   </div>`}
 function rulesBookletToggle(id,on){if(on)rulesBookletOff.delete(id);else rulesBookletOff.add(id);openRulesBooklet()}
 async function openRulesBooklet(){try{closeModal()}catch(e){}try{if(typeof ruleOverridesCache==='undefined'||ruleOverridesCache===null)await loadRuleOverrides()}catch(e){}
-  const c=$('#content');if(!c)return;c.innerHTML=rulesBookletMarkup();try{window.scrollTo(0,0)}catch(e){}}
+  const c=$('#content');if(!c)return;c.innerHTML=rulesBookletMarkup();try{window.scrollTo(0,0)}catch(e){}
+  // Footer printed in the page margin (never over the text).
+  try{const en=siteLanguage==='en';let st=document.getElementById('rbPageStyle');if(!st){st=document.createElement('style');st.id='rbPageStyle';document.head.appendChild(st)}const foot=`Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${rulesBookletDate()}`.replace(/["\\]/g,'');st.textContent=`@media print{@page{@bottom-left{content:"${foot}";font:9pt Arial,sans-serif;color:#555}}}`}catch(e){}}
 function openPrintChooser(){const en=siteLanguage==='en';const r=activeRoster();const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
   openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><div class="warroom-more-list">${r?btn('▤ '+(en?'Warband sheet (A4)':'Feuille de bande (A4)'),'printWarbandSheet(false)'):''}${r?btn('☰ '+(en?'Compact list (one page, for the table)':'Liste compacte (une page, pour la table)'),'printWarbandList()'):''}${r?btn('🂠 '+(en?'Fighter cards (63 × 88 mm, 9 per A4)':'Cartes de combattants (63 × 88 mm, 9 par A4)'),'printWarbandCards()'):''}${btn('📖 '+(en?'Rules booklet (A4, for a ring binder)':'Livret des règles (A4, pour porte-vue)'),'openRulesBooklet()')}${btn('▢ '+(en?'Blank sheet, to fill in by hand':'Fiche vierge, à remplir à la main'),'printWarbandSheet(true)')}${btn('⎙ '+(en?'This page as it is':'Cette page telle quelle'),'window.print()')}${btn('☑ '+(en?'Choose parts of this page…':'Choisir des parties de cette page…'),'openPrintPicker()')}${btn('🗂 '+(en?`Print list (${printListLoad().length})`:`Liste d’impression (${printListLoad().length})`),"navigateApp('/print')")}</div></div>`)}
 // V-PREGAME: before picking the fighters, what still needs doing.

@@ -6487,7 +6487,7 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
  .rb-chapter{break-before:page;margin-top:0}
  .rb-section h2{break-after:avoid}
  .rb-body table,.rb-body .action-card,.rb-body .rule-figure{break-inside:avoid}
- .rb-foot{display:block;position:fixed;bottom:0;left:0;right:0;font:9pt Arial,sans-serif;color:#555!important;border-top:1px solid #bbb;padding-top:3px}
+ .rb-foot{display:none!important}
 }
 
 /* V-BOOKLET 2: readable sizes, nothing from the app chrome on paper */
@@ -6509,3 +6509,12 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .rb-ch-changed{color:#111;font-weight:700}
 .rb-replace{margin:6px 0 0;font:italic 13px Georgia,serif;color:#333}
 .rb-since{display:flex;flex-direction:column;gap:4px}
+
+/* V-BOOKLET-INK: no dark fills on paper — every box, card, table header or
+   tag is white with a thin black border (saves ink, prints on any printer). */
+.rb-book *,.rb-book *::before,.rb-book *::after{background:transparent!important;background-image:none!important;box-shadow:none!important;text-shadow:none!important}
+.rb-book,.rb-book *{color:#111!important;-webkit-print-color-adjust:economy!important;print-color-adjust:economy!important}
+.rb-book .action-card,.rb-book .rule-box,.rb-book .rule-callout,.rb-book blockquote,.rb-book .rule-table,.rb-book table,.rb-book .ac-tag,.rb-book .status-pill,.rb-book .rule-figure,.rb-book [class*="box"],.rb-book [class*="card"],.rb-book [class*="callout"],.rb-book [class*="note"]{border:1px solid #444!important;border-radius:4px}
+.rb-book th{border-bottom:2px solid #111!important;font-weight:700}
+.rb-book .ac-tag .dot,.rb-book .status-pill .dot{border:1px solid #111!important}
+.rb-book img{filter:none}
