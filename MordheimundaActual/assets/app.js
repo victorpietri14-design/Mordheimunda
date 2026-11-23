@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0889.0';
+const APP_BUILD='110.0890.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4004,13 +4004,19 @@ function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleO
     if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;return en}
     if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o'))return fr}
   return null}
+// V-RULECHANGES: when a rule page was last corrected (only the date is kept,
+// never the old text). The site highlights it for a week; the booklet marks
+// every page changed since a chosen date and can print only those chapters.
+let ruleOverrideDates={};const RULE_RECENT_DAYS=7;
+function ruleChangedAt(sectionId,page){let t=ruleOverrideDates[ruleOverrideKey(sectionId,page)];if(!Number.isFinite(t))t=ruleOverrideDates[`${sectionId}:${page}`];return Number.isFinite(t)?t:null}
+function ruleChangeBadge(t){const en=siteLanguage==='en';return `<span class="rule-changed-tag">✱ ${en?'Changed on':'Modifié le'} ${new Date(t).toLocaleDateString(en?'en-GB':'fr-FR',{day:'numeric',month:'short',year:'numeric'})}</span>`}
 async function loadRuleOverrides(){
   if(ruleOverridesLoading||ruleOverridesCache!==null)return;
   ruleOverridesLoading=true;
   try{
     const res=await window.MordheimundaAPI.ruleOverrides();
-    const map={};(res.overrides||[]).forEach(o=>{map[`${o.sectionId}:${o.page}`]=o.text;});
-    ruleOverridesCache=map;
+    const map={};const dates={};(res.overrides||[]).forEach(o=>{map[`${o.sectionId}:${o.page}`]=o.text;if(o.updatedAt)dates[`${o.sectionId}:${o.page}`]=new Date(o.updatedAt).getTime();});
+    ruleOverridesCache=map;ruleOverrideDates=dates;
   }catch(e){ruleOverridesCache=ruleOverridesCache||{};}
   ruleOverridesLoading=false;
   rerenderOverrideHost();
@@ -4028,7 +4034,8 @@ function rulePageMarkup(page,sectionId,headingCollector){
  const isEditing=canEdit&&ruleOverridesEditKey===ruleOverrideKey(sectionId,page.page);
  const editBtn=canEdit?`<button type="button" class="rule-edit-btn" title="${en?'Edit this text (admin)':'Modifier ce texte (admin)'}" onclick="openRuleEdit('${jsq(sectionId)}',${page.page})">✎ ${ruleHasOverride(sectionId,page.page)?(en?'Edited':'Modifié'):(en?'Edit':'Modifier')}</button>`:'';
  const heading=(canEdit&&ruleHasOverride(sectionId,page.page))||editBtn?`<div class="rule-page-heading">${(canEdit&&ruleHasOverride(sectionId,page.page))?`<span class="rule-override-tag">${en?'CORRECTED':'CORRIGÉ'}</span>`:''}${editBtn}</div>`:'';
- return `<section class="rule-page-block" id="rule-page-${page.page}">${heading}${isEditing?ruleEditFormMarkup(sectionId,page.page,text):`<div class="rule-page-text">${ruleTextMarkup(expandRuleAutoBlocks(text,en),{suppressActionUI:sectionId==='actions',pageNum:page.page,collect:headingCollector})}</div>`}</section>`
+ const chT=sectionId?ruleChangedAt(sectionId,page.page):null;const since=typeof rulesBookletSince==='number'&&rulesBookletRendering?rulesBookletSince:Date.now()-RULE_RECENT_DAYS*864e5;const recent=chT&&chT>=since;
+ return `<section class="rule-page-block${recent?' rule-recent':''}" id="rule-page-${page.page}">${recent?ruleChangeBadge(chT):''}${heading}${isEditing?ruleEditFormMarkup(sectionId,page.page,text):`<div class="rule-page-text">${ruleTextMarkup(expandRuleAutoBlocks(text,en),{suppressActionUI:sectionId==='actions',pageNum:page.page,collect:headingCollector})}</div>`}</section>`
 }
 function openRuleEdit(sectionId,page){ruleOverridesEditKey=ruleOverrideKey(sectionId,page);rerenderOverrideHost();setTimeout(()=>{const el=document.getElementById('ruleEditTextarea');if(el){el.focus();el.scrollIntoView({block:'center',behavior:'smooth'})}},30)}
 function cancelRuleEdit(){ruleOverridesEditKey=null;rerenderOverrideHost()}
@@ -4199,7 +4206,7 @@ async function saveRuleEdit(sectionId,page){
  if(!text){toast(en?'Text cannot be empty':'Le texte ne peut pas être vide');return}
  try{
   await window.MordheimundaAPI.adminSaveRuleOverride(sectionId,page,text);
-  ruleOverridesCache=ruleOverridesCache||{};ruleOverridesCache[ruleOverrideKey(sectionId,page)]=text;
+  ruleOverridesCache=ruleOverridesCache||{};ruleOverridesCache[ruleOverrideKey(sectionId,page)]=text;try{ruleOverrideDates[ruleOverrideKey(sectionId,page)]=Date.now()}catch(e){}
   ruleOverridesEditKey=null;rerenderOverrideHost();toast(en?'Rule text updated':'Texte de la règle mis à jour');
  }catch(e){toast(authError(e,en));}
 }
@@ -18039,22 +18046,30 @@ function printWarbandSheet(blank){const en=siteLanguage==='en';const r=blank?nul
 // Every group of the Rules nav becomes a chapter starting on a new sheet
 // (print one-sided: a changed chapter is reprinted and swapped on its own).
 // Large type, black on white, version date in the footer of every page.
-let rulesBookletOff=new Set(),rulesBookletBig=false;
+let rulesBookletOff=new Set(),rulesBookletBig=false,rulesBookletOnlyChanged=false,rulesBookletRendering=false;
+let rulesBookletSince=(()=>{try{const v=Number(localStorage.getItem('mu_booklet_printed'));if(v>0)return v}catch(e){}return Date.now()-RULE_RECENT_DAYS*864e5})();
+function rulesSectionChangedAt(sec){let m=0;(sec.content||[]).forEach(pg=>{const t=ruleChangedAt(sec.id,pg.page);if(t&&t>m)m=t});return m||null}
+function rulesChapterChangedAt(c){let m=0;c.sections.forEach(sec=>{const t=rulesSectionChangedAt(sec);if(t&&t>m)m=t});return m||null}
+function rulesBookletSetSince(v){const t=new Date(v+'T00:00:00').getTime();if(Number.isFinite(t))rulesBookletSince=t;openRulesBooklet()}
+function rulesBookletPrint(){try{localStorage.setItem('mu_booklet_printed',String(Date.now()))}catch(e){}window.print()}
 function rulesBookletDate(){return new Date().toLocaleDateString(siteLanguage==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long',year:'numeric'})}
 function rulesBookletChapters(){const en=siteLanguage==='en';return (RULES_NAV_GROUPS||[]).map(g=>({id:g.id,title:en?(g.en||g.fr):(g.fr||g.en),sections:(g.ids||[]).map(id=>RULES_BOOK.find(s=>s.id===id)).filter(Boolean)})).filter(c=>c.sections.length)}
-function rulesBookletMarkup(){const en=siteLanguage==='en';const chs=rulesBookletChapters();const on=chs.filter(c=>!rulesBookletOff.has(c.id));const date=rulesBookletDate();
-  const chapter=c=>`<section class="rb-chapter"><div class="rb-ch-head"><span class="rb-ch-kick">${en?'Rules: The Game':'Règles : le jeu'}</span><h1>${esc(c.title)}</h1></div>${c.sections.map(sec=>`<article class="rb-section">${c.sections.length===1?'':`<h2>${ruleTitleMarkup(sec.title)}</h2>`}<div class="rb-body">${(sec.content||[]).map(pg=>rulePageMarkup(pg,sec.id,[])).join('')}</div></article>`).join('')}</section>`;
+function rulesBookletMarkup(){rulesBookletRendering=true;try{return rulesBookletMarkupInner()}finally{rulesBookletRendering=false}}
+function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesBookletChapters();const changed=c=>{const t=rulesChapterChangedAt(c);return t&&t>=rulesBookletSince?t:null};const on=chs.filter(c=>!rulesBookletOff.has(c.id)&&(!rulesBookletOnlyChanged||changed(c)));const date=rulesBookletDate();const sinceTxt=new Date(rulesBookletSince).toLocaleDateString(en?'en-GB':'fr-FR',{day:'numeric',month:'long',year:'numeric'});const sinceIso=new Date(rulesBookletSince-new Date(rulesBookletSince).getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  const chapter=c=>`<section class="rb-chapter"><div class="rb-ch-head"><span class="rb-ch-kick">${en?'Rules: The Game':'Règles : le jeu'}${changed(c)?` · <b class="rb-ch-changed">✱ ${en?'changed':'modifié'}</b>`:''}</span><h1>${esc(c.title)}</h1>${rulesBookletOnlyChanged&&changed(c)?`<p class="rb-replace">${en?`Replaces this chapter in your binder (changes since ${esc(sinceTxt)} are marked ✱).`:`Remplace ce chapitre dans ton porte-vue (les changements depuis le ${esc(sinceTxt)} sont marqués ✱).`}</p>`:''}</div>${c.sections.map(sec=>`<article class="rb-section">${c.sections.length===1?'':`<h2>${ruleTitleMarkup(sec.title)}</h2>`}<div class="rb-body">${(sec.content||[]).map(pg=>rulePageMarkup(pg,sec.id,[])).join('')}</div></article>`).join('')}</section>`;
   return `<div class="rb-wrap${rulesBookletBig?' rb-big':''}">
    <div class="rb-tools print-hide">
     <div><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><h2>${en?'Rules booklet (A4)':'Livret des règles (A4)'}</h2><p class="muted">${en?'Print it <b>one-sided</b> and slide the sheets into a ring binder: each chapter starts on a new sheet, so a changed chapter can be reprinted on its own. To get a PDF, pick “Save as PDF” as the printer.':'Imprime-le en <b>recto seul</b> et glisse les feuilles dans un porte-vue : chaque chapitre commence sur une nouvelle feuille, on peut donc réimprimer un chapitre modifié tout seul. Pour un PDF, choisis « Enregistrer au format PDF » comme imprimante.'}</p></div>
     <div class="rb-pick">${chs.map(c=>`<label class="custom-check"><input type="checkbox" ${rulesBookletOff.has(c.id)?'':'checked'} onchange="rulesBookletToggle('${jsq(c.id)}',this.checked)"> <span>${esc(c.title)}</span></label>`).join('')}</div>
     <label class="custom-check"><input type="checkbox" ${rulesBookletBig?'checked':''} onchange="rulesBookletBig=this.checked;openRulesBooklet()"> <span><b>${en?'Very large print':'Très gros caractères'}</b></span></label>
-    <div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" onclick="window.print()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
+    <div class="rb-since"><label class="custom-field"><span>${en?'Mark changes made since':'Signaler les changements depuis le'}</span><input type="date" value="${sinceIso}" onchange="rulesBookletSetSince(this.value)"></label><small class="muted">${en?'By default: the last time you printed the booklet.':'Par défaut : la dernière fois que tu as imprimé le livret.'} ${chs.filter(changed).length?`<b>${chs.filter(changed).length} ${en?'chapter(s) changed':'chapitre(s) modifié(s)'}</b>`:(en?'No change since that date.':'Aucun changement depuis cette date.')}</small>
+     <label class="custom-check"><input type="checkbox" ${rulesBookletOnlyChanged?'checked':''} onchange="rulesBookletOnlyChanged=this.checked;openRulesBooklet()"> <span><b>${en?'Print only the changed chapters':'N’imprimer que les chapitres modifiés'}</b></span></label></div>
+    <div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
    </div>
    <div class="rb-book">
     <section class="rb-cover"><div class="rb-cover-kick">MORDHEIMUNDA</div><h1>${en?'Rules: The Game':'Règles : le jeu'}</h1><p class="rb-cover-date">${en?'Version of':'Version du'} ${esc(date)}</p>
-     <h2>${en?'Contents':'Sommaire'}</h2><ol class="rb-toc">${on.map(c=>`<li><b>${esc(c.title)}</b><small>${c.sections.map(s=>esc(stripCustomTextMarkup?stripCustomTextMarkup(String(s.title||'')):s.title)).join(' · ')}</small></li>`).join('')}</ol>
-     <p class="rb-cover-note">${en?'Each chapter starts on a new sheet. When a rule changes, reprint only that chapter and replace its sheets.':'Chaque chapitre commence sur une nouvelle feuille. Quand une règle change, réimprime seulement ce chapitre et remplace ses feuilles.'}</p></section>
+     <h2>${en?'Contents':'Sommaire'}</h2><ol class="rb-toc">${on.map(c=>`<li><b>${esc(c.title)}</b>${changed(c)?` <span class="rb-ch-changed">✱ ${en?'changed':'modifié'}</span>`:''}<small>${c.sections.map(s=>esc(stripCustomTextMarkup?stripCustomTextMarkup(String(s.title||'')):s.title)).join(' · ')}</small></li>`).join('')}</ol>
+     ${chs.some(changed)?`<p class="rb-cover-note">✱ = ${en?`changed since ${esc(sinceTxt)}: those passages are boxed in the text.`:`modifié depuis le ${esc(sinceTxt)} : ces passages sont encadrés dans le texte.`}</p>`:''}<p class="rb-cover-note">${en?'Each chapter starts on a new sheet. When a rule changes, reprint only that chapter and replace its sheets.':'Chaque chapitre commence sur une nouvelle feuille. Quand une règle change, réimprime seulement ce chapitre et remplace ses feuilles.'}</p></section>
     ${on.map(chapter).join('')}
    </div>
    <div class="rb-foot">Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${esc(date)}</div>
