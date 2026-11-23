@@ -6460,6 +6460,17 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .rb-tools{max-width:820px;margin:0 auto 16px;display:flex;flex-direction:column;gap:10px;background:var(--panel,#1b1c20);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
 .rb-tools h2{margin:2px 0 4px}
 .rb-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 12px}
+.rb-pick{align-items:start}
+.rb-pickbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
+.rb-pick-ch summary{display:flex;align-items:center;gap:8px;cursor:pointer}
+.rb-pick-ch summary .custom-check{flex:1;min-width:0}
+.rb-pick-secs{display:grid;gap:2px;padding:2px 0 8px 26px}
+.rb-pick-ch summary::-webkit-details-marker{display:none}
+.rb-pick-ch summary{list-style:none}
+.rb-pick-ch summary::after{content:"▸";color:var(--muted2);width:14px;text-align:center}
+.rb-pick-ch[open] summary::after{content:"▾"}
+.rb-pick-secs .custom-check{padding-top:4px;padding-bottom:4px;min-height:0}
+.rb-pick-secs .custom-check span{font-size:.92em}
 .rb-book{max-width:820px;margin:0 auto;background:#fff;color:#111;padding:28px 34px;border-radius:6px;font:400 15px/1.6 Georgia,'Times New Roman',serif}
 .rb-book *{color:#111}
 .rb-book h1,.rb-book h2,.rb-book h3{font-family:'IBM Plex Sans',Arial,sans-serif;color:#111}
