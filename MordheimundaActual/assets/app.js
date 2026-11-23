@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0891.0';
+const APP_BUILD='110.0893.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3371,13 +3371,17 @@ function ruleAutoBlock(key,en){
     if(races.length){lines.push(en?'For the races below, the admin has set fixed maximums; they replace the default for the stats filled in (— keeps the default):':'Pour les races ci-dessous, l’admin a fixé des maximums ; ils remplacent celui par défaut pour les caractéristiques remplies (— garde celui par défaut) :');lines.push(ruleAutoTable([en?'Race':'Race',...P],races.map(([k,m])=>[raceMaximumsNames.get(k)||k,...P.map((_,i)=>m[i]===null||m[i]===undefined||m[i]===''?'—':m[i])])))}
     return lines.join('\n')}
   if(key==='quests'){const fname=id=>(D.factions||[]).find(f=>f.id===id)?.displayName||(D.factions||[]).find(f=>f.id===id)?.name||id;
-    return questTrees().filter(t=>(t.quests||[]).length).map(t=>{const who=[];
+    const scoped=t=>{const sc=t.scope||{};return !!((sc.factions||[]).length||(sc.races||[]).length||(sc.fighters||[]).length)};
+    const inBooklet=typeof rulesBookletRendering!=='undefined'&&rulesBookletRendering;
+    const trees=questTrees().filter(t=>(t.quests||[]).length&&!(inBooklet&&scoped(t)));
+    const note=inBooklet&&questTrees().some(scoped)?`\n${en?'Quest trees reserved to a single warband are listed on the site, on that warband’s page.':'Les arbres de quêtes propres à une bande sont sur le site, sur la page de cette bande.'}`:'';
+    return trees.map(t=>{const who=[];
       if(questLeaderOnly(t))who.push(en?'Leader only':'Leader seulement');
       if(t.caster)who.push(en?'Wizards and Priests':'Wizards et Prêtres');
       if((t.skillTrees||[]).length&&!t.ignoreSkills)who.push((en?'Skill tree':'Arbre de compétences')+((t.skillTrees.length>1)?(t.requireAll?(en?'s (all of)':'s (tous)'):(en?'s (one of)':'s (l’un de)')):'')+' : '+t.skillTrees.join(', '));
       const sc=t.scope||{};const res=[...(sc.factions||[]).map(fname),...(sc.races||[]),...(sc.fighters||[]).map(x=>x.name)];
       if(res.length)who.push((en?'Reserved to':'Réservé à')+' : '+res.join(', '));
-      return `[SUBHEAD]${t.icon?t.icon+' ':''}${t.name}[/SUBHEAD]\n${who.join(' · ')||(en?'Everyone':'Tout le monde')}\n`+ruleAutoTable([en?'Quest':'Quête',en?'Objective':'Objectif','XP'],(t.quests||[]).map(q=>[q.name,q.text,q.xp]))}).join('\n')}
+      return `[SUBHEAD]${t.icon?t.icon+' ':''}${t.name}[/SUBHEAD]\n${who.join(' · ')||(en?'Everyone':'Tout le monde')}\n`+ruleAutoTable([en?'Quest':'Quête',en?'Objective':'Objectif','XP'],(t.quests||[]).map(q=>[q.name,q.text,q.xp]))}).join('\n')+note}
   return '';
 }
 function expandRuleAutoBlocks(text,en){return String(text||'').replace(/^\[AUTO ([a-z-]+)\]$/gm,(m,k)=>{try{return ruleAutoBlock(k,en)||m}catch(e){console.warn('Auto rule table failed',k,e);return ''}})}
@@ -6832,7 +6836,10 @@ function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||!root)retur
 function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}if(mtServerOff)return; // known translations still apply; only new requests wait
   const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
 function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src&&!target.el.querySelector('[data-mt-done]')&&!target.el.closest('[data-mt-done]')){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.__mtSrc=src;target.el.classList.add('mt-done');mtAddEditButton(target.el)}}else if(target.node.isConnected&&target.node.nodeValue===src&&!target.node.parentElement?.closest('.mt-done')){target.node.nodeValue=fr;target.node.__mtDone=true;if(target.node.parentElement)target.node.parentElement.dataset.mtDone='1'}}
-async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;
+let mtInFlight=0;
+function mtBusy(){return mtPending.size>0||!!mtTimer||mtInFlight>0}
+async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;mtInFlight++;try{await mtFlushRun(batch)}finally{mtInFlight--}}
+async function mtFlushRun(batch){
   for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){if(mtServerOff)return;const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
     try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;if(r?.capped){mtServerOff=true;try{localStorage.setItem('mu_mt_capped',mtTodayKey())}catch(e){}}const tr=r?.translations||{};
       chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){
@@ -18046,7 +18053,7 @@ function printWarbandSheet(blank){const en=siteLanguage==='en';const r=blank?nul
 // Every group of the Rules nav becomes a chapter starting on a new sheet
 // (print one-sided: a changed chapter is reprinted and swapped on its own).
 // Large type, black on white, version date in the footer of every page.
-let rulesBookletOff=new Set(),rulesBookletBig=false,rulesBookletOnlyChanged=false,rulesBookletRendering=false;
+let rulesBookletOff=new Set(),rulesBookletBig=false,rulesBookletOnlyChanged=false,rulesBookletRendering=false,rulesBookletSectionPages=true;
 let rulesBookletSince=(()=>{try{const v=Number(localStorage.getItem('mu_booklet_printed'));if(v>0)return v}catch(e){}return Date.now()-RULE_RECENT_DAYS*864e5})();
 function rulesSectionChangedAt(sec){let m=0;(sec.content||[]).forEach(pg=>{const t=ruleChangedAt(sec.id,pg.page);if(t&&t>m)m=t});return m||null}
 function rulesChapterChangedAt(c){let m=0;c.sections.forEach(sec=>{const t=rulesSectionChangedAt(sec);if(t&&t>m)m=t});return m||null}
@@ -18056,15 +18063,17 @@ function rulesBookletDate(){return new Date().toLocaleDateString(siteLanguage===
 function rulesBookletChapters(){const en=siteLanguage==='en';return (RULES_NAV_GROUPS||[]).map(g=>({id:g.id,title:en?(g.en||g.fr):(g.fr||g.en),sections:(g.ids||[]).map(id=>RULES_BOOK.find(s=>s.id===id)).filter(Boolean)})).filter(c=>c.sections.length)}
 function rulesBookletMarkup(){rulesBookletRendering=true;try{return rulesBookletMarkupInner()}finally{rulesBookletRendering=false}}
 function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesBookletChapters();const changed=c=>{const t=rulesChapterChangedAt(c);return t&&t>=rulesBookletSince?t:null};const on=chs.filter(c=>!rulesBookletOff.has(c.id)&&(!rulesBookletOnlyChanged||changed(c)));const date=rulesBookletDate();const sinceTxt=new Date(rulesBookletSince).toLocaleDateString(en?'en-GB':'fr-FR',{day:'numeric',month:'long',year:'numeric'});const sinceIso=new Date(rulesBookletSince-new Date(rulesBookletSince).getTimezoneOffset()*6e4).toISOString().slice(0,10);
-  const chapter=c=>`<section class="rb-chapter"><div class="rb-ch-head"><span class="rb-ch-kick">${en?'Rules: The Game':'Règles : le jeu'}${changed(c)?` · <b class="rb-ch-changed">✱ ${en?'changed':'modifié'}</b>`:''}</span><h1>${esc(c.title)}</h1>${rulesBookletOnlyChanged&&changed(c)?`<p class="rb-replace">${en?`Replaces this chapter in your binder (changes since ${esc(sinceTxt)} are marked ✱).`:`Remplace ce chapitre dans ton porte-vue (les changements depuis le ${esc(sinceTxt)} sont marqués ✱).`}</p>`:''}</div>${c.sections.map(sec=>`<article class="rb-section">${c.sections.length===1?'':`<h2>${ruleTitleMarkup(sec.title)}</h2>`}<div class="rb-body">${(sec.content||[]).map(pg=>rulePageMarkup(pg,sec.id,[])).join('')}</div></article>`).join('')}</section>`;
+  const secChanged=sec=>{const t=rulesSectionChangedAt(sec);return t&&t>=rulesBookletSince?t:null};const secsOf=c=>rulesBookletOnlyChanged&&rulesBookletSectionPages?c.sections.filter(secChanged):c.sections;
+  const chapter=c=>`<section class="rb-chapter${rulesBookletSectionPages?' rb-secpages':''}"><div class="rb-ch-head"><span class="rb-ch-kick">${en?'Rules: The Game':'Règles : le jeu'}${changed(c)?` · <b class="rb-ch-changed">✱ ${en?'changed':'modifié'}</b>`:''}</span><h1>${esc(c.title)}</h1>${rulesBookletOnlyChanged&&changed(c)?`<p class="rb-replace">${rulesBookletSectionPages?(en?`Replaces these sub-chapters in your binder (changes since ${esc(sinceTxt)} are marked ✱).`:`Remplace ces sous-chapitres dans ton porte-vue (les changements depuis le ${esc(sinceTxt)} sont marqués ✱).`):(en?`Replaces this chapter in your binder (changes since ${esc(sinceTxt)} are marked ✱).`:`Remplace ce chapitre dans ton porte-vue (les changements depuis le ${esc(sinceTxt)} sont marqués ✱).`)}</p>`:''}</div>${secsOf(c).map(sec=>`<article class="rb-section">${c.sections.length===1?'':`<h2 class="rb-sec-title">${ruleTitleMarkup(sec.title)}${secChanged(sec)?` <span class="rb-ch-changed">✱</span>`:''}</h2>`}<div class="rb-body">${(sec.content||[]).map(pg=>rulePageMarkup(pg,sec.id,[])).join('')}</div></article>`).join('')}</section>`;
   return `<div class="rb-wrap${rulesBookletBig?' rb-big':''}">
    <div class="rb-tools print-hide">
     <div><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><h2>${en?'Rules booklet (A4)':'Livret des règles (A4)'}</h2><p class="muted">${en?'Print it <b>one-sided</b> and slide the sheets into a ring binder: each chapter starts on a new sheet, so a changed chapter can be reprinted on its own. To get a PDF, pick “Save as PDF” as the printer.':'Imprime-le en <b>recto seul</b> et glisse les feuilles dans un porte-vue : chaque chapitre commence sur une nouvelle feuille, on peut donc réimprimer un chapitre modifié tout seul. Pour un PDF, choisis « Enregistrer au format PDF » comme imprimante.'}</p></div>
     <div class="rb-pick">${chs.map(c=>`<label class="custom-check"><input type="checkbox" ${rulesBookletOff.has(c.id)?'':'checked'} onchange="rulesBookletToggle('${jsq(c.id)}',this.checked)"> <span>${esc(c.title)}</span></label>`).join('')}</div>
     <label class="custom-check"><input type="checkbox" ${rulesBookletBig?'checked':''} onchange="rulesBookletBig=this.checked;openRulesBooklet()"> <span><b>${en?'Very large print':'Très gros caractères'}</b></span></label>
     <div class="rb-since"><label class="custom-field"><span>${en?'Mark changes made since':'Signaler les changements depuis le'}</span><input type="date" value="${sinceIso}" onchange="rulesBookletSetSince(this.value)"></label><small class="muted">${en?'By default: the last time you printed the booklet.':'Par défaut : la dernière fois que tu as imprimé le livret.'} ${chs.filter(changed).length?`<b>${chs.filter(changed).length} ${en?'chapter(s) changed':'chapitre(s) modifié(s)'}</b>`:(en?'No change since that date.':'Aucun changement depuis cette date.')}</small>
-     <label class="custom-check"><input type="checkbox" ${rulesBookletOnlyChanged?'checked':''} onchange="rulesBookletOnlyChanged=this.checked;openRulesBooklet()"> <span><b>${en?'Print only the changed chapters':'N’imprimer que les chapitres modifiés'}</b></span></label></div>
-    <div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
+     <label class="custom-check"><input type="checkbox" ${rulesBookletOnlyChanged?'checked':''} onchange="rulesBookletOnlyChanged=this.checked;openRulesBooklet()"> <span><b>${en?'Print only what changed':'N’imprimer que ce qui a changé'}</b></span></label></div>
+    <label class="custom-check"><input type="checkbox" ${rulesBookletSectionPages?'checked':''} onchange="rulesBookletSectionPages=this.checked;openRulesBooklet()"> <span><b>${en?'Each sub-chapter on a new sheet':'Chaque sous-chapitre sur une nouvelle feuille'}</b><small class="muted"> ${en?'(more sheets, but a change only reprints its sub-chapter)':'(plus de feuilles, mais un changement ne réimprime que son sous-chapitre)'}</small></span></label>
+    ${en?'':`<p class="rb-mt" id="rbMt"></p>`}<div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" id="rbPrintBtn" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
    </div>
    <div class="rb-book">
     <section class="rb-cover"><div class="rb-cover-kick">MORDHEIMUNDA</div><h1>${en?'Rules: The Game':'Règles : le jeu'}</h1><p class="rb-cover-date">${en?'Version of':'Version du'} ${esc(date)}</p>
@@ -18074,9 +18083,18 @@ function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesB
    </div>
    <div class="rb-foot">Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${esc(date)}</div>
   </div>`}
+let rbMtTimer=null;
+function rulesBookletWatchMt(){clearInterval(rbMtTimer);let calm=0;const tick=()=>{const box=document.getElementById('rbMt'),btn=document.getElementById('rbPrintBtn');if(!box||!document.querySelector('.rb-book')){clearInterval(rbMtTimer);return}
+  const busy=mtBusy();if(!busy)calm++;else calm=0;
+  if(busy||calm<2){box.textContent='⏳ Traduction automatique en cours… le livret s’imprimera entièrement en français.';box.className='rb-mt busy';if(btn)btn.disabled=true;if(!busy)try{autoTranslateScan(document.getElementById('content'))}catch(e){}}
+  else{const left=[...document.querySelectorAll('.rb-book .rule-page-text p,.rb-book .rule-page-text li')].filter(el=>!el.closest('.mt-done')&&mtLooksEnglishRule(el.textContent)).length;box.textContent=left?`✓ Traduction terminée (${left} passage(s) restent en anglais : traduction automatique indisponible ou en pause).`:'✓ Traduction terminée : tout est en français.';box.className='rb-mt done';if(btn)btn.disabled=false;clearInterval(rbMtTimer)}};
+  rbMtTimer=setInterval(tick,800);tick()}
 function rulesBookletToggle(id,on){if(on)rulesBookletOff.delete(id);else rulesBookletOff.add(id);openRulesBooklet()}
 async function openRulesBooklet(){try{closeModal()}catch(e){}try{if(typeof ruleOverridesCache==='undefined'||ruleOverridesCache===null)await loadRuleOverrides()}catch(e){}
   const c=$('#content');if(!c)return;c.innerHTML=rulesBookletMarkup();try{window.scrollTo(0,0)}catch(e){}
+  // V-BOOKLETMT: in French, English rule pages are translated on the fly;
+  // the whole booklet is sent for translation now and Print waits for it.
+  try{if(siteLanguage==='fr'&&mtEnabled){autoTranslateScan(c);rulesBookletWatchMt()}}catch(e){}
   // Footer printed in the page margin (never over the text).
   try{const en=siteLanguage==='en';let st=document.getElementById('rbPageStyle');if(!st){st=document.createElement('style');st.id='rbPageStyle';document.head.appendChild(st)}const foot=`Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${rulesBookletDate()}`.replace(/["\\]/g,'');st.textContent=`@media print{@page{@bottom-left{content:"${foot}";font:9pt Arial,sans-serif;color:#555}}}`}catch(e){}}
 function openPrintChooser(){const en=siteLanguage==='en';const r=activeRoster();const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;

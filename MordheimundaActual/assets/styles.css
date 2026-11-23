@@ -6518,3 +6518,10 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .rb-book th{border-bottom:2px solid #111!important;font-weight:700}
 .rb-book .ac-tag .dot,.rb-book .status-pill .dot{border:1px solid #111!important}
 .rb-book img{filter:none}
+
+.rb-mt{margin:0;font-size:13px}.rb-mt.busy{color:#e3b341}.rb-mt.done{color:#7fb37a}
+
+/* V-BOOKLET-SEQ: clear sub-chapter numbering, optional one sub-chapter per sheet */
+.rb-sec-title .rule-title-num,.rb-sec-title [class*="num"]{margin-right:.45em}
+@media print{.rb-secpages .rb-section+.rb-section{break-before:page}.rb-secpages .rb-section h2{margin-top:0}}
+.rb-book .rt-num{margin-right:.5em;font-variant-numeric:tabular-nums}
