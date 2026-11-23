@@ -1984,6 +1984,13 @@ await test('[desktop] coating restrictions: Henchmen allowed, "only for Undead",
   expect(out.b,'"only for Undead" blocks others and allows Undead: '+JSON.stringify(out));
   expect(out.c&&/coated|revêtement/.test(out.why),'a profile ticked "Can’t use coated weapons" is blocked: '+out.why);
 });
+await test('[desktop] rules booklet: every Game chapter on its own pages, chapters can be left out',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{await openRulesBooklet();const all=document.querySelectorAll('.rb-chapter').length;const groups=rulesBookletChapters().length;
+    rulesBookletToggle(rulesBookletChapters()[0].id,false);await new Promise(z=>setTimeout(z,50));const fewer=document.querySelectorAll('.rb-chapter').length;rulesBookletOff.clear();
+    return {all,groups,fewer,foot:!!document.querySelector('.rb-foot'),cover:!!document.querySelector('.rb-cover .rb-toc')}});
+  expect(out.all===out.groups&&out.all>3&&out.fewer===out.all-1&&out.foot&&out.cover,'booklet chapters: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

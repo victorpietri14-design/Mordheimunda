@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0888.0';
+const APP_BUILD='110.0889.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4329,7 +4329,7 @@ const tocLinksHtml=tocHeadings.filter(h=>h.level===1).map(h=>`<a href="#${h.id}"
 const hasTocLinks=tocHeadings.some(h=>h.level===1);
 const tocMarkup=hasTocLinks?`<nav class="rules-toc" id="rulesToc"><div class="rules-toc-label">${en?'On this page':'Sur cette page'}</div><div class="rules-toc-links">${tocLinksHtml}</div></nav>`:'<nav class="rules-toc"></nav>';
 $('#content').innerHTML=`<div class="rules-shell-wrap">
-<div class="rules-head"><h1 class="rules-page-title">${en?'Rules: The Game':'Règles : Le Jeu'}</h1><button type="button" class="learn-entry" onclick="learnOpen('')">🎓 ${en?'New to the game? <b>Learn to play</b> in 9 short chapters':'Nouveau ? <b>Apprendre à jouer</b> en 9 chapitres courts'} ›</button><p>${en?'The complete M17 rules — browse by theme in the sidebar, or use the ▤ button on mobile.':'L’intégralité des règles M17 — navigue par thème dans le menu, ou utilise le bouton ▤ sur mobile.'}</p></div>
+<div class="rules-head"><h1 class="rules-page-title">${en?'Rules: The Game':'Règles : Le Jeu'}</h1><button type="button" class="learn-entry" onclick="openRulesBooklet()">📖 ${en?'<b>Printable booklet</b> (A4, large print)':'<b>Livret à imprimer</b> (A4, gros caractères)'} ›</button><button type="button" class="learn-entry" onclick="learnOpen('')">🎓 ${en?'New to the game? <b>Learn to play</b> in 9 short chapters':'Nouveau ? <b>Apprendre à jouer</b> en 9 chapitres courts'} ›</button><p>${en?'The complete M17 rules — browse by theme in the sidebar, or use the ▤ button on mobile.':'L’intégralité des règles M17 — navigue par thème dans le menu, ou utilise le bouton ▤ sur mobile.'}</p></div>
 <div class="rules-shell">
 ${rulesNavSidebarMarkup()}
 <div class="rules-main">
@@ -18035,8 +18035,35 @@ function printWarbandSheet(blank){const en=siteLanguage==='en';const r=blank?nul
   const doc=fr.contentDocument;doc.open();doc.write(sheetDocument(r,blank));doc.close();
   const go=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){const w=window.open('','_blank');if(w){w.document.write(sheetDocument(r,blank));w.document.close();w.print()}}};
   try{(fr.contentDocument.fonts?.ready||Promise.resolve()).then(()=>setTimeout(go,250))}catch(e){setTimeout(go,400)}}
+// ============ V-BOOKLET: "Rules: The Game" as an A4 booklet for a ring binder ============
+// Every group of the Rules nav becomes a chapter starting on a new sheet
+// (print one-sided: a changed chapter is reprinted and swapped on its own).
+// Large type, black on white, version date in the footer of every page.
+let rulesBookletOff=new Set(),rulesBookletBig=false;
+function rulesBookletDate(){return new Date().toLocaleDateString(siteLanguage==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long',year:'numeric'})}
+function rulesBookletChapters(){const en=siteLanguage==='en';return (RULES_NAV_GROUPS||[]).map(g=>({id:g.id,title:en?(g.en||g.fr):(g.fr||g.en),sections:(g.ids||[]).map(id=>RULES_BOOK.find(s=>s.id===id)).filter(Boolean)})).filter(c=>c.sections.length)}
+function rulesBookletMarkup(){const en=siteLanguage==='en';const chs=rulesBookletChapters();const on=chs.filter(c=>!rulesBookletOff.has(c.id));const date=rulesBookletDate();
+  const chapter=c=>`<section class="rb-chapter"><div class="rb-ch-head"><span class="rb-ch-kick">${en?'Rules: The Game':'Règles : le jeu'}</span><h1>${esc(c.title)}</h1></div>${c.sections.map(sec=>`<article class="rb-section">${c.sections.length===1?'':`<h2>${ruleTitleMarkup(sec.title)}</h2>`}<div class="rb-body">${(sec.content||[]).map(pg=>rulePageMarkup(pg,sec.id,[])).join('')}</div></article>`).join('')}</section>`;
+  return `<div class="rb-wrap${rulesBookletBig?' rb-big':''}">
+   <div class="rb-tools print-hide">
+    <div><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><h2>${en?'Rules booklet (A4)':'Livret des règles (A4)'}</h2><p class="muted">${en?'Print it <b>one-sided</b> and slide the sheets into a ring binder: each chapter starts on a new sheet, so a changed chapter can be reprinted on its own. To get a PDF, pick “Save as PDF” as the printer.':'Imprime-le en <b>recto seul</b> et glisse les feuilles dans un porte-vue : chaque chapitre commence sur une nouvelle feuille, on peut donc réimprimer un chapitre modifié tout seul. Pour un PDF, choisis « Enregistrer au format PDF » comme imprimante.'}</p></div>
+    <div class="rb-pick">${chs.map(c=>`<label class="custom-check"><input type="checkbox" ${rulesBookletOff.has(c.id)?'':'checked'} onchange="rulesBookletToggle('${jsq(c.id)}',this.checked)"> <span>${esc(c.title)}</span></label>`).join('')}</div>
+    <label class="custom-check"><input type="checkbox" ${rulesBookletBig?'checked':''} onchange="rulesBookletBig=this.checked;openRulesBooklet()"> <span><b>${en?'Very large print':'Très gros caractères'}</b></span></label>
+    <div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" onclick="window.print()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
+   </div>
+   <div class="rb-book">
+    <section class="rb-cover"><div class="rb-cover-kick">MORDHEIMUNDA</div><h1>${en?'Rules: The Game':'Règles : le jeu'}</h1><p class="rb-cover-date">${en?'Version of':'Version du'} ${esc(date)}</p>
+     <h2>${en?'Contents':'Sommaire'}</h2><ol class="rb-toc">${on.map(c=>`<li><b>${esc(c.title)}</b><small>${c.sections.map(s=>esc(stripCustomTextMarkup?stripCustomTextMarkup(String(s.title||'')):s.title)).join(' · ')}</small></li>`).join('')}</ol>
+     <p class="rb-cover-note">${en?'Each chapter starts on a new sheet. When a rule changes, reprint only that chapter and replace its sheets.':'Chaque chapitre commence sur une nouvelle feuille. Quand une règle change, réimprime seulement ce chapitre et remplace ses feuilles.'}</p></section>
+    ${on.map(chapter).join('')}
+   </div>
+   <div class="rb-foot">Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${esc(date)}</div>
+  </div>`}
+function rulesBookletToggle(id,on){if(on)rulesBookletOff.delete(id);else rulesBookletOff.add(id);openRulesBooklet()}
+async function openRulesBooklet(){try{closeModal()}catch(e){}try{if(typeof ruleOverridesCache==='undefined'||ruleOverridesCache===null)await loadRuleOverrides()}catch(e){}
+  const c=$('#content');if(!c)return;c.innerHTML=rulesBookletMarkup();try{window.scrollTo(0,0)}catch(e){}}
 function openPrintChooser(){const en=siteLanguage==='en';const r=activeRoster();const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
-  openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><div class="warroom-more-list">${r?btn('▤ '+(en?'Warband sheet (A4)':'Feuille de bande (A4)'),'printWarbandSheet(false)'):''}${r?btn('☰ '+(en?'Compact list (one page, for the table)':'Liste compacte (une page, pour la table)'),'printWarbandList()'):''}${r?btn('🂠 '+(en?'Fighter cards (63 × 88 mm, 9 per A4)':'Cartes de combattants (63 × 88 mm, 9 par A4)'),'printWarbandCards()'):''}${btn('▢ '+(en?'Blank sheet, to fill in by hand':'Fiche vierge, à remplir à la main'),'printWarbandSheet(true)')}${btn('⎙ '+(en?'This page as it is':'Cette page telle quelle'),'window.print()')}${btn('☑ '+(en?'Choose parts of this page…':'Choisir des parties de cette page…'),'openPrintPicker()')}${btn('🗂 '+(en?`Print list (${printListLoad().length})`:`Liste d’impression (${printListLoad().length})`),"navigateApp('/print')")}</div></div>`)}
+  openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${en?'PRINT':'IMPRIMER'}</div><div class="warroom-more-list">${r?btn('▤ '+(en?'Warband sheet (A4)':'Feuille de bande (A4)'),'printWarbandSheet(false)'):''}${r?btn('☰ '+(en?'Compact list (one page, for the table)':'Liste compacte (une page, pour la table)'),'printWarbandList()'):''}${r?btn('🂠 '+(en?'Fighter cards (63 × 88 mm, 9 per A4)':'Cartes de combattants (63 × 88 mm, 9 par A4)'),'printWarbandCards()'):''}${btn('📖 '+(en?'Rules booklet (A4, for a ring binder)':'Livret des règles (A4, pour porte-vue)'),'openRulesBooklet()')}${btn('▢ '+(en?'Blank sheet, to fill in by hand':'Fiche vierge, à remplir à la main'),'printWarbandSheet(true)')}${btn('⎙ '+(en?'This page as it is':'Cette page telle quelle'),'window.print()')}${btn('☑ '+(en?'Choose parts of this page…':'Choisir des parties de cette page…'),'openPrintPicker()')}${btn('🗂 '+(en?`Print list (${printListLoad().length})`:`Liste d’impression (${printListLoad().length})`),"navigateApp('/print')")}</div></div>`)}
 // V-PREGAME: before picking the fighters, what still needs doing.
 const preGameLater=new Set();
 function preGameHide(rid,forever){if(forever){try{localStorage.setItem('mu_pregame_off','1')}catch(e){}}else preGameLater.add(rid);render('playMode')}

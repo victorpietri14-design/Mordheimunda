@@ -6455,3 +6455,48 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .startvet-bar.set{border-style:solid}
 .startvet-star{color:#e3c35a;font-size:16px}
 .startvet-tx{flex:1;font-size:13px}
+
+/* V-BOOKLET */
+.rb-tools{max-width:820px;margin:0 auto 16px;display:flex;flex-direction:column;gap:10px;background:var(--panel,#1b1c20);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.rb-tools h2{margin:2px 0 4px}
+.rb-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 12px}
+.rb-book{max-width:820px;margin:0 auto;background:#fff;color:#111;padding:28px 34px;border-radius:6px;font:400 15px/1.6 Georgia,'Times New Roman',serif}
+.rb-book *{color:#111}
+.rb-book h1,.rb-book h2,.rb-book h3{font-family:'IBM Plex Sans',Arial,sans-serif;color:#111}
+.rb-cover{text-align:left;padding:40px 0 10px}
+.rb-cover-kick{font:700 13px 'IBM Plex Mono',monospace;letter-spacing:.2em;color:#555}
+.rb-cover h1{font-size:40px;margin:6px 0}
+.rb-cover-date{font-size:17px;color:#333;margin:0 0 30px}
+.rb-toc{padding-left:22px}.rb-toc li{margin:0 0 10px}.rb-toc small{display:block;color:#555;font-size:13px}
+.rb-cover-note{margin-top:28px;padding:10px 14px;border:1.5px solid #111;border-radius:6px;font-size:14px}
+.rb-chapter{margin-top:40px}
+.rb-ch-head{border-bottom:3px solid #111;padding-bottom:6px;margin-bottom:14px}
+.rb-ch-kick{font:700 12px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#555;text-transform:uppercase}
+.rb-ch-head h1{font-size:30px;margin:4px 0 0}
+.rb-section h2{font-size:22px;margin:22px 0 8px;border-bottom:1px solid #999;padding-bottom:3px}
+.rb-body .rule-edit-btn,.rb-body .rule-page-heading{display:none!important}
+.rb-body .rule-line.rs-toggle{cursor:default;padding-right:0}.rb-body .rule-line.rs-toggle::after{display:none}
+.rb-body table{border-collapse:collapse}.rb-body td,.rb-body th{border:1px solid #777!important;padding:4px 7px}
+.rb-big .rb-book{font-size:18px;line-height:1.65}.rb-big .rb-section h2{font-size:25px}.rb-big .rb-ch-head h1{font-size:34px}
+.rb-foot{display:none}
+@media print{
+ @page{size:A4;margin:16mm 15mm 18mm;@bottom-right{content:"p. " counter(page);font:10pt Arial,sans-serif}}
+ .rb-tools{display:none!important}
+ .rb-book{max-width:none;padding:0;border-radius:0;font-size:13pt}
+ .rb-big .rb-book{font-size:16pt}
+ .rb-chapter{break-before:page;margin-top:0}
+ .rb-section h2{break-after:avoid}
+ .rb-body table,.rb-body .action-card,.rb-body .rule-figure{break-inside:avoid}
+ .rb-foot{display:block;position:fixed;bottom:0;left:0;right:0;font:9pt Arial,sans-serif;color:#555!important;border-top:1px solid #bbb;padding-top:3px}
+}
+
+/* V-BOOKLET 2: readable sizes, nothing from the app chrome on paper */
+@media print{.tabbar,#tabbar,.site-search-btn,.topbar,.mobile-topbar{display:none!important}}
+.rb-book .rule-page-text{font:400 1em/1.6 Georgia,'Times New Roman',serif!important;padding:2px 0 8px!important;background:transparent!important;border:0!important}
+.rb-book .rule-page-text *{font-size:inherit}
+.rb-book .rule-page-text,.rb-book .rule-page-text p,.rb-book .rule-page-text li{font-weight:400!important}
+.rb-book .rule-heading,.rb-book .rule-line.rs-toggle{font-family:'IBM Plex Sans',Arial,sans-serif!important;font-weight:700!important;margin:14px 0 4px!important;background:none!important;color:#111!important}
+.rb-book b,.rb-book strong{font-weight:700!important}
+.rb-cover{padding-top:10px}.rb-cover h1{font-size:34px}.rb-cover-date{margin-bottom:16px}.rb-toc li{margin:0 0 6px}.rb-cover-note{margin-top:14px}
+.rb-book table td,.rb-book table th{font-size:.95em!important}
+@media print{.rb-book .rule-page-text{font-size:1em!important}}
