@@ -6540,3 +6540,39 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .mt-diag{margin:12px 0}
 .mt-diag-out{white-space:pre-wrap;font-size:12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px;max-height:320px;overflow:auto}
 .mt-diag-out:empty{display:none}
+
+/* V-BOOKLETSIZE: compact booklet — small type in two columns, tight tables
+   and cards, about half the sheets of the large-print version. */
+.rb-size{display:flex;flex-direction:column;gap:2px}
+.rb-size-compact .rb-book{font-size:12px;line-height:1.32}
+.rb-size-compact .rb-book .rule-page-text{line-height:1.32!important;padding:0 0 4px!important}
+.rb-size-compact .rb-body{column-count:2;column-gap:7mm;column-rule:1px solid #bbb}
+.rb-size-compact .rb-body .rule-line{margin:0 0 3px!important;padding:0!important}
+.rb-size-compact .rb-book .rule-heading,.rb-size-compact .rb-book .rule-line.rs-toggle{margin:7px 0 2px!important;font-size:1.05em!important}
+.rb-size-compact .rb-book .rule-subheading,.rb-size-compact .rb-book .rule-subhead{margin:6px 0 2px!important;padding:0!important;font-size:1em!important}
+.rb-size-compact .rb-chapter{margin-top:16px}
+.rb-size-compact .rb-ch-head{border-bottom-width:2px;padding-bottom:3px;margin-bottom:6px}
+.rb-size-compact .rb-ch-head h1{font-size:20px}
+.rb-size-compact .rb-ch-kick{font-size:9px}
+.rb-size-compact .rb-section h2{font-size:14px;margin:8px 0 4px;padding-bottom:1px;break-after:avoid;column-span:none}
+.rb-size-compact .rb-body table{width:100%;font-size:.86em;margin:3px 0 6px}
+.rb-size-compact .rb-body td,.rb-size-compact .rb-body th{padding:1px 4px!important;line-height:1.2}
+.rb-size-compact .rb-book table td,.rb-size-compact .rb-book table th{font-size:1em!important}
+.rb-size-compact .rb-body .rb-wide{column-span:all;margin:4px 0 8px}
+.rb-size-compact .rb-body .rule-table-wrap,.rb-size-compact .rb-body .ref-table-wrap{overflow:visible!important;margin:0!important;max-width:none!important}
+.rb-size-compact .rb-body .action-cards{display:block;margin:0 0 6px}
+.rb-size-compact .rb-body .action-card{padding:3px 6px 4px!important;margin:0 0 4px;border-radius:4px;break-inside:avoid}
+.rb-size-compact .rb-body .action-card .ac-desc{margin:1px 0!important;font-size:1em}
+.rb-size-compact .rb-body .action-card .ac-tags{display:none}
+.rb-size-compact .rb-body .rule-figure{max-width:100%!important;margin:4px 0}
+.rb-size-compact .rb-body .rule-figure img{max-height:55mm;width:auto;max-width:100%}
+.rb-size-compact .rb-body ul,.rb-size-compact .rb-body ol{margin:2px 0 4px;padding-left:16px}
+.rb-size-compact .rb-book .rule-recent{padding:2px 5px;margin:4px 0}
+.rb-size-compact .rb-cover{padding:0}
+.rb-size-compact .rb-cover h1{font-size:26px}
+.rb-size-compact .rb-toc li{margin:0 0 3px}
+.rb-size-compact .rb-toc small{font-size:10px}
+@media print{
+ .rb-size-compact .rb-book{font-size:8.6pt!important}
+ .rb-size-compact .rb-body .rule-figure img{max-height:55mm}
+}
