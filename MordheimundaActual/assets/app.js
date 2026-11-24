@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0894.0';
+const APP_BUILD='110.0897.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -521,8 +521,8 @@ const RULES_QUICK_TABLES=[
   {id:'prebattle',page:143,fr:'Détermination du scénario',en:'Determine Scenario'},
   {id:'terrain',page:19,fr:'Chute (Falling)',en:'Falling'},
   {id:'shooting',page:20,fr:'Tir — BS du tireur',en:'Shooting — BS of Shooter'},
-  {id:'combat',page:22,fr:'Corps à corps — jet pour toucher',en:'Close Combat — Hit Roll'},
-  {id:'resolve',page:24,fr:'Jet pour blesser',en:'Make Wound Roll'},
+  {id:'combat',page:22,fr:'Corps à corps — jet de touche',en:'Close Combat — Hit Roll'},
+  {id:'resolve',page:24,fr:'Jet de blessure',en:'Make Wound Roll'},
   {id:'resolve',page:25,fr:'Table des blessures',en:'Injury Dice Chart'},
   {id:'resolve',page:25,fr:'Blessures durables',en:'Lasting Injuries'},
   {id:'magic',page:34,fr:'Ratés magiques',en:'Magical Miscasts'},
@@ -4005,9 +4005,23 @@ function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleO
     // A bundled translation is only used when it was made from the English
     // text currently in force: an admin correction written after the
     // translation (new layout, sub-titles, cards…) wins until it is translated.
-    if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;return en}
+    if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o')){const m=frMergeEdited(sectionId,page,en,fr);if(m)return m}return en}
     if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o'))return fr}
   return null}
+// V-FRMERGE: an English correction used to drop the whole hand-written
+// French page (then sent line by line to automatic translation, which may be
+// capped for the day). When the French page follows the book text line for
+// line, the lines the correction left untouched keep their French version;
+// only the changed or new lines stay English (and go to automatic translation).
+const frMergeCache=new Map();
+function frMergeEdited(sectionId,page,en,fr){const k=sectionId+':'+page;const hit=frMergeCache.get(k);if(hit&&hit.en===en&&hit.fr===fr)return hit.out;
+  let out=null;try{const base=RULES_BOOK.find(s=>s.id===sectionId)?.content?.find(p=>String(p.page)===String(page))?.text;
+    if(typeof base==='string'){const A=base.replace(/\r\n/g,'\n').split('\n'),F=fr.replace(/\r\n/g,'\n').split('\n'),B=en.replace(/\r\n/g,'\n').split('\n');
+      if(A.length===F.length&&A.length*B.length<=250000){const n=A.length,m=B.length;const L=Array.from({length:n+1},()=>new Uint16Array(m+1));
+        for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)L[i][j]=A[i].trim()===B[j].trim()?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+        const res=[];let i=0,j=0;while(j<m){if(i<n&&A[i].trim()===B[j].trim()){res.push(F[i]);i++;j++}else if(i<n&&L[i+1][j]>=L[i][j+1])i++;else{res.push(B[j]);j++}}
+        out=res.join('\n')}}}catch(e){out=null}
+  frMergeCache.set(k,{en,fr,out});return out}
 // V-RULECHANGES: when a rule page was last corrected (only the date is kept,
 // never the old text). The site highlights it for a week; the booklet marks
 // every page changed since a chosen date and can print only those chapters.
@@ -6798,7 +6812,8 @@ let mtEnabled=(()=>{try{return localStorage.getItem(MT_OFF_KEY)!=='1'}catch(e){r
 // V-MTKEEP: translations are kept on this device between visits, so a page
 // opens in French at once (no English flash, no new request) — up to about
 // 1.5 MB, the oldest dropped first.
-const MT_STORE='mu_mt_cache_v1';
+// v2: machine translations made before the game glossary are dropped.
+const MT_STORE='mu_mt_cache_v2';
 // Entries expire after 3 days so an admin's hand correction reaches every
 // device soon.
 const MT_KEEP_MS=3*24*3600*1000;const mtSavedAt=new Map();
@@ -19200,7 +19215,7 @@ const HELP_CARDS=[
   ['INT',['Intelligence','Intelligence'],['Knowledge and thinking.','Le savoir et la réflexion.']]],
   note:['Making a test: roll 2D6, passed if the total is equal to or lower than the characteristic. For Strength, Toughness and Initiative: 1D6.','Faire un test : lance 2D6. Réussi si le total est égal ou inférieur à la caractéristique. Pour Force, Endurance et Initiative : 1D6.']},
  {title:['A round','Un round de jeu'],body:['Both players roll for Priority: the winner starts. Then, taking turns, each player activates one warrior, who makes up to 2 actions (move, shoot, charge…). A leader can bring 2 nearby allies along.','On lance un dé pour la Priorité : le gagnant commence. Puis chacun son tour, on active un combattant, qui fait jusqu’à 2 actions (bouger, tirer, charger…). Un chef peut entraîner 2 alliés proches avec lui.'],rule:'structure'},
- {title:['Attacking','Attaquer'],body:['A roll to hit, a roll to wound (the weapon’s Strength against the target’s Toughness), then the armour save. At 0 wounds, the Injury dice decides: flesh wound, seriously injured or out of action.','Un jet pour toucher, un jet pour blesser (la Force de l’arme contre l’Endurance de la cible), puis la sauvegarde d’armure. À 0 point de vie, le dé de blessure décide : blessure légère, gravement blessé ou hors de combat.'],rule:'resolve'},
+ {title:['Attacking','Attaquer'],body:['A roll to hit, a roll to wound (the weapon’s Strength against the target’s Toughness), then the armour save. At 0 wounds, the Injury dice decides: flesh wound, seriously injured or out of action.','Un jet de touche, un jet de blessure (la Force de l’arme contre l’Endurance de la cible), puis la sauvegarde d’armure. À 0 point de vie, le dé de blessure décide : blessure légère, gravement blessé ou hors de combat.'],rule:'resolve'},
  {title:['The rout','La déroute'],body:['At the end of the round, if you have warriors Seriously Injured or Out of Action, you take a Rout test: 1D6 + those warriors. More than your starting crew? The warband starts to flee. Then the injured try to get up.','À la fin du round, si tu as des combattants gravement blessés ou hors de combat, tu fais un test de déroute : 1D6 + ces combattants. Si ça dépasse ta bande de départ, elle commence à fuir. Ensuite, les blessés tentent de se relever.'],rule:'endphase'},
  {title:['Winning','Gagner'],body:['Complete the scenario’s objective, or make the enemy warband flee. Each scenario gives its rewards: experience, gold, reputation.','Remplis l’objectif du scénario, ou fais fuir la bande adverse. Chaque scénario donne ses récompenses : expérience, or, réputation.'],rule:'scenarios'},
  {title:['After the battle','Après la bataille'],body:['The seriously injured may die, you sometimes capture an enemy, you earn experience, explore for wyrdstone, sell it, then buy. The app guides you through every step.','Les blessés graves risquent d’y rester, on capture parfois un ennemi, on gagne de l’expérience, on explore pour la wyrdstone, on la vend, puis on achète. L’appli te guide à chaque étape.'],rule:'postbattlesequence'}];
