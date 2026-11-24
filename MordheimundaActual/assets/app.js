@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0897.0';
+const APP_BUILD='110.0898.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -3556,6 +3556,7 @@ function actionTypeIconMarkup(type){
   if(tl==='simple')return `<span class="ac-type-ic" title="Simple"><span class="circ"></span></span>`;
   if(tl==='basic')return `<span class="ac-type-ic" title="Basic"><span class="circ">1</span></span>`;
   if(tl==='double')return `<span class="ac-type-ic" title="Double"><span class="circ"></span><span class="circ"></span></span>`;
+  if(tl==='rule')return `<span class="ac-type">${siteLanguage==='en'?'Rule':'Règle'}</span>`;
   return `<span class="ac-type">${esc(t)}</span>`;
 }
 // One combined search bar + color/type legend for the whole Actions feature
@@ -3593,7 +3594,7 @@ function ruleActionCardsMarkup(rows){
     const desc=cols.slice(3).join('|').trim();
     const primary=type.toLowerCase()==='rule'?'rule':(priority.find(p=>statuses.includes(p))||statuses[0]||'active');
     const tags=statuses.map(s=>`<span class="ac-tag t-${s}"><span class="dot"></span>${esc(en?byId[s].shortEn:byId[s].shortFr)}</span>`).join('');
-    return `<div class="action-card c-${primary}" data-name="${esc(name.toLowerCase())}" data-desc="${esc(desc.toLowerCase())}"><div class="ac-head"><span class="ac-name">${esc(name)}</span>${actionTypeIconMarkup(type)}</div><p class="ac-desc">${esc(desc)}</p><div class="ac-tags">${tags}</div></div>`;
+    return `<div class="action-card c-${primary}" data-name="${esc(name.toLowerCase())}" data-desc="${esc(desc.toLowerCase())}"><div class="ac-head"><span class="ac-name notranslate">${esc(name)}</span>${actionTypeIconMarkup(type)}</div><p class="ac-desc">${esc(desc)}</p><div class="ac-tags">${tags}</div></div>`;
   }).join('');
   return `<div class="action-cards">${cards}</div>`;
 }
@@ -3605,7 +3606,7 @@ function ruleActionCardsMarkup(rows){
 function ruleActionCardForGroupMarkup(row,statusId,en){
   const byId={};ACTION_STATUS_META.forEach(s=>byId[s.id]=s);
   const tags=row.statuses.map(s=>`<span class="ac-tag t-${s}"><span class="dot"></span>${esc(en?byId[s].shortEn:byId[s].shortFr)}</span>`).join('');
-  return `<div class="action-card c-${statusId}" data-name="${esc(row.name.toLowerCase())}" data-desc="${esc(row.desc.toLowerCase())}"><div class="ac-head"><span class="ac-name">${esc(row.name)}</span>${actionTypeIconMarkup(row.type)}</div><p class="ac-desc">${esc(row.desc)}</p><div class="ac-tags">${tags}</div></div>`;
+  return `<div class="action-card c-${statusId}" data-name="${esc(row.name.toLowerCase())}" data-desc="${esc(row.desc.toLowerCase())}"><div class="ac-head"><span class="ac-name notranslate">${esc(row.name)}</span>${actionTypeIconMarkup(row.type)}</div><p class="ac-desc">${esc(row.desc)}</p><div class="ac-tags">${tags}</div></div>`;
 }
 // Parses every "[ACTIONCARDS]…[/ACTIONCARDS]" block across all of a
 // RULES_BOOK section's pages (respecting any admin text override) into a

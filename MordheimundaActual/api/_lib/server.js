@@ -757,14 +757,18 @@ function mtParseGlossary(text){const out=[];const seen=new Set();String(text||''
 let mtGlossaryCache={at:0,entries:null,text:''};let mtGlossarySyncing=null;
 async function mtGlossaryText(){try{const q=await pool.query("SELECT value FROM site_settings WHERE key='translateGlossary'");const t=q.rows[0]?.value?.text;return typeof t==='string'?t:MT_GLOSSARY_DEFAULT}catch(e){return MT_GLOSSARY_DEFAULT}}
 async function mtGlossary(){if(mtGlossaryCache.entries&&Date.now()-mtGlossaryCache.at<60000)return mtGlossaryCache.entries;const text=await mtGlossaryText();const entries=mtParseGlossary(text);mtGlossaryCache={at:Date.now(),entries,text};
-  if(!mtGlossarySyncing)mtGlossarySyncing=mtGlossarySync(entries).catch(e=>console.error('glossary sync',e.message)).finally(()=>{mtGlossarySyncing=null});await mtGlossarySyncing;return entries}
+  if(!mtGlossarySyncing)mtGlossarySyncing=mtGlossarySync(entries).catch(e=>console.error('glossary sync',e.message)).finally(()=>{mtGlossarySyncing=null});
+  // At most 3 s of waiting: the translation goes on even if the clean-up is slow.
+  await Promise.race([mtGlossarySyncing,new Promise(r=>setTimeout(r,3000))]);return entries}
 // Machine translations made before a term was added or changed are
 // forgotten (never an admin's own corrections), so they come back with it.
 async function mtGlossarySync(entries){const sig=crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex');
   const q=await pool.query("SELECT value FROM site_settings WHERE key='translateGlossaryApplied'");const prev=q.rows[0]?.value;if(prev?.sig===sig)return;
   const before=new Map((prev?.entries||[]).map(e=>[e.en.toLowerCase(),e.fr]));const excl=(await mtExclusions()).map(t=>t.toLowerCase());const changed=entries.filter(e=>before.get(e.en.toLowerCase())!==e.fr&&!excl.includes(e.en.toLowerCase()));
-  for(const e of changed)await pool.query("DELETE FROM translations WHERE edited_by IS NULL AND target_lang='FR' AND source ILIKE $1",['%'+e.en.replace(/[%_\\]/g,m=>'\\'+m)+'%']);
-  await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('translateGlossaryApplied',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({sig,entries})])}
+  // Marked as applied first, then one single query: a slow clean-up must
+  // never be started again by every translation request (serverless time limit).
+  await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('translateGlossaryApplied',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({sig,entries})]);
+  if(changed.length)await pool.query("DELETE FROM translations WHERE edited_by IS NULL AND target_lang='FR' AND source ILIKE ANY($1::text[])",[changed.map(e=>'%'+e.en.replace(/[%_\\]/g,m=>'\\'+m)+'%')])}
 const mtNt=w=>`<span translate="no" class="notranslate">${w}</span>`;
 function mtProtect(html,terms,glossary=[]){const gl=new Map();glossary.forEach(e=>{if(!terms.some(t=>t.toLowerCase()===e.en.toLowerCase()))gl.set(e.en.toLowerCase(),e)});
   const all=[...terms,...[...gl.values()].map(e=>e.en)];if(!all.length)return html;
