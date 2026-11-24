@@ -2168,6 +2168,18 @@ await test('[desktop] mounts: one rule — creation only when ticked on a fighte
       marketOpen:[open,shut].filter(w=>w.market&&(!isCreatureItem(w)||creatureAvailableFor(w,f))).map(w=>w.name).join()}});
   expect(out.tickedOpen===true&&out.tickedShut===false&&out.untickedOpen===false&&out.marketOpen==='Open Pony','mount rule: '+JSON.stringify(out));
 });
+await test('[desktop] admin consistency check flags ticked-but-hidden items, empty trees and unknown trees',null,async page=>{
+  await seed(page);
+  await page.evaluate(()=>ensureAdminCode());
+  const out=await page.evaluate(()=>{const f=D.factions[0];const w0=f.warriors[0];const item=(D.weapons||[]).find(w=>w&&w.name&&!w.hidden);
+    const keep={h:item.hidden,acc:w0.equipmentAccess,sk:w0.skillAccess,ex:f.exclusiveSkillSets};
+    item.hidden=true;w0.equipmentAccess=[item.name];w0.skillAccess={...(w0.skillAccess||{}),'Zz Nowhere Tree':'Primary'};f.exclusiveSkillSets={...(f.exclusiveSkillSets||{}),'Zz Empty Tree':[]};
+    const l=coherenceIssues();const html=adminCoherenceMarkup();
+    item.hidden=keep.h;w0.equipmentAccess=keep.acc;w0.skillAccess=keep.sk;f.exclusiveSkillSets=keep.ex;
+    return {hidden:l.some(i=>i.kind==='hidden'&&i.text===item.name),tree:l.some(i=>i.kind==='tree'&&i.text==='Zz Nowhere Tree'),empty:l.some(i=>i.kind==='emptytree'&&i.text==='Zz Empty Tree'),
+      html:/Zz Empty Tree/.test(html),inGroup:ADMIN_GROUPS.site.includes('coherence')}});
+  expect(out.hidden&&out.tree&&out.empty&&out.html&&out.inGroup,'coherence: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

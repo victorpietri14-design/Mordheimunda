@@ -104,6 +104,8 @@ function adminReal(){
       ${adminOpenCategory==='journal'?`<div class="admin-category-body">${adminLogMarkup()}</div>`:''}
       ${adminCategoryBar('frmissing',en?'Rules without French text':'Règles sans texte français',en?'Rule pages still only in English (or machine-translated)':'Pages de règles encore seulement en anglais (ou traduites automatiquement)',adminOpenCategory==='frmissing')}
       ${adminOpenCategory==='frmissing'?`<div class="admin-category-body">${adminFrMissingMarkup()}</div>`:''}
+      ${adminCategoryBar('coherence',en?'Consistency check':'Contrôle de cohérence',en?'Ticked but hidden items, mounts without creature, empty trees…':'Objets cochés mais masqués, montures sans créature, arbres vides…',adminOpenCategory==='coherence')}
+      ${adminOpenCategory==='coherence'?`<div class="admin-category-body">${adminCoherenceMarkup()}</div>`:''}
       ${adminCategoryBar('backup',en?'Backup · Export everything':'Sauvegarde · Tout exporter',en?'One file with everything created on the site':'Un fichier avec tout ce qui a été créé sur le site',adminOpenCategory==='backup')}
       ${adminOpenCategory==='backup'?`<div class="admin-category-body">${adminBackupMarkup()}</div>`:''}
       ${adminCategoryBar('trophies',en?'Manage · Trophies':'Gestion · Trophées',en?'Pictures for completed Great Quests in campaign Standings':'Images des Grandes Quêtes accomplies dans le Classement de campagne',adminOpenCategory==='trophies')}
@@ -2569,6 +2571,49 @@ function adminFrMissingMarkup(){const en=siteLanguage==='en';if(!(window.RULES_B
  if(siteLanguage!=='fr')return `<div class="card admin-card"><p class="muted">${en?'Switch the site to French to check the French texts.':'Passe le site en français pour vérifier les textes français.'}</p></div>`;
  const list=frMissingRulePages();const by=new Map();list.forEach(m=>{if(!by.has(m.id))by.set(m.id,{title:m.title,pages:[]});by.get(m.id).pages.push(m.page)});
  return `<div class="card admin-card"><p class="custom-field-help">${list.length?`${list.length} page(s) sans texte français. Ouvre la section puis « ✎ Modifier » pour écrire la traduction : elle est enregistrée pour le site en français.`:'Toutes les pages de règles ont un texte français. ✓'}</p>${[...by.entries()].map(([id,v])=>`<div class="custom-item-row"><div class="custom-item-main"><div><strong>${esc(v.title||id)}</strong><small>p. ${v.pages.map(esc).join(', ')}</small></div></div><div class="custom-item-actions"><button type="button" class="button secondary small" onclick="frMissingOpen('${jsq(id)}')">${en?'Open to translate':'Ouvrir pour traduire'}</button></div></div>`).join('')}</div>`}
+
+// V-COHERENCE: Admin › Site › Consistency check — lists setups that look
+// fine in the editors but give players nothing (or something unexpected):
+// an item ticked in a fighter's equipment access while it is hidden, a mount
+// item whose creature profile is gone, a creature restricted to a warband
+// that no longer exists, an exclusive skill tree with no skill, a fighter
+// given a skill tree that exists nowhere. Read-only: each line says where to
+// go to fix it.
+function coherenceIssues(){
+  const out=[];const facs=[];const seenF=new Set();
+  [...(D.factions||[]),...(typeof customWarbandList==='function'?customWarbandList():[])].forEach(f=>{if(!f||seenF.has(f.id))return;seenF.add(f.id);facs.push(f)});
+  const facName=f=>f?.displayName||f?.name||f?.id||'?';
+  const facKeys=new Set();facs.forEach(f=>{[f.id,f.displayName,f.name].forEach(k=>{if(k)facKeys.add(normName(k))})});
+  const visible=new Set(),hidden=new Set();
+  (D.weapons||[]).forEach(w=>{const k=normName(w?.name||'');if(!k)return;(w.hidden?hidden:visible).add(k)});
+  try{allCustomEquipmentList().forEach(w=>{const k=normName(w?.name||'');if(k&&!w.hidden)visible.add(k)})}catch(e){}
+  let creatures=[];try{creatures=allCustomCreatureList()}catch(e){}
+  const creatureIds=new Set(creatures.map(c=>c.customCreatureId).filter(Boolean));
+  const trees=new Set();try{Object.keys(customMergedSkillSets()).forEach(k=>trees.add(normName(k)))}catch(e){}
+  facs.forEach(f=>Object.keys(f.exclusiveSkillSets||{}).forEach(k=>trees.add(normName(k))));
+  ['Leadership','Ride'].forEach(k=>trees.add(normName(k)));
+  try{Object.keys(customMergedMagicDomains()).forEach(k=>trees.add(normName(k)))}catch(e){}
+  facs.forEach(f=>{
+    (f.warriors||[]).forEach(w=>{const where=`${facName(f)} › ${w.name||'?'}`;
+      (Array.isArray(w.equipmentAccess)?w.equipmentAccess:[]).forEach(n=>{const k=normName(n);if(hidden.has(k)&&!visible.has(k))out.push({kind:'hidden',where,text:n})});
+      Object.entries(w.skillAccess||{}).forEach(([t,v])=>{if(v&&!trees.has(normName(t)))out.push({kind:'tree',where,text:t})});
+    });
+    Object.entries(f.exclusiveSkillSets||{}).forEach(([k,v])=>{if(!(Array.isArray(v)&&v.length))out.push({kind:'emptytree',where:facName(f),text:k})});
+  });
+  let items=[];try{items=allCustomEquipmentList()}catch(e){}
+  items.forEach(w=>{if(w?.mountCreatureId&&!creatureIds.has(w.mountCreatureId))out.push({kind:'nocreature',where:w.name||'?',text:w.name||'?'})});
+  creatures.forEach(c=>{(Array.isArray(c.factions)?c.factions:[]).forEach(id=>{if(!facKeys.has(normName(id)))out.push({kind:'nofaction',where:c.name||'?',text:String(id)})})});
+  return out;
+}
+function adminCoherenceMarkup(){const en=siteLanguage==='en';let list=[];try{list=coherenceIssues()}catch(e){return `<div class="card admin-card"><p class="muted">${esc(String(e?.message||e))}</p></div>`}
+  const L={hidden:en?['Ticked but hidden','The item is ticked in this fighter’s equipment access but hidden on the site: players never see it. Show the item again (Custom › Equipment) or untick it.']:['Coché mais masqué','L’objet est coché dans l’accès à l’équipement de ce combattant mais il est masqué sur le site : les joueurs ne le voient jamais. Ré-affiche l’objet (Custom › Équipement) ou décoche-le.'],
+    tree:en?['Skill tree not found','This fighter has access to a skill tree that exists in no warband: no skill can be picked from it.']:['Arbre introuvable','Ce combattant a accès à un arbre de compétences qui n’existe dans aucune bande : aucune compétence ne peut y être prise.'],
+    emptytree:en?['Empty skill tree','This warband’s own skill tree has no skill yet.']:['Arbre vide','L’arbre de compétences propre à cette bande n’a encore aucune compétence.'],
+    nocreature:en?['Mount without creature','This mount item points to a creature profile that no longer exists.']:['Monture sans créature','Cette monture renvoie à un profil de créature qui n’existe plus.'],
+    nofaction:en?['Unknown warband','This creature is restricted to a warband that no longer exists.']:['Bande inconnue','Cette créature est réservée à une bande qui n’existe plus.']};
+  if(!list.length)return `<div class="card admin-card"><p class="custom-field-help">${en?'Nothing to report. ✓':'Rien à signaler. ✓'}</p></div>`;
+  const by={};list.forEach(i=>{(by[i.kind]=by[i.kind]||[]).push(i)});
+  return `<div class="card admin-card coherence-list"><p class="custom-field-help">${en?`${list.length} thing(s) to check.`:`${list.length} point(s) à vérifier.`}</p>${Object.entries(by).map(([k,arr])=>`<details class="eng-box" open><summary class="eng-head"><b>${esc(L[k][0])}</b> · ${arr.length}</summary><p class="custom-field-help">${esc(L[k][1])}</p>${arr.map(i=>`<div class="custom-item-row"><div><b>${esc(i.text)}</b><br><small class="muted">${esc(i.where)}</small></div></div>`).join('')}</details>`).join('')}</div>`}
 
 // V-ADMINLOG: Admin › Change log
 let adminLogData=null,adminLogBusy=false;
