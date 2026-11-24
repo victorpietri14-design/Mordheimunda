@@ -6609,12 +6609,19 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
  .rb-book .rb-body .rule-line.rule-heading,.rb-book .rb-body .rule-line.rule-subheading,.rb-book .rb-body .rule-line.rs-toggle,.rb-book .rb-body .rule-subhead,.rb-book .rb-body h3,.rb-book .rb-body h4,.rb-book .rb-section h2,.rb-book .ac-group-title{break-after:avoid!important;page-break-after:avoid!important}
 }
 
-/* V-FIGHTERNAV: previous / next fighter arrows, bottom right of the sheet */
-.fighter-nav{position:fixed;right:14px;bottom:18px;z-index:44;display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px;background:var(--panel,#1b1c20);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.35)}
-.fighter-nav .fn-btn{width:42px;height:42px;border-radius:50%;border:0;background:var(--chip-bg,#26272c);color:var(--text);font:700 24px/1 'IBM Plex Sans',Arial,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px}
+/* V-FIGHTERNAV: previous arrow bottom left, next arrow bottom right (always
+   shown); the position badge appears in the middle for 1 s after a change. */
+.fighter-nav{position:fixed;left:0;right:0;bottom:18px;z-index:44;pointer-events:none;height:0}
+.fighter-nav .fn-btn{position:absolute;bottom:0;pointer-events:auto;width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--panel,#1b1c20);color:var(--text);box-shadow:0 6px 18px rgba(0,0,0,.35);font:700 26px/1 'IBM Plex Sans',Arial,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px}
+.fighter-nav .fn-prev{left:14px}.fighter-nav .fn-next{right:14px}
 .fighter-nav .fn-btn:active{transform:scale(.94)}
-.fighter-nav .fn-count{min-width:38px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--muted2)}
-@media(max-width:900px){.fighter-nav{bottom:calc(76px + env(safe-area-inset-bottom));right:10px}}
-body:has(#modal:not(.hidden)) .fighter-nav{display:none}
+.fighter-nav-badge{position:fixed;left:50%;bottom:30px;transform:translate(-50%,8px);z-index:46;pointer-events:none;opacity:0;display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 16px;border-radius:14px;background:rgba(20,20,24,.92);color:#fff;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 22px rgba(0,0,0,.4);transition:opacity .18s,transform .18s}
+.fighter-nav-badge b{font:700 18px 'IBM Plex Mono',monospace}
+.fighter-nav-badge span{font:600 12px 'IBM Plex Sans',Arial,sans-serif;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85}
+.fighter-nav-badge.in{opacity:1;transform:translate(-50%,0)}
+.fighter-nav-badge.out{opacity:0;transform:translate(-50%,8px);transition:opacity .35s,transform .35s}
+@media(max-width:900px){.fighter-nav{bottom:calc(80px + env(safe-area-inset-bottom))}.fighter-nav .fn-prev{left:10px}.fighter-nav .fn-next{right:10px}.fighter-nav-badge{bottom:calc(84px + env(safe-area-inset-bottom))}}
+body:has(#modal:not(.hidden)) .fighter-nav,body:has(#modal:not(.hidden)) .fighter-nav-badge{display:none}
+@media print{.fighter-nav-badge{display:none!important}}
 @media print{.fighter-nav{display:none!important}}
 body:has(#fighterNav) #content{padding-bottom:72px}

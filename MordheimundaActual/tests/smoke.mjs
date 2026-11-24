@@ -2112,11 +2112,11 @@ await test('[desktop] fighter swipe never starts from a bar that scrolls sideway
 await test('[mobile] fighter sheet: arrows bottom right go to the previous / next fighter',null,async page=>{
   await seed(page);
   const out=await page.evaluate(async()=>{const r=activeRoster();const f=faction(r);const w=f.warriors[0];for(let k=0;k<3;k++)r.fighters.push({...w,profile:w.profile.slice(),baseProfile:w.profile.slice(),sourceName:w.name,wid:w.id,instance:crypto.randomUUID(),name:'Nav '+k,xp:0,equipmentSelected:[],skills:[],spells:[],advancements:[],injuries:[]});save(true);
-    openFighterCard(0);await new Promise(z=>setTimeout(z,80));const nav=document.getElementById('fighterNav');const count=nav?.querySelector('.fn-count')?.textContent;const a=editingIndex;
-    fighterNavGo(1);await new Promise(z=>setTimeout(z,80));const b=editingIndex;fighterNavGo(-1);await new Promise(z=>setTimeout(z,80));const c=editingIndex;
+    openFighterCard(0);await new Promise(z=>setTimeout(z,80));const nav=document.getElementById('fighterNav');const arrows=nav?nav.querySelectorAll('.fn-prev,.fn-next').length:0;const a=editingIndex;
+    fighterNavGo(1);await new Promise(z=>setTimeout(z,80));const b=editingIndex;const badge=document.getElementById('fighterNavBadge');const count=badge?.querySelector('b')?.textContent;const shown=badge?.classList.contains('in');await new Promise(z=>setTimeout(z,1150));const hidden=badge?.classList.contains('out');fighterNavGo(-1);await new Promise(z=>setTimeout(z,80));const c=editingIndex;
     render('builder');await new Promise(z=>setTimeout(z,80));const gone=!document.getElementById('fighterNav');
-    return {nav:!!nav,count,moved:a!==b,back:c===a,gone}});
-  expect(out.nav&&/^\d+\/3$/.test(out.count||'')&&out.moved&&out.back&&out.gone,'fighter arrows: '+JSON.stringify(out));
+    return {nav:!!nav,arrows,count,shown,hidden,moved:a!==b,back:c===a,gone}});
+  expect(out.nav&&out.arrows===2&&/^\d+\/3$/.test(out.count||'')&&out.shown&&out.hidden&&out.moved&&out.back&&out.gone,'fighter arrows: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{

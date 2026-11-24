@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0907.0';
+const APP_BUILD='110.0908.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13690,12 +13690,17 @@ function elScrollsX(el){for(let n=el;n&&n!==document.body;n=n.parentElement){if(
 // previous / next fighter in warband order (replaces the swipe, which fired
 // while scrolling the equipment categories).
 function fighterNavOrder(r){return rosterGroupedIndices(r).flatMap(g=>g.indices).filter(i=>r.fighters[i])}
-function fighterNavGo(d){const r=activeRoster();if(!r)return;const order=fighterNavOrder(r);const at=order.indexOf(editingIndex);if(at<0)return;const j=order[(at+d+order.length)%order.length];if(j==null||j===editingIndex)return;try{haptic(8)}catch(e){}openFighterCard(j);window.scrollTo({top:0});try{toast(r.fighters[j].name)}catch(e){}}
+let fighterNavBadgeT=null;
+// The position badge shows in the middle for 1 s after each change; a fast
+// second tap replaces it at once (the timer restarts).
+function fighterNavBadge(r,at,n){let b=document.getElementById('fighterNavBadge');if(!b){b=document.createElement('div');b.id='fighterNavBadge';b.className='fighter-nav-badge print-hide';document.body.appendChild(b)}
+  b.innerHTML=`<b>${at+1}/${n}</b><span>${esc(r.fighters[editingIndex]?.name||'')}</span>`;b.classList.remove('out');b.classList.add('in');clearTimeout(fighterNavBadgeT);fighterNavBadgeT=setTimeout(()=>{b.classList.remove('in');b.classList.add('out')},1000)}
+function fighterNavGo(d){const r=activeRoster();if(!r)return;const order=fighterNavOrder(r);const at=order.indexOf(editingIndex);if(at<0)return;const j=order[(at+d+order.length)%order.length];if(j==null||j===editingIndex)return;try{haptic(8)}catch(e){}openFighterCard(j);window.scrollTo({top:0});try{fighterNavBadge(r,order.indexOf(j),order.length)}catch(e){}}
 function fighterNavSync(){let el=document.getElementById('fighterNav');const r=parseAppRoute().view==='fighter'?activeRoster():null;const order=r?fighterNavOrder(r):[];const at=order.indexOf(editingIndex);
-  if(!r||order.length<2||at<0){if(el)el.remove();return}const en=siteLanguage==='en';
+  if(!r||order.length<2||at<0){if(el)el.remove();document.getElementById('fighterNavBadge')?.remove();return}const en=siteLanguage==='en';
   if(!el){el=document.createElement('div');el.id='fighterNav';el.className='fighter-nav print-hide';document.body.appendChild(el)}
   const nm=i=>esc(r.fighters[order[(at+i+order.length)%order.length]]?.name||'');
-  el.innerHTML=`<button type="button" class="fn-btn" aria-label="${en?'Previous fighter':'Combattant précédent'}" title="${nm(-1)}" onclick="fighterNavGo(-1)">‹</button><span class="fn-count">${at+1}/${order.length}</span><button type="button" class="fn-btn" aria-label="${en?'Next fighter':'Combattant suivant'}" title="${nm(1)}" onclick="fighterNavGo(1)">›</button>`}
+  el.innerHTML=`<button type="button" class="fn-btn fn-prev" aria-label="${en?'Previous fighter':'Combattant précédent'}" title="${nm(-1)}" onclick="fighterNavGo(-1)">‹</button><button type="button" class="fn-btn fn-next" aria-label="${en?'Next fighter':'Combattant suivant'}" title="${nm(1)}" onclick="fighterNavGo(1)">›</button>`}
 function backToGang(){save(true);render('builder')}
 function updateFighterField(key,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x[key]=key==='xp'?Math.max(0,Number(val)||0):val;save(true);if(key!=='xp')render('fighter');else toast(siteLanguage==='en'?'XP updated':'XP mis à jour')}
 function openFighterXPAdjust(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;const current=Number(x.xp||0);openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'}</div><h2>${en?'Experience (XP)':'Expérience (XP)'}</h2><p>${en?`Choose the operation then enter the amount to apply. The current value is <strong>${current} XP</strong>.`:`Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est <strong>${current} XP</strong>.`}</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">XP</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyFighterXPAdjust()">${en?'Apply':'Appliquer'}</button></div></div>`)}
