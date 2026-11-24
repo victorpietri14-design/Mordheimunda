@@ -2089,6 +2089,12 @@ await test('[desktop] rules booklet: compact size by default (two columns), larg
     return {compact:w.classList.contains('rb-size-compact'),cols,radios,normal,cols2,saved}});
   expect(out.compact&&out.cols==='2'&&out.radios===3&&/rb-size-normal/.test(out.normal)&&out.cols2!=='2'&&out.saved==='normal','booklet sizes: '+JSON.stringify(out));
 });
+await test('[desktop] rules booklet: the 2.2.2 Actions cards are printed',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{rulesBookletOff.clear();rulesBookletSecOff.clear();await openRulesBooklet();const sec=[...document.querySelectorAll('.rb-section')].find(s=>s.querySelector('.action-groups-gallery'));
+    return {cards:sec?sec.querySelectorAll('.action-card').length:0,search:!!document.querySelector('.rb-book .actions-search:not([style*="none"])')&&getComputedStyle(document.querySelector('.rb-book .actions-search')).display!=='none'}});
+  expect(out.cards>10&&!out.search,'booklet action cards: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
