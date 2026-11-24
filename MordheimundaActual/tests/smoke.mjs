@@ -2146,6 +2146,18 @@ await test('[desktop] an item ticked in a fighter’s Equipment Access is offere
     w0.equipmentAccess=keepAcc;w0.equipmentAccessExact=keepEx;state.customEquipment=keepCE;r.fighters.pop();return {ok}});
   expect(out.ok===true,'access-first: '+JSON.stringify(out));
 });
+await test('[desktop] campaign: mounts per warband capped; restricted mounts keep their factions at the campaign Trading Post',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const raw=rawActiveRoster();const f=faction(activeRoster());const other=D.factions.find(x=>x.id!==f.id);const w0=f.warriors[0];
+    raw.campaignId='camp-test';campaignDetailCache.set('camp-test',{id:'camp-test',name:'T',definition:{mountLimit:2}});
+    for(let k=0;k<3;k++)raw.fighters.push({...w0,profile:w0.profile.slice(),baseProfile:w0.profile.slice(),sourceName:w0.name,wid:w0.id,instance:crypto.randomUUID(),name:'R'+k,xp:0,equipmentSelected:[],equipmentStash:k<2?[{name:'Test Pony',category:'Montures',mountCreatureId:'pony',stashId:'p'+k}]:[],skills:[],spells:[],advancements:[],injuries:[]});
+    save(true);const r=activeRoster();const x=r.fighters.at(-1);const third=categoryBanCheck(x,{name:'Test Pony',category:'Montures',mountCreatureId:'pony'});const sword=categoryBanCheck(x,{name:'Sword',category:'Armes de corps à corps'});
+    const mine={name:'Mine',mountCreatureId:'m1',category:'Montures',factions:[f.id]},theirs={name:'Theirs',mountCreatureId:'m2',category:'Montures',factions:[other.id]};
+    const shop=[mine,theirs].filter(w=>!isCreatureItem(w)||creatureAvailableFor(w,f)).map(w=>w.name);
+    delete raw.campaignId;raw.fighters.splice(-3);campaignDetailCache.delete('camp-test');save(true);
+    return {third:third.ok,msg:third.msg||'',sword:sword.ok,shop,mech:campaignMechanicsList({id:'x',definition:{mountLimit:2}}).some(m=>m.icon==='🐎'&&m.on)}});
+  expect(out.third===false&&/2/.test(out.msg)&&out.sword&&out.shop.join()==='Mine'&&out.mech,'campaign mounts: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
