@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0906.0';
+const APP_BUILD='110.0907.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6928,7 +6928,7 @@ function applySiteLanguage(root){
 // only two moments the sidebar/static chrome actually needs re-translating.
 let i18nNeedsFullPass=true;
 function setSiteLanguage(v){siteLanguage=v==='fr'?'fr':'en';localStorage.setItem(SITE_LANGUAGE_KEY,siteLanguage);i18nNeedsFullPass=true;renderCurrentRoute();}
-function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
+function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}try{fighterNavSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
   const next=routeForView(view);
   if(opts.history!==false&&next!==appPath(location.pathname)){history.pushState({mordheimunda:true,view},'',next)}
   // A handful of search/filter fields call render() straight from their
@@ -13686,12 +13686,16 @@ function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();c
 // True when the touch starts inside something that scrolls sideways (a tab
 // or chip bar, a wide table): sliding there scrolls it, never changes page.
 function elScrollsX(el){for(let n=el;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==='auto'||o==='scroll')return true}}return false}
-// V-FIGHTERSWIPE: on a phone, swipe left/right on a sheet to go to the next / previous fighter (warband order).
-// Never from a bar that scrolls sideways (equipment categories…), tabs, chips or tables.
-(()=>{let sx=0,sy=0,st=0,ok=false;
- document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='fighter'||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe],.profile,.equipped-management-list,.fighter-section-tabs,.equipment-categories,.equipment-cat,[class*="tabs"],[class*="chips"],[role="tablist"],table')||elScrollsX(e.target))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
- document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<100||Math.abs(dy)>Math.abs(dx)*0.5)return;const r=activeRoster();if(!r)return;const order=rosterGroupedIndices(r).flatMap(g=>g.indices);const at=order.indexOf(editingIndex);const j=order[at+(dx<0?1:-1)];if(j==null)return;openFighterCard(j);window.scrollTo({top:0});try{toast(r.fighters[j].name)}catch(e){}},{passive:true});
-})();
+// V-FIGHTERNAV: on a fighter sheet, two arrows at the bottom right go to the
+// previous / next fighter in warband order (replaces the swipe, which fired
+// while scrolling the equipment categories).
+function fighterNavOrder(r){return rosterGroupedIndices(r).flatMap(g=>g.indices).filter(i=>r.fighters[i])}
+function fighterNavGo(d){const r=activeRoster();if(!r)return;const order=fighterNavOrder(r);const at=order.indexOf(editingIndex);if(at<0)return;const j=order[(at+d+order.length)%order.length];if(j==null||j===editingIndex)return;try{haptic(8)}catch(e){}openFighterCard(j);window.scrollTo({top:0});try{toast(r.fighters[j].name)}catch(e){}}
+function fighterNavSync(){let el=document.getElementById('fighterNav');const r=parseAppRoute().view==='fighter'?activeRoster():null;const order=r?fighterNavOrder(r):[];const at=order.indexOf(editingIndex);
+  if(!r||order.length<2||at<0){if(el)el.remove();return}const en=siteLanguage==='en';
+  if(!el){el=document.createElement('div');el.id='fighterNav';el.className='fighter-nav print-hide';document.body.appendChild(el)}
+  const nm=i=>esc(r.fighters[order[(at+i+order.length)%order.length]]?.name||'');
+  el.innerHTML=`<button type="button" class="fn-btn" aria-label="${en?'Previous fighter':'Combattant précédent'}" title="${nm(-1)}" onclick="fighterNavGo(-1)">‹</button><span class="fn-count">${at+1}/${order.length}</span><button type="button" class="fn-btn" aria-label="${en?'Next fighter':'Combattant suivant'}" title="${nm(1)}" onclick="fighterNavGo(1)">›</button>`}
 function backToGang(){save(true);render('builder')}
 function updateFighterField(key,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x[key]=key==='xp'?Math.max(0,Number(val)||0):val;save(true);if(key!=='xp')render('fighter');else toast(siteLanguage==='en'?'XP updated':'XP mis à jour')}
 function openFighterXPAdjust(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;const current=Number(x.xp||0);openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'}</div><h2>${en?'Experience (XP)':'Expérience (XP)'}</h2><p>${en?`Choose the operation then enter the amount to apply. The current value is <strong>${current} XP</strong>.`:`Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est <strong>${current} XP</strong>.`}</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">XP</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyFighterXPAdjust()">${en?'Apply':'Appliquer'}</button></div></div>`)}

@@ -6608,3 +6608,13 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
  .rb-book .rb-body .rule-line,.rb-book .rb-body .role-head{break-after:auto!important;page-break-after:auto!important}
  .rb-book .rb-body .rule-line.rule-heading,.rb-book .rb-body .rule-line.rule-subheading,.rb-book .rb-body .rule-line.rs-toggle,.rb-book .rb-body .rule-subhead,.rb-book .rb-body h3,.rb-book .rb-body h4,.rb-book .rb-section h2,.rb-book .ac-group-title{break-after:avoid!important;page-break-after:avoid!important}
 }
+
+/* V-FIGHTERNAV: previous / next fighter arrows, bottom right of the sheet */
+.fighter-nav{position:fixed;right:14px;bottom:18px;z-index:44;display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px;background:var(--panel,#1b1c20);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.fighter-nav .fn-btn{width:42px;height:42px;border-radius:50%;border:0;background:var(--chip-bg,#26272c);color:var(--text);font:700 24px/1 'IBM Plex Sans',Arial,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px}
+.fighter-nav .fn-btn:active{transform:scale(.94)}
+.fighter-nav .fn-count{min-width:38px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:var(--muted2)}
+@media(max-width:900px){.fighter-nav{bottom:calc(76px + env(safe-area-inset-bottom));right:10px}}
+body:has(#modal:not(.hidden)) .fighter-nav{display:none}
+@media print{.fighter-nav{display:none!important}}
+body:has(#fighterNav) #content{padding-bottom:72px}
