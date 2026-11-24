@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0910.0';
+const APP_BUILD='110.0911.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13158,7 +13158,7 @@ function itemBandRulesMarkup(w,prefix){const en=siteLanguage==='en';const {n:lim
   <label class="custom-field"><span>${en?'Max per warband':'Max par bande'}</span><input id="${prefix}BandLimit" type="number" min="0" max="20" inputmode="numeric" value="${lim||''}" placeholder="${en?'Empty = no limit':'Vide = pas de limite'}"></label>
   <p class="custom-field-help">${en?'Counts the copies carried by the fighters. The Stash does not count; once reached, nobody can buy or be given another one.':'Compte les exemplaires portés par les combattants. La réserve ne compte pas ; une fois la limite atteinte, plus personne ne peut en acheter ni en recevoir.'}</p>
   <details class="custom-collapse item-limit-free"${limFree.length?' open':''}><summary><span>${en?'NO LIMIT FOR THESE WARBANDS':'PAS DE LIMITE POUR CES BANDES'}</span><small>${limFree.length||(en?'none':'aucune')}</small></summary><div class="custom-faction-grid">${facs.map(o=>`<label class="custom-check"><input type="checkbox" class="${prefix}LimitFree" value="${esc(o.id)}" ${limFree.some(v=>String(v)===String(o.id))?'checked':''}> <span>${esc(o.name)}</span></label>`).join('')}</div></details>
-  <div class="item-grant"><span class="micro-label">${en?'ACCESS GIVEN TO':'ACCÈS DONNÉ À'}</span>
+  <div class="item-grant"><span class="micro-label">${en?'ACCESS GIVEN TO':'ACCÈS DONNÉ À'}</span><p class="custom-field-help">${en?'Adds the item to these fighters’ Band List, so it can be bought from the start (warband creation). For an item every warband can get only through the market, leave “Nobody extra” and tick “Market List”.':'Ajoute l’objet à la Band List de ces combattants : il est donc achetable dès le départ (création de la bande). Pour un objet que toutes les bandes ne peuvent obtenir que par le marché, laisse « Personne en plus » et coche « Market List ».'}</p>
    <div class="item-grant-scope" onchange="const v=this.querySelector('input:checked')?.value||'';this.parentNode.querySelectorAll('[data-grant]').forEach(n=>n.style.display=n.dataset.grant===v?'':'none')">
     <label class="custom-check"><input type="radio" name="${prefix}GrantScope" value="" ${g.scope?'':'checked'}> <span>${en?'Nobody extra':'Personne en plus'}</span></label>
     <label class="custom-check"><input type="radio" name="${prefix}GrantScope" value="all" ${sc('all')}> <span>${en?'Every warband':'Toutes les bandes'}</span></label>
@@ -16739,6 +16739,11 @@ function fighterRuleNames(x,f){
 }
 function warriorBandAllowed(w,x,fac){if(itemGrantAllows(w,x,fac))return true;if(x?.customFighterId){return Array.isArray(x.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name))}
   if(!fac)fac=faction(activeRoster());
+  // V-ACCESSFIRST: an item an admin ticked by name in this fighter's own
+  // Equipment Access is offered even when the item itself is linked to other
+  // factions only (a custom "Warhorse" mount ticked for a Nipponese Hatamoto
+  // used to stay invisible in the warband).
+  if(Array.isArray(x?.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name)))return true;
   if(isCustomEquipment(w)&&!customEquipmentForFaction(w,fac?.id))return false;
   // V-EXACTACCESS: once an admin has saved a book fighter's Equipment Access
   // in Admin → Gestion, that list IS the fighter's Band List — the book's
