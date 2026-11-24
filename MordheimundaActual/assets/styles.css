@@ -6625,3 +6625,24 @@ body:has(#modal:not(.hidden)) .fighter-nav,body:has(#modal:not(.hidden)) .fighte
 @media print{.fighter-nav-badge{display:none!important}}
 @media print{.fighter-nav{display:none!important}}
 body:has(#fighterNav) #content{padding-bottom:72px}
+/* V-CAMPRULES / V-GMBOARD */
+.camp-rules-box{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.camp-rules-sec{padding:9px 12px;display:flex;flex-direction:column;gap:4px}
+.camp-rules-sec+.camp-rules-sec{border-top:1px solid var(--line)}
+.camp-rules-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13.5px}
+.camp-rules-row small{opacity:.75;text-align:right}
+.camp-rules-ok{font-size:12px;font-weight:600;color:var(--accent,inherit)}
+.camp-rules-alert,.gm-warn td{background:rgba(200,160,40,.12)}
+.camp-rules-alert{border:1px solid rgba(200,160,40,.55);border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.45}
+.camp-rules-line{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin:0 0 10px;padding:10px 12px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.camp-rules-dialog .hub-panel{border:0;padding:0;background:none}
+.gm-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.gm-tile{border:1px solid var(--line);border-radius:10px;padding:7px 4px}
+.gm-tile b{display:block;font-size:20px}
+.gm-tile small{font-size:10.5px;opacity:.7}
+.gm-tile.warn{border-color:rgba(200,160,40,.7)}
+.gm-sorts{display:flex;gap:6px;flex-wrap:wrap}
+.gm-sort{font:inherit;font-size:12px;font-weight:700;padding:7px 11px;min-height:36px;border-radius:999px;border:1px solid var(--line);background:transparent;color:inherit;cursor:pointer}
+.gm-sort.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.gm-table small{font-size:12px}.gm-table th:first-child{text-align:left}
+.gm-alert{font-weight:600}

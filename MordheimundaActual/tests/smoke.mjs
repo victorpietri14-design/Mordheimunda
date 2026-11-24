@@ -2180,6 +2180,23 @@ await test('[desktop] admin consistency check flags ticked-but-hidden items, emp
       html:/Zz Empty Tree/.test(html),inGroup:ADMIN_GROUPS.site.includes('coherence')}});
   expect(out.hidden&&out.tree&&out.empty&&out.html&&out.inGroup,'coherence: '+JSON.stringify(out));
 });
+await test('[desktop] campaign: rules panel (limits, banned, reserved, my alert) and GM board alerts',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const fa=faction(r);const fb=D.factions.find(x=>x.id!==fa.id);
+    const horse={name:'Zz Horse',category:'Montures',mountCreatureId:'h1',customCreatureId:'h1',kind:'mount',factions:[fa.id]};const night={name:'Zz Night',category:'Montures',mountCreatureId:'h2',customCreatureId:'h2',kind:'mount',factions:[fb.id]};
+    const pool=new Map([['zz horse',horse],['zz night',night]]);const origPool=window.campaignItemPool;window.campaignItemPool=()=>pool;
+    const origCount=window.rosterMountCount;window.rosterMountCount=()=>3;
+    const old=new Date(Date.now()-30*864e5).toISOString().slice(0,10),now=new Date().toISOString().slice(0,10);
+    const members=[{rosterId:'a',rosterName:'A',stats:{rating:100,gold:10,mounts:3}},{rosterId:'b',rosterName:'B',stats:{rating:90,gold:-5}},{rosterId:'c',rosterName:'C',stats:{rating:80,gold:5}}];
+    const c={id:'c-rules',name:'Lustria',members,definition:{mountLimit:2,settlements:[{id:'s1',name:'Port',bannedItems:['Zz Powder']}]}};
+    campaignDetailCache.set('c-rules',c);campaignMarketCache.set('c-rules',{stock:{'zz horse':1,'zz night':1}});
+    campaignBattlesCache.set('c-rules',[{status:'confirmed',playedOn:now,sides:[{rosterId:'a',result:'win'},{rosterId:'b',result:'loss'}]},{status:'confirmed',playedOn:old,sides:[{rosterId:'c',result:'win'},{rosterId:'a',result:'loss'}]}]);
+    const panel=campaignRulesPanelMarkup(c,r);const line=campaignRulesLineMarkup(c);const gm=campaignGmBoardMarkup(c,campaignMembersWithTally(c));
+    window.campaignItemPool=origPool;window.rosterMountCount=origCount;campaignDetailCache.delete('c-rules');campaignMarketCache.delete('c-rules');campaignBattlesCache.delete('c-rules');
+    return {limit:/2 max/.test(panel),banned:/Zz Powder/.test(panel),reserved:/Zz Horse/.test(panel)&&/Zz Night/.test(panel),canBuy:/1 of these 2/.test(panel),alert:/3 mounts for 2/.test(panel),
+      line:/special rule/.test(line),gmMounts:/3 mounts \/ 2 max/.test(gm),gmGold:/Negative gold/.test(gm),gmIdle:/No game for 3 weeks/.test(gm)}});
+  expect(Object.values(out).every(Boolean),'campaign rules/GM: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
