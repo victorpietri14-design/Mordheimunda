@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0901.0';
+const APP_BUILD='110.0902.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18106,7 +18106,7 @@ function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesB
     <label class="custom-check"><input type="checkbox" ${rulesBookletSectionPages?'checked':''} onchange="rulesBookletSectionPages=this.checked;try{localStorage.setItem('mu_booklet_secpages',this.checked?'1':'0')}catch(e){}openRulesBooklet(true)"> <span><b>${en?'Each sub-chapter on a new sheet':'Chaque sous-chapitre sur une nouvelle feuille'}</b><small class="muted"> ${en?'(more sheets, but a change only reprints its sub-chapter)':'(plus de feuilles, mais un changement ne réimprime que son sous-chapitre)'}</small></span></label>
     ${en?'':`<p class="rb-mt" id="rbMt"></p>`}<div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" id="rbPrintBtn" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
    </div>
-   <div class="rb-book">
+   <div class="rb-book" lang="${en?'en':'fr'}">
     <section class="rb-cover"><div class="rb-cover-kick">MORDHEIMUNDA</div><h1>${en?'Rules: The Game':'Règles : le jeu'}</h1><p class="rb-cover-date">${en?'Version of':'Version du'} ${esc(date)}</p>
      <h2>${en?'Contents':'Sommaire'}</h2><ol class="rb-toc">${on.map(c=>`<li><b>${esc(c.title)}</b>${changed(c)?` <span class="rb-ch-changed">✱ ${en?'changed':'modifié'}</span>`:''}<small>${selSecs(c).map(s=>esc(stripCustomTextMarkup?stripCustomTextMarkup(String(s.title||'')):s.title)).join(' · ')}</small></li>`).join('')}</ol>
      ${chs.some(changed)?`<p class="rb-cover-note">✱ = ${en?`changed since ${esc(sinceTxt)}: those passages are boxed in the text.`:`modifié depuis le ${esc(sinceTxt)} : ces passages sont encadrés dans le texte.`}</p>`:''}<p class="rb-cover-note">${en?'Each chapter starts on a new sheet. When a rule changes, reprint only that chapter and replace its sheets.':'Chaque chapitre commence sur une nouvelle feuille. Quand une règle change, réimprime seulement ce chapitre et remplace ses feuilles.'}</p></section>

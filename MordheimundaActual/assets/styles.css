@@ -6558,7 +6558,7 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .rb-size-compact .rb-body table{width:100%;font-size:.86em;margin:3px 0 6px}
 .rb-size-compact .rb-body td,.rb-size-compact .rb-body th{padding:1px 4px!important;line-height:1.2}
 .rb-size-compact .rb-book table td,.rb-size-compact .rb-book table th{font-size:1em!important}
-.rb-size-compact .rb-body .rb-wide{column-span:all;margin:4px 0 8px}
+.rb-size-compact .rb-body .rb-wide{font-size:.86em}
 .rb-size-compact .rb-body .rule-table-wrap,.rb-size-compact .rb-body .ref-table-wrap{overflow:visible!important;margin:0!important;max-width:none!important}
 .rb-size-compact .rb-body .action-cards{display:block;margin:0 0 6px}
 .rb-size-compact .rb-body .action-card{padding:3px 6px 4px!important;margin:0 0 4px;border-radius:4px;break-inside:avoid}
@@ -6576,3 +6576,16 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
  .rb-size-compact .rb-book{font-size:8.6pt!important}
  .rb-size-compact .rb-body .rule-figure img{max-height:55mm}
 }
+
+/* V-BOOKLETFLOW: reading order kept in the compact booklet — nothing spans
+   both columns mid-text (that re-balanced the text above it and broke the
+   sequence), titles stay with what follows, step lists are not split, a
+   change is marked by a bar in the margin instead of a box across columns. */
+.rb-size-compact .rb-body{text-align:justify;hyphens:auto;-webkit-hyphens:auto;orphans:3;widows:3}
+.rb-size-compact .rb-body td,.rb-size-compact .rb-body th,.rb-size-compact .rb-body .action-card,.rb-size-compact .rb-body h1,.rb-size-compact .rb-body h2,.rb-size-compact .rb-body h3,.rb-size-compact .rb-body h4{text-align:left;hyphens:manual}
+.rb-size-compact .rb-body .rule-heading,.rb-size-compact .rb-body .rule-subheading,.rb-size-compact .rb-body .rule-subhead,.rb-size-compact .rb-body .rule-line.rs-toggle,.rb-size-compact .rb-body h3,.rb-size-compact .rb-body h4,.rb-size-compact .rb-section h2{break-after:avoid;page-break-after:avoid;break-inside:avoid}
+.rb-size-compact .rb-body ol,.rb-size-compact .rb-body li,.rb-size-compact .rb-body tr,.rb-size-compact .rb-body .rule-table-wrap,.rb-size-compact .rb-body .ref-table-wrap{break-inside:avoid;page-break-inside:avoid}
+.rb-size-compact .rb-body table{table-layout:auto;max-width:100%}
+.rb-size-compact .rb-body .rule-table-wrap,.rb-size-compact .rb-body .ref-table-wrap{overflow:hidden!important}
+.rb-size-compact .rb-book .rule-recent{border:0!important;border-left:3px solid #111!important;padding:0 0 0 6px!important;margin:3px 0!important;border-radius:0!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.rb-size-compact .rb-book .rule-changed-tag{font-size:8px!important;padding:0 3px!important;margin:0 0 2px!important}
