@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0909.0';
+const APP_BUILD='110.0910.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4001,12 +4001,18 @@ const RULE_TEXT_PATCHES=[
 ];
 function patchRuleText(t){if(typeof t!=='string')return t;RULE_TEXT_PATCHES.forEach(p=>{if(t.includes(p.from))t=t.split(p.from).join(p.to)});return t}
 function ruleEffectiveText(sectionId,page){return patchRuleText(ruleEffectiveTextRaw(sectionId,page))}
-function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleOverrideKey(sectionId,page)];if(typeof o==='string')return o;
+// A "French" correction that is really English text (saved from the French
+// editor while it showed the English page) is ignored: the French page wins.
+function frOverrideIsEnglish(t){const w=String(t||'').toLowerCase().match(/[a-zà-ÿ’']+/g)||[];let en=0,fr=0;for(const x of w){if(MT_EN_WORDS.has(x))en++;else if(MT_FR_WORDS.has(x))fr++}return en>=15&&en>fr*3}
+function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleOverrideKey(sectionId,page)];if(typeof o==='string'&&!(siteLanguage==='fr'&&frOverrideIsEnglish(o)))return o;
   if(siteLanguage==='fr'){const raw=`${sectionId}:${page}`;const fr=frRulesBundle()?.[raw];const en=ruleOverridesCache?.[raw];
     // A bundled translation is only used when it was made from the English
     // text currently in force: an admin correction written after the
     // translation (new layout, sub-titles, cards…) wins until it is translated.
-    if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;if(typeof fr==='string'){const m=frMergeEdited(sectionId,page,en,fr);if(m)return m}return en}
+    if(typeof en==='string'){
+      // V-FRADMIN: French made from the admin's own English text, exact or line by line.
+      const ad=window.MORDHEIMUNDA_FR_RULES_ADMIN?.[raw];if(ad&&typeof ad.en==='string'&&typeof ad.fr==='string'){if(ad.en.replace(/\r\n/g,'\n').trim()===en.replace(/\r\n/g,'\n').trim())return ad.fr;const m=frMergeLines(raw+'#admin',ad.en,ad.fr,en);if(m)return m}
+      if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;if(typeof fr==='string'){const m=frMergeEdited(sectionId,page,en,fr);if(m)return m}return en}
     if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o'))return fr}
   return null}
 // V-FRMERGE: an English correction used to drop the whole hand-written
@@ -4015,16 +4021,14 @@ function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleO
 // line, the lines the correction left untouched keep their French version;
 // only the changed or new lines stay English (and go to automatic translation).
 const frMergeCache=new Map();
-function frMergeEdited(sectionId,page,en,fr){const k=sectionId+':'+page;const hit=frMergeCache.get(k);if(hit&&hit.en===en&&hit.fr===fr)return hit.out;
-  // The English the French was made from: the admin text it was translated
-  // from (V-FREDITED), else the book text.
-  let out=null;try{const fromAdmin=String(window.MORDHEIMUNDA_FR_RULES_SRC?.[k]||'').startsWith('o');const base=fromAdmin?window.MORDHEIMUNDA_FR_RULES_EN?.[k]:RULES_BOOK.find(s=>s.id===sectionId)?.content?.find(p=>String(p.page)===String(page))?.text;
-    if(typeof base==='string'){const A=base.replace(/\r\n/g,'\n').split('\n'),F=fr.replace(/\r\n/g,'\n').split('\n'),B=en.replace(/\r\n/g,'\n').split('\n');
+function frMergeLines(key,baseEn,fr,en){const hit=frMergeCache.get(key);if(hit&&hit.en===en&&hit.fr===fr&&hit.base===baseEn)return hit.out;
+  let out=null;try{if(typeof baseEn==='string'){const A=baseEn.replace(/\r\n/g,'\n').split('\n'),F=fr.replace(/\r\n/g,'\n').split('\n'),B=en.replace(/\r\n/g,'\n').split('\n');
       if(A.length===F.length&&A.length*B.length<=250000){const n=A.length,m=B.length;const L=Array.from({length:n+1},()=>new Uint16Array(m+1));
         for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)L[i][j]=A[i].trim()===B[j].trim()?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
         const res=[];let i=0,j=0;while(j<m){if(i<n&&A[i].trim()===B[j].trim()){res.push(F[i]);i++;j++}else if(i<n&&L[i+1][j]>=L[i][j+1])i++;else{res.push(B[j]);j++}}
         out=res.join('\n')}}}catch(e){out=null}
-  frMergeCache.set(k,{en,fr,out});return out}
+  frMergeCache.set(key,{en,fr,base:baseEn,out});return out}
+function frMergeEdited(sectionId,page,en,fr){const base=RULES_BOOK.find(s=>s.id===sectionId)?.content?.find(p=>String(p.page)===String(page))?.text;return frMergeLines(sectionId+':'+page,base,fr,en)}
 // V-RULECHANGES: when a rule page was last corrected (only the date is kept,
 // never the old text). The site highlights it for a week; the booklet marks
 // every page changed since a chosen date and can print only those chapters.
