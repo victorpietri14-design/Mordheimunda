@@ -2035,6 +2035,15 @@ await test('[desktop] rules booklet: sub-chapters can be picked one by one',null
     return {n0,n1,part,none,one,back}});
   expect(out.n1===out.n0-1&&out.part&&out.none===0&&out.one.ch===1&&out.one.sec===1&&out.back===out.n0,'booklet sub-chapter pick: '+JSON.stringify(out));
 });
+await test('[desktop] French rules: an English correction keeps the French of the lines it did not change',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
+    ruleOverridesCache=ruleOverridesCache||{};const base=RULES_BOOK.find(s=>s.id==='houserules').content[0].text;const keep=ruleOverridesCache['houserules:901'];
+    ruleOverridesCache['houserules:901']=base.replace('Shield|0:','Shield|1:').replace('A mounted fighter has no cap.\n','');const t=ruleEffectiveText('houserules',901);
+    if(keep===undefined)delete ruleOverridesCache['houserules:901'];else ruleOverridesCache['houserules:901']=keep;siteLanguage=lang;
+    return {fr:/Règles maison/.test(t)&&/Armures cumulables/.test(t)&&/VALEUR DE BANDE/.test(t),changedEn:/Shield\|1: it can be used/.test(t),dropped:!/Un combattant monté n’a pas ce plafond/.test(t)}});
+  expect(out.fr&&out.changedEn&&out.dropped,'French kept line by line: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
