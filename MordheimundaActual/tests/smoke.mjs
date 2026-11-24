@@ -2050,6 +2050,14 @@ await test('[desktop] admin translation: the game glossary can be edited',null,a
     return {box:/id="mtGlossary"/.test(html)&&html.includes('hit roll = jet de touche'),save:/saveMtGlossary\(\)/.test(html),fn:typeof saveMtGlossary==='function'&&typeof window.MordheimundaAPI.adminSaveTranslateGlossary==='function'}});
   expect(out.box&&out.save&&out.fn,'glossary editor: '+JSON.stringify(out));
 });
+await test('[desktop] French rules: Objectives & Scenario Actions has its own French text, card names kept',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
+    const t=ruleEffectiveText('scenarioactions',904)||'';const html=rulePageMarkup({page:904,text:t},'scenarioactions',[]);siteLanguage=lang;
+    return {fr:/Objectifs et actions de scénario/.test(t)&&/test d’Intelligence/.test(t),names:/class="ac-name notranslate">Pick Up</.test(html),rule:/class="ac-type">Règle</.test(html),
+      missing:(RULES_BOOK||[]).flatMap(s=>(s.content||[]).map(p=>s.id+':'+p.page)).filter(k=>!frRulesBundle()[k])}});
+  expect(out.fr&&out.names&&out.rule&&!out.missing.length,'French scenario actions: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
