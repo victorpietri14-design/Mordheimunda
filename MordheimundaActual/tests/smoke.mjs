@@ -2044,6 +2044,12 @@ await test('[desktop] French rules: an English correction keeps the French of th
     return {fr:/Règles maison/.test(t)&&/Armures cumulables/.test(t)&&/VALEUR DE BANDE/.test(t),changedEn:/Shield\|1: it can be used/.test(t),dropped:!/Un combattant monté n’a pas ce plafond/.test(t)}});
   expect(out.fr&&out.changedEn&&out.dropped,'French kept line by line: '+JSON.stringify(out));
 });
+await test('[desktop] admin translation: the game glossary can be edited',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{await ensureAdminCode();mtAdminData={enabled:true,usage:{},terms:[],glossary:'hit roll = jet de touche',glossaryDefault:'hit roll = jet de touche\nwound roll = jet de blessure'};const html=adminTranslateMarkup();mtAdminData=null;
+    return {box:/id="mtGlossary"/.test(html)&&html.includes('hit roll = jet de touche'),save:/saveMtGlossary\(\)/.test(html),fn:typeof saveMtGlossary==='function'&&typeof window.MordheimundaAPI.adminSaveTranslateGlossary==='function'}});
+  expect(out.box&&out.save&&out.fn,'glossary editor: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

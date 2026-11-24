@@ -194,6 +194,7 @@
   adminTrafficAccount:(who,days)=>request('/api/admin/traffic/account?who='+encodeURIComponent(who)+'&days='+encodeURIComponent(days||7)),
   adminSetSyncPause:on=>request('/api/admin/sync-pause',{method:'PUT',body:JSON.stringify({on})}),
   adminSaveTranslateExclusions:terms=>request('/api/admin/translate-exclusions',{method:'PUT',body:JSON.stringify({terms})}),
+  adminSaveTranslateGlossary:text=>request('/api/admin/translate-glossary',{method:'PUT',body:JSON.stringify({text})}),
   shares:()=>request('/api/account/shares'),
   createShare:rosterId=>request('/api/account/shares',{method:'POST',body:JSON.stringify({rosterId})}),
   revokeShare:token=>request('/api/account/shares/'+encodeURIComponent(token),{method:'DELETE'}),

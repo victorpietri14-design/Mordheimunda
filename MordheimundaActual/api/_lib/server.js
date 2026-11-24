@@ -101,7 +101,7 @@ app.use((req,res,next)=>{res.setHeader('Cache-Control','no-store');next()});
 const ADMIN_LOG_SNAP=[
  [/^\/api\/admin\/help-texts$/,{setting:'helpTexts'}],[/^\/api\/admin\/race-looks$/,{setting:'raceLooks'}],[/^\/api\/admin\/price-rules$/,{setting:'equipmentPriceRules'}],
  [/^\/api\/admin\/warband-size-limits$/,{setting:'warbandSizeLimits'}],[/^\/api\/admin\/warband-hire-rules$/,{setting:'warbandHireRules'}],[/^\/api\/admin\/game-options$/,{setting:'gameOptions'}],[/^\/api\/admin\/quests$/,{setting:'questLibrary'}],
- [/^\/api\/admin\/trophies$/,{setting:'trophyLibrary'}],[/^\/api\/admin\/mutations$/,{setting:'mutationLibrary'}],[/^\/api\/admin\/translate-exclusions$/,{setting:'translateExclusions'}],[/^\/api\/admin\/home\/event$/,{setting:'activeEvent'}],
+ [/^\/api\/admin\/trophies$/,{setting:'trophyLibrary'}],[/^\/api\/admin\/mutations$/,{setting:'mutationLibrary'}],[/^\/api\/admin\/translate-exclusions$/,{setting:'translateExclusions'}],[/^\/api\/admin\/translate-glossary$/,{setting:'translateGlossary'}],[/^\/api\/admin\/home\/event$/,{setting:'activeEvent'}],
  [/^\/api\/admin\/rules\/overrides\/([^/]+)\/(\d+)$/,{table:'rule_overrides',cols:['section_id','page']}],
  [/^\/api\/admin\/catalog\/overrides\/([^/]+)$/,{table:'catalog_overrides',cols:['faction_id']}],
  [/^\/api\/admin\/catalog\/weapon-overrides\/([^/]+)$/,{table:'weapon_overrides',cols:['weapon_name']}],
@@ -693,12 +693,91 @@ async function mtExclusions(){if(Date.now()-mtExclusionsCache.at<60000)return mt
 const mtEscRe=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 const mtHtmlEsc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const mtHtmlUnesc=t=>String(t).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&#x27;|&apos;/g,"'").replace(/&nbsp;/g,' ').replace(/&amp;/g,'&');
-function mtProtect(html,terms){if(!terms.length)return html;const re=new RegExp(`(^|[^\\p{L}\\p{N}])(${terms.slice().sort((a,b)=>b.length-a.length).map(mtEscRe).join('|')})(?=$|[^\\p{L}\\p{N}])`,'giu');
-  return html.split(/(<[^>]+>)/).map(part=>part.startsWith('<')?part:part.replace(re,(m,pre,w)=>`${pre}<span translate="no" class="notranslate">${w}</span>`)).join('')}
+// V-MTGLOSSARY: game terms translated the way the French rulebooks do
+// ("hit roll" → "jet de touche", not "touche roulée"). Each occurrence is
+// replaced by its French term inside a translate="no" span before sending, so
+// the service builds the sentence around it. A term written with a capital
+// matches only that spelling ("Strength" the characteristic, not "strength").
+// Admin › Translation edits the list; built-in defaults until then.
+const MT_GLOSSARY_DEFAULT=`hit roll = jet de touche
+hit rolls = jets de touche
+roll to hit = jet de touche
+rolls to hit = jets de touche
+wound roll = jet de blessure
+wound rolls = jets de blessure
+roll to wound = jet de blessure
+rolls to wound = jets de blessure
+save roll = jet de sauvegarde
+save rolls = jets de sauvegarde
+armour save = sauvegarde d’armure
+armour saves = sauvegardes d’armure
+injury roll = jet d’Injury
+injury rolls = jets d’Injury
+rout test = test de Rout
+rout tests = tests de Rout
+cool test = test de calme
+cool tests = tests de calme
+leadership test = test de Commandement
+leadership tests = tests de Commandement
+weapon skill = Capacité de Combat
+ballistic skill = Capacité de Tir
+Strength = Force
+Toughness = Endurance
+Attacks = Attaques
+Leadership = Commandement
+Willpower = Volonté
+Movement = Mouvement
+Wounds = Blessures
+close combat weapon = arme de corps à corps
+close combat weapons = armes de corps à corps
+ranged weapon = arme de tir
+ranged weapons = armes de tir
+close combat = corps à corps
+movement phase = phase de mouvement
+shooting phase = phase de tir
+close combat phase = phase de corps à corps
+recovery phase = phase de récupération
+end phase = phase de fin
+gold crowns = couronnes d’or
+infantry cap = plafond de l’infanterie
+Out of Action = Out of Action
+Seriously Injured = Seriously Injured
+Flesh Wound = Flesh Wound
+Pinned = Pinned
+Prone = Prone
+Engaged = Engaged
+Broken = Broken
+Ward save = Ward save
+Two-Handed = Two-Handed
+Hired Sword = Hired Sword
+Hired Swords = Hired Swords
+Henchman = Henchman
+Henchmen = Henchmen`;
+function mtParseGlossary(text){const out=[];const seen=new Set();String(text||'').split('\n').forEach(l=>{const m=l.match(/^\s*(.+?)\s*=\s*(.+?)\s*$/);if(!m)return;const en=m[1].slice(0,60),fr=m[2].slice(0,80);const k=en.toLowerCase();if(seen.has(k))return;seen.add(k);out.push({en,fr})});return out.slice(0,400)}
+let mtGlossaryCache={at:0,entries:null,text:''};let mtGlossarySyncing=null;
+async function mtGlossaryText(){try{const q=await pool.query("SELECT value FROM site_settings WHERE key='translateGlossary'");const t=q.rows[0]?.value?.text;return typeof t==='string'?t:MT_GLOSSARY_DEFAULT}catch(e){return MT_GLOSSARY_DEFAULT}}
+async function mtGlossary(){if(mtGlossaryCache.entries&&Date.now()-mtGlossaryCache.at<60000)return mtGlossaryCache.entries;const text=await mtGlossaryText();const entries=mtParseGlossary(text);mtGlossaryCache={at:Date.now(),entries,text};
+  if(!mtGlossarySyncing)mtGlossarySyncing=mtGlossarySync(entries).catch(e=>console.error('glossary sync',e.message)).finally(()=>{mtGlossarySyncing=null});await mtGlossarySyncing;return entries}
+// Machine translations made before a term was added or changed are
+// forgotten (never an admin's own corrections), so they come back with it.
+async function mtGlossarySync(entries){const sig=crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex');
+  const q=await pool.query("SELECT value FROM site_settings WHERE key='translateGlossaryApplied'");const prev=q.rows[0]?.value;if(prev?.sig===sig)return;
+  const before=new Map((prev?.entries||[]).map(e=>[e.en.toLowerCase(),e.fr]));const excl=(await mtExclusions()).map(t=>t.toLowerCase());const changed=entries.filter(e=>before.get(e.en.toLowerCase())!==e.fr&&!excl.includes(e.en.toLowerCase()));
+  for(const e of changed)await pool.query("DELETE FROM translations WHERE edited_by IS NULL AND target_lang='FR' AND source ILIKE $1",['%'+e.en.replace(/[%_\\]/g,m=>'\\'+m)+'%']);
+  await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('translateGlossaryApplied',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({sig,entries})])}
+const mtNt=w=>`<span translate="no" class="notranslate">${w}</span>`;
+function mtProtect(html,terms,glossary=[]){const gl=new Map();glossary.forEach(e=>{if(!terms.some(t=>t.toLowerCase()===e.en.toLowerCase()))gl.set(e.en.toLowerCase(),e)});
+  const all=[...terms,...[...gl.values()].map(e=>e.en)];if(!all.length)return html;
+  const re=new RegExp(`(^|[^\\p{L}\\p{N}])(${all.slice().sort((a,b)=>b.length-a.length).map(mtEscRe).join('|')})(?=$|[^\\p{L}\\p{N}])`,'giu');
+  let before='';return html.split(/(<[^>]+>)/).map(part=>{if(part.startsWith('<'))return part;const r=part.replace(re,(m,pre,w,off,str)=>{const e=gl.get(w.toLowerCase());if(!e)return pre+mtNt(w);
+    if(/^\p{Lu}/u.test(e.en)&&w!==e.en)return m; // capitalised term: exact spelling only
+    // English rules capitalise "Hit roll" mid-sentence; French only at the start of a sentence.
+    let fr=mtHtmlEsc(e.fr);const lead=(before+str.slice(0,off)+pre).replace(/\s+$/,'');const start=!lead||/[.!?:•\n]$/.test(lead);
+    if(start&&/^\p{Ll}/u.test(fr))fr=fr[0].toUpperCase()+fr.slice(1);return pre+mtNt(fr)});before+=part;return r}).join('')}
 const mtUnprotect=t=>String(t).replace(/<span translate="no" class="notranslate">([\s\S]*?)<\/span>/g,'$1').replace(/<span class="notranslate" translate="no">([\s\S]*?)<\/span>/g,'$1');
-async function translateProtected(provider,texts,{html,target}){const terms=await mtExclusions();
-  if(!terms.length)return translateWith(provider,texts,{html,target});
-  const sent=texts.map(t=>mtProtect(html?t:mtHtmlEsc(t),terms));const out=await translateWith(provider,sent,{html:true,target});if(!out)return null;
+async function translateProtected(provider,texts,{html,target}){const terms=await mtExclusions();const glossary=target==='FR'?await mtGlossary():[];
+  if(!terms.length&&!glossary.length)return translateWith(provider,texts,{html,target});
+  const sent=texts.map(t=>mtProtect(html?t:mtHtmlEsc(t),terms,glossary));const out=await translateWith(provider,sent,{html:true,target});if(!out)return null;
   return out.map(t=>{if(typeof t!=='string')return t;const u=mtUnprotect(t);return html?u:mtHtmlUnesc(u)})}
 function translateProvider(){return config.googleTranslateApiKey?'google':config.azureTranslatorKey?'azure':null}
 // Returns the translations in the same order as `texts`, or null on error.
@@ -728,7 +807,7 @@ const translateLimiter=rateLimit({windowMs:60*1000,max:120,standardHeaders:true,
 app.get('/api/admin/translate-settings',requireDb,auth,requireAdmin,async(req,res,next)=>{try{
   const u=await pool.query("SELECT COALESCE(SUM(chars) FILTER (WHERE day=CURRENT_DATE),0)::int AS d, COALESCE(SUM(chars),0)::int AS m FROM translation_usage WHERE day>=date_trunc('month',CURRENT_DATE)");
   const c=await pool.query('SELECT COUNT(*)::int AS n FROM translations');
-  res.json({terms:await mtExclusions(),usage:{today:u.rows[0].d,month:u.rows[0].m,dailyLimit:config.translateDailyCharLimit,monthlyLimit:config.translateMonthlyCharLimit},cached:c.rows[0].n,enabled:!!translateProvider()})}catch(e){next(e)}});
+  res.json({terms:await mtExclusions(),glossary:(await mtGlossaryText()),glossaryDefault:MT_GLOSSARY_DEFAULT,usage:{today:u.rows[0].d,month:u.rows[0].m,dailyLimit:config.translateDailyCharLimit,monthlyLimit:config.translateMonthlyCharLimit},cached:c.rows[0].n,enabled:!!translateProvider()})}catch(e){next(e)}});
 // Saving the list forgets the machine translations (not the admin's own
 // corrections) of texts containing a newly added word, so they are
 // translated again with that word kept as is.
@@ -739,6 +818,11 @@ app.put('/api/admin/translate-exclusions',requireDb,requireSameOrigin,auth,requi
     mtExclusionsCache={at:0,terms:[]};let cleared=0;
     for(const t of added){const q=await pool.query("DELETE FROM translations WHERE edited_by IS NULL AND source ILIKE $1",['%'+t.replace(/[%_\\]/g,m=>'\\'+m)+'%']);cleared+=q.rowCount}
     res.json({terms,cleared})}catch(e){next(e)}});
+app.put('/api/admin/translate-glossary',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
+  const text=mtParseGlossary(String(req.body?.text||'').slice(0,40000)).map(e=>`${e.en} = ${e.fr}`).join('\n');
+  try{await pool.query("INSERT INTO site_settings(key,value,updated_at) VALUES('translateGlossary',$1,NOW()) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()",[JSON.stringify({text})]);
+    const c=await pool.query("SELECT COUNT(*)::int AS n FROM translations WHERE edited_by IS NULL AND target_lang='FR'");mtGlossaryCache={at:0,entries:null,text:''};await mtGlossary();const c2=await pool.query("SELECT COUNT(*)::int AS n FROM translations WHERE edited_by IS NULL AND target_lang='FR'");
+    res.json({text,count:mtParseGlossary(text).length,cleared:c.rows[0].n-c2.rows[0].n})}catch(e){next(e)}});
 app.put('/api/admin/translations',requireDb,requireSameOrigin,auth,requireAdmin,async(req,res,next)=>{
   const source=String(req.body?.source||''),html=!!req.body?.html,target=String(req.body?.target||'FR').toUpperCase()==='EN'?'EN-GB':'FR';
   let translated=String(req.body?.translated||'');

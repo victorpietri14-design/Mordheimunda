@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0895.0';
+const APP_BUILD='110.0897.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -521,8 +521,8 @@ const RULES_QUICK_TABLES=[
   {id:'prebattle',page:143,fr:'Détermination du scénario',en:'Determine Scenario'},
   {id:'terrain',page:19,fr:'Chute (Falling)',en:'Falling'},
   {id:'shooting',page:20,fr:'Tir — BS du tireur',en:'Shooting — BS of Shooter'},
-  {id:'combat',page:22,fr:'Corps à corps — jet pour toucher',en:'Close Combat — Hit Roll'},
-  {id:'resolve',page:24,fr:'Jet pour blesser',en:'Make Wound Roll'},
+  {id:'combat',page:22,fr:'Corps à corps — jet de touche',en:'Close Combat — Hit Roll'},
+  {id:'resolve',page:24,fr:'Jet de blessure',en:'Make Wound Roll'},
   {id:'resolve',page:25,fr:'Table des blessures',en:'Injury Dice Chart'},
   {id:'resolve',page:25,fr:'Blessures durables',en:'Lasting Injuries'},
   {id:'magic',page:34,fr:'Ratés magiques',en:'Magical Miscasts'},
@@ -6812,7 +6812,8 @@ let mtEnabled=(()=>{try{return localStorage.getItem(MT_OFF_KEY)!=='1'}catch(e){r
 // V-MTKEEP: translations are kept on this device between visits, so a page
 // opens in French at once (no English flash, no new request) — up to about
 // 1.5 MB, the oldest dropped first.
-const MT_STORE='mu_mt_cache_v1';
+// v2: machine translations made before the game glossary are dropped.
+const MT_STORE='mu_mt_cache_v2';
 // Entries expire after 3 days so an admin's hand correction reaches every
 // device soon.
 const MT_KEEP_MS=3*24*3600*1000;const mtSavedAt=new Map();
@@ -19214,7 +19215,7 @@ const HELP_CARDS=[
   ['INT',['Intelligence','Intelligence'],['Knowledge and thinking.','Le savoir et la réflexion.']]],
   note:['Making a test: roll 2D6, passed if the total is equal to or lower than the characteristic. For Strength, Toughness and Initiative: 1D6.','Faire un test : lance 2D6. Réussi si le total est égal ou inférieur à la caractéristique. Pour Force, Endurance et Initiative : 1D6.']},
  {title:['A round','Un round de jeu'],body:['Both players roll for Priority: the winner starts. Then, taking turns, each player activates one warrior, who makes up to 2 actions (move, shoot, charge…). A leader can bring 2 nearby allies along.','On lance un dé pour la Priorité : le gagnant commence. Puis chacun son tour, on active un combattant, qui fait jusqu’à 2 actions (bouger, tirer, charger…). Un chef peut entraîner 2 alliés proches avec lui.'],rule:'structure'},
- {title:['Attacking','Attaquer'],body:['A roll to hit, a roll to wound (the weapon’s Strength against the target’s Toughness), then the armour save. At 0 wounds, the Injury dice decides: flesh wound, seriously injured or out of action.','Un jet pour toucher, un jet pour blesser (la Force de l’arme contre l’Endurance de la cible), puis la sauvegarde d’armure. À 0 point de vie, le dé de blessure décide : blessure légère, gravement blessé ou hors de combat.'],rule:'resolve'},
+ {title:['Attacking','Attaquer'],body:['A roll to hit, a roll to wound (the weapon’s Strength against the target’s Toughness), then the armour save. At 0 wounds, the Injury dice decides: flesh wound, seriously injured or out of action.','Un jet de touche, un jet de blessure (la Force de l’arme contre l’Endurance de la cible), puis la sauvegarde d’armure. À 0 point de vie, le dé de blessure décide : blessure légère, gravement blessé ou hors de combat.'],rule:'resolve'},
  {title:['The rout','La déroute'],body:['At the end of the round, if you have warriors Seriously Injured or Out of Action, you take a Rout test: 1D6 + those warriors. More than your starting crew? The warband starts to flee. Then the injured try to get up.','À la fin du round, si tu as des combattants gravement blessés ou hors de combat, tu fais un test de déroute : 1D6 + ces combattants. Si ça dépasse ta bande de départ, elle commence à fuir. Ensuite, les blessés tentent de se relever.'],rule:'endphase'},
  {title:['Winning','Gagner'],body:['Complete the scenario’s objective, or make the enemy warband flee. Each scenario gives its rewards: experience, gold, reputation.','Remplis l’objectif du scénario, ou fais fuir la bande adverse. Chaque scénario donne ses récompenses : expérience, or, réputation.'],rule:'scenarios'},
  {title:['After the battle','Après la bataille'],body:['The seriously injured may die, you sometimes capture an enemy, you earn experience, explore for wyrdstone, sell it, then buy. The app guides you through every step.','Les blessés graves risquent d’y rester, on capture parfois un ennemi, on gagne de l’expérience, on explore pour la wyrdstone, on la vend, puis on achète. L’appli te guide à chaque étape.'],rule:'postbattlesequence'}];
