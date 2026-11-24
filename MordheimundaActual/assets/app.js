@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0899.0';
+const APP_BUILD='110.0900.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -4006,7 +4006,7 @@ function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleO
     // A bundled translation is only used when it was made from the English
     // text currently in force: an admin correction written after the
     // translation (new layout, sub-titles, cards…) wins until it is translated.
-    if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o')){const m=frMergeEdited(sectionId,page,en,fr);if(m)return m}return en}
+    if(typeof en==='string'){if(typeof fr==='string'&&window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]===frSourceHash(en))return fr;if(typeof fr==='string'){const m=frMergeEdited(sectionId,page,en,fr);if(m)return m}return en}
     if(typeof fr==='string'&&!window.MORDHEIMUNDA_FR_RULES_SRC?.[raw]?.startsWith?.('o'))return fr}
   return null}
 // V-FRMERGE: an English correction used to drop the whole hand-written
@@ -4016,7 +4016,9 @@ function ruleEffectiveTextRaw(sectionId,page){const o=ruleOverridesCache?.[ruleO
 // only the changed or new lines stay English (and go to automatic translation).
 const frMergeCache=new Map();
 function frMergeEdited(sectionId,page,en,fr){const k=sectionId+':'+page;const hit=frMergeCache.get(k);if(hit&&hit.en===en&&hit.fr===fr)return hit.out;
-  let out=null;try{const base=RULES_BOOK.find(s=>s.id===sectionId)?.content?.find(p=>String(p.page)===String(page))?.text;
+  // The English the French was made from: the admin text it was translated
+  // from (V-FREDITED), else the book text.
+  let out=null;try{const fromAdmin=String(window.MORDHEIMUNDA_FR_RULES_SRC?.[k]||'').startsWith('o');const base=fromAdmin?window.MORDHEIMUNDA_FR_RULES_EN?.[k]:RULES_BOOK.find(s=>s.id===sectionId)?.content?.find(p=>String(p.page)===String(page))?.text;
     if(typeof base==='string'){const A=base.replace(/\r\n/g,'\n').split('\n'),F=fr.replace(/\r\n/g,'\n').split('\n'),B=en.replace(/\r\n/g,'\n').split('\n');
       if(A.length===F.length&&A.length*B.length<=250000){const n=A.length,m=B.length;const L=Array.from({length:n+1},()=>new Uint16Array(m+1));
         for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)L[i][j]=A[i].trim()===B[j].trim()?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);

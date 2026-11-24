@@ -2070,6 +2070,16 @@ await test('[desktop] automatic translation: a slow answer is not asked again, a
     return {sent,fr:txt.startsWith('FR ')}});
   expect(out.sent===1&&out.fr,'in-flight translation: '+JSON.stringify(out));
 });
+await test('[desktop] French rules: pages the admin rewrote in English have their own French, kept line by line after a new edit',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
+    ruleOverridesCache=ruleOverridesCache||{};const keep=ruleOverridesCache['combat:22'];const en=window.MORDHEIMUNDA_FR_RULES_EN['combat:22'];
+    ruleOverridesCache['combat:22']=en;const same=ruleEffectiveText('combat',22);
+    ruleOverridesCache['combat:22']=en.replace('7. RESOLVE HITS\n','7. RESOLVE ALL HITS\n');const edited=ruleEffectiveText('combat',22);
+    if(keep===undefined)delete ruleOverridesCache['combat:22'];else ruleOverridesCache['combat:22']=keep;siteLanguage=lang;
+    return {same:/^Corps à corps\n/.test(same)&&/CONSOLIDER/.test(same),editedFr:/CHOISIR LES ARMES/.test(edited),editedLine:/7\. RESOLVE ALL HITS/.test(edited)}});
+  expect(out.same&&out.editedFr&&out.editedLine,'French for admin-rewritten pages: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
