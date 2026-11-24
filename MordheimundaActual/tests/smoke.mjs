@@ -2080,14 +2080,15 @@ await test('[desktop] French rules: pages the admin rewrote in English have thei
     return {same:/^Corps à corps\n/.test(same)&&/CONSOLIDER/.test(same),editedFr:/CHOISIR LES ARMES/.test(edited),editedLine:/7\. RESOLVE ALL HITS/.test(edited)}});
   expect(out.same&&out.editedFr&&out.editedLine,'French for admin-rewritten pages: '+JSON.stringify(out));
 });
-await test('[desktop] rules booklet: compact size by default (two columns), large print on request',null,async page=>{
+await test('[desktop] rules booklet: compact size by default (one column), two columns optional, never stuck on translation',null,async page=>{
   await seed(page);
-  const out=await page.evaluate(async()=>{try{localStorage.removeItem('mu_booklet_size')}catch(e){}rulesBookletSize='compact';await openRulesBooklet();
-    const w=document.querySelector('.rb-wrap');const body=document.querySelector('.rb-body');const cols=body?getComputedStyle(body).columnCount:'';const radios=document.querySelectorAll('input[name="rbSize"]').length;
-    rulesBookletSetSize('normal');await new Promise(z=>setTimeout(z,50));const normal=document.querySelector('.rb-wrap').className;const cols2=getComputedStyle(document.querySelector('.rb-body')).columnCount;
+  const out=await page.evaluate(async()=>{try{localStorage.removeItem('mu_booklet_size');localStorage.removeItem('mu_booklet_cols')}catch(e){}rulesBookletSize='compact';rulesBookletCols2=false;await openRulesBooklet();
+    const w=document.querySelector('.rb-wrap');const cols1=getComputedStyle(document.querySelector('.rb-body')).columnCount;const radios=document.querySelectorAll('input[name="rbSize"]').length;const opt=!!document.querySelector('.rb-cols-opt');
+    rulesBookletSetCols2(true);await new Promise(z=>setTimeout(z,50));const cols2=getComputedStyle(document.querySelector('.rb-body')).columnCount;rulesBookletSetCols2(false);
+    rulesBookletSetSize('normal');await new Promise(z=>setTimeout(z,50));const normal=document.querySelector('.rb-wrap').className;
     let saved='';try{saved=localStorage.getItem('mu_booklet_size')}catch(e){}rulesBookletSetSize('compact');
-    return {compact:w.classList.contains('rb-size-compact'),cols,radios,normal,cols2,saved}});
-  expect(out.compact&&out.cols==='2'&&out.radios===3&&/rb-size-normal/.test(out.normal)&&out.cols2!=='2'&&out.saved==='normal','booklet sizes: '+JSON.stringify(out));
+    return {compact:w.classList.contains('rb-size-compact'),cols1,cols2,radios,opt,normal,saved}});
+  expect(out.compact&&out.cols1!=='2'&&out.cols2==='2'&&out.radios===3&&out.opt&&/rb-size-normal/.test(out.normal)&&out.saved==='normal','booklet sizes: '+JSON.stringify(out));
 });
 await test('[desktop] rules booklet: the 2.2.2 Actions cards are printed',null,async page=>{
   await seed(page);
