@@ -2058,6 +2058,18 @@ await test('[desktop] French rules: Objectives & Scenario Actions has its own Fr
       missing:(RULES_BOOK||[]).flatMap(s=>(s.content||[]).map(p=>s.id+':'+p.page)).filter(k=>!frRulesBundle()[k])}});
   expect(out.fr&&out.names&&out.rule&&!out.missing.length,'French scenario actions: '+JSON.stringify(out));
 });
+await test('[desktop] automatic translation: a slow answer is not asked again, and a redrawn page still gets it',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const lang=siteLanguage,en0=mtEnabled,api=window.MordheimundaAPI.translate;siteLanguage='fr';mtEnabled=true;mtServerOff=false;mtCache.clear();let sent=0;
+    window.MordheimundaAPI.translate=async texts=>{sent+=texts.filter(t=>t.includes('ranged attack against any enemy in their vision')).length;await new Promise(z=>setTimeout(z,600));return {translations:Object.fromEntries(texts.map(t=>[t,'FR '+t]))}};
+    const box=document.createElement('div');box.className='rule-page-text';box.innerHTML='<div class="rule-line">The warrior may make a ranged attack against any enemy in their vision arc.</div>';document.getElementById('content').appendChild(box);
+    autoTranslateScan(box);await new Promise(z=>setTimeout(z,250));
+    // redraw while the answer is on its way, then scan again twice
+    box.innerHTML='<div class="rule-line">The warrior may make a ranged attack against any enemy in their vision arc.</div>';autoTranslateScan(box);autoTranslateScan(box);
+    await new Promise(z=>setTimeout(z,1200));const txt=box.textContent;box.remove();window.MordheimundaAPI.translate=api;siteLanguage=lang;mtEnabled=en0;
+    return {sent,fr:txt.startsWith('FR ')}});
+  expect(out.sent===1&&out.fr,'in-flight translation: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

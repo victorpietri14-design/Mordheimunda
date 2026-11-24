@@ -861,11 +861,16 @@ app.post('/api/translate',requireDb,requireSameOrigin,translateLimiter,trafficGu
       const canSend=async n=>{const u=await usage();return u.d+n<=config.translateDailyCharLimit&&u.m+n<=config.translateMonthlyCharLimit};
       const send=async list=>{const n=list.reduce((a,t)=>a+t.length,0);if(!(await canSend(n))){capped=true;return null}await spend(n);return translateProtected(provider,list,{html,target})};
       for(const chunk of chunks){if(capped)break;const done=await send(chunk);
-        if(done){for(let i=0;i<chunk.length;i++)await store(chunk[i],done[i])}
+        // One INSERT for the whole chunk (one query per text could take the
+        // request past the hosting time limit on a long page).
+        if(done){const rows=chunk.map((src,i)=>[src,done[i]]).filter(([,t])=>typeof t==='string');rows.forEach(([src,t])=>{out[src]=t});
+          if(rows.length)await pool.query('INSERT INTO translations(hash,target_lang,source,translated) SELECT * FROM UNNEST($1::text[],$2::text[],$3::text[],$4::text[]) ON CONFLICT DO NOTHING',[rows.map(([src])=>key(src)),rows.map(()=>target),rows.map(([src])=>src),rows.map(([,t])=>t)])}
         else if(chunk.length>1&&!capped){for(const one of chunk){if(capped)break;const d=await send([one]);if(d)await store(one,d[0])}}}
       if(capped)console.warn('Translation cap reached — no new texts sent today/this month');
     }
-    res.json({translations:out,enabled:!!translateProvider(),capped});
+    // How many asked texts got nothing back (service refused or failed): shown to an admin.
+    const failed=texts.filter(t=>typeof out[t]!=='string').length;
+    res.json({translations:out,enabled:!!translateProvider(),capped,failed:capped?0:failed});
   }catch(e){next(e)}
 });
 
