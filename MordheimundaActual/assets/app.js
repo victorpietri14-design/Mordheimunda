@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0912.0';
+const APP_BUILD='110.0913.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -11165,7 +11165,7 @@ function tradingCustoms(f){const customs=allCustomEquipmentList();const embedded
 // (V-BANDTRANSIT).
 function campaignBandItems(r,f){const fs=(r.fighters||[]).filter(x=>!isHiredSword(x));const src=fs.length?fs:(f.warriors||[]);const by=new Map();src.forEach(x=>{try{bandListItemsFor(x,f).forEach(w=>{const k=normName(w?.name);if(k&&!w.bandOnlyIntrinsic&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!by.has(k))by.set(k,w)})}catch(e){}});return [...by.values()].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
 function tradingBandItems(r){const f=faction(r);if(!f)return [];if(r.campaignId)return campaignBandItems(r,f);const names=new Set((f.equipment||[]).map(e=>normName(typeof e==='string'?e:e?.name)).filter(Boolean));const hasList=names.size>0||D.weapons.some(w=>w.bandByFaction&&f.id in w.bandByFaction);const ws=f.warriors||[];if(String(f.id).startsWith('custom-warband-')){const acc=new Set();ws.forEach(x=>(Array.isArray(x.equipmentAccess)?x.equipmentAccess:[]).forEach(n=>acc.add(normName(n))));const own=(f.equipment||[]).filter(e=>e&&typeof e==='object'&&!isCovering(e));const ownNames=new Set(own.map(e=>normName(e.name)));return [...D.weapons.filter(w=>!w.hidden&&acc.has(normName(w.name))&&!ownNames.has(normName(w.name))),...own.filter(e=>acc.has(normName(e.name))||!ws.some(x=>Array.isArray(x.equipmentAccess)))].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}const allowed=w=>hasList?(names.has(normName(w.name))||w.bandByFaction?.[f.id]===true||(isCustomEquipment(w)&&customEquipmentForFaction(w,f.id))):ws.some(x=>{try{return warriorBandAllowed(w,x)}catch(e){return false}});const customs=tradingCustoms(f).filter(w=>customEquipmentForFaction(w,f.id)&&allowed(w));const customNames=new Set(customs.map(w=>normName(w.name)));return [...D.weapons.filter(w=>!w.hidden&&w.name!=='Natural Weapons'&&w.name!=='Unarmed'&&!customNames.has(normName(w.name))&&allowed(w)),...customs].map(w=>({w,price:Number(equipmentPrice(w,f,'band')||0),rarity:tradingRarity(w)}))}
-function tradingPostItems(r,post){const f=faction(r);if(post?.campaignId&&post.stock){const by=campaignItemPool();const listed=campaignListedKeys(post.campaignId);return Object.keys(post.stock).filter(k=>!listed||listed.has(k)||!by.get(k)?.coveredVariant).map(k=>by.get(k)).filter(Boolean).filter(w=>!isCreatureItem(w)||creatureAvailableFor(w,f)).map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}const customs=tradingCustoms(f).filter(w=>w.market);const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
+function tradingPostItems(r,post){const f=faction(r);if(post?.campaignId&&post.stock){const by=campaignItemPool();const listed=campaignListedKeys(post.campaignId);return Object.keys(post.stock).filter(k=>!listed||listed.has(k)||!by.get(k)?.coveredVariant).map(k=>by.get(k)).filter(Boolean).filter(w=>!isCreatureItem(w)||creatureAvailableFor(w,f)).map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}const customs=tradingCustoms(f).filter(w=>w.market&&(!isCreatureItem(w)||creatureAvailableFor(w,f)));const names=new Set(customs.map(w=>normName(w.name)));let list=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&bookItemFactionAllowed(w,f)&&!names.has(normName(w.name))),...customs];if(post?.stock)list=list.filter(w=>normName(w.name) in post.stock);return list.map(w=>({w,price:Number(equipmentPrice(w,f||{},'market')||0),rarity:tradingRarity(w)}))}
 // V-CAMPMARKET: a warband in a campaign with settlements buys with its
 // residence's modifiers (price dice per Common/Rare item, find modifiers that
 // move the Rarity needed). A warband that may reside nowhere buys with the
@@ -16756,7 +16756,11 @@ function warriorBandAllowed(w,x,fac){if(itemGrantAllows(w,x,fac))return true;if(
   // Equipment Access is offered even when the item itself is linked to other
   // factions only (a custom "Warhorse" mount ticked for a Nipponese Hatamoto
   // used to stay invisible in the warband).
-  if(Array.isArray(x?.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name)))return true;
+  if(Array.isArray(x?.equipmentAccess)&&x.equipmentAccess.some(n=>normName(n)===normName(w?.name)))return !w?.mountCreatureId||creatureAvailableFor(w,fac);
+  // V-MOUNTRULE: a mount (Custom › Animals & Mounts) is in a fighter's Band
+  // List only when ticked in that fighter's Equipment Access (just above);
+  // its availability never adds it to Band Lists by itself.
+  if(w?.mountCreatureId)return false;
   if(isCustomEquipment(w)&&!customEquipmentForFaction(w,fac?.id))return false;
   // V-EXACTACCESS: once an admin has saved a book fighter's Equipment Access
   // in Admin → Gestion, that list IS the fighter's Band List — the book's
@@ -16894,11 +16898,11 @@ function equipmentPool(tab,x){
   if(tab==='band'){
     ws=bandListItemsFor(x,f);
   } else if(tab==='market'){
-    const customMarket=customs.filter(w=>w.market);
+    const customMarket=customs.filter(w=>w.market&&(!isCreatureItem(w)||creatureAvailableFor(w,f)));
     const customMarketNames=new Set(customMarket.map(w=>normName(w.name)));
     ws=[...D.weapons.filter(w=>!w.hidden&&w.market!==false&&!customMarketNames.has(normName(w.name))),...customMarket];
   } else {
-    const customUnrestricted=customs.filter(w=>w.unrestricted);
+    const customUnrestricted=customs.filter(w=>w.unrestricted&&!w.mountCreatureId);
     const customUnrestrictedNames=new Set(customUnrestricted.map(w=>normName(w.name)));
     ws=[...D.weapons.filter(w=>!w.hidden&&!customUnrestrictedNames.has(normName(w.name))),...customUnrestricted];
   }

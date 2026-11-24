@@ -2158,6 +2158,16 @@ await test('[desktop] campaign: mounts per warband capped; restricted mounts kee
     return {third:third.ok,msg:third.msg||'',sword:sword.ok,shop,mech:campaignMechanicsList({id:'x',definition:{mountLimit:2}}).some(m=>m.icon==='🐎'&&m.on)}});
   expect(out.third===false&&/2/.test(out.msg)&&out.sword&&out.shop.join()==='Mine'&&out.mech,'campaign mounts: '+JSON.stringify(out));
 });
+await test('[desktop] mounts: one rule — creation only when ticked on a fighter, market/campaign for the allowed warbands only',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const other=D.factions.find(x=>x.id!==f.id);const w0=f.warriors[0];
+    const open={name:'Open Pony',category:'Montures',mountCreatureId:'op',customEquipmentId:'op',unrestricted:true,factions:[],market:true};
+    const shut={name:'Shut Pony',category:'Montures',mountCreatureId:'sp',customEquipmentId:'sp',unrestricted:false,factions:[other.id],market:true};
+    const x={...w0,equipmentAccess:['Open Pony','Shut Pony'],equipmentAccessExact:true};const y={...w0,equipmentAccess:[],equipmentAccessExact:true};
+    return {tickedOpen:warriorBandAllowed(open,x,f),tickedShut:warriorBandAllowed(shut,x,f),untickedOpen:warriorBandAllowed(open,y,f),
+      marketOpen:[open,shut].filter(w=>w.market&&(!isCreatureItem(w)||creatureAvailableFor(w,f))).map(w=>w.name).join()}});
+  expect(out.tickedOpen===true&&out.tickedShut===false&&out.untickedOpen===false&&out.marketOpen==='Open Pony','mount rule: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
