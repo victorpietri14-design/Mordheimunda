@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0904.0';
+const APP_BUILD='110.0905.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18095,7 +18095,20 @@ let rulesBookletSince=(()=>{try{const v=Number(localStorage.getItem('mu_booklet_
 function rulesSectionChangedAt(sec){let m=0;(sec.content||[]).forEach(pg=>{const t=ruleChangedAt(sec.id,pg.page);if(t&&t>m)m=t});return m||null}
 function rulesChapterChangedAt(c){let m=0;c.sections.forEach(sec=>{const t=rulesSectionChangedAt(sec);if(t&&t>m)m=t});return m||null}
 function rulesBookletSetSince(v){const t=new Date(v+'T00:00:00').getTime();if(Number.isFinite(t))rulesBookletSince=t;openRulesBooklet()}
-function rulesBookletPrint(){try{localStorage.setItem('mu_booklet_printed',String(Date.now()))}catch(e){}window.print()}
+// V-BOOKLETFRAME: the booklet is printed from its own small document (like
+// the warband sheet), not from the whole app page: only the booklet, its
+// styles and a plain title (= file name) go to the printer, so "Save as
+// PDF" no longer chokes on the app (several PDF printers failed on it).
+function rulesBookletPrint(){try{localStorage.setItem('mu_booklet_printed',String(Date.now()))}catch(e){}
+  const wrap=document.querySelector('.rb-wrap');if(!wrap){window.print();return}
+  try{const en=siteLanguage==='en';const v=encodeURIComponent(APP_BUILD);const page=document.getElementById('rbPageStyle')?.textContent||'';
+    const title=(en?'Mordheimunda rules ':'Mordheimunda regles ')+new Date().toISOString().slice(0,10);
+    const html=`<!doctype html><html lang="${en?'en':'fr'}" data-theme="light"><head><meta charset="utf-8"><title>${title}</title><link rel="stylesheet" href="/assets/fonts/fonts.css?v=${v}"><link rel="stylesheet" href="/assets/styles.min.css?v=${v}"><style>${page}html,body{background:#fff!important;margin:0;padding:0}body{color:#111}.rb-tools,.rb-foot{display:none!important}.rb-book{max-width:none;margin:0;border-radius:0}</style></head><body class="printing rb-frame">${wrap.outerHTML}</body></html>`;
+    let fr=document.getElementById('bookletFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='bookletFrame';fr.title=title;fr.style.cssText='position:fixed;right:0;bottom:0;width:210mm;height:10px;border:0;visibility:hidden';document.body.appendChild(fr);
+    const doc=fr.contentDocument;doc.open();doc.write(html);doc.close();
+    let done=false;const go=()=>{if(done)return;done=true;try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){window.print()}};
+    const ready=()=>{try{const links=[...doc.querySelectorAll('link[rel=stylesheet]')];Promise.all(links.map(l=>l.sheet?1:new Promise(r=>{l.onload=l.onerror=r}))).then(()=>(doc.fonts?.ready||Promise.resolve())).then(()=>setTimeout(go,300))}catch(e){setTimeout(go,800)}};
+    ready();setTimeout(go,6000)}catch(e){window.print()}}
 function rulesBookletDate(){return new Date().toLocaleDateString(siteLanguage==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long',year:'numeric'})}
 function rulesBookletChapters(){const en=siteLanguage==='en';return (RULES_NAV_GROUPS||[]).map(g=>({id:g.id,title:en?(g.en||g.fr):(g.fr||g.en),sections:(g.ids||[]).map(id=>RULES_BOOK.find(s=>s.id===id)).filter(Boolean)})).filter(c=>c.sections.length)}
 function rulesBookletMarkup(){rulesBookletRendering=true;try{return rulesBookletMarkupInner()}finally{rulesBookletRendering=false}}

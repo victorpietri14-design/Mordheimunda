@@ -2096,6 +2096,13 @@ await test('[desktop] rules booklet: the 2.2.2 Actions cards are printed',null,a
     return {cards:sec?sec.querySelectorAll('.action-card').length:0,search:!!document.querySelector('.rb-book .actions-search:not([style*="none"])')&&getComputedStyle(document.querySelector('.rb-book .actions-search')).display!=='none'}});
   expect(out.cards>10&&!out.search,'booklet action cards: '+JSON.stringify(out));
 });
+await test('[desktop] rules booklet: printed from its own document with a plain file name',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{await openRulesBooklet();let called=0;const op=HTMLIFrameElement.prototype;rulesBookletPrint();await new Promise(z=>setTimeout(z,400));const fr=document.getElementById('bookletFrame');
+    if(fr)fr.contentWindow.print=()=>{called++};await new Promise(z=>setTimeout(z,1500));const d=fr?.contentDocument;
+    return {frame:!!fr,book:!!d?.querySelector('.rb-book .rb-chapter'),title:d?.title||'',tools:d?getComputedStyle(d.querySelector('.rb-tools')).display:''}});
+  expect(out.frame&&out.book&&/^Mordheimunda (regles|rules) \d{4}-\d\d-\d\d$/.test(out.title)&&out.tools==='none','booklet frame: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
