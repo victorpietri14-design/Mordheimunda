@@ -2103,6 +2103,12 @@ await test('[desktop] rules booklet: printed from its own document with a plain 
     return {frame:!!fr,book:!!d?.querySelector('.rb-book .rb-chapter'),title:d?.title||'',tools:d?getComputedStyle(d.querySelector('.rb-tools')).display:''}});
   expect(out.frame&&out.book&&/^Mordheimunda (regles|rules) \d{4}-\d\d-\d\d$/.test(out.title)&&out.tools==='none','booklet frame: '+JSON.stringify(out));
 });
+await test('[desktop] fighter swipe never starts from a bar that scrolls sideways (equipment categories)',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const bar=document.createElement('div');bar.className='equipment-categories';bar.style.cssText='overflow-x:auto;width:100px;white-space:nowrap';bar.innerHTML='<button class="equipment-cat">Close combat weapons</button><button class="equipment-cat">Ranged weapons</button><button class="equipment-cat">Armour</button>';document.body.appendChild(bar);
+    const b=bar.querySelector('button');const r={scrolls:elScrollsX(b),excluded:!!b.closest('.equipment-categories,[class*="tabs"]')};const plain=document.createElement('div');document.body.appendChild(plain);r.plain=elScrollsX(plain);bar.remove();plain.remove();return r});
+  expect(out.scrolls&&out.excluded&&!out.plain,'swipe guard: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

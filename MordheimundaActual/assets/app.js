@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0905.0';
+const APP_BUILD='110.0906.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10632,7 +10632,7 @@ function playTabOrder(ps){const t=['scenario'];if(ps&&playConditionsCampaign(ps)
 // Post-bataille / Campagne). Only on /warbands/<id>, so it never overlaps the
 // Play Mode swipe above; areas that scroll sideways keep their own gesture.
 (()=>{let sx=0,sy=0,st=0,ok=false;
- const scrollsX=el=>{for(let n=el;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==='auto'||o==='scroll')return true}}return false};
+ const scrollsX=elScrollsX;
  document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='builder'||historyDrawerOpen||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe]')||scrollsX(e.target))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
  document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*0.6)return;const order=['roster','rules','reserve','postbattle','campaign','stats'];const i=Math.max(0,order.indexOf(gangTab));const j=i+(dx<0?1:-1);if(j<0||j>=order.length)return;setGangTab(order[j]);document.querySelector('.gang-tabs')?.scrollIntoView({block:'nearest',behavior:'smooth'})},{passive:true});
 })();
@@ -13683,10 +13683,14 @@ function setFighterTab(tab){fighterTab=tab;if(tab!=='magic'){magicDomainAddOpen=
 // V-FIGHTERMORE: on a phone the sheet's top actions sit behind a ⋯ button.
 function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
   openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${esc(x.name)}</div><div class="warroom-more-list">${(r.fighters||[]).length>1?btn('⇄ '+(en?'Other fighters':'Autres combattants'),'openFighterSwitcher()'):''}${btn('✎ '+(en?'Edit characteristics':'Modifier les caractéristiques'),'openStatsEditor()')}${fighterRecruitOptionsSource(x).length||(x.recruitPicks||[]).length?btn('⚙ Options','openFighterOptionsModal()'):''}${isHiredSword(x)?'':btn('✦ '+(en?'Duplicate':'Dupliquer'),'openDuplicateFighterConfirm()')}${btn('⎙ '+(en?'Print':'Imprimer'),'window.print()')}${btn('📜 '+(en?'Parchment version':'Version parchemin'),'closeModal();openParchmentSheet()')}</div></div>`)}
+// True when the touch starts inside something that scrolls sideways (a tab
+// or chip bar, a wide table): sliding there scrolls it, never changes page.
+function elScrollsX(el){for(let n=el;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==='auto'||o==='scroll')return true}}return false}
 // V-FIGHTERSWIPE: on a phone, swipe left/right on a sheet to go to the next / previous fighter (warband order).
+// Never from a bar that scrolls sideways (equipment categories…), tabs, chips or tables.
 (()=>{let sx=0,sy=0,st=0,ok=false;
- document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='fighter'||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe],.profile,.equipped-management-list,.fighter-section-tabs'))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
- document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<80||Math.abs(dy)>Math.abs(dx)*0.5)return;const r=activeRoster();if(!r)return;const order=rosterGroupedIndices(r).flatMap(g=>g.indices);const at=order.indexOf(editingIndex);const j=order[at+(dx<0?1:-1)];if(j==null)return;openFighterCard(j);window.scrollTo({top:0});try{toast(r.fighters[j].name)}catch(e){}},{passive:true});
+ document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='fighter'||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe],.profile,.equipped-management-list,.fighter-section-tabs,.equipment-categories,.equipment-cat,[class*="tabs"],[class*="chips"],[role="tablist"],table')||elScrollsX(e.target))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
+ document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<100||Math.abs(dy)>Math.abs(dx)*0.5)return;const r=activeRoster();if(!r)return;const order=rosterGroupedIndices(r).flatMap(g=>g.indices);const at=order.indexOf(editingIndex);const j=order[at+(dx<0?1:-1)];if(j==null)return;openFighterCard(j);window.scrollTo({top:0});try{toast(r.fighters[j].name)}catch(e){}},{passive:true});
 })();
 function backToGang(){save(true);render('builder')}
 function updateFighterField(key,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x[key]=key==='xp'?Math.max(0,Number(val)||0):val;save(true);if(key!=='xp')render('fighter');else toast(siteLanguage==='en'?'XP updated':'XP mis à jour')}
