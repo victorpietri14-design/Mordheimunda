@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0915.0';
+const APP_BUILD='110.0916.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -13211,6 +13211,40 @@ function itemGrantAllows(w,x,fac){const g=itemGrantOf(w);if(!g||!x)return false;
 function knownRaceNames(){const set=new Map();const add=v=>{const t=String(v||'').replace(/^Race\s*\(\s*/i,'').replace(/\s*\)\s*$/,'').trim();if(t&&!set.has(normName(t)))set.set(normName(t),t)};
   (D.factions||[]).forEach(f=>(f.warriors||[]).forEach(w=>add(w.race)));try{customFighterList().forEach(w=>add(w.race))}catch(e){}return [...set.values()].sort((a,b)=>a.localeCompare(b))}
 // Editor block shared by the book item editor (prefix awp) and the custom one (prefix customRule).
+// V-ITEMACCESS: "Who can have it · How to get it" — worked out with the same
+// checks the fighter shop uses (warriorBandAllowed for the Band List, the
+// Market and Unrestricted tab filters, bookItemFactionAllowed, band limit),
+// so the editor states what players will really see instead of what the
+// ticks seem to say. Based on the saved item.
+function itemAccessSummary(w){
+  const out={hidden:!!w?.hidden,band:[],bandAll:false,market:null,unrestricted:null,limit:0,limitFree:[]};if(!w?.name)return out;
+  const facs=[];const seen=new Set();[...(D.factions||[]),...customWarbandList()].forEach(f=>{if(f&&!seen.has(f.id)){seen.add(f.id);facs.push(f)}});
+  const facName=f=>f.displayName||f.name||f.id;
+  if(!out.hidden){
+    facs.forEach(f=>{if(!bookItemFactionAllowed(w,f))return;const who=(f.warriors||[]).filter(x=>{try{return warriorBandAllowed(w,x,f)}catch(e){return false}}).map(x=>x.name).filter(Boolean);if(who.length)out.band.push({faction:facName(f),who,all:who.length===(f.warriors||[]).length})});
+    out.bandAll=facs.length>0&&out.band.length===facs.filter(f=>(f.warriors||[]).length).length&&out.band.every(b=>b.all);
+    const allowedF=facs.filter(f=>bookItemFactionAllowed(w,f)&&(!isCreatureItem(w)||creatureAvailableFor(w,f)));
+    const restricted=allowedF.length<facs.length?allowedF.map(facName):null;
+    const inMarket=isCustomEquipment(w)?!!w.market:w.market!==false;
+    if(inMarket&&allowedF.length)out.market={only:restricted,rarity:String(w.rarity||'').trim()};
+    const inUnr=isCustomEquipment(w)?(!!w.unrestricted&&!w.mountCreatureId):true;
+    if(inUnr&&allowedF.length)out.unrestricted={only:restricted};
+  }
+  const l=itemBandLimitRaw(w);out.limit=l.n;out.limitFree=(l.free||[]).map(id=>{const f=facs.find(x=>x.id===id);return f?facName(f):String(id)});
+  return out}
+function itemAccessSummaryMarkup(w){if(!w?.name)return '';const en=siteLanguage==='en';let s;try{s=itemAccessSummary(w)}catch(e){return ''}
+  const row=(t,b)=>`<div class="ia-row"><b>${t}</b><span>${b}</span></div>`;const only=o=>o?(en?'only ':'seulement ')+esc(o.join(', ')):(en?'every warband':'toutes les bandes');
+  let body='';
+  if(s.hidden)body=row(en?'Hidden':'Masqué',en?'Players never see it, wherever it is ticked.':'Les joueurs ne le voient jamais, même s’il est coché quelque part.');
+  else{
+    const band=s.bandAll?(en?'every fighter of every warband':'tous les combattants de toutes les bandes'):s.band.length?s.band.slice(0,8).map(b=>`${esc(b.faction)} : ${b.all?(en?'all fighters':'tous les combattants'):esc(b.who.slice(0,4).join(', '))+(b.who.length>4?` +${b.who.length-4}`:'')}`).join('<br>')+(s.band.length>8?`<br>+${s.band.length-8} ${en?'warbands':'bandes'}`:''):(en?'nobody':'personne');
+    const g=itemGrantOf(w);const why=g?`<br><small class="ia-why">${en?'Because of “Granted access” below':'À cause de « Accès donné » ci-dessous'} (${g.scope==='all'?(en?'everyone':'tout le monde'):g.scope==='races'?(en?'races':'races'):(en?'warbands':'bandes')}${g.who==='heroes'?(en?', heroes':', héros'):''})</small>`:'';
+    body+=row(en?'Band List (creation and later, heroes and henchmen)':'Band List (création et après, héros et hommes de main)',band+why);
+    body+=row(en?'Market List (heroes, after a battle)':'Market List (héros, après une bataille)',s.market?only(s.market.only)+(s.market.rarity?` · ${esc(s.market.rarity)}`:''):(en?'no':'non'));
+    body+=row(en?'Unrestricted List (heroes)':'Unrestricted List (héros)',s.unrestricted?only(s.unrestricted.only):(en?'no':'non'));
+  }
+  if(s.limit)body+=row(en?'Limit':'Limite',(en?`max ${s.limit} per warband`:`max ${s.limit} par bande`)+(s.limitFree.length?` · ${en?'no limit for':'sans limite pour'} ${esc(s.limitFree.join(', '))}`:'')+(en?' (whatever the source)':' (quelle que soit la source)'));
+  return `<div class="item-access-sum"><div class="micro-label">${en?'WHO CAN HAVE IT · HOW TO GET IT':'QUI PEUT L’AVOIR · COMMENT L’OBTENIR'}</div>${body}<small class="custom-field-help">${en?'Worked out from the saved item with the same rules as the shop. Save to update it.':'Calculé depuis l’objet enregistré, avec les mêmes règles que la boutique. Enregistre pour le mettre à jour.'}</small></div>`}
 function itemBandRulesMarkup(w,prefix){const en=siteLanguage==='en';const {n:lim,free:limFree}=itemBandLimitRaw(w);const g=itemGrantOf(w)||{scope:'',who:'all',races:[],factions:[]};const races=knownRaceNames();const facs=creatureScopeFactionOptions();
   const sc=v=>g.scope===v?'checked':'';const show=v=>g.scope===v?'':'display:none';
   return `<details class="custom-collapse item-rules"${lim||g.scope?' open':''}><summary><span>${en?'LIMIT & GRANTED ACCESS':'LIMITE & ACCÈS DONNÉ'}</span><small>${[lim?(en?`max ${lim} per warband`:`max ${lim} par bande`):'',g.scope?(en?'granted':'accès donné'):''].filter(Boolean).join(' · ')||(en?'none':'aucun')}</small></summary>

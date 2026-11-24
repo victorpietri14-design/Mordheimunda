@@ -2197,6 +2197,15 @@ await test('[desktop] campaign: rules panel (limits, banned, reserved, my alert)
       line:/special rule/.test(line),gmMounts:/3 mounts \/ 2 max/.test(gm),gmGold:/Negative gold/.test(gm),gmIdle:/No game for 3 weeks/.test(gm)}});
   expect(Object.values(out).every(Boolean),'campaign rules/GM: '+JSON.stringify(out));
 });
+await test('[desktop] equipment editor: "who can have it" summary uses the shop rules (hidden, granted, market, limit)',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{siteLanguage='fr';const w=(D.weapons||[]).find(v=>v&&v.name&&!v.hidden&&v.market!==false&&!(v.factions||[]).length);const keep={g:w.grantAccess,l:w.bandLimit,h:w.hidden};
+    w.grantAccess={scope:'all',who:'all'};w.bandLimit=3;const a=itemAccessSummary(w);const html=itemAccessSummaryMarkup(w);
+    w.hidden=true;const b=itemAccessSummary(w);const hb=itemAccessSummaryMarkup(w);
+    w.grantAccess=keep.g;w.bandLimit=keep.l;w.hidden=keep.h;
+    return {band:a.band.length>0,market:!!a.market,limit:a.limit===3,why:/Accès donné/.test(html),hidden:b.hidden&&!b.band.length&&!b.market&&/Masqué/.test(hb)}});
+  expect(Object.values(out).every(Boolean),'item access summary: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
