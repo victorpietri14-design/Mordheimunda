@@ -449,6 +449,7 @@ function adminTranslateMarkup(){const en=siteLanguage==='en';if(!mtAdminData){lo
   return `<div class="card admin-card"><div class="eyebrow">${en?'AUTOMATIC TRANSLATION':'TRADUCTION AUTOMATIQUE'}</div>
   ${mtAdminData.enabled?'':`<p class="custom-field-help">⚠ ${en?'No translation key on the server (GOOGLE_TRANSLATE_API_KEY): automatic translation is off.':'Aucune clé de traduction sur le serveur (GOOGLE_TRANSLATE_API_KEY) : la traduction automatique est éteinte.'}</p>`}
   <div class="mt-usage"><div><b>${en?'Today':'Aujourd’hui'}</b><span>${(u.today||0).toLocaleString()} / ${(u.dailyLimit||0).toLocaleString()} ${en?'characters':'caractères'}</span><i style="--p:${pct(u.today,u.dailyLimit)}%"></i></div><div><b>${en?'This month':'Ce mois-ci'}</b><span>${(u.month||0).toLocaleString()} / ${(u.monthlyLimit||0).toLocaleString()} ${en?'characters':'caractères'}</span><i style="--p:${pct(u.month,u.monthlyLimit)}%"></i></div><div><b>${en?'Texts in memory':'Textes en mémoire'}</b><span>${(mtAdminData.cached||0).toLocaleString()}</span></div></div>
+  <div class="mt-diag"><button type="button" class="button secondary" onclick="mtDiagnose()">🔎 ${en?'Test the translation':'Tester la traduction'}</button><pre id="mtDiagOut" class="mt-diag-out" data-no-mt></pre></div>
   <label class="custom-field wide"><span>${en?'Words never translated — one per line (game terms, names…)':'Mots jamais traduits — un par ligne (termes de jeu, noms…)'}</span><textarea id="mtTerms" rows="8" placeholder="Warband&#10;Wyrdstone&#10;Hired Sword">${esc((mtAdminData.terms||[]).join('\n'))}</textarea></label>
   <p class="custom-field-help">${en?'Whole words, capitals ignored. When you add a word, the texts that contain it are translated again (your own corrections are kept).':'Mots entiers, majuscules ignorées. Quand tu ajoutes un mot, les textes qui le contiennent sont retraduits (tes propres corrections sont conservées).'}</p>
   <div class="custom-actions"><button type="button" class="button primary" onclick="saveMtExclusions()">${en?'Save':'Enregistrer'}</button></div>
@@ -2625,3 +2626,16 @@ async function adminLightenPictures(){const en=siteLanguage==='en';const LIMIT=1
     await window.MordheimundaAPI.adminUpdateDeploymentMap(m.id,{name:m.name,image:out});done++;saved+=t.length-out.length}catch(e){failed++}}
   adminScenariosCache=null;try{loadScenarios()}catch(e){}try{DEPLOYMENT_MAPS_CACHE=[];loadDeploymentMaps()}catch(e){}try{render('admin')}catch(e){}
   toast(done?(en?`${done} picture(s) lightened: −${Math.round(saved*0.75/1024)} KB${failed?` · ${failed} failed`:''}`:`${done} image(s) allégée(s) : −${Math.round(saved*0.75/1024)} Ko${failed?` · ${failed} échec(s)`:''}`):(failed?(en?`${failed} failed`:`${failed} échec(s)`):(en?'All pictures are already light.':'Toutes les images sont déjà légères.')),6000)}
+
+// V-MTDIAG: one tap shows why a page stays in English on this device: the
+// device's own switches, and the server's exact answer for a test sentence.
+async function mtDiagnose(){const out=document.getElementById('mtDiagOut');if(!out)return;const lines=[];const yes=v=>v?'oui':'non';
+  let capped='';try{capped=localStorage.getItem('mu_mt_capped')||''}catch(e){}
+  lines.push('Version : '+APP_BUILD,'Langue du site : '+siteLanguage,'Traduction auto activée sur cet appareil : '+yes(mtEnabled)+(mtEnabled?'':'  ← désactivée dans Compte › Préférences'),'En pause sur cet appareil : '+yes(mtServerOff)+(capped?'  (quota marqué atteint le '+capped+')':''),'En attente : '+mtPending.size+' · envoyés sans réponse encore : '+mtSent.size+' · sans réponse du service (10 min) : '+mtNoAnswer.size,'Textes en mémoire sur l’appareil : '+mtCache.size);
+  out.textContent=lines.join('\n')+'\n\nTest du serveur…';
+  const sample='The warrior makes a hit roll against the enemy, then a wound roll. Test '+Date.now();
+  try{const t0=Date.now();const r=await window.MordheimundaAPI.translate([sample],{html:false});const ms=Date.now()-t0;const fr=r?.translations?.[sample];
+    lines.push('','Réponse du serveur en '+ms+' ms :','  service configuré : '+yes(r?.enabled),'  quota atteint : '+yes(r?.capped),'  sans réponse : '+(r?.failed??'?'),'  traduction : '+(fr?fr:'(aucune)'));
+    if(fr){mtServerOff=false;try{localStorage.removeItem('mu_mt_capped')}catch(e){}lines.push('','✓ La traduction marche. La pause de cet appareil est levée : rouvre la page.')}
+  }catch(e){lines.push('','✗ Erreur du serveur : '+(e?.status||'')+' '+(e?.message||e))}
+  out.textContent=lines.join('\n')}

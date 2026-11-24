@@ -6536,3 +6536,7 @@ body.ts-open{overflow:hidden}.ts-wrap{position:fixed;inset:0;z-index:90;backgrou
 .rb-sec-title .rule-title-num,.rb-sec-title [class*="num"]{margin-right:.45em}
 @media print{.rb-secpages .rb-section+.rb-section{break-before:page}.rb-secpages .rb-section h2{margin-top:0}}
 .rb-book .rt-num{margin-right:.5em;font-variant-numeric:tabular-nums}
+
+.mt-diag{margin:12px 0}
+.mt-diag-out{white-space:pre-wrap;font-size:12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px;max-height:320px;overflow:auto}
+.mt-diag-out:empty{display:none}
