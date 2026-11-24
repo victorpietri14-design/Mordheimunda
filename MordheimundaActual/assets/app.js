@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0898.0';
+const APP_BUILD='110.0899.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6849,16 +6849,24 @@ function autoTranslateScan(root){if(siteLanguage!=='fr'||!mtEnabled||!root)retur
       const html=b.el.innerHTML.trim();if(!html||html.length>6000)continue;mtQueue(html,{el:b.el,html:true})}
     else{if(n.__mtDone||n.parentElement?.closest('a,button,[onclick]'))continue;mtQueue(t,{node:n,html:false})}}
   if(mtPending.size&&!mtTimer)mtTimer=setTimeout(mtFlush,120)}
-function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}if(mtServerOff)return; // known translations still apply; only new requests wait
+// V-MTINFLIGHT: a text already sent and waiting for its answer is never sent
+// again (a slow server used to get the same page several times, each redraw
+// re-sending everything); later copies of it on screen wait for that answer.
+const mtSent=new Map();const mtNoAnswer=new Map();let mtFailWarned=false;
+function mtQueue(src,target){const k=(target.html?'h:':'t:')+src;if(mtCache.has(k)){mtApply(target,src,mtCache.get(k));return}const fly=mtSent.get(k);if(fly){fly.push(target);return}if(mtServerOff)return;if(Date.now()-(mtNoAnswer.get(k)||0)<600000)return; // the server gave nothing for it lately // known translations still apply; only new requests wait
   const l=mtPending.get(k)||[];l.push(target);mtPending.set(k,l)}
 function mtApply(target,src,fr){if(!fr||fr===src)return;if(target.html){if(target.el.isConnected&&target.el.innerHTML.trim()===src&&!target.el.querySelector('[data-mt-done]')&&!target.el.closest('[data-mt-done]')){target.el.innerHTML=fr;target.el.__mtDone=true;target.el.__mtSrc=src;target.el.classList.add('mt-done');mtAddEditButton(target.el)}}else if(target.node.isConnected&&target.node.nodeValue===src&&!target.node.parentElement?.closest('.mt-done')){target.node.nodeValue=fr;target.node.__mtDone=true;if(target.node.parentElement)target.node.parentElement.dataset.mtDone='1'}}
 let mtInFlight=0;
 function mtBusy(){return mtPending.size>0||!!mtTimer||mtInFlight>0}
-async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;mtInFlight++;try{await mtFlushRun(batch)}finally{mtInFlight--}}
+async function mtFlush(){mtTimer=null;const batch=[...mtPending.entries()];mtPending=new Map();if(!batch.length)return;batch.forEach(([k,targets])=>mtSent.set(k,targets));mtInFlight++;
+  try{await mtFlushRun(batch)}finally{mtInFlight--;batch.forEach(([k])=>mtSent.delete(k));
+    // The page may have been redrawn while waiting: scan it again so the new
+    // copies of the texts get the answers that just came in (from the cache).
+    if(!mtInFlight)try{autoTranslateScan(document.getElementById('content'));const m=document.getElementById('modalContent');if(m&&m.offsetParent)autoTranslateScan(m)}catch(e){}}}
 async function mtFlushRun(batch){
   for(const kind of ['h:','t:']){const items=batch.filter(([k])=>k.startsWith(kind));for(let i=0;i<items.length;i+=40){if(mtServerOff)return;const chunk=items.slice(i,i+40);const texts=chunk.map(([k])=>k.slice(2));
-    try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;if(r?.capped){mtServerOff=true;try{localStorage.setItem('mu_mt_capped',mtTodayKey())}catch(e){}}const tr=r?.translations||{};
-      chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}})}catch(e){
+    try{const r=await window.MordheimundaAPI.translate(texts,{html:kind==='h:'});if(r&&r.enabled===false)mtServerOff=true;if(r?.capped){mtServerOff=true;try{localStorage.setItem('mu_mt_capped',mtTodayKey())}catch(e){}}const tr=r?.translations||{};if(r?.failed&&!mtFailWarned&&isAdminSession()){mtFailWarned=true;toast(`Traduction auto : ${r.failed} texte(s) sans réponse du service de traduction (voir les journaux du serveur).`)}
+      chunk.forEach(([k,targets])=>{const src=k.slice(2);const fr=tr[src];if(typeof fr==='string'){mtCache.set(k,fr);targets.forEach(t=>mtApply(t,src,fr))}else if(!mtServerOff)mtNoAnswer.set(k,Date.now())})}catch(e){
       // V-MTRETRY: a failed request used to switch automatic translation off
       // until the next reload, silently — a page then stayed half English.
       // Now it pauses a minute and tries again; an admin sees the reason.
