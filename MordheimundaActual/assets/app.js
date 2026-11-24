@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0904.0';
+const APP_BUILD='110.0908.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -6928,7 +6928,7 @@ function applySiteLanguage(root){
 // only two moments the sidebar/static chrome actually needs re-translating.
 let i18nNeedsFullPass=true;
 function setSiteLanguage(v){siteLanguage=v==='fr'?'fr':'en';localStorage.setItem(SITE_LANGUAGE_KEY,siteLanguage);i18nNeedsFullPass=true;renderCurrentRoute();}
-function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
+function render(view='dashboard',opts={}){ensureFrRules();ensureRulesBook();try{view=playTempSheetCleanup(view)}catch(e){}setTimeout(()=>{try{playBackSync()}catch(e){}try{fighterNavSync()}catch(e){}},0);if(view!=='builder'&&historyDrawerOpen){historyDrawerOpen=false;try{syncHistoryDrawer(null)}catch(e){}}
   const next=routeForView(view);
   if(opts.history!==false&&next!==appPath(location.pathname)){history.pushState({mordheimunda:true,view},'',next)}
   // A handful of search/filter fields call render() straight from their
@@ -10632,7 +10632,7 @@ function playTabOrder(ps){const t=['scenario'];if(ps&&playConditionsCampaign(ps)
 // Post-bataille / Campagne). Only on /warbands/<id>, so it never overlaps the
 // Play Mode swipe above; areas that scroll sideways keep their own gesture.
 (()=>{let sx=0,sy=0,st=0,ok=false;
- const scrollsX=el=>{for(let n=el;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==='auto'||o==='scroll')return true}}return false};
+ const scrollsX=elScrollsX;
  document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='builder'||historyDrawerOpen||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe]')||scrollsX(e.target))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
  document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*0.6)return;const order=['roster','rules','reserve','postbattle','campaign','stats'];const i=Math.max(0,order.indexOf(gangTab));const j=i+(dx<0?1:-1);if(j<0||j>=order.length)return;setGangTab(order[j]);document.querySelector('.gang-tabs')?.scrollIntoView({block:'nearest',behavior:'smooth'})},{passive:true});
 })();
@@ -13683,11 +13683,24 @@ function setFighterTab(tab){fighterTab=tab;if(tab!=='magic'){magicDomainAddOpen=
 // V-FIGHTERMORE: on a phone the sheet's top actions sit behind a ⋯ button.
 function openFighterMore(){const en=siteLanguage==='en';const r=activeRoster();const x=r?.fighters?.[editingIndex];if(!x)return;const btn=(lbl,js)=>`<button type="button" class="button secondary full" onclick="closeModal();${js}">${lbl}</button>`;
   openModal(`<div class="wc-dialog warroom-more-menu"><div class="eyebrow">${esc(x.name)}</div><div class="warroom-more-list">${(r.fighters||[]).length>1?btn('⇄ '+(en?'Other fighters':'Autres combattants'),'openFighterSwitcher()'):''}${btn('✎ '+(en?'Edit characteristics':'Modifier les caractéristiques'),'openStatsEditor()')}${fighterRecruitOptionsSource(x).length||(x.recruitPicks||[]).length?btn('⚙ Options','openFighterOptionsModal()'):''}${isHiredSword(x)?'':btn('✦ '+(en?'Duplicate':'Dupliquer'),'openDuplicateFighterConfirm()')}${btn('⎙ '+(en?'Print':'Imprimer'),'window.print()')}${btn('📜 '+(en?'Parchment version':'Version parchemin'),'closeModal();openParchmentSheet()')}</div></div>`)}
-// V-FIGHTERSWIPE: on a phone, swipe left/right on a sheet to go to the next / previous fighter (warband order).
-(()=>{let sx=0,sy=0,st=0,ok=false;
- document.addEventListener('touchstart',e=>{ok=false;if(innerWidth>900||parseAppRoute().view!=='fighter'||!$('#modal')?.classList.contains('hidden')||e.touches.length!==1)return;if(e.target.closest?.('input,select,textarea,[data-noswipe],.profile,.equipped-management-list,.fighter-section-tabs'))return;ok=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()},{passive:true});
- document.addEventListener('touchend',e=>{if(!ok)return;ok=false;const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;if(Date.now()-st>700||Math.abs(dx)<80||Math.abs(dy)>Math.abs(dx)*0.5)return;const r=activeRoster();if(!r)return;const order=rosterGroupedIndices(r).flatMap(g=>g.indices);const at=order.indexOf(editingIndex);const j=order[at+(dx<0?1:-1)];if(j==null)return;openFighterCard(j);window.scrollTo({top:0});try{toast(r.fighters[j].name)}catch(e){}},{passive:true});
-})();
+// True when the touch starts inside something that scrolls sideways (a tab
+// or chip bar, a wide table): sliding there scrolls it, never changes page.
+function elScrollsX(el){for(let n=el;n&&n!==document.body;n=n.parentElement){if(n.scrollWidth>n.clientWidth+2){const o=getComputedStyle(n).overflowX;if(o==='auto'||o==='scroll')return true}}return false}
+// V-FIGHTERNAV: on a fighter sheet, two arrows at the bottom right go to the
+// previous / next fighter in warband order (replaces the swipe, which fired
+// while scrolling the equipment categories).
+function fighterNavOrder(r){return rosterGroupedIndices(r).flatMap(g=>g.indices).filter(i=>r.fighters[i])}
+let fighterNavBadgeT=null;
+// The position badge shows in the middle for 1 s after each change; a fast
+// second tap replaces it at once (the timer restarts).
+function fighterNavBadge(r,at,n){let b=document.getElementById('fighterNavBadge');if(!b){b=document.createElement('div');b.id='fighterNavBadge';b.className='fighter-nav-badge print-hide';document.body.appendChild(b)}
+  b.innerHTML=`<b>${at+1}/${n}</b><span>${esc(r.fighters[editingIndex]?.name||'')}</span>`;b.classList.remove('out');b.classList.add('in');clearTimeout(fighterNavBadgeT);fighterNavBadgeT=setTimeout(()=>{b.classList.remove('in');b.classList.add('out')},1000)}
+function fighterNavGo(d){const r=activeRoster();if(!r)return;const order=fighterNavOrder(r);const at=order.indexOf(editingIndex);if(at<0)return;const j=order[(at+d+order.length)%order.length];if(j==null||j===editingIndex)return;try{haptic(8)}catch(e){}openFighterCard(j);window.scrollTo({top:0});try{fighterNavBadge(r,order.indexOf(j),order.length)}catch(e){}}
+function fighterNavSync(){let el=document.getElementById('fighterNav');const r=parseAppRoute().view==='fighter'?activeRoster():null;const order=r?fighterNavOrder(r):[];const at=order.indexOf(editingIndex);
+  if(!r||order.length<2||at<0){if(el)el.remove();document.getElementById('fighterNavBadge')?.remove();return}const en=siteLanguage==='en';
+  if(!el){el=document.createElement('div');el.id='fighterNav';el.className='fighter-nav print-hide';document.body.appendChild(el)}
+  const nm=i=>esc(r.fighters[order[(at+i+order.length)%order.length]]?.name||'');
+  el.innerHTML=`<button type="button" class="fn-btn fn-prev" aria-label="${en?'Previous fighter':'Combattant précédent'}" title="${nm(-1)}" onclick="fighterNavGo(-1)">‹</button><button type="button" class="fn-btn fn-next" aria-label="${en?'Next fighter':'Combattant suivant'}" title="${nm(1)}" onclick="fighterNavGo(1)">›</button>`}
 function backToGang(){save(true);render('builder')}
 function updateFighterField(key,val){const x=activeRoster()?.fighters[editingIndex];if(!x)return;x[key]=key==='xp'?Math.max(0,Number(val)||0):val;save(true);if(key!=='xp')render('fighter');else toast(siteLanguage==='en'?'XP updated':'XP mis à jour')}
 function openFighterXPAdjust(){const en=siteLanguage==='en';const x=activeRoster()?.fighters[editingIndex];if(!x)return;const current=Number(x.xp||0);openModal(`<div class="resource-dialog"><div class="eyebrow">${en?'FIGHTER SHEET':'FICHE DU COMBATTANT'}</div><h2>${en?'Experience (XP)':'Expérience (XP)'}</h2><p>${en?`Choose the operation then enter the amount to apply. The current value is <strong>${current} XP</strong>.`:`Choisis l’opération puis indique la quantité à appliquer. La valeur actuelle est <strong>${current} XP</strong>.`}</p><div class="resource-mode"><button type="button" class="resource-mode-btn active" data-mode="add" onclick="selectResourceMode(this)">＋ ${en?'Add':'Ajouter'}</button><button type="button" class="resource-mode-btn" data-mode="sub" onclick="selectResourceMode(this)">− ${en?'Subtract':'Soustraire'}</button></div><input id="resourceAmount" class="resource-amount" type="number" min="0" step="1" value="1" placeholder="${en?'Amount':'Quantité'}"><small class="resource-unit">XP</small><div class="resource-actions"><button class="button secondary" type="button" onclick="closeModal()">${en?'Cancel':'Annuler'}</button><button class="button primary" type="button" onclick="applyFighterXPAdjust()">${en?'Apply':'Appliquer'}</button></div></div>`)}
@@ -18095,7 +18108,20 @@ let rulesBookletSince=(()=>{try{const v=Number(localStorage.getItem('mu_booklet_
 function rulesSectionChangedAt(sec){let m=0;(sec.content||[]).forEach(pg=>{const t=ruleChangedAt(sec.id,pg.page);if(t&&t>m)m=t});return m||null}
 function rulesChapterChangedAt(c){let m=0;c.sections.forEach(sec=>{const t=rulesSectionChangedAt(sec);if(t&&t>m)m=t});return m||null}
 function rulesBookletSetSince(v){const t=new Date(v+'T00:00:00').getTime();if(Number.isFinite(t))rulesBookletSince=t;openRulesBooklet()}
-function rulesBookletPrint(){try{localStorage.setItem('mu_booklet_printed',String(Date.now()))}catch(e){}window.print()}
+// V-BOOKLETFRAME: the booklet is printed from its own small document (like
+// the warband sheet), not from the whole app page: only the booklet, its
+// styles and a plain title (= file name) go to the printer, so "Save as
+// PDF" no longer chokes on the app (several PDF printers failed on it).
+function rulesBookletPrint(){try{localStorage.setItem('mu_booklet_printed',String(Date.now()))}catch(e){}
+  const wrap=document.querySelector('.rb-wrap');if(!wrap){window.print();return}
+  try{const en=siteLanguage==='en';const v=encodeURIComponent(APP_BUILD);const page=document.getElementById('rbPageStyle')?.textContent||'';
+    const title=(en?'Mordheimunda rules ':'Mordheimunda regles ')+new Date().toISOString().slice(0,10);
+    const html=`<!doctype html><html lang="${en?'en':'fr'}" data-theme="light"><head><meta charset="utf-8"><title>${title}</title><link rel="stylesheet" href="/assets/fonts/fonts.css?v=${v}"><link rel="stylesheet" href="/assets/styles.min.css?v=${v}"><style>${page}html,body{background:#fff!important;margin:0;padding:0}body{color:#111}.rb-tools,.rb-foot{display:none!important}.rb-book{max-width:none;margin:0;border-radius:0}</style></head><body class="printing rb-frame">${wrap.outerHTML}</body></html>`;
+    let fr=document.getElementById('bookletFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='bookletFrame';fr.title=title;fr.style.cssText='position:fixed;right:0;bottom:0;width:210mm;height:10px;border:0;visibility:hidden';document.body.appendChild(fr);
+    const doc=fr.contentDocument;doc.open();doc.write(html);doc.close();
+    let done=false;const go=()=>{if(done)return;done=true;try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){window.print()}};
+    const ready=()=>{try{const links=[...doc.querySelectorAll('link[rel=stylesheet]')];Promise.all(links.map(l=>l.sheet?1:new Promise(r=>{l.onload=l.onerror=r}))).then(()=>(doc.fonts?.ready||Promise.resolve())).then(()=>setTimeout(go,300))}catch(e){setTimeout(go,800)}};
+    ready();setTimeout(go,6000)}catch(e){window.print()}}
 function rulesBookletDate(){return new Date().toLocaleDateString(siteLanguage==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long',year:'numeric'})}
 function rulesBookletChapters(){const en=siteLanguage==='en';return (RULES_NAV_GROUPS||[]).map(g=>({id:g.id,title:en?(g.en||g.fr):(g.fr||g.en),sections:(g.ids||[]).map(id=>RULES_BOOK.find(s=>s.id===id)).filter(Boolean)})).filter(c=>c.sections.length)}
 function rulesBookletMarkup(){rulesBookletRendering=true;try{return rulesBookletMarkupInner()}finally{rulesBookletRendering=false}}
