@@ -2136,6 +2136,16 @@ await test('[desktop] French rules: a "French" correction written in English is 
     return {fr:/^Ligne de vue/.test(t)&&!/Visibility in Mordheim/.test(t),frEdit:/corrigé à la main/.test(t2)}});
   expect(out.fr&&out.frEdit,'English fr: override: '+JSON.stringify(out));
 });
+await test('[desktop] an item ticked in a fighter’s Equipment Access is offered even when linked to other factions only',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const other=D.factions.find(x=>x.id!==f.id);const w0=f.warriors[0];
+    const keepCE=state.customEquipment;state.customEquipment=[...(state.customEquipment||[]),{name:'Test Steed',type:'equipment',price:80,category:'Montures',customEquipmentId:'test-steed',factions:[other.id],unrestricted:false}];
+    const keepAcc=w0.equipmentAccess,keepEx=w0.equipmentAccessExact;w0.equipmentAccess=[...(w0.equipmentAccess||[]),'Test Steed'];w0.equipmentAccessExact=true;
+    r.fighters.push({...w0,profile:w0.profile.slice(),baseProfile:w0.profile.slice(),sourceName:w0.name,wid:w0.id,instance:crypto.randomUUID(),name:'S',xp:0,equipmentSelected:[],equipmentStash:[],skills:[],spells:[],advancements:[],injuries:[]});
+    const x=activeRoster().fighters.at(-1);const w=allCustomEquipmentList().find(e=>e.name==='Test Steed');const ok=warriorBandAllowed(w,x,faction(activeRoster()));
+    w0.equipmentAccess=keepAcc;w0.equipmentAccessExact=keepEx;state.customEquipment=keepCE;r.fighters.pop();return {ok}});
+  expect(out.ok===true,'access-first: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
