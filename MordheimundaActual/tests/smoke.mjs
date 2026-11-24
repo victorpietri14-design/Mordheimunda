@@ -2039,9 +2039,9 @@ await test('[desktop] French rules: an English correction keeps the French of th
   await seed(page);
   const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
     ruleOverridesCache=ruleOverridesCache||{};const base=RULES_BOOK.find(s=>s.id==='houserules').content[0].text;const keep=ruleOverridesCache['houserules:901'];
-    ruleOverridesCache['houserules:901']=base.replace('Shield|0:','Shield|1:').replace('A mounted fighter has no cap.\n','');const t=ruleEffectiveText('houserules',901);
+    ruleOverridesCache['houserules:901']=base.replace('Shield|0:','Shield|7: brand new test wording for a shield,').replace('A mounted fighter has no cap.\n','');const t=ruleEffectiveText('houserules',901);
     if(keep===undefined)delete ruleOverridesCache['houserules:901'];else ruleOverridesCache['houserules:901']=keep;siteLanguage=lang;
-    return {fr:/Règles maison/.test(t)&&/Armures cumulables/.test(t)&&/VALEUR DE BANDE/.test(t),changedEn:/Shield\|1: it can be used/.test(t),dropped:!/Un combattant monté n’a pas ce plafond/.test(t)}});
+    return {fr:/Règles maison/.test(t)&&/Armures cumulables/.test(t)&&/VALEUR DE BANDE/.test(t),changedEn:/Shield\|7: brand new test wording/.test(t),dropped:!/Un combattant monté n’a pas ce plafond/.test(t)}});
   expect(out.fr&&out.changedEn&&out.dropped,'French kept line by line: '+JSON.stringify(out));
 });
 await test('[desktop] admin translation: the game glossary can be edited',null,async page=>{
@@ -2073,7 +2073,7 @@ await test('[desktop] automatic translation: a slow answer is not asked again, a
 await test('[desktop] French rules: pages the admin rewrote in English have their own French, kept line by line after a new edit',null,async page=>{
   await seed(page);
   const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
-    ruleOverridesCache=ruleOverridesCache||{};const keep=ruleOverridesCache['combat:22'];const en=window.MORDHEIMUNDA_FR_RULES_EN['combat:22'];
+    ruleOverridesCache=ruleOverridesCache||{};const keep=ruleOverridesCache['combat:22'];const en=window.MORDHEIMUNDA_FR_RULES_ADMIN['combat:22'].en;
     ruleOverridesCache['combat:22']=en;const same=ruleEffectiveText('combat',22);
     ruleOverridesCache['combat:22']=en.replace('7. RESOLVE HITS\n','7. RESOLVE ALL HITS\n');const edited=ruleEffectiveText('combat',22);
     if(keep===undefined)delete ruleOverridesCache['combat:22'];else ruleOverridesCache['combat:22']=keep;siteLanguage=lang;
@@ -2125,6 +2125,16 @@ await test('[desktop] rules booklet: "Download the PDF" builds a real PDF file w
     const orig=window.pdfMake.createPdf;window.pdfMake.createPdf=dd=>{const d=orig.call(window.pdfMake,dd);return {download:(name,cb)=>d.getBuffer(buf=>{bytes=buf.length;head=String.fromCharCode(...buf.slice(0,5));cb&&cb()})}};
     await rulesBookletDownload();window.pdfMake.createPdf=orig;window.toast=T;return {bytes,head,msgs,btn:!!document.getElementById('rbPdfBtn')}});
   expect(out.btn&&out.head==='%PDF-'&&out.bytes>50000&&out.msgs.some(m=>/PDF/.test(m)),'booklet pdf: '+JSON.stringify(out));
+});
+await test('[desktop] French rules: a "French" correction written in English is ignored; admin pages get their French',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
+    ruleOverridesCache=ruleOverridesCache||{};const k='lineofsight:1';const keepEn=ruleOverridesCache[k],keepFr=ruleOverridesCache['fr:'+k];const ad=window.MORDHEIMUNDA_FR_RULES_ADMIN[k];
+    ruleOverridesCache[k]=ad.en;ruleOverridesCache['fr:'+k]=ad.en;const t=ruleEffectiveText('lineofsight',1);
+    ruleOverridesCache['fr:'+k]='Ligne de vue : texte corrigé à la main par l’admin pour la version française de la page.';const t2=ruleEffectiveText('lineofsight',1);
+    const restore=(kk,v)=>{if(v===undefined)delete ruleOverridesCache[kk];else ruleOverridesCache[kk]=v};restore(k,keepEn);restore('fr:'+k,keepFr);siteLanguage=lang;
+    return {fr:/^Ligne de vue/.test(t)&&!/Visibility in Mordheim/.test(t),frEdit:/corrigé à la main/.test(t2)}});
+  expect(out.fr&&out.frEdit,'English fr: override: '+JSON.stringify(out));
 });
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
