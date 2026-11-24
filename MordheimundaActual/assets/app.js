@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0908.0';
+const APP_BUILD='110.0909.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -18108,6 +18108,44 @@ let rulesBookletSince=(()=>{try{const v=Number(localStorage.getItem('mu_booklet_
 function rulesSectionChangedAt(sec){let m=0;(sec.content||[]).forEach(pg=>{const t=ruleChangedAt(sec.id,pg.page);if(t&&t>m)m=t});return m||null}
 function rulesChapterChangedAt(c){let m=0;c.sections.forEach(sec=>{const t=rulesSectionChangedAt(sec);if(t&&t>m)m=t});return m||null}
 function rulesBookletSetSince(v){const t=new Date(v+'T00:00:00').getTime();if(Number.isFinite(t))rulesBookletSince=t;openRulesBooklet()}
+// V-BOOKLETPDF: "Download the PDF" builds the PDF file in the page itself
+// (pdfmake, a real text PDF) and downloads it like any file: no browser
+// print dialog, no "Save as PDF" printer. Uses the booklet as displayed
+// (French included) with the chosen size.
+function rbLoadScript(src){return new Promise((ok,ko)=>{if(document.querySelector(`script[data-src="${src}"]`))return ok();const sc=document.createElement('script');sc.src=src+'?v='+encodeURIComponent(APP_BUILD);sc.dataset.src=src;sc.onload=ok;sc.onerror=()=>ko(new Error(src));document.head.appendChild(sc)})}
+let rbPdfBusy=false;
+async function rulesBookletDownload(){const en=siteLanguage==='en';if(rbPdfBusy)return;const book=document.querySelector('.rb-book');if(!book)return;rbPdfBusy=true;
+  const btn=document.getElementById('rbPdfBtn');const label=btn?.innerHTML;if(btn){btn.disabled=true;btn.textContent=en?'⏳ Building the PDF…':'⏳ Création du PDF…'}
+  try{if(!window.pdfMake)await rbLoadScript('/assets/vendor/pdfmake.min.js');if(!window.pdfMake?.vfs||!Object.keys(window.pdfMake.vfs).length)await rbLoadScript('/assets/vendor/pdfmake-vfs_fonts.js');if(!window.htmlToPdfmake)await rbLoadScript('/assets/vendor/html-to-pdfmake.js');
+    const c=book.cloneNode(true);
+    c.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id')); // pdfmake refuses repeated ids
+    c.querySelectorAll('.rt-num').forEach(e=>e.append(' '));c.querySelectorAll('.rb-toc small').forEach(e=>{e.prepend(' — ')});
+    c.querySelectorAll('button,input,select,textarea,script,style,svg,img,figure,.rule-edit-btn,.mt-edit,.actions-toolbar,.type-legend,.ac-tags,.rule-page-heading,.rb-foot,[aria-hidden="true"]').forEach(e=>e.remove());
+    // action cards: one plain block each
+    c.querySelectorAll('.action-card').forEach(card=>{const n=card.querySelector('.ac-name')?.textContent.trim()||'';const t=card.querySelector('.ac-type,.ac-type-ic')?.getAttribute?.('title')||card.querySelector('.ac-type')?.textContent.trim()||'';const d=card.querySelector('.ac-desc')?.textContent.trim()||'';
+      const div=document.createElement('div');div.className='rbp-card';div.innerHTML=`<b>${esc(n)}</b>${t?` <i>(${esc(t)})</i>`:''} — ${esc(d)}`;card.replaceWith(div)});
+    c.querySelectorAll('.rb-chapter').forEach((ch,i)=>{if(i||c.querySelector('.rb-cover'))ch.setAttribute('data-pdfmake',JSON.stringify({pageBreak:'before'}))});
+    if(rulesBookletSectionPages)c.querySelectorAll('.rb-section').forEach((sc,i)=>{if(sc.previousElementSibling?.classList.contains('rb-section'))sc.setAttribute('data-pdfmake',JSON.stringify({pageBreak:'before'}))});
+    // characters missing from the PDF font
+    let html=c.innerHTML.replace(/✱/g,'*').replace(/(✎|⚠|🖨|📖|⏳|✓|✔)/gu,'').replace(/[\u2028\u2029]/g,' ');
+    const size=rulesBookletSize==='big'?14:rulesBookletSize==='normal'?12:9.5;
+    const content=window.htmlToPdfmake(html,{window,defaultStyles:{p:{margin:[0,1,0,3]},li:{margin:[0,1,0,1]},table:{margin:[0,3,0,6]},th:{bold:true,fillColor:null}},tableAutoSize:true,removeExtraBlanks:true});
+    const date=rulesBookletDate();const foot=`Mordheimunda · ${en?'Rules: The Game':'Règles : le jeu'} · ${en?'version of':'version du'} ${date}`;
+    const dd={pageSize:'A4',pageMargins:[34,32,34,40],info:{title:en?'Mordheimunda rules':'Mordheimunda regles'},content,
+      defaultStyle:{font:'Roboto',fontSize:size,lineHeight:1.15},
+      styles:{'html-h1':{fontSize:size*2,bold:true,margin:[0,4,0,6]},'html-h2':{fontSize:size*1.45,bold:true,margin:[0,10,0,4]},'html-h3':{fontSize:size*1.2,bold:true,margin:[0,6,0,2]},'html-h4':{fontSize:size*1.1,bold:true,margin:[0,6,0,2]},
+        'rule-heading':{bold:true,fontSize:size*1.15,margin:[0,7,0,2]},'rule-subheading':{bold:true,fontSize:size*1.05,margin:[0,6,0,2]},'rule-subhead':{bold:true,margin:[0,5,0,1]},'ac-group-title':{bold:true,fontSize:size*1.1,margin:[0,8,0,3]},
+        'rb-ch-kick':{fontSize:size*.8,color:'#555'},'rb-cover-kick':{fontSize:size,color:'#555'},'rb-cover-date':{fontSize:size*1.1,margin:[0,0,0,8]},'rb-cover-note':{margin:[0,8,0,0]},'rbp-card':{margin:[0,2,0,3]},'rule-changed-tag':{bold:true,fontSize:size*.85},'rb-ch-changed':{bold:true}},
+      footer:(cur,tot)=>({columns:[{text:foot,fontSize:7.5,color:'#555'},{text:`p. ${cur} / ${tot}`,alignment:'right',fontSize:7.5,color:'#555'}],margin:[34,14,34,0]})};
+    const name=`Mordheimunda-${en?'rules':'regles'}-${new Date().toISOString().slice(0,10)}.pdf`;
+    // pdfmake reports some errors outside this call: never wait more than 90 s.
+    await new Promise((ok,ko)=>{const t=setTimeout(()=>{window.removeEventListener('error',onErr);ko(new Error(en?'the PDF could not be built':'le PDF n’a pas pu être créé'))},90000);
+      const onErr=ev=>{clearTimeout(t);window.removeEventListener('error',onErr);ko(ev.error||new Error(ev.message))};window.addEventListener('error',onErr);
+      try{window.pdfMake.createPdf(dd).download(name,()=>{clearTimeout(t);window.removeEventListener('error',onErr);ok()})}catch(e){clearTimeout(t);window.removeEventListener('error',onErr);ko(e)}});
+    try{localStorage.setItem('mu_booklet_printed',String(Date.now()))}catch(e){}
+    toast(en?'PDF downloaded':'PDF téléchargé')}
+  catch(e){console.error('booklet pdf',e);toast((en?'PDF failed: ':'Échec du PDF : ')+(e?.message||e))}
+  finally{rbPdfBusy=false;if(btn){btn.disabled=false;btn.innerHTML=label}}}
 // V-BOOKLETFRAME: the booklet is printed from its own small document (like
 // the warband sheet), not from the whole app page: only the booklet, its
 // styles and a plain title (= file name) go to the printer, so "Save as
@@ -18136,7 +18174,7 @@ function rulesBookletMarkupInner(){const en=siteLanguage==='en';const chs=rulesB
     <div class="rb-since"><label class="custom-field"><span>${en?'Mark changes made since':'Signaler les changements depuis le'}</span><input type="date" value="${sinceIso}" onchange="rulesBookletSetSince(this.value)"></label><small class="muted">${en?'By default: the last time you printed the booklet.':'Par défaut : la dernière fois que tu as imprimé le livret.'} ${chs.filter(changed).length?`<b>${chs.filter(changed).length} ${en?'chapter(s) changed':'chapitre(s) modifié(s)'}</b>`:(en?'No change since that date.':'Aucun changement depuis cette date.')}</small>
      <label class="custom-check"><input type="checkbox" ${rulesBookletOnlyChanged?'checked':''} onchange="rulesBookletOnlyChanged=this.checked;openRulesBooklet()"> <span><b>${en?'Print only what changed':'N’imprimer que ce qui a changé'}</b></span></label></div>
     <label class="custom-check"><input type="checkbox" ${rulesBookletSectionPages?'checked':''} onchange="rulesBookletSectionPages=this.checked;try{localStorage.setItem('mu_booklet_secpages',this.checked?'1':'0')}catch(e){}openRulesBooklet(true)"> <span><b>${en?'Each sub-chapter on a new sheet':'Chaque sous-chapitre sur une nouvelle feuille'}</b><small class="muted"> ${en?'(more sheets, but a change only reprints its sub-chapter)':'(plus de feuilles, mais un changement ne réimprime que son sous-chapitre)'}</small></span></label>
-    ${en?'':`<p class="rb-mt" id="rbMt"></p>`}<div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" id="rbPrintBtn" onclick="rulesBookletPrint()">🖨 ${en?'Print / PDF':'Imprimer / PDF'}</button></div>
+    ${en?'':`<p class="rb-mt" id="rbMt"></p>`}<div class="custom-actions"><button type="button" class="button secondary" onclick="navigateApp('/rules')">← ${en?'Back to the rules':'Retour aux règles'}</button><button type="button" class="button primary" id="rbPdfBtn" onclick="rulesBookletDownload()">⬇ ${en?'Download the PDF':'Télécharger le PDF'}</button><button type="button" class="button secondary" id="rbPrintBtn" onclick="rulesBookletPrint()">🖨 ${en?'Print':'Imprimer'}</button></div>
    </div>
    <div class="rb-book" lang="${en?'en':'fr'}">
     <section class="rb-cover"><div class="rb-cover-kick">MORDHEIMUNDA</div><h1>${en?'Rules: The Game':'Règles : le jeu'}</h1><p class="rb-cover-date">${en?'Version of':'Version du'} ${esc(date)}</p>

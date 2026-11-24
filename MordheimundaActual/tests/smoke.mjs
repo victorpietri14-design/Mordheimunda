@@ -2118,6 +2118,14 @@ await test('[mobile] fighter sheet: arrows bottom right go to the previous / nex
     return {nav:!!nav,arrows,count,shown,hidden,moved:a!==b,back:c===a,gone}});
   expect(out.nav&&out.arrows===2&&/^\d+\/3$/.test(out.count||'')&&out.shown&&out.hidden&&out.moved&&out.back&&out.gone,'fighter arrows: '+JSON.stringify(out));
 });
+await test('[desktop] rules booklet: "Download the PDF" builds a real PDF file without the print dialog',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(async()=>{await openRulesBooklet();const msgs=[];const T=window.toast;window.toast=m=>msgs.push(String(m));let bytes=0,head='';
+    await rbLoadScript('/assets/vendor/pdfmake.min.js');await rbLoadScript('/assets/vendor/pdfmake-vfs_fonts.js');await rbLoadScript('/assets/vendor/html-to-pdfmake.js');
+    const orig=window.pdfMake.createPdf;window.pdfMake.createPdf=dd=>{const d=orig.call(window.pdfMake,dd);return {download:(name,cb)=>d.getBuffer(buf=>{bytes=buf.length;head=String.fromCharCode(...buf.slice(0,5));cb&&cb()})}};
+    await rulesBookletDownload();window.pdfMake.createPdf=orig;window.toast=T;return {bytes,head,msgs,btn:!!document.getElementById('rbPdfBtn')}});
+  expect(out.btn&&out.head==='%PDF-'&&out.bytes>50000&&out.msgs.some(m=>/PDF/.test(m)),'booklet pdf: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
