@@ -2039,9 +2039,9 @@ await test('[desktop] French rules: an English correction keeps the French of th
   await seed(page);
   const out=await page.evaluate(async()=>{const lang=siteLanguage;siteLanguage='fr';ensureFrRules();for(let i=0;i<40&&!frRulesBundle();i++)await new Promise(z=>setTimeout(z,100));
     ruleOverridesCache=ruleOverridesCache||{};const base=RULES_BOOK.find(s=>s.id==='houserules').content[0].text;const keep=ruleOverridesCache['houserules:901'];
-    ruleOverridesCache['houserules:901']=base.replace('Shield|0:','Shield|1:').replace('A mounted fighter has no cap.\n','');const t=ruleEffectiveText('houserules',901);
+    ruleOverridesCache['houserules:901']=base.replace('Shield|0:','Shield|7: brand new test wording for a shield,').replace('A mounted fighter has no cap.\n','');const t=ruleEffectiveText('houserules',901);
     if(keep===undefined)delete ruleOverridesCache['houserules:901'];else ruleOverridesCache['houserules:901']=keep;siteLanguage=lang;
-    return {fr:/Règles maison/.test(t)&&/Armures cumulables/.test(t)&&/VALEUR DE BANDE/.test(t),changedEn:/Shield\|1: it can be used/.test(t),dropped:!/Un combattant monté n’a pas ce plafond/.test(t)}});
+    return {fr:/Règles maison/.test(t)&&/Armures cumulables/.test(t)&&/VALEUR DE BANDE/.test(t),changedEn:/Shield\|7: brand new test wording/.test(t),dropped:!/Un combattant monté n’a pas ce plafond/.test(t)}});
   expect(out.fr&&out.changedEn&&out.dropped,'French kept line by line: '+JSON.stringify(out));
 });
 await test('[desktop] admin translation: the game glossary can be edited',null,async page=>{
