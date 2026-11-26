@@ -17,8 +17,10 @@ a1 = pose(s.make_anneau1().mirror([0, 0, 1]).translate([0, 0, T]))
 jonc = pose(s.make_jonc().translate([0, 0, s.EP_LEVRE + s.MIROIR_EP]).mirror([0, 0, 1]).translate([0, 0, T]))
 mir = pose(Manifold.cylinder(s.MIROIR_EP, s.MIROIR_D / 2).translate([0, 0, s.EP_LEVRE]).mirror([0, 0, 1]).translate([0, 0, T]))
 a2, a3 = pose(s.make_anneau2()), pose(s.make_anneau3())
-socle, z_top = s.make_socle()
-socle = socle.translate([0, 0, -z_top - s.R3o])
+# pied + socle rond de l'utilisateur (40 mm, ~4 mm d'epaisseur, simule)
+pied = s.make_pied().translate([0, 0, -s.PIED_H - s.R3o])
+base40 = Manifold.cylinder(4, s.SOCLE_D / 2, circular_segments=120).translate([0, 0, -s.PIED_H - s.R3o - 4])
+socle = pied + base40
 
 print("=== 1. Collisions sur tout le debattement ===")
 # axe anneau1/anneau2 = Z monde ; axe anneau2/anneau3 = X monde
@@ -60,17 +62,22 @@ print(f"axe 1 (miroir) : masse {m_g1:.1f} g, centre de gravite a {d1:.2f} mm de 
 print(f"axe 2          : masse {m_g2:.1f} g, decalage {d2:.2f} mm au pire -> couple {C2:.3f} N.mm")
 print("  (le cardan est equilibre : le centre de gravite est quasiment SUR les axes)")
 
-print("\n=== 3. Stabilite au sol ===")
-m_tot = m_g2 + m_a3 + m_so
-c_tot = (m_g1 * c_g1 + m_a2 * c_a2 + m_a3 * c_a3 + m_so * c_so) / m_tot
-zmin = s.to_trimesh(socle).bounds[0][2]
-h = c_tot[2] - zmin
-for axe, demi in (("avant/arriere", 54 / 2), ("cote", 66 / 2)):
-    ang = math.degrees(math.atan(demi / h))
-    print(f"bascule {axe:13s}: centre de gravite a {h:.0f} mm du sol, demi-base {demi:.0f} mm -> se renverse au-dela de {ang:.0f} deg d'inclinaison")
-h_haut = s.R3o + (-zmin - s.R3o) + s.R3o
-F_renverse = m_tot / 1000 * G * 27 / h_haut
-print(f"poids total {m_tot:.0f} g ; force pour le renverser en poussant le haut de l'anneau : {F_renverse:.2f} N (~{F_renverse / G * 1000:.0f} g)")
+print("\n=== 3. Stabilite sur le socle rond de 40 mm ===")
+m_so, c_so = props(pied, RHO_PLA)
+m_b, c_b = props(base40, RHO_PLA)
+zmin = -s.PIED_H - s.R3o - 4
+h_haut = 2 * s.R3o + s.PIED_H + 4
+demi = s.SOCLE_D / 2
+m_haut = m_g2 + m_a3 + m_so
+c_haut = (m_g1 * c_g1 + m_a2 * c_a2 + m_a3 * c_a3 + m_so * c_so) / m_haut
+print(f"masse support+miroir {m_haut:.0f} g (pied {m_so:.1f} g) ; socle 40 mm simule {m_b:.0f} g")
+for lest in (0, 20, 40, 60):
+    mt = m_haut + m_b + lest
+    zc = (m_haut * c_haut[2] + m_b * c_b[2] + lest * (zmin + 2)) / mt - zmin
+    ang = math.degrees(math.atan(demi / zc))
+    F = mt * demi / h_haut                   # g-force pousse horizontalement en haut de l'anneau
+    print(f"lest {lest:2d} g : centre de gravite a {zc:4.1f} mm, bascule au-dela de {ang:.0f} deg, "
+          f"renverse par {F:.0f} g-force pousses en haut")
 
 print("\n=== 4. Le miroir peut-il sortir ? ===")
 rec_min = s.MIROIR_D / 2 - s.JEU_MIROIR / 2 - s.R_LEVRE
@@ -90,12 +97,3 @@ print(f"paroi autour du logement du joint : {(s.T - s.LOGEMENT_D) / 2:.2f} mm de
 print(f"comparaison mode 'serrage' : tige {s.PIN_D} dans trou {s.PIN_D - s.SERRAGE} -> deformation imposee "
       f"{s.SERRAGE / s.PIN_D * 100:.0f} % (PLA plastifie vers 2-3 %, resine standard casse vers 2-6 %)")
 
-print("\n=== 6. Avec lest dans le socle ===")
-vol = s.LEST[0] * s.LEST[1] * s.LEST[2] / 1000
-for nom, dens in (("plombs de peche", 6.0), ("rondelles/billes acier", 4.0)):
-    ml = vol * dens
-    mt = m_tot + ml
-    ht = (m_tot * h + ml * s.LEST[2] / 2) / mt
-    F = mt / 1000 * G * 27 / h_haut
-    print(f"{nom:22s}: +{ml:.0f} g -> centre de gravite a {ht:.0f} mm, bascule a {math.degrees(math.atan(27 / ht)):.0f} deg, "
-          f"force de renversement {F * 1000 / G:.0f} g-force")

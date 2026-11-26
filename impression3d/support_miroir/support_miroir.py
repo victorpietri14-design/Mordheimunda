@@ -1,11 +1,12 @@
 """
-Support de miroir rotatif style Homme-Lezard (cardan / sphere armillaire).
+Support de miroir rotatif (cardan / sphere armillaire), finition lisse.
 
-3 anneaux concentriques + socle pyramide a degres.
+3 anneaux concentriques aux aretes arrondies + un petit pied evase a coller
+sur un socle rond de 40 mm (leste).
   - anneau1 : sertit le miroir (levre devant + jonc colle derriere)
   - anneau2 : pivote dans anneau3 (axe horizontal)
   - anneau1 pivote dans anneau2 (axe perpendiculaire) -> orientation libre
-  - anneau3 : fixe, enfiche dans le socle
+  - anneau3 : fixe, son tenon s'enfiche dans le pied
 Les axes sont des tiges metal (laiton/acier) de PIN_D mm, collees dans
 l'anneau interieur. Le FREIN (ce qui fait tenir la position) :
   - FREIN = "joint"   : un petit joint torique 2x1 mm (caoutchouc) loge dans
@@ -41,8 +42,10 @@ JOINT_COMP = 0.20      # ecrasement du joint (15-25 % = plage normale)
 SERRAGE = 0.1          # mode "serrage" : trou = PIN_D - SERRAGE
 JEU_TOURNANT = 0.1     # mode "joint"   : trou = PIN_D + JEU_TOURNANT
 JEU_COLLE = 0.1        # trou "colle"    = PIN_D + JEU_COLLE
-RELIEF = 0.4           # hauteur des motifs en relief
-CELL = 0.5             # taille d'un "pixel" de la frise a degres
+CONGE = 0.8            # rayon d'arrondi des aretes des anneaux
+SOCLE_D = 40.0         # socle rond de l'utilisateur (sur lequel on colle le pied)
+PIED_D = 30.0          # diametre de la semelle du pied (< SOCLE_D)
+PIED_H = 9.0           # hauteur du pied (semelle -> dessous de l'anneau exterieur)
 
 T = EP_LEVRE + MIROIR_EP + EP_JONC          # epaisseur commune des anneaux
 R_SEAT = (MIROIR_D + JEU_MIROIR) / 2
@@ -58,6 +61,20 @@ assert T - LOGEMENT_D >= 1.4, "anneaux trop fins pour loger le joint"
 
 def anneau(ri, ro, h, z0=0.0):
     return (Manifold.cylinder(h, ro) - Manifold.cylinder(h + 2, ri).translate([0, 0, -1])).translate([0, 0, z0])
+
+
+def arrondir(cs, r):
+    """arrondit les angles saillants d'un profil 2D (ouverture morphologique)"""
+    from manifold3d import JoinType
+    return cs.offset(-r, JoinType.Round, circular_segments=24).offset(r, JoinType.Round, circular_segments=24)
+
+
+def revolution(rects, r=CONGE):
+    """anneau lisse : profil (union de rectangles (r0, r1, z0, z1)) arrondi puis tourne"""
+    from manifold3d import CrossSection, OpType
+    cs = CrossSection.batch_boolean([CrossSection.square([r1 - r0, z1 - z0]).translate([r0, z0])
+                                     for (r0, r1, z0, z1) in rects], OpType.Add)
+    return Manifold.revolve(arrondir(cs, r), circular_segments=180)
 
 
 def tige_radiale(r0, r1, d, angle_deg):
@@ -82,55 +99,10 @@ def pivot_exterieur(ri, ro, angle_deg):
     return m
 
 
-def frise(ri, ro, z0):
-    """frise a degres (grecque meso-americaine) en relief sur la face avant.
-    Construite en 2D (union robuste) puis extrudee."""
-    from manifold3d import CrossSection, OpType
-    bord = CELL
-    polys = [CrossSection.circle(ro - 0.03, 160) - CrossSection.circle(ro - bord, 160),
-             CrossSection.circle(ri + bord, 160) - CrossSection.circle(ri + 0.03, 160)]
-    n_rows = int(round((ro - ri - 2 * bord) / CELL))
-    if n_rows >= 3:
-        rows = n_rows - 1
-        motif = list(range(rows)) + [rows - 1] + list(range(rows - 1, -1, -1)) + [0]
-        circ = 2 * math.pi * (ri + ro) / 2
-        n_per = max(1, int(circ // (len(motif) * CELL)))
-        da = 2 * math.pi / (n_per * len(motif))
-        y_base = ri + bord
-        for p in range(n_per):
-            for i, h in enumerate(motif):
-                k = p * len(motif) + i
-                h1 = min(h + 2, n_rows)
-                r_lo = y_base + h * CELL - (0.05 if h == 0 else 0)
-                r_hi = y_base + h1 * CELL + (0.05 if h1 == n_rows else 0)
-                a0, a1 = (k - 0.02) * da, (k + 1.02) * da
-                arc = [a0 + (a1 - a0) * t / 3 for t in range(4)]
-                pts = [(r_lo * math.cos(a), r_lo * math.sin(a)) for a in arc] + \
-                      [(r_hi * math.cos(a), r_hi * math.sin(a)) for a in reversed(arc)]
-                polys.append(CrossSection([pts[::-1]]))  # sens anti-horaire
-    cs = CrossSection.batch_boolean(polys, OpType.Add)
-    return Manifold.extrude(cs, RELIEF + 0.05).translate([0, 0, z0 - 0.05])
-
-
-def rayons(r, n, longueur, larg, exclure_deg, marge_deg=12):
-    """rayons du disque solaire autour de l'anneau exterieur"""
-    out = []
-    for i in range(n):
-        a = 360 * i / n
-        if any(abs(((a - e + 180) % 360) - 180) < marge_deg for e in exclure_deg):
-            continue
-        b = Manifold.hull_points([
-            [r - 0.5, -larg / 2, 0], [r - 0.5, larg / 2, 0], [r - 0.5, -larg / 2, T], [r - 0.5, larg / 2, T],
-            [r + longueur, -larg / 4, 0.6], [r + longueur, larg / 4, 0.6],
-            [r + longueur, -larg / 4, T - 0.6], [r + longueur, larg / 4, T - 0.6]])
-        out.append(b.rotate([0, 0, a]))
-    return out
-
-
 # ---------------- PIECES (orientees pour l'impression, a plat) ----------------
 def make_anneau1():
     """levre avant posee sur le plateau (z=0 = face avant)"""
-    corps = anneau(R_LEVRE, R1o, EP_LEVRE) + anneau(R_SEAT, R1o, T)
+    corps = revolution([(R_LEVRE, R1o, 0, EP_LEVRE), (R_SEAT, R1o, 0, T)])
     for a in (90, 270):
         corps += bosse(R1o, a)
         corps -= tige_radiale(R_SEAT + 0.6, R1o + 2, PIN_D + JEU_COLLE, a)
@@ -138,11 +110,11 @@ def make_anneau1():
 
 
 def make_jonc():
-    return anneau(R_LEVRE, R_SEAT - 0.15, EP_JONC)
+    return revolution([(R_LEVRE, R_SEAT - 0.15, 0, EP_JONC)], 0.4)
 
 
 def make_anneau2():
-    corps = anneau(R2i, R2o, T) + frise(R2i, R2o, T)
+    corps = revolution([(R2i, R2o, 0, T)])
     for a in (0, 180):                      # axe vers anneau3 : tige collee ici
         corps += bosse(R2o, a)
         corps -= tige_radiale(R2i + 0.8, R2o + 2, PIN_D + JEU_COLLE, a)
@@ -155,52 +127,35 @@ TENON = (6.0, 5.0)  # largeur, longueur du tenon sous l'anneau3
 
 
 def make_anneau3():
-    corps = anneau(R3i, R3o, T) + frise(R3i, R3o, T)
-    corps += Manifold.batch_boolean(rayons(R3o, 36, 1.6, 2.0, [0, 180, 270]), __import__("manifold3d").OpType.Add)
-    tenon = Manifold.cube([TENON[0], TENON[1] + 1.5, T]).translate([-TENON[0] / 2, -R3o - TENON[1], 0])
+    corps = revolution([(R3i, R3o, 0, T)])
+    # tenon (cache dans le pied) ; un peu moins epais que l'anneau pour ne pas depasser des arrondis
+    tenon = Manifold.cube([TENON[0], TENON[1] + 1.5, T - 1.0]).translate([-TENON[0] / 2, -R3o - TENON[1], 0.5])
     corps += tenon
     for a in (0, 180):
         corps -= pivot_exterieur(R3i, R3o, a)
     return corps
 
 
-def make_socle():
-    """pyramide a degres ; le haut du fut est a z=0 local, origine sous le centre"""
-    marches = [(66, 54), (56, 45), (46, 36), (36, 27)]
-    h = 3.5
-    fut_h = 5.0
-    z = 0.0
-    s = None
-    for (lx, ly) in marches:
-        b = Manifold.cube([lx, ly, h]).translate([-lx / 2, -ly / 2, z])
-        s = b if s is None else s + b
-        z += h
-    top_pyr = z
-    # petit temple / fut
-    fut = Manifold.cube([14, 10, fut_h]).translate([-7, -5, z])
-    corniche = Manifold.cube([16, 12, 1.2]).translate([-8, -6, z + fut_h - 1.2])
-    s += fut + corniche
-    # escalier central sur la face avant (-Y)
-    n = 10
-    y0, y1 = -marches[0][1] / 2 - 2.5, -marches[-1][1] / 2
-    for j in range(n):
-        zt = (j + 1) * top_pyr / n
-        yf = y0 + j * (y1 - y0) / n
-        s += Manifold.cube([8, -yf, zt]).translate([-4, yf, 0])
-    for sx in (-1, 1):  # rampes laterales
-        s += Manifold.hull_points([[sx * 4, y0, 0], [sx * 5.2, y0, 0], [sx * 4, y0, 1.5], [sx * 5.2, y0, 1.5],
-                                   [sx * 4, y1, top_pyr + 0.6], [sx * 5.2, y1, top_pyr + 0.6],
-                                   [sx * 4, y1 + 1, 0], [sx * 5.2, y1 + 1, 0]])
-    # mortaise pour le tenon
-    zt = top_pyr + fut_h
-    mort = Manifold.cube([TENON[0] + 0.3, T + 0.3, TENON[1] + 0.3]).translate(
-        [-(TENON[0] + 0.3) / 2, -(T + 0.3) / 2, zt - TENON[1] - 0.3])
-    # logement de lest sous le socle (plombs de peche, rondelles acier...)
-    lest = Manifold.cube([LEST[0], LEST[1], LEST[2] + 1]).translate([-LEST[0] / 2, -LEST[1] / 2 + 2, -1])
-    return s - mort - lest, zt
-
-
-LEST = (44.0, 30.0, 6.0)  # cavite sous le socle (L x l x h)
+def make_pied():
+    """pied evase lisse, imprime debout (semelle sur le plateau).
+    Le haut est creuse au rayon de l'anneau pour l'epouser ; mortaise pour le tenon."""
+    from manifold3d import CrossSection
+    r_haut, ep_semelle = 5.5, 1.6
+    prof = [(0, 0), (PIED_D / 2, 0), (PIED_D / 2, ep_semelle)]
+    n = 12                                   # col evase (courbe en quart de cercle concave)
+    rb = PIED_D / 2 - 1.0
+    for k in range(n + 1):
+        t = k / n
+        prof.append((r_haut + (rb - r_haut) * (1 - math.sin(t * math.pi / 2)),
+                     ep_semelle + (PIED_H + 1.5 - ep_semelle) * (1 - math.cos(t * math.pi / 2))))
+    prof += [(0, PIED_H + 1.5)]
+    cs = arrondir(CrossSection([prof]), 0.6)
+    p = Manifold.revolve(cs, circular_segments=120)
+    # assise concave : cylindre du rayon de l'anneau (axe = normale du miroir, Y)
+    p -= Manifold.cylinder(40, R3o, center=True, circular_segments=360).rotate([90, 0, 0]).translate([0, 0, PIED_H + R3o])
+    mort = Manifold.cube([TENON[0] + 0.3, T - 1.0 + 0.3, TENON[1] + 2]).translate(
+        [-(TENON[0] + 0.3) / 2, -(T - 1.0 + 0.3) / 2, PIED_H - TENON[1] - 0.3])
+    return p - mort
 
 
 # ---------------- EXPORT ----------------
@@ -213,9 +168,9 @@ if __name__ == "__main__":
     import os
     here = os.path.dirname(os.path.abspath(__file__))
     a1, jonc, a2, a3 = make_anneau1(), make_jonc(), make_anneau2(), make_anneau3()
-    socle, z_top = make_socle()
+    pied = make_pied()
     pieces = {"1_anneau_miroir": a1, "1b_jonc_arriere": jonc, "2_anneau_milieu": a2,
-              "3_anneau_exterieur": a3, "4_socle_pyramide": socle}
+              "3_anneau_exterieur": a3, "4_pied": pied}
     for name, m in pieces.items():
         tm = to_trimesh(m)
         assert tm.is_watertight, name
@@ -223,7 +178,7 @@ if __name__ == "__main__":
         e = tm.extents
         print(f"{name:22s} {e[0]:6.1f} x {e[1]:6.1f} x {e[2]:5.1f} mm  watertight={tm.is_watertight}")
 
-    print(f"\nEpaisseur anneaux T={T}  | diametre exterieur ~{2 * (R3o + 1.6):.1f} mm")
+    print(f"\nEpaisseur anneaux T={T}  | diametre exterieur {2 * R3o:.1f} mm")
     print(f"Tige anneau1<->2 : longueur {R2o - (R_SEAT + 0.6):.1f} mm | anneau2<->3 : {R3o - (R2i + 0.8):.1f} mm")
 
     # ------- assemblage pour l'apercu (plan du miroir = XZ, face avant vers -Y)
@@ -239,7 +194,8 @@ if __name__ == "__main__":
     g1 = (A1 + J).rotate([0, 0, pan1]).rotate([tilt2, 0, 0])
     gm = mir.rotate([0, 0, pan1]).rotate([tilt2, 0, 0])
     g2 = A2.rotate([tilt2, 0, 0])
-    S = socle.translate([0, 0, -z_top - R3o])
+    S = pied.translate([0, 0, -PIED_H - R3o])
+    base40 = Manifold.cylinder(4, SOCLE_D / 2, circular_segments=120).translate([0, 0, -PIED_H - R3o - 4])
     frame = g1 + g2 + A3 + S
     assert frame.min_gap(gm, 0.01) >= 0 if hasattr(frame, "min_gap") else True
 
@@ -263,17 +219,11 @@ if __name__ == "__main__":
         ax = fig.add_subplot(1, 3, k + 1, projection="3d")
         draw(ax, frame, "#c9a227")
         draw(ax, gm, "#9fc6e8")
+        draw(ax, base40, "#8a8a8a")
         lim = 48
         ax.set_xlim(-lim, lim); ax.set_ylim(-lim, lim); ax.set_zlim(-lim - 18, lim - 18)
         ax.set_box_aspect((1, 1, 1)); ax.view_init(el, az); ax.set_axis_off(); ax.set_title(title)
     plt.tight_layout()
     plt.savefig(os.path.join(here, "apercu.png"))
 
-    # gros plan sur la frise
-    fig = plt.figure(figsize=(7, 7), dpi=110)
-    ax = fig.add_subplot(projection="3d")
-    draw(ax, a3 + a2, "#c9a227")
-    ax.set_xlim(10, 45); ax.set_ylim(10, 45); ax.set_zlim(-15, 20)
-    ax.set_box_aspect((1, 1, 1)); ax.view_init(55, 35); ax.set_axis_off()
-    plt.savefig(os.path.join(here, "apercu_detail.png"))
     print("apercus ok")
