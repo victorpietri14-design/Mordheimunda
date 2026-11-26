@@ -28,11 +28,11 @@ set_circular_segments(160)
 
 # ---------------- PARAMETRES ----------------
 MIROIR_D = 50.0        # diametre du miroir
-MIROIR_EP = 2.0        # epaisseur du miroir  (A CONFIRMER)
+MIROIR_EP = 3.0        # epaisseur MAX du miroir (2.5-3 mm : un miroir plus fin marche aussi, le jonc se colle au contact)
 JEU_MIROIR = 1.0       # jeu total sur le diametre (0.5 par cote)
 LEVRE = 1.7            # largeur de la levre qui recouvre le bord du miroir
 EP_LEVRE = 1.0         # epaisseur de la levre avant
-EP_JONC = 2.2          # epaisseur du jonc arriere
+EP_JONC = 1.7          # epaisseur du jonc arriere
 LARG = 3.5             # largeur radiale de chaque anneau
 JEU = 1.0              # jeu entre deux anneaux
 PIN_D = 2.0            # diametre des tiges d'axe

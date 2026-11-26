@@ -28,6 +28,8 @@ python3 support_miroir.py
 
 ## Montage
 1. Poser le miroir dans l'anneau 1 (lèvre devant), puis coller le jonc derrière.
+   Le logement est prévu pour un miroir de 3 mm maximum. Avec un miroir de 2,5 mm, enfoncer le jonc jusqu'à ce
+   qu'il touche le verre avant de le coller (il sera simplement 0,5 mm en retrait).
 2. Axes anneau 1 → anneau 2 : passer la tige par le trou de l'anneau 2 jusqu'au fond du trou de
    l'anneau 1, avec une goutte de colle **uniquement au fond** (dans l'anneau 1).
 3. Faire de même pour les axes anneau 2 → anneau 3.
