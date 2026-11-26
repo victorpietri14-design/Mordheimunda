@@ -7,8 +7,12 @@ Support de miroir rotatif style Homme-Lezard (cardan / sphere armillaire).
   - anneau1 pivote dans anneau2 (axe perpendiculaire) -> orientation libre
   - anneau3 : fixe, enfiche dans le socle
 Les axes sont des tiges metal (laiton/acier) de PIN_D mm, collees dans
-l'anneau interieur et qui tournent "serrees" dans l'anneau exterieur
-(trou PIN_D - SERRAGE) : c'est ce serrage qui fait tenir la position.
+l'anneau interieur. Le FREIN (ce qui fait tenir la position) :
+  - FREIN = "joint"   : un petit joint torique 2x1 mm (caoutchouc) loge dans
+    l'anneau exterieur serre la tige. Le caoutchouc garde sa pression dans le
+    temps et le plastique ne subit presque aucun effort -> durable. (defaut)
+  - FREIN = "serrage" : trou plus petit que la tige, sans piece en plus.
+    Deconseille : le plastique flue (PLA) ou peut fendre (resine).
 Les bouts de tige affleurent : une fois peints, ils ressemblent a des rivets.
 
 Usage : python3 support_miroir.py   -> genere les STL + apercu.png
@@ -27,11 +31,15 @@ MIROIR_EP = 2.0        # epaisseur du miroir  (A CONFIRMER)
 JEU_MIROIR = 1.0       # jeu total sur le diametre (0.5 par cote)
 LEVRE = 1.7            # largeur de la levre qui recouvre le bord du miroir
 EP_LEVRE = 1.0         # epaisseur de la levre avant
-EP_JONC = 1.5          # epaisseur du jonc arriere
+EP_JONC = 2.2          # epaisseur du jonc arriere
 LARG = 3.5             # largeur radiale de chaque anneau
 JEU = 1.0              # jeu entre deux anneaux
 PIN_D = 2.0            # diametre des tiges d'axe
-SERRAGE = 0.1          # trou "tournant" = PIN_D - SERRAGE  (friction)
+FREIN = "joint"        # "joint" (recommande) ou "serrage"
+JOINT_DI, JOINT_CS = 2.0, 1.0   # joint torique 2 x 1 mm (diam. interieur x section)
+JOINT_COMP = 0.20      # ecrasement du joint (15-25 % = plage normale)
+SERRAGE = 0.1          # mode "serrage" : trou = PIN_D - SERRAGE
+JEU_TOURNANT = 0.1     # mode "joint"   : trou = PIN_D + JEU_TOURNANT
 JEU_COLLE = 0.1        # trou "colle"    = PIN_D + JEU_COLLE
 RELIEF = 0.4           # hauteur des motifs en relief
 CELL = 0.5             # taille d'un "pixel" de la frise a degres
@@ -42,7 +50,10 @@ R_LEVRE = MIROIR_D / 2 - LEVRE
 R1o = R_SEAT + LARG
 R2i, R2o = R1o + JEU, R1o + JEU + LARG
 R3i, R3o = R2o + JEU, R2o + JEU + LARG
-BOSSE = JEU - 0.1      # rondelles de friction qui comblent le jeu
+BOSSE = JEU - 0.2      # rondelles qui centrent l'anneau et ferment le logement du joint
+LOGEMENT_D = PIN_D + 2 * JOINT_CS * (1 - JOINT_COMP)   # 3.6 mm pour un joint 2x1
+TROU_TOURNANT = PIN_D + JEU_TOURNANT if FREIN == "joint" else PIN_D - SERRAGE
+assert T - LOGEMENT_D >= 1.4, "anneaux trop fins pour loger le joint"
 
 
 def anneau(ri, ro, h, z0=0.0):
@@ -59,7 +70,16 @@ def bosse(r, angle_deg):
     """rondelle de friction collee a l'exterieur d'un anneau (comble le jeu)"""
     d = T  # aussi large que l'anneau est epais -> impression a plat ok
     b = Manifold.cylinder(BOSSE + 0.3, d / 2, circular_segments=48).rotate([0, 90, 0]).translate([r - 0.3, 0, T / 2])
-    return b.rotate([0, 0, angle_deg]) ^ Manifold.cube([200, 200, T]).translate([-100, -100, 0])
+    # bout arrondi (concentrique) -> jeu constant BOSSE..JEU avec l'anneau suivant
+    return b.rotate([0, 0, angle_deg]) ^ Manifold.cylinder(T, r + BOSSE)
+
+
+def pivot_exterieur(ri, ro, angle_deg):
+    """trou ou la tige TOURNE (+ logement du joint torique cote interieur)"""
+    m = tige_radiale(ri - 2, ro + 3, TROU_TOURNANT, angle_deg)
+    if FREIN == "joint":
+        m += tige_radiale(ri - 2, ri + JOINT_CS + 0.1, LOGEMENT_D, angle_deg)
+    return m
 
 
 def frise(ri, ro, z0):
@@ -126,8 +146,8 @@ def make_anneau2():
     for a in (0, 180):                      # axe vers anneau3 : tige collee ici
         corps += bosse(R2o, a)
         corps -= tige_radiale(R2i + 0.8, R2o + 2, PIN_D + JEU_COLLE, a)
-    for a in (90, 270):                     # axe vers anneau1 : tige tournante serree
-        corps -= tige_radiale(R2i - 2, R2o + 2, PIN_D - SERRAGE, a)
+    for a in (90, 270):                     # axe vers anneau1 : la tige tourne ici
+        corps -= pivot_exterieur(R2i, R2o, a)
     return corps
 
 
@@ -140,13 +160,13 @@ def make_anneau3():
     tenon = Manifold.cube([TENON[0], TENON[1] + 1.5, T]).translate([-TENON[0] / 2, -R3o - TENON[1], 0])
     corps += tenon
     for a in (0, 180):
-        corps -= tige_radiale(R3i - 2, R3o + 3, PIN_D - SERRAGE, a)
+        corps -= pivot_exterieur(R3i, R3o, a)
     return corps
 
 
 def make_socle():
     """pyramide a degres ; le haut du fut est a z=0 local, origine sous le centre"""
-    marches = [(64, 44), (54, 36), (44, 28), (34, 20)]
+    marches = [(66, 54), (56, 45), (46, 36), (36, 27)]
     h = 3.5
     fut_h = 5.0
     z = 0.0
@@ -175,7 +195,12 @@ def make_socle():
     zt = top_pyr + fut_h
     mort = Manifold.cube([TENON[0] + 0.3, T + 0.3, TENON[1] + 0.3]).translate(
         [-(TENON[0] + 0.3) / 2, -(T + 0.3) / 2, zt - TENON[1] - 0.3])
-    return s - mort, zt
+    # logement de lest sous le socle (plombs de peche, rondelles acier...)
+    lest = Manifold.cube([LEST[0], LEST[1], LEST[2] + 1]).translate([-LEST[0] / 2, -LEST[1] / 2 + 2, -1])
+    return s - mort - lest, zt
+
+
+LEST = (44.0, 30.0, 6.0)  # cavite sous le socle (L x l x h)
 
 
 # ---------------- EXPORT ----------------
