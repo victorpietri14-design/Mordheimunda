@@ -2228,6 +2228,17 @@ await test('[desktop] campaign camps: fixed/neutral camp, story points with swee
       form:/Vial/.test(form)&&/type="number"/.test(form),zones:/zone-locked/.test(map)&&/zone-active/.test(map)&&/\?\?\?/.test(map),ed}});
   expect(Object.values(out).every(Boolean),'camps: '+JSON.stringify(out));
 });
+await test('[desktop] post-battle after a story game skips exploration but keeps selling and upkeep',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const raw=rawActiveRoster();const f=faction(activeRoster());
+    campaignDetailCache.set('c-sg',{id:'c-sg',name:'L',members:[],definition:{camps:{on:true,list:[{id:'a',name:'A',factions:[]}]},story:{arcs:[{id:'x',episodes:[{id:'e1',name:'E',state:'active'}]}]}}});
+    raw.campaignId='c-sg';save(true);const r=activeRoster();const before=campaignAwareIncomeView(r,f);
+    ensurePostBattleData(r).storyGame=true;const after=campaignAwareIncomeView(r,f);
+    delete raw.campaignId;delete ensurePostBattleData(r).storyGame;campaignDetailCache.delete('c-sg');save(true);
+    const has=(h,n)=>h.includes(`data-pb-sub="${n}"`);
+    return {toggle:/pb-story-toggle/.test(before),beforeExplore:has(before,'1')&&has(before,'2'),afterNoExplore:!has(after,'1')&&!has(after,'2'),keepsSell:has(after,'3')===has(before,'3'),keepsUpkeep:has(after,'4')===has(before,'4'),note:/pb-story-note/.test(after)}});
+  expect(Object.values(out).every(Boolean),'story post-battle: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0917.0';
+const APP_BUILD='110.0918.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10279,6 +10279,7 @@ async function hubSaveBattle(){
     if(sides.some(s=>!s.camp)){toast(en?'Every warband of a story game needs a camp':'Chaque bande d’une partie d’histoire doit avoir un camp');return}
     if(new Set(sides.map(s=>s.camp)).size<2){toast(en?'A story game opposes two camps':'Une partie d’histoire oppose deux camps');return}}
   else sides.forEach(s=>{delete s.ep;delete s.obj;delete s.camp});
+  if(ep)hubMyRosters(c).forEach(r=>{if(sides.some(s=>s.rosterId===r.id)){try{ensurePostBattleData(r).storyGame=true;save(true)}catch(e){}}});
   try{await window.MordheimundaAPI.campaignBattleAdd(c.id,{playedOn:d.date,scenario:d.scenario||(ep?ep.name:''),sides,report:d.report,hero:d.hero,conditions:d.conditions});hubBattleDraft=null;campaignBattlesCache.delete(c.id);toast(en?'Battle saved — the other players confirm it from their side':'Bataille enregistrée — les autres joueurs la confirment de leur côté');render('campaignHub')}
   catch(e){const code=String(e?.message||e?.code||'');toast(/NOT_YOUR_BATTLE/.test(code)?(en?'One of the warbands must be yours':'Une des bandes doit être la tienne'):/NOT_A_MEMBER/.test(code)?(en?'A warband is not in the campaign':'Une bande n’est pas dans la campagne'):authError(e,en))}
 }
@@ -11130,7 +11131,19 @@ function campaignArtifactPanel(r,c){
 }
 function campaignTithePct(r){const m=rosterCampaignMarket(r);return m?.st?Number(m.st.tithe||0):0}
 function campaignHsReduction(r,x){const m=rosterCampaignMarket(r);const h=m?.st?.hsUpkeep;if(!h?.reduction||!(h.names||[]).length)return null;const src=normName(hiredSwordSourceWarrior(x)?.name||x.typeName||x.name);return h.names.some(n=>normName(n)===src||src.includes(normName(n)))?h.reduction:null}
-function campaignAwareIncomeView(r,f){
+// V-STORYNOEXPLORE: after a story game (campaign camps), the exploration
+// dice and the exploration itself are skipped; selling wyrdstone already held
+// and the Hired Swords / Bounty Hunters upkeep stay. Ticked by hand here, or
+// automatically when the player records a story game for this warband.
+function pbStoryAvailable(r){if(!r?.campaignId)return false;const c=campaignDetailCache.get(r.campaignId);return !!(campsOf(c)&&storyEpisodes(c).some(e=>e.state==='active'||e.state==='done'))}
+function setPbStoryGame(on){const r=activeRoster();if(!r)return;ensurePostBattleData(r).storyGame=!!on;save(true);render('builder')}
+function campaignAwareIncomeView(r,f){const html=campaignAwareIncomeViewBase(r,f);const p=ensurePostBattleData(r);const en=siteLanguage==='en';
+  if(!pbStoryAvailable(r)&&!p.storyGame)return html;
+  const box=`<label class="pb-story-toggle"><input type="checkbox" ${p.storyGame?'checked':''} onchange="setPbStoryGame(this.checked)"><span><b>${en?'Story game':'Partie d’histoire'}</b><small>${en?'No exploration after a story game. Wyrdstone sales and Hired Swords upkeep stay.':'Pas d’exploration après une partie d’histoire. La vente de wyrdstone et l’entretien des Hired Swords restent.'}</small></span></label>`;
+  if(!p.storyGame)return box+html;
+  const t=document.createElement('template');t.innerHTML=html;t.content.querySelectorAll('[data-pb-sub="1"],[data-pb-sub="2"]').forEach(el=>el.remove());
+  return box+`<p class="pb-story-note">${en?'Exploration skipped (story game): the hiring and victory gold of the episode is paid in the campaign once the game is confirmed.':'Exploration sautée (partie d’histoire) : l’or d’embauche et de victoire de l’épisode est versé dans la campagne une fois la partie confirmée.'}</p>`+t.innerHTML}
+function campaignAwareIncomeViewBase(r,f){
   const html=postBattleIncomeView(r,f);if(!campaignUsesTreasure(r))return html;const cpb=campaignPostBattle(r);
   let out=html;if(cpb){const t=document.createElement('template');t.innerHTML=html;const old=t.content.querySelector('[data-pb-sub="2"]');const fresh=document.createElement('template');fresh.innerHTML=campaignExplorationPanel(r,cpb);
     // Keep the book block's "put this result in stock" line (dice total →
