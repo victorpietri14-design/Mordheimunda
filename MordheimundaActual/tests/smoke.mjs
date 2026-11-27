@@ -2206,6 +2206,28 @@ await test('[desktop] equipment editor: "who can have it" summary uses the shop 
     return {band:a.band.length>0,market:!!a.market,limit:a.limit===3,why:/Accès donné/.test(html),hidden:b.hidden&&!b.band.length&&!b.market&&/Masqué/.test(hb)}});
   expect(Object.values(out).every(Boolean),'item access summary: '+JSON.stringify(out));
 });
+await test('[desktop] campaign camps: fixed/neutral camp, story points with sweep, payouts once, story form, map zone, editor',null,async page=>{
+  await seed(page);
+  await page.evaluate(()=>ensureAdminCode());
+  const out=await page.evaluate(()=>{const r=activeRoster();const f=faction(r);const other=D.factions.find(x=>x.id!==f.id);
+    const def={camps:{on:true,prologue:'Long ago',list:[{id:'a',name:'Camp A',color:'#c9a646',factions:[other.id]},{id:'b',name:'Camp B',color:'#5fae74',factions:[]}]},
+      story:{arcs:[{id:'x',name:'Arc',episodes:[{id:'e1',name:'Ep1',state:'active',hire:25,win:75,objName:'Vial',objCount:5,objPts:1,sweep:2},{id:'e2',name:'Ep2',state:'locked'}]}]},
+      map:{image:'data:image/gif;base64,R0lGODlhAQABAAAAACw=',w:4,h:3,pins:[{id:'z1',name:'Zone',x:50,y:50,ep:'e2'},{id:'z2',name:'Zone2',x:20,y:20,ep:'e1'}],paths:[]}};
+    const c={id:'c-camps',name:'Lustria',members:[{rosterId:r.id,rosterName:r.name,stats:{}},{rosterId:'o1',rosterName:'Other',stats:{camp:'a'}}],definition:def};
+    campaignDetailCache.set('c-camps',c);const raw=rawActiveRoster();raw.campaignId='c-camps';delete raw.campaignCamp;delete raw.storyPaid;const g0=Number(raw.gold||0);
+    const neutralBefore=rosterCampId(c,raw);raw.campaignCamp='b';const neutralAfter=rosterCampId(c,raw);const fixed=memberCampId(c,c.members[1]);
+    campaignBattlesCache.set('c-camps',[{id:'bt1',status:'confirmed',sides:[{rosterId:raw.id,result:'win',ep:'e1',camp:'b',obj:5},{rosterId:'o1',result:'loss',ep:'e1',camp:'a',obj:0}]}]);
+    const bal=campBalance(c).tot;storyPayouts(c);const g1=Number(raw.gold||0);storyPayouts(c);const g2=Number(raw.gold||0);
+    const story=campStoryMarkup(c,raw,false),balance=campBalanceMarkup(c);
+    hubBattleDraft=null;const d=hubBattleDraftFor(c);d.ep='e1';const form=hubStoryFormMarkup(c,d);
+    const map=campMapMarkup(c,def.map);
+    openCampsEditor('c-camps');const ed=!!document.querySelector('#campsEd input[type=color]');campsEdClose();
+    delete raw.campaignId;delete raw.campaignCamp;delete raw.storyPaid;raw.gold=g0;campaignDetailCache.delete('c-camps');campaignBattlesCache.delete('c-camps');hubBattleDraft=null;save(true);
+    return {neutralBefore:neutralBefore==='',neutralAfter:neutralAfter==='b',fixed:fixed==='a',bal:bal.b===7&&bal.a===0,paid:g1-g0===100&&g2===g1,
+      story:/Long ago/.test(story)&&/Camp A/.test(story)&&/Neutrals/.test(story),balance:/7 pts/.test(balance)&&/IN PROGRESS/.test(balance)&&/\?\?\?/.test(balance),
+      form:/Vial/.test(form)&&/type="number"/.test(form),zones:/zone-locked/.test(map)&&/zone-active/.test(map)&&/\?\?\?/.test(map),ed}});
+  expect(Object.values(out).every(Boolean),'camps: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];

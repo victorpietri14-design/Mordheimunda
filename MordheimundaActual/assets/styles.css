@@ -6652,3 +6652,63 @@ body:has(#fighterNav) #content{padding-bottom:72px}
 .ia-row b{font-weight:600}
 @media (max-width:560px){.ia-row{grid-template-columns:1fr;gap:2px}}
 .ia-why{opacity:.8}
+/* V-CAMPS */
+.camp-dot{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--camp,#888);flex:none}
+.camp-prologue{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.camp-prologue summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.camp-prologue summary::-webkit-details-marker{display:none}
+.camp-pro-short{font-size:13px;line-height:1.5;opacity:.85}
+.camp-pro-more{font-size:12.5px;text-decoration:underline}
+.camp-prologue[open] .camp-pro-short,.camp-prologue[open] .camp-pro-more{display:none}
+.camp-pro-full{font-size:13.5px;line-height:1.6}
+.camp-card{border:1px solid color-mix(in srgb,var(--camp,#888) 55%,var(--line));border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;background:color-mix(in srgb,var(--camp,#888) 7%,var(--panel))}
+.camp-card.neutral{--camp:#9a9ab0}
+.camp-card-head{display:flex;align-items:center;gap:8px}
+.camp-card-head small{margin-left:auto;opacity:.75}
+.camp-card p{margin:0;font-size:12.5px;line-height:1.45}
+.camp-facs{font-size:12px;opacity:.8;line-height:1.45}
+.camp-mine{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px}
+.camp-choose{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;margin:0 0 10px}
+.camp-choose p{margin:0;font-size:13px;line-height:1.45}
+.camp-choose-btns{display:flex;flex-wrap:wrap;gap:8px}
+.camp-btn{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:13px;font-weight:600;cursor:pointer;flex-wrap:wrap}
+.camp-btn.on{border:2px solid var(--camp);background:color-mix(in srgb,var(--camp) 15%,transparent)}
+.camp-btn small{font-weight:400;opacity:.75;width:100%}
+.camp-bal-labels{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;font-weight:700;flex-wrap:wrap}
+.camp-bal-bar{display:flex;height:16px;border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.camp-bal-bar span{display:block;min-width:4px}
+.camp-arc{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.camp-ep{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+.camp-ep small{margin-left:auto;font-weight:700;color:var(--accent)}
+.camp-ep.active{border:2px solid var(--accent)}
+.camp-ep.done{opacity:.55}
+.camp-ep.locked{opacity:.75}
+.camp-ep-ico{width:18px;text-align:center}
+.camp-last{margin:0;font-size:12.5px}
+.camp-ep-sheet h3{margin:4px 0 8px}
+.camp-ep-sheet p{font-size:13.5px;line-height:1.55}
+.camp-ep-gold{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.camp-ep-gold div{border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center}
+.camp-ep-gold b{display:block;font-size:17px}
+.camp-ep-gold small{font-size:10.5px;opacity:.7}
+.camp-story-form{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:8px}
+.camp-obj-row{display:grid;grid-template-columns:auto 1fr 72px;gap:10px;align-items:center;font-size:13px}
+.camp-obj-row small{display:block;opacity:.7;font-size:11.5px}
+.camp-obj-row input{min-height:40px;text-align:center}
+.cmap-pin.zone i{display:grid;place-items:center;font-style:normal;font-size:11px}
+.cmap-pin.zone-active i{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 30%,transparent);background:var(--accent)}
+.cmap-pin.zone-done{opacity:.5;filter:grayscale(1)}
+.cmap-pin.zone-locked{opacity:.8}
+.camps-ed{display:flex;flex-direction:column;gap:10px}
+.camps-ed-card,.camps-ed-arc{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.camps-ed-card{border-color:color-mix(in srgb,var(--camp) 55%,var(--line))}
+.camps-ed-head{display:flex;align-items:center;gap:8px}
+.camps-ed-head input:not([type=color]){flex:1;min-width:0}
+.camps-ed-head input[type=color]{width:44px;height:36px;padding:0;border:0;background:none}
+.camps-ed-facs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px;max-height:280px;overflow:auto}
+.camps-ed-ep{border:1px solid var(--line);border-radius:8px}
+.camps-ed-ep.active{border-color:var(--accent)}
+.camps-ed-ep-head{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:8px 10px;background:transparent;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.camps-ed-ep-head small{margin-left:auto;opacity:.7}
+.camps-ed-ep-body{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
+.camps-ed-states{display:flex;gap:6px;flex-wrap:wrap}

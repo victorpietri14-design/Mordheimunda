@@ -1506,7 +1506,7 @@ app.post('/api/campaigns/:id/trades/:tid/collect',requireDb,requireSameOrigin,au
 });
 // V-CAMPBATTLES: battle log of a campaign (see schema.sql).
 const toBattle=r=>({id:r.id,createdBy:r.created_by,playedOn:r.played_on,scenario:r.scenario,sides:r.sides||[],report:r.report,hero:r.hero,conditions:r.conditions,confirmations:r.confirmations||{},status:r.status,createdAt:r.created_at});
-function cleanBattleSides(raw){return (Array.isArray(raw)?raw:[]).slice(0,8).map(s=>({rosterId:String(s?.rosterId||'').slice(0,120),rosterName:String(s?.rosterName||'').slice(0,80),result:['win','draw','loss'].includes(s?.result)?s.result:'draw',points:Math.max(-999,Math.min(999,Math.round(Number(s?.points)||0)))})).filter(s=>s.rosterId)}
+function cleanBattleSides(raw){return (Array.isArray(raw)?raw:[]).slice(0,8).map(s=>({rosterId:String(s?.rosterId||'').slice(0,120),rosterName:String(s?.rosterName||'').slice(0,80),result:['win','draw','loss'].includes(s?.result)?s.result:'draw',points:Math.max(-999,Math.min(999,Math.round(Number(s?.points)||0))),...(s?.ep?{ep:String(s.ep).slice(0,40),camp:String(s?.camp||'').slice(0,40),obj:Math.max(0,Math.min(99,Math.round(Number(s?.obj)||0)))}:{})})).filter(s=>s.rosterId)}
 app.get('/api/campaigns/:id/battles',requireDb,async(req,res,next)=>{
   try{const q=await pool.query('SELECT * FROM campaign_battles WHERE campaign_id=$1 ORDER BY COALESCE(played_on,created_at::date) DESC, created_at DESC LIMIT 300',[req.params.id]);res.json({battles:q.rows.map(toBattle)})}catch(e){next(e)}
 });
