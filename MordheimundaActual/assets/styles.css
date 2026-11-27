@@ -6712,3 +6712,7 @@ body:has(#fighterNav) #content{padding-bottom:72px}
 .camps-ed-ep-head small{margin-left:auto;opacity:.7}
 .camps-ed-ep-body{padding:0 10px 10px;display:flex;flex-direction:column;gap:8px}
 .camps-ed-states{display:flex;gap:6px;flex-wrap:wrap}
+.pb-story-toggle{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 10px;cursor:pointer}
+.pb-story-toggle input{width:20px;height:20px;margin-top:2px;flex:none}
+.pb-story-toggle small{display:block;opacity:.75;font-size:12px;line-height:1.4;margin-top:2px}
+.pb-story-note{border:1px dashed var(--line);border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.45;margin:0 0 10px}
