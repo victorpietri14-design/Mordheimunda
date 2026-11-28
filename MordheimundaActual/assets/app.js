@@ -1,7 +1,7 @@
 // Keep this in sync with index.html's app.js?v= query string on every
 // deploy. Shown in the account diagnostics panel so a stale service worker
 // or browser cache is visible at a glance instead of a guess.
-const APP_BUILD='110.0918.0';
+const APP_BUILD='110.0919.0';
 const D=window.NECROHEIM_CATALOG;
 const KEY='necroheim_roster_v4';
 let state=window.MordheimundaStorage.load();
@@ -10370,7 +10370,7 @@ function playSharedMapImage(ps){const g=ps?.generated;if(!g||g.source!=='existin
   if(!DEPLOYMENT_MAPS_CACHE.length)loadDeploymentMaps().then(()=>{const cur=state.playSession;if(cur?.generated&&!cur.generated.image){const mm=find();if(mm){cur.generated.image=mm.image||'';saveLocalOnly();if(location.pathname===APP_ROUTES.playMode)render('playMode')}}}).catch(()=>{})}
 async function playShareCheck(force){
   const ps0=state.playSession;if(!ps0?.shared||!cloudIsSignedIn())return;const gid=ps0.shared.id;
-  if(!force&&(document.visibilityState!=='visible'||location.pathname!==APP_ROUTES.playMode||Date.now()-playShareLastCheck<12000))return;
+  if(!force&&(document.visibilityState!=='visible'||location.pathname!==APP_ROUTES.playMode||Date.now()-playShareLastCheck<12000||userIdleFor(10*60000)))return;
   playShareLastCheck=Date.now();const en=siteLanguage==='en';
   // save() may swap the state object while we wait: always work on the current session of this game
   const cur=()=>{const p=state.playSession;return p?.shared?.id===gid?p:null};
@@ -10410,12 +10410,24 @@ function playGuestDisable(html){return html.replace(/<(button|select|input|texta
 // a player waiting on one screen never saw them. Check every 45 s while the
 // site is visible and when coming back to it; a new one shows a short toast.
 let playInvitesSeen=null;
-setInterval(()=>{try{if(!document.hidden)loadPlayInvites(false)}catch(e){}},45000);
+// V-DBSLEEP: the database host bills (and on its free plan, caps) the hours
+// it is awake, and it falls asleep after 5 minutes without a request. The
+// invitation check used to run every 45 s on every open signed-in tab, so the
+// database never slept while anyone had the site open — even untouched, or
+// during a whole game with the screen kept on. Now it runs at most every
+// 2 minutes, only while the player has touched the page in the last 3
+// minutes, and never during a game in progress (invites only matter before
+// it). Opening the app, coming back to it and changing page still check.
+const PLAY_INVITES_GAP=120000,USER_IDLE_MS=180000;let userActiveAt=Date.now();
+['pointerdown','keydown','touchstart','wheel'].forEach(ev=>window.addEventListener(ev,()=>{userActiveAt=Date.now()},{passive:true,capture:true}));
+function userIdleFor(ms){return Date.now()-userActiveAt>ms}
+function inRunningGame(){return !!(state.playSession&&location.pathname===APP_ROUTES.playMode)}
+setInterval(()=>{try{if(!document.hidden&&!userIdleFor(USER_IDLE_MS)&&!inRunningGame())loadPlayInvites(false)}catch(e){}},30000);
 document.addEventListener('visibilitychange',()=>{try{if(!document.hidden)loadPlayInvites(true)}catch(e){}});
 function playInviteToast(list){const en=siteLanguage==='en';const fresh=(list||[]).filter(v=>v.status==='invited'&&!playInvitesHidden.has(v.id)&&!(playInvitesSeen||new Set()).has(v.id));if(playInvitesSeen===null){playInvitesSeen=new Set((list||[]).map(v=>v.id));return}(list||[]).forEach(v=>playInvitesSeen.add(v.id));
   if(fresh.length&&state.playSession?.shared?.id!==fresh[0].id)toast(`🎲 ${en?`${fresh[0].hostName} invites you to a game · Play`:`${fresh[0].hostName} t’invite à une partie · Jouer`}`,6000)}
 async function loadPlayInvites(force){
-  if(!cloudIsSignedIn())return;if(!force&&Date.now()-playInvitesAt<30000)return;playInvitesAt=Date.now();
+  if(!cloudIsSignedIn())return;if(!force&&Date.now()-playInvitesAt<PLAY_INVITES_GAP)return;playInvitesAt=Date.now();
   try{const r=await window.MordheimundaAPI.playInvites();const next=Array.isArray(r?.invites)?r.invites:[];try{playInviteToast(next)}catch(e){}const changed=JSON.stringify(next)!==JSON.stringify(playInvites);playInvites=next;if(changed){const p=location.pathname;if((p===APP_ROUTES.playMode&&!state.playSession)||/^\/campaigns(\/|$)/.test(p)||p==='/')renderCurrentRoute();else try{syncTabbar(parseAppRoute().view)}catch(e){}}}catch(e){}
 }
 function playInvitesMarkup(campaignId){

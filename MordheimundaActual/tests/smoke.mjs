@@ -2239,6 +2239,15 @@ await test('[desktop] post-battle after a story game skips exploration but keeps
     return {toggle:/pb-story-toggle/.test(before),beforeExplore:has(before,'1')&&has(before,'2'),afterNoExplore:!has(after,'1')&&!has(after,'2'),keepsSell:has(after,'3')===has(before,'3'),keepsUpkeep:has(after,'4')===has(before,'4'),note:/pb-story-note/.test(after)}});
   expect(Object.values(out).every(Boolean),'story post-battle: '+JSON.stringify(out));
 });
+await test('[desktop] database can sleep: invites checked at most every 2 min, never when idle or mid-game',null,async page=>{
+  await seed(page);
+  const out=await page.evaluate(()=>{const api=window.MordheimundaAPI;const orig=api.playInvites;let n=0;api.playInvites=async()=>{n++;return {invites:[]}};
+    const signed=window.cloudIsSignedIn;window.cloudIsSignedIn=()=>true;
+    playInvitesAt=0;loadPlayInvites(false);const first=n;loadPlayInvites(false);const second=n;playInvitesAt=Date.now()-PLAY_INVITES_GAP-1;loadPlayInvites(false);const third=n;
+    userActiveAt=Date.now()-USER_IDLE_MS-1;const idle=userIdleFor(USER_IDLE_MS);userActiveAt=Date.now();const active=!userIdleFor(USER_IDLE_MS);
+    api.playInvites=orig;window.cloudIsSignedIn=signed;return {first:first===1,throttled:second===1,again:third===2,idle,active,gap:PLAY_INVITES_GAP>=120000}});
+  expect(Object.values(out).every(Boolean),'db sleep: '+JSON.stringify(out));
+});
 await test('[desktop] site search covers Dramatis Personae, scenario text, campaign pages, pages and custom content',null,async page=>{
   const out=await page.evaluate(()=>{
     state.customFighters=[{customFighterId:'dp-s',name:'Zorvak the Unbound',type:'Hired Sword',hiredSword:true,dramatis:true,cost:80,upkeep:0,max:1,profile:[5,4,4,4,3,2,4,1,8,7,7,7],ruleNames:[],skillAccess:{},magicAccess:{},defaultEquipment:[],hsChoices:[],hsFactions:[],hsExcluded:[],dpRules:[{name:'Gloomwalker',text:'Ignores difficult ground.'}]}];
